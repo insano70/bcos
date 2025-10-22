@@ -1,6 +1,6 @@
 'use client';
 
-import type { TooltipItem } from 'chart.js';
+import type { ChartTypeRegistry, TooltipItem } from 'chart.js';
 import {
   BarController,
   BarElement,
@@ -247,7 +247,10 @@ const AnalyticsBarChart = forwardRef<HTMLCanvasElement, AnalyticsBarChartProps>(
                     ul.firstChild.remove();
                   }
                   // Reuse the built-in legendItems generator
-                  const items = c.options.plugins?.legend?.labels?.generateLabels?.(c);
+                  // Type cast needed for Chart.js plugin compatibility with union types
+                  const items = c.options.plugins?.legend?.labels?.generateLabels?.(
+                    c as Chart<keyof ChartTypeRegistry>
+                  );
 
                   // Calculate totals for each item and sort by value (descending)
                   const itemsWithTotals =
@@ -334,7 +337,8 @@ const AnalyticsBarChart = forwardRef<HTMLCanvasElement, AnalyticsBarChartProps>(
             ],
           });
 
-          setChart(newChart);
+          // Type cast needed for Chart.js union type compatibility
+          setChart(newChart as Chart<keyof ChartTypeRegistry>);
         });
       });
 

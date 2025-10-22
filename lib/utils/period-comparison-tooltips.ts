@@ -16,13 +16,14 @@ interface ExtendedDataset {
 
 /**
  * Enhanced tooltip callback for period comparison charts
+ * Works with both bar and line charts
  */
-export function createPeriodComparisonTooltipCallbacks(
+export function createPeriodComparisonTooltipCallbacks<T extends 'bar' | 'line' = 'bar'>(
   frequency: string = 'Monthly',
   _darkMode: boolean = false
 ) {
   return {
-    title: function (this: TooltipModel<'bar'>, tooltipItems: TooltipItem<'bar'>[]) {
+    title: function (this: TooltipModel<T>, tooltipItems: TooltipItem<T>[]) {
       // Format tooltip title based on frequency
       const date = new Date(tooltipItems[0]?.label || '');
       return date.toLocaleDateString('en-US', {
@@ -31,7 +32,7 @@ export function createPeriodComparisonTooltipCallbacks(
         day: frequency === 'Weekly' ? 'numeric' : undefined,
       });
     },
-    label: function (this: TooltipModel<'bar'>, tooltipItem: TooltipItem<'bar'>) {
+    label: function (this: TooltipModel<T>, tooltipItem: TooltipItem<T>) {
       // Get measure type from dataset metadata
       const dataset = tooltipItem.dataset as ExtendedDataset;
       const chartData = this.chart.data as { measureType?: string };
@@ -49,7 +50,7 @@ export function createPeriodComparisonTooltipCallbacks(
       const prefix = isComparison ? '📊 ' : '📈 ';
       return `${prefix}${dataset.label}: ${formattedValue}`;
     },
-    footer: function (this: TooltipModel<'bar'>, tooltipItems: TooltipItem<'bar'>[]) {
+    footer: function (this: TooltipModel<T>, tooltipItems: TooltipItem<T>[]) {
       // Calculate difference between current and comparison periods
       const currentData = tooltipItems.find((c) => {
         const dataset = c.dataset as ExtendedDataset;

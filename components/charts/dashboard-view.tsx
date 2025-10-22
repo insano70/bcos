@@ -7,6 +7,11 @@ import {
   type DashboardUniversalFilters,
 } from '@/hooks/use-dashboard-data';
 import { apiClient } from '@/lib/api/client';
+import {
+  DASHBOARD_LAYOUT,
+  getResponsiveColSpan,
+} from '@/lib/constants/dashboard-layout';
+import { DASHBOARD_MESSAGES } from '@/lib/constants/dashboard-messages';
 import type {
   ChartConfig,
   ChartDataSourceConfig,
@@ -31,8 +36,7 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
   const [error, setError] = useState<string | null>(null);
 
   // Dashboard configuration
-  const layoutConfig = dashboard.layout_config;
-  const filterConfig = layoutConfig?.filterConfig;
+  const filterConfig = dashboard.layout_config?.filterConfig;
   const showFilterBar = filterConfig?.enabled !== false; // Default to true if not specified
 
   // Dashboard-level universal filters with default values
@@ -41,6 +45,15 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
     const practice = searchParams.get('practice');
     const defaultFilters = filterConfig?.defaultFilters || {};
 
+    // Parse practice UID safely with NaN validation
+    let practiceUids: number[] | undefined;
+    if (practice) {
+      const parsed = parseInt(practice, 10);
+      if (!Number.isNaN(parsed)) {
+        practiceUids = [parsed];
+      }
+    }
+
     return {
       // URL params take highest priority, then default config, then system defaults
       dateRangePreset:
@@ -48,7 +61,7 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
       startDate: searchParams.get('startDate') || undefined,
       endDate: searchParams.get('endDate') || undefined,
       organizationId: searchParams.get('org') || defaultFilters.organizationId || undefined,
-      practiceUids: practice ? [parseInt(practice, 10)] : undefined,
+      practiceUids,
       providerName: searchParams.get('provider') || undefined,
     } as DashboardUniversalFilters;
   });
@@ -99,8 +112,10 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
 
       setAvailableCharts(charts);
     } catch (error) {
-      console.error('Failed to load chart definitions:', error);
-      setError('Failed to load chart definitions for dashboard');
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to load chart definitions:', error);
+      }
+      setError(DASHBOARD_MESSAGES.ERRORS.CHART_DEFINITIONS_LOAD_FAILED);
     } finally {
       setIsLoadingCharts(false);
     }
@@ -166,12 +181,12 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
           })
           .filter((chart) => chart.chartDefinition) || [],
       layout: {
-        columns: layoutConfig?.columns || 12,
-        rowHeight: layoutConfig?.rowHeight || 150,
-        margin: layoutConfig?.margin || 10,
+        columns: dashboard.layout_config?.columns || DASHBOARD_LAYOUT.GRID_COLUMNS,
+        rowHeight: dashboard.layout_config?.rowHeight || DASHBOARD_LAYOUT.ROW_HEIGHT,
+        margin: dashboard.layout_config?.margin || DASHBOARD_LAYOUT.MARGIN,
       },
     }),
-    [dashboard, dashboardCharts, availableCharts, layoutConfig]
+    [dashboard, dashboardCharts, availableCharts]
   );
 
   // Combined loading state (chart definitions + batch data)
@@ -182,7 +197,7 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
       <div className="flex items-center justify-center min-h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-600"></div>
         <span className="ml-3 text-gray-600 dark:text-gray-400">
-          {isLoadingCharts ? 'Loading dashboard...' : 'Loading chart data...'}
+          {isLoadingCharts ? DASHBOARD_MESSAGES.LOADING.DASHBOARD : DASHBOARD_MESSAGES.LOADING.CHART_DATA}
         </span>
       </div>
     );
@@ -207,14 +222,14 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
             />
           </svg>
           <div>
-            <h3 className="text-red-800 dark:text-red-200 font-medium">Dashboard Rendering Error</h3>
+            <h3 className="text-red-800 dark:text-red-200 font-medium">{DASHBOARD_MESSAGES.ERRORS.BATCH_RENDER_FAILED}</h3>
             <p className="text-red-600 dark:text-red-400 text-sm mt-1">{batchError}</p>
             <button
               type="button"
               onClick={() => refetchBatch(true)}
               className="mt-3 btn-sm bg-red-600 hover:bg-red-700 text-white"
             >
-              Retry
+              {DASHBOARD_MESSAGES.ACTIONS.RETRY}
             </button>
           </div>
         </div>
@@ -252,9 +267,9 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
     return (
       <div className="text-center py-12">
         <div className="text-6xl mb-4">📊</div>
-        <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Empty Dashboard</h3>
+        <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">{DASHBOARD_MESSAGES.EMPTY.TITLE}</h3>
         <p className="text-gray-600 dark:text-gray-400 mt-2">
-          This dashboard doesn't have any charts yet.
+          {DASHBOARD_MESSAGES.EMPTY.DESCRIPTION}
         </p>
       </div>
     );
@@ -304,17 +319,7 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
       <div className="grid grid-cols-12 gap-6 w-full px-4 pb-4">
         {dashboardConfig.charts.map((dashboardChart) => {
           if (!dashboardChart.chartDefinition) {
-            // Determine responsive column span classes like dashboard cards
-            let colSpanClass = 'col-span-full';
-            if (dashboardChart.position.w <= 4) {
-              colSpanClass = 'col-span-full sm:col-span-6 xl:col-span-4';
-            } else if (dashboardChart.position.w <= 6) {
-              colSpanClass = 'col-span-full sm:col-span-6';
-            } else if (dashboardChart.position.w <= 8) {
-              colSpanClass = 'col-span-full lg:col-span-8';
-            } else {
-              colSpanClass = 'col-span-full';
-            }
+            const colSpanClass = getResponsiveColSpan(dashboardChart.position.w);
 
             return (
               <div
@@ -324,7 +329,7 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
                 <div className="flex items-center justify-center h-48 text-center text-gray-500 dark:text-gray-400">
                   <div>
                     <div className="text-2xl mb-2">⚠️</div>
-                    <p className="text-sm">Chart Not Found</p>
+                    <p className="text-sm">{DASHBOARD_MESSAGES.ERRORS.CHART_NOT_FOUND}</p>
                     <p className="text-xs">ID: {dashboardChart.chartDefinitionId.slice(0, 8)}...</p>
                   </div>
                 </div>
@@ -337,20 +342,11 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
           const chartConfig = dashboardChart.chartConfig;
 
           // Use responsive sizing that respects dashboard configuration
-          const baseHeight = dashboardChart.position.h * 150; // Height from dashboard configuration
-          const containerHeight = Math.max(baseHeight, 250); // Minimum reasonable height
+          const baseHeight = dashboardChart.position.h * DASHBOARD_LAYOUT.CHART.HEIGHT_MULTIPLIER;
+          const containerHeight = Math.max(baseHeight, DASHBOARD_LAYOUT.CHART.MIN_HEIGHT);
 
-          // Determine responsive column span classes like dashboard cards
-          let colSpanClass = 'col-span-full';
-          if (dashboardChart.position.w <= 4) {
-            colSpanClass = 'col-span-full sm:col-span-6 xl:col-span-4';
-          } else if (dashboardChart.position.w <= 6) {
-            colSpanClass = 'col-span-full sm:col-span-6';
-          } else if (dashboardChart.position.w <= 8) {
-            colSpanClass = 'col-span-full lg:col-span-8';
-          } else {
-            colSpanClass = 'col-span-full';
-          }
+          // Determine responsive column span classes
+          const colSpanClass = getResponsiveColSpan(dashboardChart.position.w);
 
           // Get batch data for this chart
           const batchChartData = batchData?.charts[dashboardChart.chartDefinitionId];
@@ -365,7 +361,7 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
                 <div className="flex items-center justify-center h-48 text-center text-gray-500 dark:text-gray-400">
                   <div>
                     <div className="text-2xl mb-2">⚠️</div>
-                    <p className="text-sm">Chart Data Unavailable</p>
+                    <p className="text-sm">{DASHBOARD_MESSAGES.ERRORS.CHART_DATA_UNAVAILABLE}</p>
                     <p className="text-xs">ID: {dashboardChart.chartDefinitionId.slice(0, 8)}...</p>
                   </div>
                 </div>
@@ -397,8 +393,8 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
                   position={dashboardChart.position}
                   className="w-full h-full flex-1"
                   responsive={true}
-                  minHeight={200}
-                  maxHeight={containerHeight - 100}
+                  minHeight={DASHBOARD_LAYOUT.CHART.MIN_HEIGHT_WITH_PADDING}
+                  maxHeight={containerHeight - DASHBOARD_LAYOUT.CHART.HEIGHT_PADDING}
                 />
               </ChartErrorBoundary>
             </div>

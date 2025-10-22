@@ -35,19 +35,8 @@ export default function HistoricalComparisonWidget({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    console.log('🔄 Historical Comparison useEffect triggered:', {
-      measure,
-      frequency,
-      practiceUid,
-      providerName,
-      hasValidMeasure: measure && measure.length > 0,
-      hasValidFrequency: frequency && frequency.length > 0,
-    });
-
     if (measure && frequency && measure.length > 0 && frequency.length > 0) {
       performComparison();
-    } else {
-      console.log('⏸️ Skipping comparison - invalid measure or frequency');
     }
   }, [measure, frequency, practiceUid, providerName, selectedComparison]);
 
@@ -56,27 +45,8 @@ export default function HistoricalComparisonWidget({
     setError(null);
 
     try {
-      console.log('🔍 Historical Comparison - Starting analysis:', {
-        measure,
-        frequency,
-        practiceUid,
-        providerName,
-        comparisonType: selectedComparison.id,
-      });
-
       // Get period dates
       const periods = selectedComparison.getPeriods(new Date());
-
-      console.log('📅 Period calculation:', {
-        current: {
-          start: periods.current.start.toISOString().split('T')[0],
-          end: periods.current.end.toISOString().split('T')[0],
-        },
-        comparison: {
-          start: periods.comparison.start.toISOString().split('T')[0],
-          end: periods.comparison.end.toISOString().split('T')[0],
-        },
-      });
 
       // Fetch current period data
       const currentParams = new URLSearchParams();
@@ -100,11 +70,6 @@ export default function HistoricalComparisonWidget({
       if (practiceUid) comparisonParams.append('practice_uid', practiceUid);
       if (providerName) comparisonParams.append('provider_name', providerName);
 
-      console.log('🌐 API Requests:', {
-        currentUrl: `/api/admin/analytics/measures?${currentParams.toString()}`,
-        comparisonUrl: `/api/admin/analytics/measures?${comparisonParams.toString()}`,
-      });
-
       // Execute both requests in parallel
       const [currentData, comparisonData] = await Promise.all([
         apiClient.get<{ measures: AggAppMeasure[] }>(
@@ -115,25 +80,12 @@ export default function HistoricalComparisonWidget({
         ),
       ]);
 
-      console.log('📊 Raw API Data:', {
-        currentData: {
-          measureCount: currentData.measures?.length || 0,
-          sampleMeasure: currentData.measures?.[0],
-        },
-        comparisonData: {
-          measureCount: comparisonData.measures?.length || 0,
-          sampleMeasure: comparisonData.measures?.[0],
-        },
-      });
-
       // Perform comparison analysis
       const result = historicalComparisonService.comparePeriodsAnalysis(
         currentData.measures || [],
         comparisonData.measures || [],
         selectedComparison.id
       );
-
-      console.log('📈 Comparison Result:', result);
 
       setComparisonResult(result);
     } catch (err) {

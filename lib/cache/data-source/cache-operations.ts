@@ -5,13 +5,13 @@
  *
  * RESPONSIBILITIES:
  * - Get cached data (via indexed cache or direct Redis)
- * - Set cached data (with size validation)
  * - Invalidate cache entries (pattern-based deletion)
  * - Cache existence checks
  *
  * ARCHITECTURE:
  * - Delegates to IndexedAnalyticsCache for efficient queries
- * - Falls back to direct Redis for backward compatibility
+ * - Cache warming (via warming-service.ts) handles ALL cache population
+ * - Query-time caching removed to prevent dual cache system conflicts
  * - Graceful degradation when Redis unavailable
  */
 
@@ -55,6 +55,7 @@ export interface CacheGetResult {
 export class CacheOperations {
   private readonly TTL = 172800; // 48 hours (2 days)
   private readonly MAX_CACHE_SIZE = 1024 * 1024 * 1024; // 1GB (support for large table-based datasets)
+  private readonly MAX_ROWS = 1000000; // 1M rows max (prevents memory exhaustion)
   private readonly MAX_SCAN_ITERATIONS = 10000; // Safety limit to prevent infinite loops
   private readonly STALE_THRESHOLD_HOURS = 4; // Cache considered stale after 4 hours
 
@@ -73,6 +74,17 @@ export class CacheOperations {
 
     // Check if indexed cache is warm for this datasource
     const isWarm = await indexedAnalyticsCache.isCacheWarm(datasourceId);
+
+    log.info('Cache lookup initiated', {
+      datasourceId,
+      isWarm,
+      dataSourceType: components.dataSourceType,
+      measure: components.measure,
+      frequency: components.frequency,
+      practiceUid: components.practiceUid,
+      providerUid: components.providerUid,
+      component: 'cache-operations',
+    });
 
     // Check cache age (if warm) to detect stale cache
     let shouldWarm = !isWarm;
@@ -99,8 +111,23 @@ export class CacheOperations {
     }
 
     // For measure-based sources, use indexed cache with measure + frequency
-    if (isWarm && components.dataSourceType !== 'table-based' && components.measure && components.frequency) {
+    const willUseIndexedCache = isWarm && components.dataSourceType !== 'table-based' && components.measure && components.frequency;
+
+    log.info('Cache lookup decision', {
+      datasourceId,
+      willUseIndexedCache,
+      reason: !willUseIndexedCache ?
+        (!isWarm ? 'cache_not_warm' :
+         components.dataSourceType === 'table-based' ? 'table_based_type' :
+         !components.measure ? 'no_measure' :
+         !components.frequency ? 'no_frequency' : 'unknown') :
+        'attempting_indexed_cache',
+      component: 'cache-operations',
+    });
+
+    if (willUseIndexedCache && components.measure && components.frequency) {
       // Try indexed cache with index lookup
+      // Type guard confirms measure and frequency are defined
       const filters: CacheQueryFilters = {
         datasourceId: datasourceId,
         measure: components.measure,
@@ -175,7 +202,10 @@ export class CacheOperations {
   }
 
   /**
-   * Set data in cache
+   * Set data in cache (TABLE-BASED ONLY)
+   *
+   * IMPORTANT: This method should ONLY be used for table-based data sources.
+   * Measure-based sources MUST use indexed analytics cache (via warming).
    *
    * @param components - Cache key components
    * @param rows - Data rows to cache
@@ -186,10 +216,45 @@ export class CacheOperations {
     rows: Record<string, unknown>[],
     ttl?: number
   ): Promise<void> {
+    // CRITICAL: Only allow table-based caching to prevent dual cache system conflicts
+    if (components.dataSourceType !== 'table-based') {
+      log.warn('Attempted to cache non-table-based data via setCached - use warming instead', {
+        dataSourceId: components.dataSourceId,
+        dataSourceType: components.dataSourceType,
+        measure: components.measure,
+        operation: 'setCached',
+      });
+      return;
+    }
+
     const key = cacheKeyBuilder.buildKey(components);
     const now = new Date();
     const effectiveTTL = ttl || this.TTL;
     const expiresAt = new Date(now.getTime() + effectiveTTL * 1000);
+
+    // SECURITY/PERFORMANCE: Check row count BEFORE stringifying to prevent OOM
+    if (rows.length > this.MAX_ROWS) {
+      log.warn('Data source cache entry has too many rows - rejecting', {
+        key,
+        rowCount: rows.length,
+        maxRows: this.MAX_ROWS,
+        dataSourceType: components.dataSourceType,
+      });
+      return;
+    }
+
+    // SECURITY/PERFORMANCE: Estimate size before stringifying
+    const estimatedBytes = rows.length * 1000;
+    if (estimatedBytes > this.MAX_CACHE_SIZE) {
+      log.warn('Data source cache entry estimated too large - rejecting', {
+        key,
+        estimatedGB: Math.round((estimatedBytes / (1024 * 1024 * 1024)) * 100) / 100,
+        maxGB: Math.round((this.MAX_CACHE_SIZE / (1024 * 1024 * 1024)) * 100) / 100,
+        rowCount: rows.length,
+        dataSourceType: components.dataSourceType,
+      });
+      return;
+    }
 
     const cachedData: CachedDataEntry = {
       rows,
@@ -203,16 +268,17 @@ export class CacheOperations {
     const jsonString = JSON.stringify(cachedData);
     cachedData.sizeBytes = Buffer.byteLength(jsonString, 'utf8');
 
-    // Check size limit
+    // Final size check after stringification
     if (cachedData.sizeBytes > this.MAX_CACHE_SIZE) {
       const sizeGB = cachedData.sizeBytes / (1024 * 1024 * 1024);
       const maxGB = this.MAX_CACHE_SIZE / (1024 * 1024 * 1024);
 
-      log.warn('Data source cache entry too large', {
+      log.warn('Data source cache entry too large after stringification', {
         key,
         sizeGB: Math.round(sizeGB * 100) / 100,
         maxGB: Math.round(maxGB * 100) / 100,
         rowCount: rows.length,
+        dataSourceType: components.dataSourceType,
       });
       return;
     }
@@ -245,7 +311,7 @@ export class CacheOperations {
               expiresAt: expiresAt.toISOString(),
             };
 
-      log.info('Data source cached', logData);
+      log.info('Table-based data source cached', logData);
     } catch (error) {
       log.error('Failed to cache data', error instanceof Error ? error : new Error(String(error)), {
         key,

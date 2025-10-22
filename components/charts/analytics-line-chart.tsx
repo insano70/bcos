@@ -1,6 +1,6 @@
 'use client';
 
-import type { TooltipItem } from 'chart.js';
+import type { ChartTypeRegistry, TooltipItem } from 'chart.js';
 import {
   CategoryScale,
   Chart,
@@ -184,12 +184,13 @@ const AnalyticsLineChart = forwardRef<HTMLCanvasElement, AnalyticsLineChartProps
 
                     if (hasPeriodComparison) {
                       // Use period comparison tooltips (works for both bar and line charts)
-                      return createPeriodComparisonTooltipCallbacks(frequency, darkMode);
+                      // Type cast needed due to Chart.js generic type limitations with union chart types
+                      return createPeriodComparisonTooltipCallbacks<'line'>(frequency, darkMode) as unknown as ReturnType<typeof createPeriodComparisonTooltipCallbacks>;
                     }
 
                     // Default tooltip callbacks
                     return {
-                      title: (tooltipItems: TooltipItem<'line'>[]) => {
+                      title: (tooltipItems: TooltipItem<'line' | 'bar'>[]) => {
                         // Format tooltip title based on frequency
                         // Use moment.js for Safari/iOS compatibility - new Date() parsing is unreliable
                         const labelValue = tooltipItems[0]?.label || '';
@@ -215,7 +216,7 @@ const AnalyticsLineChart = forwardRef<HTMLCanvasElement, AnalyticsLineChartProps
                           return parsedDate.format('MMM YYYY');
                         }
                       },
-                      label: (tooltipItem: TooltipItem<'line'>) => {
+                      label: (tooltipItem: TooltipItem<'line' | 'bar'>) => {
                         // Get measure type from dataset metadata, fallback to chart data, then to 'number'
                         const measureType =
                           (tooltipItem.dataset as { measureType?: string })?.measureType ||
@@ -254,7 +255,10 @@ const AnalyticsLineChart = forwardRef<HTMLCanvasElement, AnalyticsLineChartProps
                     ul.firstChild.remove();
                   }
                   // Reuse the built-in legendItems generator
-                  const items = c.options.plugins?.legend?.labels?.generateLabels?.(c);
+                  // Type cast needed for Chart.js plugin compatibility with union types
+                  const items = c.options.plugins?.legend?.labels?.generateLabels?.(
+                    c as Chart<keyof ChartTypeRegistry>
+                  );
 
                   // Calculate totals for each item and sort by value (descending)
                   const itemsWithTotals =

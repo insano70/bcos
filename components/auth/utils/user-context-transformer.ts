@@ -11,7 +11,7 @@
  */
 
 import type { UserContext } from '@/lib/types/rbac';
-import { clientDebugLog as debugLog, clientErrorLog as errorLog } from '@/lib/utils/debug-client';
+import { authLogger } from '@/lib/utils/client-logger';
 import type { APIUserResponse } from '../types';
 
 /**
@@ -85,17 +85,30 @@ export function transformApiUserToContext(apiUser: APIUserResponse): UserContext
       current_organization_id: apiUser.currentOrganizationId || apiUser.practiceId,
 
       // Computed properties from API - transform permissions
-      all_permissions: apiUser.permissions.map((perm) => ({
-        permission_id: perm.id || `perm_${perm.name}`,
-        name: perm.name,
-        description: perm.description || undefined,
-        resource: perm.resource,
-        action: perm.action,
-        scope: perm.scope as 'own' | 'organization' | 'all', // Type assertion - API guarantees valid scope
-        is_active: true,
-        created_at: new Date(),
-        updated_at: new Date(),
-      })),
+      all_permissions: apiUser.permissions.map((perm) => {
+        // Validate scope value at runtime
+        const validScopes = ['own', 'organization', 'all'] as const;
+        const scope = perm.scope as string;
+
+        if (!validScopes.includes(scope as 'own' | 'organization' | 'all')) {
+          throw new Error(
+            `Invalid permission scope '${scope}' for permission '${perm.name}'. ` +
+            `Expected one of: ${validScopes.join(', ')}`
+          );
+        }
+
+        return {
+          permission_id: perm.id || `perm_${perm.name}`,
+          name: perm.name,
+          description: perm.description || undefined,
+          resource: perm.resource,
+          action: perm.action,
+          scope: scope as 'own' | 'organization' | 'all',
+          is_active: true,
+          created_at: new Date(),
+          updated_at: new Date(),
+        };
+      }),
 
       // Admin flags
       is_super_admin: apiUser.isSuperAdmin,
@@ -103,7 +116,7 @@ export function transformApiUserToContext(apiUser: APIUserResponse): UserContext
     };
 
     // Log successful transformation
-    debugLog.auth('User context transformed successfully', {
+    authLogger.log('User context transformed successfully', {
       userId: apiUser.id,
       rolesCount: apiUser.roles.length,
       orgsCount: apiUser.organizations.length,
@@ -112,7 +125,7 @@ export function transformApiUserToContext(apiUser: APIUserResponse): UserContext
 
     return userContext;
   } catch (error) {
-    errorLog('User context transformation failed:', error);
+    authLogger.error('User context transformation failed', error);
     throw error;
   }
 }

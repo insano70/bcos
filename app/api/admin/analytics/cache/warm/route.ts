@@ -15,10 +15,13 @@ import type { NextRequest } from 'next/server';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
-import { indexedAnalyticsCache } from '@/lib/cache/indexed-analytics-cache';
+import { cacheWarmingService } from '@/lib/cache/data-source/cache-warming';
 import { log } from '@/lib/logger';
 import { cacheWarmingTracker } from '@/lib/monitoring/cache-warming-tracker';
 import { chartConfigService } from '@/lib/services/chart-config-service';
+import { db } from '@/lib/db';
+import { chart_data_sources } from '@/lib/db/chart-config-schema';
+import { eq } from 'drizzle-orm';
 
 interface WarmCacheRequest {
   datasourceId?: number; // Omit to warm all datasources
@@ -189,14 +192,32 @@ async function warmDatasourceBackground(jobId: string, datasourceId: number): Pr
     // Mark job as started
     cacheWarmingTracker.startJob(jobId);
 
-    // Perform warming with progress callback
-    const result = await indexedAnalyticsCache.warmCacheConcurrent(datasourceId, (progress) => {
-      cacheWarmingTracker.updateProgress(jobId, {
-        progress: progress.percent,
-        rowsProcessed: progress.rowsProcessed,
-        rowsTotal: progress.totalRows,
-      });
+    // Query database directly to get data source type (cache may not include this field)
+    const dataSourceInfo = await db
+      .select({
+        dataSourceType: chart_data_sources.data_source_type,
+        name: chart_data_sources.data_source_name,
+      })
+      .from(chart_data_sources)
+      .where(eq(chart_data_sources.data_source_id, datasourceId))
+      .limit(1);
+
+    if (!dataSourceInfo || dataSourceInfo.length === 0 || !dataSourceInfo[0]) {
+      throw new Error(`Data source ${datasourceId} not found`);
+    }
+
+    const { dataSourceType, name } = dataSourceInfo[0];
+
+    log.info('Cache warming routing by data source type', {
+      datasourceId,
+      datasourceName: name,
+      dataSourceType,
+      component: 'analytics-cache-admin',
     });
+
+    // Route to appropriate warming service based on data source type
+    // Delegate to cacheWarmingService which handles both types correctly
+    const result = await cacheWarmingService.warmDataSource(datasourceId);
 
     // Mark as completed
     if (!result.skipped) {

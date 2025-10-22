@@ -103,6 +103,7 @@ const handler = async (request: NextRequest, session?: AuthSession) => {
           isSuperAdmin: userContext.is_super_admin,
           organizationAdminFor: userContext.organization_admin_for,
         },
+        sessionId: session.sessionId,
       },
       'User context retrieved successfully'
     );

@@ -21,7 +21,7 @@ import {
   shouldRefreshToken,
   validateTokenStructure,
 } from '@/lib/security/csrf-client';
-import { clientDebugLog as debugLog, clientErrorLog as errorLog } from '@/lib/utils/debug-client';
+import { authLogger } from '@/lib/utils/client-logger';
 import { getBaseUrl } from '../utils/get-base-url';
 
 /**
@@ -78,10 +78,17 @@ export function useCSRFManagement(): CSRFManagement {
   const ensureCsrfToken = useCallback(
     async (forceRefresh = false): Promise<string | null> => {
       try {
-        // OPTIMIZATION: If fetch already in progress, return same promise (deduplication)
-        if (fetchInProgress.current && !forceRefresh) {
-          debugLog.auth('CSRF token fetch already in progress, waiting for completion');
-          return fetchInProgress.current;
+        // OPTIMIZATION: If fetch already in progress, wait for it regardless of forceRefresh
+        // This prevents race conditions where multiple fetches could return different tokens
+        if (fetchInProgress.current) {
+          if (forceRefresh) {
+            authLogger.log('CSRF token fetch in progress - waiting before force refresh');
+            await fetchInProgress.current;
+            // Now continue with force refresh (fetchInProgress.current is now null)
+          } else {
+            authLogger.log('CSRF token fetch already in progress, waiting for completion');
+            return fetchInProgress.current;
+          }
         }
 
         // Read current values from refs (always up-to-date, never stale)
@@ -97,13 +104,13 @@ export function useCSRFManagement(): CSRFManagement {
             const validation = validateTokenStructure(cookieToken);
 
             if (validation.isValid) {
-              debugLog.auth('Using existing CSRF token from cookie (no fetch needed)');
+              authLogger.log('Using existing CSRF token from cookie (no fetch needed)');
               setCsrfToken(cookieToken);
               setLastFetchTime(Date.now());
               return cookieToken;
             }
 
-            debugLog.auth('Cookie token invalid, will fetch fresh token');
+            authLogger.log('Cookie token invalid, will fetch fresh token');
           }
         }
 
@@ -113,20 +120,20 @@ export function useCSRFManagement(): CSRFManagement {
 
           if (!shouldRefresh) {
             // Token is still valid, return it
-            debugLog.auth('Using cached CSRF token from state');
+            authLogger.log('Using cached CSRF token from state');
             return currentToken;
           }
 
           // Token needs refresh
-          debugLog.auth('Cached token needs refresh (approaching expiration)');
+          authLogger.log('Cached token needs refresh (approaching expiration)');
         }
 
         if (forceRefresh) {
-          debugLog.auth('Force refreshing CSRF token...');
+          authLogger.log('Force refreshing CSRF token...');
         }
 
         // Step 3 - Fetch new token from server (deduplicated)
-        debugLog.auth('Fetching new CSRF token from server...');
+        authLogger.log('Fetching new CSRF token from server...');
 
         // Store promise to deduplicate concurrent calls
         fetchInProgress.current = (async () => {
@@ -137,7 +144,7 @@ export function useCSRFManagement(): CSRFManagement {
             });
 
             if (!resp.ok) {
-              errorLog(`CSRF token fetch failed: ${resp.status} ${resp.statusText}`);
+              authLogger.error(`CSRF token fetch failed: ${resp.status} ${resp.statusText}`);
               return null;
             }
 
@@ -145,14 +152,14 @@ export function useCSRFManagement(): CSRFManagement {
             const token = json?.data?.csrfToken || null;
 
             if (!token) {
-              errorLog('CSRF token not found in response');
+              authLogger.error('CSRF token not found in response');
               return null;
             }
 
             // Validate the new token structure
             const validation = validateTokenStructure(token);
             if (!validation.isValid) {
-              errorLog(`New CSRF token validation failed: ${validation.reason}`);
+              authLogger.error(`New CSRF token validation failed: ${validation.reason}`);
               return null;
             }
 
@@ -161,7 +168,7 @@ export function useCSRFManagement(): CSRFManagement {
             setCsrfToken(token);
             setLastFetchTime(now);
 
-            debugLog.auth('CSRF token successfully fetched and validated');
+            authLogger.log('CSRF token successfully fetched and validated');
             return token;
           } finally {
             // Clear in-flight promise
@@ -171,7 +178,7 @@ export function useCSRFManagement(): CSRFManagement {
 
         return fetchInProgress.current;
       } catch (error) {
-        errorLog('CSRF token fetch error:', error);
+        authLogger.error('CSRF token fetch error', error);
         // Clear invalid token from state
         setCsrfToken(null);
         fetchInProgress.current = null;

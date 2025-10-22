@@ -12,6 +12,7 @@ export type AuthErrorType =
   | 'csrf' // CSRF token issue - should retry with fresh token
   | 'server_error' // 500-level error - should retry
   | 'forbidden' // 403 - permission issue - should not retry
+  | 'invalid_request' // 4xx client error (400, 422, etc) - should not retry
   | 'unknown'; // Unknown error - should retry cautiously
 
 export interface ClassifiedError {
@@ -98,6 +99,17 @@ export function classifyAuthError(error: unknown): ClassifiedError {
         statusCode: status,
       };
     }
+
+    // Other 4xx errors (400, 422, etc) - client error, don't retry
+    if (status && status >= 400 && status < 500) {
+      return {
+        type: 'invalid_request',
+        shouldRetry: false,
+        message: 'Invalid request',
+        originalError: error,
+        statusCode: status,
+      };
+    }
   }
 
   // PRIORITY 2: Network/fetch errors (TypeError)
@@ -163,14 +175,25 @@ export function classifyAuthError(error: unknown): ClassifiedError {
       };
     }
 
-    // Server errors (500-599)
-    if (message.includes('500') || message.includes('502') || message.includes('503') || message.includes('504')) {
+    // Server errors (5xx)
+    if (message.match(/5\d{2}/)) {
       return {
         type: 'server_error',
         shouldRetry: true,
         message: 'Server error occurred',
         originalError: error,
         statusCode: 500,
+      };
+    }
+
+    // Client errors (4xx) - check for 400, 422, etc
+    if (message.match(/4\d{2}/) && !message.includes('401') && !message.includes('403') && !message.includes('429')) {
+      return {
+        type: 'invalid_request',
+        shouldRetry: false,
+        message: 'Invalid request',
+        originalError: error,
+        statusCode: 400,
       };
     }
 

@@ -94,10 +94,37 @@ export class CacheWarmingService {
 
       const { tableName, schemaName } = config;
 
+      // Security: Validate schema name (whitelist approach)
+      // Table names are validated by being pulled from configured data sources in the database
+      const ALLOWED_SCHEMAS = ['ih'];
+      if (!ALLOWED_SCHEMAS.includes(schemaName)) {
+        log.error('Invalid schema name attempted in cache warming', new Error('SQL injection attempt'), {
+          datasourceId,
+          schemaName,
+          tableName,
+          component: 'warming-service',
+        });
+        throw new Error(`Invalid schema name: ${schemaName}. Only schemas ${ALLOWED_SCHEMAS.join(', ')} are allowed.`);
+      }
+
+      // Validate table name format (alphanumeric, underscores only)
+      // This prevents SQL injection while allowing dynamic table names from data source configs
+      const TABLE_NAME_PATTERN = /^[a-zA-Z0-9_]+$/;
+      if (!TABLE_NAME_PATTERN.test(tableName)) {
+        log.error('Invalid table name format in cache warming', new Error('SQL injection attempt'), {
+          datasourceId,
+          schemaName,
+          tableName,
+          component: 'warming-service',
+        });
+        throw new Error(`Invalid table name format: ${tableName}. Only alphanumeric characters and underscores allowed.`);
+      }
+
       // Get column mappings for dynamic column access
       const columnMapping = await columnMappingService.getMapping(datasourceId);
 
       // Query ALL data (no WHERE clause, no ORDER BY to support all schemas)
+      // Schema and table names validated above to prevent SQL injection
       const query = `
         SELECT *
         FROM ${schemaName}.${tableName}
@@ -308,18 +335,22 @@ export class CacheWarmingService {
         frequency,
       };
 
-      // Generate SHADOW keys instead of production keys
+      // Generate SHADOW keys for storage, PRODUCTION keys for index references
       const shadowCacheKey = KeyGenerator.getShadowCacheKey(entry);
+      const productionCacheKey = KeyGenerator.getCacheKey(entry); // What the key will be called after RENAME
       const shadowIndexKeys = KeyGenerator.getShadowIndexKeys(entry);
-      const ttl = this.client.getDefaultTTL();
 
-      // Store data to shadow key with TTL
-      pipeline.set(shadowCacheKey, JSON.stringify(rows), 'EX', ttl);
+      // Store data to shadow key WITHOUT TTL
+      // CRITICAL: Shadow keys must not expire before swap completes
+      // TTL will be applied to production keys after atomic RENAME
+      pipeline.set(shadowCacheKey, JSON.stringify(rows));
 
-      // Add to shadow indexes with TTL
+      // Add PRODUCTION key names to shadow indexes
+      // CRITICAL: Index must reference the FINAL key name (after RENAME), not the shadow name
+      // Otherwise index will point to non-existent keys after swap
       for (const shadowIndexKey of shadowIndexKeys) {
-        pipeline.sadd(shadowIndexKey, shadowCacheKey);
-        pipeline.expire(shadowIndexKey, ttl);
+        pipeline.sadd(shadowIndexKey, productionCacheKey);
+        // NOTE: No EXPIRE command - index keys persist until explicitly deleted
       }
 
       entriesCached++;
@@ -394,12 +425,16 @@ export class CacheWarmingService {
     let cacheKeysRenamed = 0;
     let indexKeysRenamed = 0;
 
+    // Get TTL and keyPrefix once for all operations
+    const ttl = this.client.getDefaultTTL();
+    const keyPrefix = redis.options.keyPrefix || '';
+
     // Step 1: Rename shadow cache keys to production keys
     const shadowCachePattern = KeyGenerator.getShadowCachePattern(datasourceId);
     let cursor = '0';
-    const SCAN_COUNT = 100;
+    const SCAN_COUNT = 1000; // Process 1000 keys per batch for better performance
     let iterations = 0;
-    const MAX_ITERATIONS = 1000; // Safety limit (at 100 keys per scan = 100K keys max)
+    const MAX_ITERATIONS = 1000; // Safety limit (at 1000 keys per scan = 1M keys max)
 
     log.info('Starting shadow cache key swap', {
       datasourceId,
@@ -412,21 +447,55 @@ export class CacheWarmingService {
       cursor = result[0];
       const shadowKeys = result[1];
 
-      // Rename each shadow key to production key
-      for (const shadowKey of shadowKeys) {
-        // shadow:{ds:1}:m:Revenue:p:114:prov:501:freq:monthly
-        // => cache:{ds:1}:m:Revenue:p:114:prov:501:freq:monthly
-        const productionKey = shadowKey.replace(/^shadow:/, 'cache:');
+      // Rename each shadow key to production key using pipeline for performance
+      // Process keys in batches to avoid overwhelming Redis
+      if (shadowKeys.length > 0) {
+        const pipeline = redis.pipeline();
+
+        for (const shadowKey of shadowKeys) {
+          // IMPORTANT: SCAN returns keys WITH prefix, but RENAME will add prefix again
+          // Strip prefix from SCAN results before using in RENAME
+          // bcos:development:shadow:{ds:1}:m:Revenue:p:114:prov:501:freq:monthly
+          // => shadow:{ds:1}:m:Revenue:p:114:prov:501:freq:monthly (strip prefix)
+          // => cache:{ds:1}:m:Revenue:p:114:prov:501:freq:monthly (replace)
+          const keyWithoutPrefix = keyPrefix ? shadowKey.replace(keyPrefix, '') : shadowKey;
+          const productionKey = keyWithoutPrefix.replace('shadow:', 'cache:');
+
+          // Step 1: RENAME is atomic - overwrites old key if exists
+          // Use keys WITHOUT prefix - ioredis will add prefix automatically
+          pipeline.rename(keyWithoutPrefix, productionKey);
+
+          // Step 2: Set TTL on production key (48 hours)
+          // This must happen AFTER rename since shadow keys have no TTL
+          pipeline.expire(productionKey, ttl);
+        }
 
         try {
-          // RENAME is atomic - overwrites old key if exists
-          await redis.rename(shadowKey, productionKey);
-          cacheKeysRenamed++;
+          // Execute all RENAME+EXPIRE operations in a single pipeline
+          const results = await pipeline.exec();
+
+          // Check for errors in pipeline execution
+          if (results) {
+            for (let i = 0; i < results.length; i += 2) {
+              const result = results[i];
+              if (result) {
+                const [renameError] = result;
+                if (renameError) {
+                  log.error('Failed to rename shadow cache key in pipeline', renameError instanceof Error ? renameError : new Error(String(renameError)), {
+                    batchIndex: i / 2,
+                    datasourceId,
+                    component: 'warming-service',
+                  });
+                  throw renameError;
+                }
+              }
+              cacheKeysRenamed++;
+            }
+          }
         } catch (error) {
-          log.error('Failed to rename shadow cache key', error instanceof Error ? error : new Error(String(error)), {
-            shadowKey,
-            productionKey,
+          log.error('Failed to execute cache key rename pipeline', error instanceof Error ? error : new Error(String(error)), {
             datasourceId,
+            batchSize: shadowKeys.length,
             component: 'warming-service',
           });
           throw error;
@@ -469,21 +538,53 @@ export class CacheWarmingService {
       cursor = result[0];
       const shadowIndexKeys = result[1];
 
-      // Rename each shadow index key to production key
-      for (const shadowIndexKey of shadowIndexKeys) {
-        // shadow_idx:{ds:1}:master
-        // => idx:{ds:1}:master
-        const productionIndexKey = shadowIndexKey.replace(/^shadow_idx:/, 'idx:');
+      // Rename each shadow index key to production key using pipeline for performance
+      if (shadowIndexKeys.length > 0) {
+        const pipeline = redis.pipeline();
+
+        for (const shadowIndexKey of shadowIndexKeys) {
+          // IMPORTANT: SCAN returns keys WITH prefix, but RENAME will add prefix again
+          // Strip prefix from SCAN results before using in RENAME
+          // bcos:development:shadow_idx:{ds:1}:master
+          // => shadow_idx:{ds:1}:master (strip prefix)
+          // => idx:{ds:1}:master (replace)
+          const keyWithoutPrefix = keyPrefix ? shadowIndexKey.replace(keyPrefix, '') : shadowIndexKey;
+          const productionIndexKey = keyWithoutPrefix.replace('shadow_idx:', 'idx:');
+
+          // RENAME is atomic - overwrites old key if exists
+          // Use keys WITHOUT prefix - ioredis will add prefix automatically
+          pipeline.rename(keyWithoutPrefix, productionIndexKey);
+
+          // Set TTL on production index key
+          pipeline.expire(productionIndexKey, ttl);
+        }
 
         try {
-          // RENAME is atomic - overwrites old key if exists
-          await redis.rename(shadowIndexKey, productionIndexKey);
-          indexKeysRenamed++;
+          // Execute all RENAME+EXPIRE operations in a single pipeline
+          const results = await pipeline.exec();
+
+          // Check for errors in pipeline execution
+          if (results) {
+            for (let i = 0; i < results.length; i += 2) {
+              const result = results[i];
+              if (result) {
+                const [renameError] = result;
+                if (renameError) {
+                  log.error('Failed to rename shadow index key in pipeline', renameError instanceof Error ? renameError : new Error(String(renameError)), {
+                    batchIndex: i / 2,
+                    datasourceId,
+                    component: 'warming-service',
+                  });
+                  throw renameError;
+                }
+              }
+              indexKeysRenamed++;
+            }
+          }
         } catch (error) {
-          log.error('Failed to rename shadow index key', error instanceof Error ? error : new Error(String(error)), {
-            shadowIndexKey,
-            productionIndexKey,
+          log.error('Failed to execute index key rename pipeline', error instanceof Error ? error : new Error(String(error)), {
             datasourceId,
+            batchSize: shadowIndexKeys.length,
             component: 'warming-service',
           });
           throw error;

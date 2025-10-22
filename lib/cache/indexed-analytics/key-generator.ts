@@ -290,27 +290,33 @@ export const KeyGenerator = {
   /**
    * Generate shadow cache pattern for SCAN operations
    *
+   * IMPORTANT: Includes wildcard prefix (*) because ioredis keyPrefix
+   * is NOT automatically applied to SCAN patterns.
+   *
    * @param datasourceId - Data source ID
-   * @returns Shadow cache pattern
+   * @returns Shadow cache pattern with wildcard prefix
    *
    * @example
-   * getShadowCachePattern(1) // => "shadow:{ds:1}:*"
+   * getShadowCachePattern(1) // => "*shadow:{ds:1}:*"
    */
   getShadowCachePattern(datasourceId: number): string {
-    return `shadow:{ds:${datasourceId}}:*`;
+    return `*shadow:{ds:${datasourceId}}:*`;
   },
 
   /**
    * Generate shadow index pattern for SCAN operations
    *
+   * IMPORTANT: Includes wildcard prefix (*) because ioredis keyPrefix
+   * is NOT automatically applied to SCAN patterns.
+   *
    * @param datasourceId - Data source ID
-   * @returns Shadow index pattern
+   * @returns Shadow index pattern with wildcard prefix
    *
    * @example
-   * getShadowIndexPattern(1) // => "shadow_idx:{ds:1}:*"
+   * getShadowIndexPattern(1) // => "*shadow_idx:{ds:1}:*"
    */
   getShadowIndexPattern(datasourceId: number): string {
-    return `shadow_idx:{ds:${datasourceId}}:*`;
+    return `*shadow_idx:{ds:${datasourceId}}:*`;
   },
 
   /**

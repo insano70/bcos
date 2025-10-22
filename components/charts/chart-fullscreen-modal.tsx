@@ -1,6 +1,6 @@
 'use client';
 
-import type { Chart as ChartType } from 'chart.js';
+import type { Chart as ChartType, ChartTypeRegistry } from 'chart.js';
 import {
   BarController,
   BarElement,
@@ -359,7 +359,8 @@ export default function ChartFullscreenModal({
       },
     });
 
-    setChart(newChart);
+    // Type cast needed for Chart.js union type compatibility
+    setChart(newChart as Chart<keyof ChartTypeRegistry>);
 
     // Generate HTML legend
     if (legendRef.current) {
@@ -367,9 +368,13 @@ export default function ChartFullscreenModal({
       ul.innerHTML = '';
 
       if (hasPeriodComparison) {
-        createPeriodComparisonHtmlLegend(newChart, ul, {});
+        // Type cast needed for Chart.js plugin compatibility
+        createPeriodComparisonHtmlLegend(newChart as Chart<keyof ChartTypeRegistry>, ul, {});
       } else {
-        const items = newChart.options.plugins?.legend?.labels?.generateLabels?.(newChart);
+        // Type cast needed for Chart.js plugin compatibility
+        const items = newChart.options.plugins?.legend?.labels?.generateLabels?.(
+          newChart as Chart<keyof ChartTypeRegistry>
+        );
 
         // Calculate totals and sort by value
         const itemsWithTotals =

@@ -26,7 +26,7 @@
  */
 
 import { useCallback, useState } from 'react';
-import { clientDebugLog as debugLog } from '@/lib/utils/debug-client';
+import { authLogger } from '@/lib/utils/client-logger';
 import type { MFASessionData, MFAUser } from '../types';
 
 /**
@@ -48,6 +48,12 @@ export interface MFAState {
   // User data during MFA flow
   user: MFAUser | null; // Partial user data before full authentication
 }
+
+/**
+ * MFA enforcement threshold
+ * When skipsRemaining is at or below this value, MFA setup is enforced
+ */
+const MFA_ENFORCED_THRESHOLD = 0;
 
 /**
  * Initial MFA state (all flows inactive)
@@ -131,10 +137,12 @@ export function useMFAFlow(): MFAFlowHook {
    * @param data - MFA setup data from login response
    */
   const setMFASetupRequired = useCallback((data: MFASetupRequiredData) => {
-    debugLog.auth('MFA setup required', {
+    const isEnforced = data.skipsRemaining <= MFA_ENFORCED_THRESHOLD;
+
+    authLogger.log('MFA setup required', {
       userId: data.user.id,
       skipsRemaining: data.skipsRemaining,
-      enforced: data.skipsRemaining === 0,
+      enforced: isEnforced,
     });
 
     setMFAState({
@@ -143,7 +151,7 @@ export function useMFAFlow(): MFAFlowHook {
       challenge: null,
       challengeId: null,
       setupRequired: true,
-      setupEnforced: data.skipsRemaining === 0,
+      setupEnforced: isEnforced,
       skipsRemaining: data.skipsRemaining,
       user: data.user,
     });
@@ -158,7 +166,7 @@ export function useMFAFlow(): MFAFlowHook {
    * @param data - MFA verification data from login response
    */
   const setMFAVerificationRequired = useCallback((data: MFAVerificationRequiredData) => {
-    debugLog.auth('MFA verification required', {
+    authLogger.log('MFA verification required', {
       challengeId: data.challengeId,
     });
 
@@ -183,6 +191,7 @@ export function useMFAFlow(): MFAFlowHook {
    * @param sessionData - Session data from MFA setup completion
    * @param setCsrfToken - Function to update CSRF token
    * @param onAuthenticated - Callback to update auth state
+   * @throws Error if session data is invalid or missing required fields
    */
   const completeMFASetup = useCallback(
     (
@@ -190,7 +199,34 @@ export function useMFAFlow(): MFAFlowHook {
       setCsrfToken: (token: string | null) => void,
       onAuthenticated: (user: MFASessionData['user'], sessionId: string) => void
     ) => {
-      debugLog.auth('MFA setup completed', {
+      // Validate session data structure
+      if (!sessionData || typeof sessionData !== 'object') {
+        const error = new Error('Invalid MFA session data: not an object');
+        authLogger.log('MFA setup failed - invalid session data', { error: error.message });
+        throw error;
+      }
+
+      // Validate required fields
+      if (!sessionData.user || typeof sessionData.user !== 'object') {
+        const error = new Error('Invalid MFA session data: missing or invalid user');
+        authLogger.log('MFA setup failed - missing user', { error: error.message });
+        throw error;
+      }
+
+      if (!sessionData.sessionId) {
+        const error = new Error('Invalid MFA session data: missing sessionId');
+        authLogger.log('MFA setup failed - missing sessionId', { error: error.message });
+        throw error;
+      }
+
+      // Validate user has required fields
+      if (!sessionData.user.id || !sessionData.user.email) {
+        const error = new Error('Invalid MFA session data: user missing required fields');
+        authLogger.log('MFA setup failed - incomplete user data', { error: error.message });
+        throw error;
+      }
+
+      authLogger.log('MFA setup completed', {
         userId: sessionData.user.id,
         email: sessionData.user.email,
       });
@@ -218,6 +254,7 @@ export function useMFAFlow(): MFAFlowHook {
    * @param sessionData - Session data from MFA verification completion
    * @param setCsrfToken - Function to update CSRF token
    * @param onAuthenticated - Callback to update auth state
+   * @throws Error if session data is invalid or missing required fields
    */
   const completeMFAVerification = useCallback(
     (
@@ -225,7 +262,34 @@ export function useMFAFlow(): MFAFlowHook {
       setCsrfToken: (token: string | null) => void,
       onAuthenticated: (user: MFASessionData['user'], sessionId: string) => void
     ) => {
-      debugLog.auth('MFA verification completed', {
+      // Validate session data structure
+      if (!sessionData || typeof sessionData !== 'object') {
+        const error = new Error('Invalid MFA session data: not an object');
+        authLogger.log('MFA verification failed - invalid session data', { error: error.message });
+        throw error;
+      }
+
+      // Validate required fields
+      if (!sessionData.user || typeof sessionData.user !== 'object') {
+        const error = new Error('Invalid MFA session data: missing or invalid user');
+        authLogger.log('MFA verification failed - missing user', { error: error.message });
+        throw error;
+      }
+
+      if (!sessionData.sessionId) {
+        const error = new Error('Invalid MFA session data: missing sessionId');
+        authLogger.log('MFA verification failed - missing sessionId', { error: error.message });
+        throw error;
+      }
+
+      // Validate user has required fields
+      if (!sessionData.user.id || !sessionData.user.email) {
+        const error = new Error('Invalid MFA session data: user missing required fields');
+        authLogger.log('MFA verification failed - incomplete user data', { error: error.message });
+        throw error;
+      }
+
+      authLogger.log('MFA verification completed', {
         userId: sessionData.user.id,
         email: sessionData.user.email,
       });
@@ -251,7 +315,7 @@ export function useMFAFlow(): MFAFlowHook {
    * Called when user cancels MFA flow, logs out, or completes authentication.
    */
   const clearMFAState = useCallback(() => {
-    debugLog.auth('MFA state cleared');
+    authLogger.log('MFA state cleared');
     setMFAState(initialMFAState);
   }, []);
 

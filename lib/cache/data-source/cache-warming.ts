@@ -24,6 +24,7 @@ import { db } from '@/lib/db';
 import { chart_data_sources } from '@/lib/db/chart-config-schema';
 import { eq } from 'drizzle-orm';
 import { cacheOperations } from './cache-operations';
+import { executeAnalyticsQuery } from '@/lib/services/analytics-db';
 
 /**
  * Cache warming result
@@ -52,6 +53,8 @@ export interface WarmAllResult {
 export class CacheWarmingService {
   private readonly RATE_LIMIT_SECONDS = 4 * 60 * 60; // 4 hours
   private readonly LOCK_TIMEOUT_SECONDS = 300; // 5 minutes
+  private readonly MAX_TABLE_ROWS = 100000; // 100K rows max for table-based warming
+  private readonly ALLOWED_SCHEMAS = ['ih', 'public']; // Whitelist of allowed schemas
 
   /**
    * Trigger cache warming if needed (non-blocking)
@@ -175,6 +178,17 @@ export class CacheWarmingService {
   ): Promise<WarmResult> {
     const startTime = Date.now();
 
+    // SECURITY: Validate schema and table names to prevent SQL injection
+    if (!this.ALLOWED_SCHEMAS.includes(schemaName)) {
+      throw new Error(`Invalid schema name: ${schemaName}. Must be one of: ${this.ALLOWED_SCHEMAS.join(', ')}`);
+    }
+
+    // Validate table name format (alphanumeric, underscore only)
+    const TABLE_NAME_PATTERN = /^[a-z_][a-z0-9_]*$/;
+    if (!TABLE_NAME_PATTERN.test(tableName)) {
+      throw new Error(`Invalid table name format: ${tableName}. Must match pattern: ${TABLE_NAME_PATTERN.source}`);
+    }
+
     log.info('Warming table-based data source', {
       dataSourceId,
       tableName,
@@ -182,14 +196,24 @@ export class CacheWarmingService {
       type: 'table-based',
     });
 
-    // Fetch all rows from table without measure/frequency filtering
-    // Note: We need a system user context for warming - for now, fetch raw data
-    const rows = await db
-      .execute<Record<string, unknown>>(
-        `SELECT * FROM ${schemaName}.${tableName}`
-      );
+    // SECURITY: Use parameterized query to safely interpolate table name via identifier quotes
+    // PERFORMANCE: Add LIMIT to prevent memory exhaustion on large tables
+    const query = `SELECT * FROM "${schemaName}"."${tableName}" LIMIT ${this.MAX_TABLE_ROWS}`;
+    const rows = await executeAnalyticsQuery<Record<string, unknown>>(query, []);
 
     const totalRows = rows.length;
+
+    // Warn if we hit the row limit (table may be incomplete in cache)
+    if (totalRows === this.MAX_TABLE_ROWS) {
+      log.warn('Table-based data source hit row limit - cache may be incomplete', {
+        dataSourceId,
+        tableName,
+        schemaName,
+        rowsReturned: totalRows,
+        maxRows: this.MAX_TABLE_ROWS,
+        incomplete: true,
+      });
+    }
 
     if (totalRows === 0) {
       log.warn('No rows found for table-based data source', {

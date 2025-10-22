@@ -121,9 +121,12 @@ const updateDashboardHandler = async (
 
     // If chart associations changed, invalidate affected chart definitions
     if (validatedData.chart_ids && validatedData.chart_ids.length > 0) {
-      for (const chartId of validatedData.chart_ids) {
-        await analyticsCache.invalidate('chart', chartId);
-      }
+      // Parallelize invalidations for performance with many charts
+      await Promise.all(
+        validatedData.chart_ids.map(chartId =>
+          analyticsCache.invalidate('chart', chartId)
+        )
+      );
       // Also invalidate chart list cache
       await analyticsCache.invalidate('chart');
 

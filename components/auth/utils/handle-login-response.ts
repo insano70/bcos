@@ -74,11 +74,30 @@ export function handleLoginResponse(
   if (status === 'mfa_setup_optional' || status === 'mfa_setup_enforced') {
     const isEnforced = status === 'mfa_setup_enforced';
 
+    // Validate MFA setup required data
+    if (!data.user || typeof data.user !== 'object') {
+      throw new Error('Invalid MFA setup response: missing user');
+    }
+    const mfaUser = data.user as Record<string, unknown>;
+    if (!mfaUser.id || !mfaUser.email || !mfaUser.name) {
+      throw new Error('Invalid MFA setup response: incomplete user data');
+    }
+    if (!data.tempToken) {
+      throw new Error('Invalid MFA setup response: missing tempToken');
+    }
+    if (!data.csrfToken) {
+      throw new Error('Invalid MFA setup response: missing csrfToken');
+    }
+
     handlers.setMFASetupRequired({
-      user: data.user as { id: string; email: string; name: string },
+      user: {
+        id: String(mfaUser.id),
+        email: String(mfaUser.email),
+        name: String(mfaUser.name),
+      },
       skipsRemaining: data.skipsRemaining || 0,
-      tempToken: data.tempToken || '',
-      csrfToken: data.csrfToken || '',
+      tempToken: data.tempToken,
+      csrfToken: data.csrfToken,
     });
 
     handlers.setLoading(false);
@@ -87,11 +106,22 @@ export function handleLoginResponse(
 
   // Route 2: MFA Verification Required
   if (status === 'mfa_required') {
+    // Validate MFA verification required data
+    if (!data.tempToken) {
+      throw new Error('Invalid MFA verification response: missing tempToken');
+    }
+    if (!data.challengeId) {
+      throw new Error('Invalid MFA verification response: missing challengeId');
+    }
+    if (!data.csrfToken) {
+      throw new Error('Invalid MFA verification response: missing csrfToken');
+    }
+
     handlers.setMFAVerificationRequired({
-      tempToken: data.tempToken || '',
+      tempToken: data.tempToken,
       challenge: data.challenge,
-      challengeId: data.challengeId || '',
-      csrfToken: data.csrfToken || '',
+      challengeId: data.challengeId,
+      csrfToken: data.csrfToken,
     });
 
     handlers.setLoading(false);

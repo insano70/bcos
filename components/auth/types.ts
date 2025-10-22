@@ -75,7 +75,6 @@ export interface MFASessionData {
   };
   sessionId: string;
   csrfToken?: string;
-  accessToken?: string;
 }
 
 /**

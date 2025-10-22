@@ -287,13 +287,22 @@ export class CacheStatsService {
     for (const [dataSourceId, stats] of Object.entries(byDataSource)) {
       const memoryMB = stats.memoryMB;
       const memoryGB = stats.memoryMB / 1024;
-      byDataSourceFinal[parseInt(dataSourceId, 10)] = {
+      const result: {
+        keys: number;
+        memoryMB: number;
+        memoryGB: number;
+        measures: string[];
+        dataSourceType?: 'measure-based' | 'table-based';
+      } = {
         keys: stats.keys,
         memoryMB: Math.round(memoryMB * 100) / 100,
         memoryGB: Math.round(memoryGB * 100) / 100,
         measures: Array.from(stats.measures).sort(),
-        dataSourceType: stats.dataSourceType,
       };
+      if (stats.dataSourceType) {
+        result.dataSourceType = stats.dataSourceType;
+      }
+      byDataSourceFinal[parseInt(dataSourceId, 10)] = result;
     }
 
     const totalMemoryMB = totalSize / 1024 / 1024;

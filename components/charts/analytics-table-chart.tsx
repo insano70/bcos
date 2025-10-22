@@ -51,13 +51,6 @@ export default function AnalyticsTableChart({
 
   useEffect(() => {
     setMounted(true);
-    console.log('🎨 AnalyticsTableChart mounted:', {
-      dataRows: data?.length,
-      formattedDataRows: formattedData?.length,
-      useFormattedData,
-      columns: columns?.length,
-      columnsData: columns,
-    });
   }, [data, formattedData, useFormattedData, columns]);
 
   // Check if content is scrollable and update indicator
@@ -79,16 +72,6 @@ export default function AnalyticsTableChart({
         const { scrollHeight, clientHeight, scrollTop } = scrollElement;
         const isScrollable = scrollHeight > clientHeight;
         const isAtBottom = scrollHeight - scrollTop - clientHeight < 5; // 5px threshold
-
-        console.log('📏 Scroll check:', {
-          element: scrollElement === parent ? 'parent' : 'self',
-          scrollHeight,
-          clientHeight,
-          scrollTop,
-          isScrollable,
-          isAtBottom,
-          willShowIndicator: isScrollable && !isAtBottom,
-        });
 
         setShowScrollIndicator(isScrollable && !isAtBottom);
         setHasScrolledToBottom(isAtBottom);
@@ -137,15 +120,7 @@ export default function AnalyticsTableChart({
     );
   }
 
-  console.log('🎨 Rendering table with:', {
-    dataLength: data?.length,
-    formattedDataLength: formattedData?.length,
-    useFormattedData,
-    columnsLength: columns?.length,
-  });
-
   if (!displayData || displayData.length === 0) {
-    console.log('⚠️ No data to display');
     return (
       <div
         style={{ height: `${height}px` }}
@@ -165,7 +140,6 @@ export default function AnalyticsTableChart({
   }
 
   if (!columns || columns.length === 0) {
-    console.log('⚠️ No columns configured');
     return (
       <div
         style={{ height: `${height}px` }}
@@ -425,7 +399,6 @@ export default function AnalyticsTableChart({
             {/* Table body - matches fintech card styling exactly */}
             <tbody className="text-sm divide-y divide-gray-100 dark:divide-gray-700/60">
               {displayData.map((row, rowIndex) => {
-                console.log(`🔍 Rendering row ${rowIndex}:`, row);
                 return (
                   <tr key={String(row.id ?? rowIndex)}>
                     {columns.map((column, colIndex) => {

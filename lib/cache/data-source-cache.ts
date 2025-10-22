@@ -90,12 +90,19 @@ const dataSourceTypeCache = new Map<number, 'measure-based' | 'table-based'>();
  * Detect data source type from database
  * Uses in-memory cache to avoid repeated queries
  *
+ * SECURITY: Validates input and database return values
+ *
  * @param dataSourceId - Data source ID
  * @returns Data source type ('measure-based' or 'table-based')
  */
 async function detectDataSourceType(
   dataSourceId: number
 ): Promise<'measure-based' | 'table-based'> {
+  // SECURITY: Validate input
+  if (!Number.isInteger(dataSourceId) || dataSourceId <= 0) {
+    throw new Error(`Invalid dataSourceId: ${dataSourceId}. Must be positive integer.`);
+  }
+
   // Check cache first
   const cached = dataSourceTypeCache.get(dataSourceId);
   if (cached) {
@@ -118,6 +125,16 @@ async function detectDataSourceType(
   }
 
   const type = result[0].data_source_type;
+
+  // SECURITY: Validate database return value
+  if (type !== 'measure-based' && type !== 'table-based') {
+    log.error('Invalid data source type from database, defaulting to measure-based', {
+      dataSourceId,
+      invalidType: type,
+      component: 'data-source-cache',
+    });
+    return 'measure-based';
+  }
 
   // Cache the result
   dataSourceTypeCache.set(dataSourceId, type);
@@ -286,10 +303,10 @@ class DataSourceCacheService {
 
     const rows = await dataSourceQueryService.queryDataSource(queryParams, userContext);
 
-    // Cache the result (unless nocache=true)
-    if (!nocache && rows.length > 0) {
-      await cacheOperations.setCached(keyComponents, rows);
-    }
+    // REMOVED: Query-time caching no longer needed - warming handles all cache population
+    // This prevents creating incompatible OLD format keys (datasource:1:m:...)
+    // Only the indexed analytics cache warming system should create cache entries
+    // in the NEW format (cache:{ds:1}:...)
 
     // Apply in-memory filters (ORDER MATTERS: RBAC first for security)
     let filteredRows = rows;
