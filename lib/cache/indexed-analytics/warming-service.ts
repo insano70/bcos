@@ -22,7 +22,6 @@ import { executeAnalyticsQuery } from '@/lib/services/analytics-db';
 import { chartConfigService } from '@/lib/services/chart-config-service';
 import { columnMappingService } from '@/lib/services/column-mapping-service';
 import type { IndexedCacheClient } from './cache-client';
-import { CacheInvalidationService } from './invalidation-service';
 import { KeyGenerator, type CacheKeyEntry } from './key-generator';
 
 /**
@@ -87,16 +86,6 @@ export class CacheWarmingService {
     }
 
     try {
-      // Invalidate old cache before warming to prevent orphaned index references
-      // This ensures clean state and prevents key doubling on subsequent warming cycles
-      const invalidationService = new CacheInvalidationService(this.client);
-      await invalidationService.invalidate(datasourceId);
-
-      log.info('Old cache invalidated, starting fresh warming', {
-        datasourceId,
-        component: 'warming-service',
-      });
-
       // Get data source config
       const config = await chartConfigService.getDataSourceConfigById(datasourceId);
       if (!config) {
@@ -140,15 +129,24 @@ export class CacheWarmingService {
         component: 'warming-service',
       });
 
-      // Write in batches
-      const entriesCached = await this.writeBatches(grouped, datasourceId);
+      // Write to SHADOW keys (zero downtime)
+      const entriesCached = await this.writeBatchesToShadow(grouped, datasourceId);
+
+      log.info('Shadow keys populated, performing atomic swap', {
+        datasourceId,
+        entriesCached,
+        component: 'warming-service',
+      });
+
+      // Atomic swap: RENAME shadow keys to production keys
+      await this.swapShadowKeys(datasourceId);
 
       // Set metadata
       await this.setMetadata(datasourceId);
 
       const duration = Date.now() - startTime;
 
-      log.info('Cache warming completed', {
+      log.info('Cache warming completed with zero downtime', {
         datasourceId,
         entriesCached,
         totalRows: allRows.length,
@@ -260,13 +258,14 @@ export class CacheWarmingService {
   }
 
   /**
-   * Write grouped data to cache in batches using pipelines
+   * Write grouped data to SHADOW keys in batches using pipelines
+   * Shadow keys allow us to build the new cache without affecting production
    *
    * @param grouped - Map of cache key to data rows
    * @param datasourceId - Data source ID
    * @returns Number of entries cached
    */
-  private async writeBatches(
+  private async writeBatchesToShadow(
     grouped: Map<string, Record<string, unknown>[]>,
     datasourceId: number
   ): Promise<number> {
@@ -309,17 +308,18 @@ export class CacheWarmingService {
         frequency,
       };
 
-      const cacheKey = KeyGenerator.getCacheKey(entry);
-      const indexKeys = KeyGenerator.getIndexKeys(entry);
+      // Generate SHADOW keys instead of production keys
+      const shadowCacheKey = KeyGenerator.getShadowCacheKey(entry);
+      const shadowIndexKeys = KeyGenerator.getShadowIndexKeys(entry);
       const ttl = this.client.getDefaultTTL();
 
-      // Store data with TTL
-      pipeline.set(cacheKey, JSON.stringify(rows), 'EX', ttl);
+      // Store data to shadow key with TTL
+      pipeline.set(shadowCacheKey, JSON.stringify(rows), 'EX', ttl);
 
-      // Add to all indexes with TTL
-      for (const indexKey of indexKeys) {
-        pipeline.sadd(indexKey, cacheKey);
-        pipeline.expire(indexKey, ttl);
+      // Add to shadow indexes with TTL
+      for (const shadowIndexKey of shadowIndexKeys) {
+        pipeline.sadd(shadowIndexKey, shadowCacheKey);
+        pipeline.expire(shadowIndexKey, ttl);
       }
 
       entriesCached++;
@@ -329,7 +329,7 @@ export class CacheWarmingService {
         const result = await this.client.executePipeline(pipeline);
 
         if (!result.success) {
-          log.error('Redis pipeline errors during cache warming', {
+          log.error('Redis pipeline errors during shadow key warming', {
             datasourceId,
             errorCount: result.errorCount,
             component: 'warming-service',
@@ -342,7 +342,7 @@ export class CacheWarmingService {
           throw new Error('Failed to create new pipeline');
         }
 
-        log.debug('Cache warming progress', {
+        log.debug('Shadow key warming progress', {
           datasourceId,
           cached: entriesCached,
           total: grouped.size,
@@ -352,12 +352,12 @@ export class CacheWarmingService {
       }
     }
 
-    // Execute remaining pipeline (if there were any remaining items)
+    // Execute remaining pipeline
     if (entriesCached % batchSize !== 0 && grouped.size > 0) {
       const result = await this.client.executePipeline(pipeline);
 
       if (!result.success) {
-        log.error('Redis pipeline errors during final batch', {
+        log.error('Redis pipeline errors during final shadow key batch', {
           datasourceId,
           errorCount: result.errorCount,
           component: 'warming-service',
@@ -367,6 +367,153 @@ export class CacheWarmingService {
     }
 
     return entriesCached;
+  }
+
+  /**
+   * Atomic swap: RENAME shadow keys to production keys
+   * This happens in milliseconds with zero cache downtime
+   *
+   * Process:
+   * 1. SCAN for all shadow cache keys
+   * 2. For each shadow key, RENAME to production key (atomic operation)
+   * 3. SCAN for all shadow index keys
+   * 4. For each shadow index key, RENAME to production key (atomic operation)
+   *
+   * RENAME is atomic - either the key is renamed or it fails.
+   * Old production keys are automatically overwritten.
+   *
+   * @param datasourceId - Data source ID
+   */
+  private async swapShadowKeys(datasourceId: number): Promise<void> {
+    const redis = this.client.getClient();
+    if (!redis) {
+      throw new Error('Redis client not available for shadow key swap');
+    }
+
+    const swapStartTime = Date.now();
+    let cacheKeysRenamed = 0;
+    let indexKeysRenamed = 0;
+
+    // Step 1: Rename shadow cache keys to production keys
+    const shadowCachePattern = KeyGenerator.getShadowCachePattern(datasourceId);
+    let cursor = '0';
+    const SCAN_COUNT = 100;
+    let iterations = 0;
+    const MAX_ITERATIONS = 1000; // Safety limit (at 100 keys per scan = 100K keys max)
+
+    log.info('Starting shadow cache key swap', {
+      datasourceId,
+      pattern: shadowCachePattern,
+      component: 'warming-service',
+    });
+
+    do {
+      const result = await redis.scan(cursor, 'MATCH', shadowCachePattern, 'COUNT', SCAN_COUNT);
+      cursor = result[0];
+      const shadowKeys = result[1];
+
+      // Rename each shadow key to production key
+      for (const shadowKey of shadowKeys) {
+        // shadow:{ds:1}:m:Revenue:p:114:prov:501:freq:monthly
+        // => cache:{ds:1}:m:Revenue:p:114:prov:501:freq:monthly
+        const productionKey = shadowKey.replace(/^shadow:/, 'cache:');
+
+        try {
+          // RENAME is atomic - overwrites old key if exists
+          await redis.rename(shadowKey, productionKey);
+          cacheKeysRenamed++;
+        } catch (error) {
+          log.error('Failed to rename shadow cache key', error instanceof Error ? error : new Error(String(error)), {
+            shadowKey,
+            productionKey,
+            datasourceId,
+            component: 'warming-service',
+          });
+          throw error;
+        }
+      }
+
+      iterations++;
+      if (iterations > MAX_ITERATIONS) {
+        log.error('SCAN exceeded maximum iterations during cache key swap', new Error('SCAN timeout'), {
+          datasourceId,
+          pattern: shadowCachePattern,
+          iterations,
+          keysRenamed: cacheKeysRenamed,
+          component: 'warming-service',
+        });
+        throw new Error(`SCAN exceeded max iterations: ${MAX_ITERATIONS}`);
+      }
+    } while (cursor !== '0');
+
+    log.info('Shadow cache keys swapped', {
+      datasourceId,
+      keysRenamed: cacheKeysRenamed,
+      duration: Date.now() - swapStartTime,
+      component: 'warming-service',
+    });
+
+    // Step 2: Rename shadow index keys to production keys
+    const shadowIndexPattern = KeyGenerator.getShadowIndexPattern(datasourceId);
+    cursor = '0';
+    iterations = 0; // Reset iteration counter
+
+    log.info('Starting shadow index key swap', {
+      datasourceId,
+      pattern: shadowIndexPattern,
+      component: 'warming-service',
+    });
+
+    do {
+      const result = await redis.scan(cursor, 'MATCH', shadowIndexPattern, 'COUNT', SCAN_COUNT);
+      cursor = result[0];
+      const shadowIndexKeys = result[1];
+
+      // Rename each shadow index key to production key
+      for (const shadowIndexKey of shadowIndexKeys) {
+        // shadow_idx:{ds:1}:master
+        // => idx:{ds:1}:master
+        const productionIndexKey = shadowIndexKey.replace(/^shadow_idx:/, 'idx:');
+
+        try {
+          // RENAME is atomic - overwrites old key if exists
+          await redis.rename(shadowIndexKey, productionIndexKey);
+          indexKeysRenamed++;
+        } catch (error) {
+          log.error('Failed to rename shadow index key', error instanceof Error ? error : new Error(String(error)), {
+            shadowIndexKey,
+            productionIndexKey,
+            datasourceId,
+            component: 'warming-service',
+          });
+          throw error;
+        }
+      }
+
+      iterations++;
+      if (iterations > MAX_ITERATIONS) {
+        log.error('SCAN exceeded maximum iterations during index key swap', new Error('SCAN timeout'), {
+          datasourceId,
+          pattern: shadowIndexPattern,
+          iterations,
+          keysRenamed: indexKeysRenamed,
+          component: 'warming-service',
+        });
+        throw new Error(`SCAN exceeded max iterations: ${MAX_ITERATIONS}`);
+      }
+    } while (cursor !== '0');
+
+    const totalDuration = Date.now() - swapStartTime;
+
+    log.info('Shadow index keys swapped - atomic swap complete', {
+      datasourceId,
+      cacheKeysRenamed,
+      indexKeysRenamed,
+      totalKeys: cacheKeysRenamed + indexKeysRenamed,
+      duration: totalDuration,
+      note: 'Zero downtime achieved via atomic RENAME',
+      component: 'warming-service',
+    });
   }
 
   /**

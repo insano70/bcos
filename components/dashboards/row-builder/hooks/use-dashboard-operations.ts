@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import type { DashboardFilterConfig } from '@/components/charts/dashboard-filter-bar';
+import type { DashboardFilterConfig } from '@/lib/types/analytics';
 import type { RowBasedDashboardConfig } from '@/components/charts/dashboard-row-builder';
 import { apiClient } from '@/lib/api/client';
 import { convertRowsToApiFormat } from '../utils/layout-converter';

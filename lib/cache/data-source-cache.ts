@@ -44,21 +44,29 @@ import {
   dataSourceQueryService,
   type DataSourceQueryParams,
 } from '@/lib/services/analytics/data-source-query-service';
+import { db } from '@/lib/db';
+import { chart_data_sources } from '@/lib/db/chart-config-schema';
+import { eq } from 'drizzle-orm';
 
 // Re-export CacheKeyComponents for external use
 export type { CacheKeyComponents } from './data-source/cache-key-builder';
 
 /**
  * Query parameters for fetchDataSource
+ *
+ * Supports both measure-based and table-based data sources:
+ * - Measure-based: require measure + frequency
+ * - Table-based: no measure/frequency required
  */
 export interface CacheQueryParams {
   dataSourceId: number;
   schema: string;
   table: string;
-  measure?: string;
+  dataSourceType?: 'measure-based' | 'table-based';
+  measure?: string; // Required for measure-based, N/A for table-based
   practiceUid?: number;
   providerUid?: number;
-  frequency?: string;
+  frequency?: string; // Required for measure-based, N/A for table-based
   startDate?: string;
   endDate?: string;
   advancedFilters?: ChartFilter[];
@@ -70,6 +78,51 @@ export interface CacheQueryParams {
 export interface DataSourceFetchResult {
   rows: Record<string, unknown>[];
   cacheHit: boolean;
+}
+
+/**
+ * Cache for data source types (avoid repeated DB queries)
+ * Key: dataSourceId, Value: data_source_type
+ */
+const dataSourceTypeCache = new Map<number, 'measure-based' | 'table-based'>();
+
+/**
+ * Detect data source type from database
+ * Uses in-memory cache to avoid repeated queries
+ *
+ * @param dataSourceId - Data source ID
+ * @returns Data source type ('measure-based' or 'table-based')
+ */
+async function detectDataSourceType(
+  dataSourceId: number
+): Promise<'measure-based' | 'table-based'> {
+  // Check cache first
+  const cached = dataSourceTypeCache.get(dataSourceId);
+  if (cached) {
+    return cached;
+  }
+
+  // Query database
+  const result = await db
+    .select({ data_source_type: chart_data_sources.data_source_type })
+    .from(chart_data_sources)
+    .where(eq(chart_data_sources.data_source_id, dataSourceId))
+    .limit(1);
+
+  if (!result || result.length === 0 || !result[0]) {
+    log.warn('Data source not found, defaulting to measure-based', {
+      dataSourceId,
+      component: 'data-source-cache',
+    });
+    return 'measure-based';
+  }
+
+  const type = result[0].data_source_type;
+
+  // Cache the result
+  dataSourceTypeCache.set(dataSourceId, type);
+
+  return type;
 }
 
 /**
@@ -105,9 +158,27 @@ class DataSourceCacheService {
     // This ensures consistent accessible_practices population
     const context = await buildChartRenderContext(userContext);
 
+    // Detect data source type if not provided
+    const dataSourceType = params.dataSourceType || (await detectDataSourceType(params.dataSourceId));
+
+    // Validate measure/frequency for measure-based sources
+    if (dataSourceType === 'measure-based') {
+      if (!params.measure || !params.frequency) {
+        log.warn('Measure-based data source requires measure and frequency', {
+          dataSourceId: params.dataSourceId,
+          dataSourceType,
+          measure: params.measure,
+          frequency: params.frequency,
+          userId: userContext.user_id,
+        });
+        throw new Error('Measure-based data sources require measure and frequency parameters');
+      }
+    }
+
     // Build cache key components (only from chart filters, NOT from RBAC)
     const keyComponents: CacheKeyComponents = {
       dataSourceId: params.dataSourceId,
+      dataSourceType,
       ...(params.measure && { measure: params.measure }),
       ...(params.practiceUid && { practiceUid: params.practiceUid }), // Only if explicit chart filter
       ...(params.providerUid && { providerUid: params.providerUid }), // Only if explicit chart filter
@@ -203,6 +274,7 @@ class DataSourceCacheService {
       dataSourceId: params.dataSourceId,
       schema: params.schema,
       table: params.table,
+      dataSourceType,
       ...(params.measure && { measure: params.measure }),
       ...(params.practiceUid && { practiceUid: params.practiceUid }),
       ...(params.providerUid && { providerUid: params.providerUid }),
@@ -279,10 +351,15 @@ class DataSourceCacheService {
    * Invalidate cache entries
    *
    * @param dataSourceId - Optional data source ID
-   * @param measure - Optional measure filter
+   * @param measure - Optional measure filter (measure-based only)
+   * @param dataSourceType - Optional type filter
    */
-  async invalidate(dataSourceId?: number, measure?: string): Promise<void> {
-    await cacheOperations.invalidate(dataSourceId, measure);
+  async invalidate(
+    dataSourceId?: number,
+    measure?: string,
+    dataSourceType?: 'measure-based' | 'table-based'
+  ): Promise<void> {
+    await cacheOperations.invalidate(dataSourceId, measure, dataSourceType);
   }
 
   /**

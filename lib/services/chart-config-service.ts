@@ -79,6 +79,7 @@ export class ChartConfigService {
       description: string | null;
       tableName: string;
       schemaName: string;
+      dataSourceType: 'measure-based' | 'table-based';
     }>
   > {
     try {
@@ -89,6 +90,7 @@ export class ChartConfigService {
           description: chart_data_sources.data_source_description,
           tableName: chart_data_sources.table_name,
           schemaName: chart_data_sources.schema_name,
+          dataSourceType: chart_data_sources.data_source_type,
         })
         .from(chart_data_sources)
         .where(eq(chart_data_sources.is_active, true))

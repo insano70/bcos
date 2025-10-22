@@ -229,6 +229,91 @@ export const KeyGenerator = {
   },
 
   /**
+   * Generate shadow cache key for atomic swap pattern
+   * Shadow keys are written during warming, then atomically renamed to production keys
+   * Format: shadow:{ds:id}:m:{measure}:p:{practice}:prov:{provider}:freq:{frequency}
+   *
+   * @param entry - Cache entry fields
+   * @returns Shadow cache key string
+   *
+   * @example
+   * getShadowCacheKey({ datasourceId: 1, measure: 'Revenue', practiceUid: 114, providerUid: 501, frequency: 'monthly' })
+   * // => "shadow:{ds:1}:m:Revenue:p:114:prov:501:freq:monthly"
+   */
+  getShadowCacheKey(entry: CacheKeyEntry): string {
+    const { datasourceId, measure, practiceUid, providerUid, frequency } = entry;
+    return `shadow:{ds:${datasourceId}}:m:${measure}:p:${practiceUid}:prov:${providerUid || '*'}:freq:${frequency}`;
+  },
+
+  /**
+   * Generate shadow index keys for atomic swap pattern
+   * Shadow indexes are built during warming, then atomically renamed to production indexes
+   *
+   * @param entry - Cache entry fields
+   * @returns Array of shadow index key strings
+   *
+   * @example
+   * getShadowIndexKeys({ datasourceId: 1, measure: 'Revenue', practiceUid: 114, providerUid: 501, frequency: 'monthly' })
+   * // => [
+   * //   "shadow_idx:{ds:1}:master",
+   * //   "shadow_idx:{ds:1}:m:Revenue:freq:monthly",
+   * //   ...
+   * // ]
+   */
+  getShadowIndexKeys(entry: CacheKeyEntry): string[] {
+    const {
+      datasourceId: ds,
+      measure: m,
+      practiceUid: p,
+      providerUid: prov,
+      frequency: freq,
+    } = entry;
+
+    return [
+      // Master index for invalidation
+      `shadow_idx:{ds:${ds}}:master`,
+
+      // Base query index (measure + frequency)
+      `shadow_idx:{ds:${ds}}:m:${m}:freq:${freq}`,
+
+      // With practice filter
+      `shadow_idx:{ds:${ds}}:m:${m}:p:${p}:freq:${freq}`,
+
+      // With provider filter
+      `shadow_idx:{ds:${ds}}:m:${m}:freq:${freq}:prov:${prov || '*'}`,
+
+      // Full combination
+      `shadow_idx:{ds:${ds}}:m:${m}:p:${p}:prov:${prov || '*'}:freq:${freq}`,
+    ];
+  },
+
+  /**
+   * Generate shadow cache pattern for SCAN operations
+   *
+   * @param datasourceId - Data source ID
+   * @returns Shadow cache pattern
+   *
+   * @example
+   * getShadowCachePattern(1) // => "shadow:{ds:1}:*"
+   */
+  getShadowCachePattern(datasourceId: number): string {
+    return `shadow:{ds:${datasourceId}}:*`;
+  },
+
+  /**
+   * Generate shadow index pattern for SCAN operations
+   *
+   * @param datasourceId - Data source ID
+   * @returns Shadow index pattern
+   *
+   * @example
+   * getShadowIndexPattern(1) // => "shadow_idx:{ds:1}:*"
+   */
+  getShadowIndexPattern(datasourceId: number): string {
+    return `shadow_idx:{ds:${datasourceId}}:*`;
+  },
+
+  /**
    * Parse cache key back into components
    * Useful for debugging and statistics
    *

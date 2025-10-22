@@ -3,6 +3,9 @@
  * Automatically handles 401 errors by redirecting to login page
  */
 
+import { apiClientLogger } from '@/lib/utils/client-logger';
+import { API_CLIENT_RETRY_CONFIG } from '@/lib/utils/auth-constants';
+
 interface AuthContext {
   // accessToken removed - now handled server-side via httpOnly cookies + middleware
   csrfToken?: string | null | undefined;
@@ -42,9 +45,7 @@ class ApiClient {
     const { headers = {}, includeAuth = true, ...requestOptions } = options;
 
     // API request logging (client-side debug)
-    if (process.env.NODE_ENV === 'development') {
-      console.log('🚀 API Client Request:', endpoint, { hasAuthContext: !!this.authContext });
-    }
+    apiClientLogger.log('API Client Request:', { endpoint, hasAuthContext: !!this.authContext });
 
     // Build request headers
     const requestHeaders = new Headers({
@@ -74,9 +75,7 @@ class ApiClient {
       // Handle 401 Unauthorized - Session expired
       if (response.status === 401) {
         // Session expiry logging (client-side debug)
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[API Client] 401 received - attempting token refresh...');
-        }
+        apiClientLogger.log('401 received - attempting token refresh...');
 
         // Try to refresh token first
         if (this.authContext?.refreshToken && includeAuth) {
@@ -84,12 +83,7 @@ class ApiClient {
             // Refresh token (with built-in retry logic)
             await this.authContext.refreshToken();
 
-            if (process.env.NODE_ENV === 'development') {
-              console.log('[API Client] Token refresh completed, retrying original request...');
-            }
-
-            // Import retry constants
-            const { API_CLIENT_RETRY_CONFIG } = await import('@/lib/utils/auth-constants');
+            apiClientLogger.log('Token refresh completed, retrying original request...');
 
             // Retry the original request
             const maxRetries = API_CLIENT_RETRY_CONFIG.MAX_RETRIES;
@@ -104,9 +98,7 @@ class ApiClient {
               // Success - return immediately
               if (retryResponse.ok) {
                 const data = await retryResponse.json();
-                if (process.env.NODE_ENV === 'development') {
-                  console.log(`[API Client] Request succeeded on retry ${retryAttempt}`);
-                }
+                apiClientLogger.log(`Request succeeded on retry ${retryAttempt}`);
                 return data.data || data;
               }
 
@@ -114,16 +106,12 @@ class ApiClient {
               if (retryResponse.status === 401) {
                 if (retryAttempt < maxRetries) {
                   // Wait and retry once more
-                  if (process.env.NODE_ENV === 'development') {
-                    console.log(`[API Client] Retry ${retryAttempt} still 401, waiting ${API_CLIENT_RETRY_CONFIG.RETRY_DELAY_MS}ms...`);
-                  }
+                  apiClientLogger.log(`Retry ${retryAttempt} still 401, waiting ${API_CLIENT_RETRY_CONFIG.RETRY_DELAY_MS}ms...`);
                   await new Promise(resolve => setTimeout(resolve, API_CLIENT_RETRY_CONFIG.RETRY_DELAY_MS));
                   continue;
                 } else {
                   // Final attempt failed with 401 - session truly expired
-                  if (process.env.NODE_ENV === 'development') {
-                    console.error('[API Client] All retries exhausted with 401 - session expired');
-                  }
+                  apiClientLogger.error('All retries exhausted with 401 - session expired');
                   this.handleSessionExpired();
                   throw new Error('Session expired - redirecting to login');
                 }
@@ -138,9 +126,7 @@ class ApiClient {
             throw new Error('Request failed after all retries');
           } catch (refreshError) {
             // Token refresh failure logging (client-side debug)
-            if (process.env.NODE_ENV === 'development') {
-              console.error('[API Client] Token refresh or retry failed:', refreshError);
-            }
+            apiClientLogger.error('Token refresh or retry failed', refreshError);
             this.handleSessionExpired();
             throw new Error('Session expired - redirecting to login');
           }
@@ -159,11 +145,9 @@ class ApiClient {
         // Check if this is a CSRF token error
         if (errorMessage.toLowerCase().includes('csrf')) {
           // CSRF error logging (client-side debug)
-          if (process.env.NODE_ENV === 'development') {
-            console.log(
-              'API request returned 403 - CSRF token validation failed, fetching fresh token...'
-            );
-          }
+          apiClientLogger.log(
+            'API request returned 403 - CSRF token validation failed, fetching fresh token...'
+          );
 
           // Try to get a fresh CSRF token
           if (this.authContext?.ensureCsrfToken && includeAuth) {
@@ -198,9 +182,7 @@ class ApiClient {
               }
             } catch (csrfRefreshError) {
               // CSRF refresh failure logging (client-side debug)
-              if (process.env.NODE_ENV === 'development') {
-                console.log('CSRF token refresh failed:', csrfRefreshError);
-              }
+              apiClientLogger.log('CSRF token refresh failed', { error: csrfRefreshError });
               throw new Error('CSRF token validation failed');
             }
           } else {
@@ -236,9 +218,7 @@ class ApiClient {
       }
 
       // API request failure logging (client-side debug)
-      if (process.env.NODE_ENV === 'development') {
-        console.error(`API request failed [${requestOptions.method || 'GET'} ${endpoint}]:`, error);
-      }
+      apiClientLogger.error(`API request failed [${requestOptions.method || 'GET'} ${endpoint}]`, error);
 
       // Safe error message extraction
       let errorMessage = 'Network error occurred';
@@ -257,9 +237,7 @@ class ApiClient {
    */
   private handleSessionExpired() {
     // Session expiry redirect logging (client-side debug)
-    if (process.env.NODE_ENV === 'development') {
-      console.log('Session expired - redirecting to login page');
-    }
+    apiClientLogger.log('Session expired - redirecting to login page');
 
     // Clear auth context if available
     if (this.authContext?.logout) {

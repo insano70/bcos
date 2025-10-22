@@ -20,6 +20,10 @@ import { log } from '@/lib/logger';
 import { getRedisClient } from '@/lib/redis';
 import { chartConfigService } from '@/lib/services/chart-config-service';
 import { indexedAnalyticsCache } from '../indexed-analytics-cache';
+import { db } from '@/lib/db';
+import { chart_data_sources } from '@/lib/db/chart-config-schema';
+import { eq } from 'drizzle-orm';
+import { cacheOperations } from './cache-operations';
 
 /**
  * Cache warming result
@@ -156,8 +160,80 @@ export class CacheWarmingService {
   }
 
   /**
-   * Warm cache for a specific data source (delegates to indexed cache)
-   * Fetches all data and caches it with secondary index sets
+   * Warm table-based data source
+   * Fetches all rows from table and caches them directly (no measure grouping)
+   *
+   * @param dataSourceId - Data source ID
+   * @param tableName - Table name
+   * @param schemaName - Schema name
+   * @returns Warming result
+   */
+  private async warmTableBasedDataSource(
+    dataSourceId: number,
+    tableName: string,
+    schemaName: string
+  ): Promise<WarmResult> {
+    const startTime = Date.now();
+
+    log.info('Warming table-based data source', {
+      dataSourceId,
+      tableName,
+      schemaName,
+      type: 'table-based',
+    });
+
+    // Fetch all rows from table without measure/frequency filtering
+    // Note: We need a system user context for warming - for now, fetch raw data
+    const rows = await db
+      .execute<Record<string, unknown>>(
+        `SELECT * FROM ${schemaName}.${tableName}`
+      );
+
+    const totalRows = rows.length;
+
+    if (totalRows === 0) {
+      log.warn('No rows found for table-based data source', {
+        dataSourceId,
+        tableName,
+        schemaName,
+      });
+      return {
+        entriesCached: 0,
+        totalRows: 0,
+        duration: Date.now() - startTime,
+      };
+    }
+
+    // Cache the entire result set as a single entry
+    // Key format: datasource:{id}:table:p:*:prov:*
+    await cacheOperations.setCached(
+      {
+        dataSourceId,
+        dataSourceType: 'table-based',
+      },
+      rows
+    );
+
+    const duration = Date.now() - startTime;
+
+    log.info('Table-based data source warming completed', {
+      dataSourceId,
+      entriesCached: 1,
+      totalRows,
+      duration,
+      type: 'table-based',
+    });
+
+    return {
+      entriesCached: 1,
+      totalRows,
+      duration,
+    };
+  }
+
+  /**
+   * Warm cache for a specific data source
+   * Auto-detects type and routes to appropriate warming method
    *
    * SECURITY: Uses distributed locking to prevent concurrent warming
    * IMPORTANT: Manual warming resets the auto-warming rate limit
@@ -168,8 +244,32 @@ export class CacheWarmingService {
   async warmDataSource(dataSourceId: number): Promise<WarmResult> {
     log.info('Warming data source cache', { dataSourceId, trigger: 'manual' });
 
-    // Delegate to indexed cache which handles locking, grouping, and index creation
-    const result = await indexedAnalyticsCache.warmCache(dataSourceId);
+    // Detect data source type from database
+    const dataSourceInfo = await db
+      .select({
+        dataSourceType: chart_data_sources.data_source_type,
+        tableName: chart_data_sources.table_name,
+        schemaName: chart_data_sources.schema_name,
+      })
+      .from(chart_data_sources)
+      .where(eq(chart_data_sources.data_source_id, dataSourceId))
+      .limit(1);
+
+    if (!dataSourceInfo || dataSourceInfo.length === 0 || !dataSourceInfo[0]) {
+      throw new Error(`Data source ${dataSourceId} not found`);
+    }
+
+    const { dataSourceType, tableName, schemaName } = dataSourceInfo[0];
+
+    let result: WarmResult;
+
+    // Route to appropriate warming method based on type
+    if (dataSourceType === 'table-based') {
+      result = await this.warmTableBasedDataSource(dataSourceId, tableName, schemaName);
+    } else {
+      // Measure-based: delegate to indexed cache which handles locking, grouping, and index creation
+      result = await indexedAnalyticsCache.warmCache(dataSourceId);
+    }
 
     // Reset auto-warming rate limit after successful manual warm
     // This prevents auto-warming from triggering shortly after admin manually warms cache
@@ -181,6 +281,7 @@ export class CacheWarmingService {
 
       log.info('Manual warming reset auto-warm rate limit', {
         dataSourceId,
+        dataSourceType,
         rateLimitSet: true,
         nextAutoWarmAllowed: new Date(now.getTime() + this.RATE_LIMIT_SECONDS * 1000).toISOString(),
       });
@@ -191,45 +292,72 @@ export class CacheWarmingService {
 
   /**
    * Warm cache for all active data sources
+   * Executes all warmings in parallel for maximum performance
    *
    * @returns Warming result for all data sources
    */
   async warmAllDataSources(): Promise<WarmAllResult> {
     const startTime = Date.now();
 
-    log.info('Starting cache warming for all data sources');
+    log.info('Starting cache warming for all data sources (parallel execution)');
 
-    // Get all active data sources
+    // Get all active data sources with type information
     const dataSources = await chartConfigService.getAllDataSources();
 
-    let totalEntriesCached = 0;
-    let totalRows = 0;
-
-    for (const dataSource of dataSources) {
+    // Warm all data sources in parallel
+    const warmingPromises = dataSources.map(async (dataSource) => {
       try {
         const result = await this.warmDataSource(dataSource.id);
-        totalEntriesCached += result.entriesCached;
-        totalRows += result.totalRows;
+        return {
+          success: true,
+          dataSourceId: dataSource.id,
+          dataSourceType: dataSource.dataSourceType,
+          entriesCached: result.entriesCached,
+          totalRows: result.totalRows,
+        };
       } catch (error) {
         log.error('Failed to warm data source', error, {
           dataSourceId: dataSource.id,
+          dataSourceType: dataSource.dataSourceType,
         });
-        // Continue with other data sources
+        return {
+          success: false,
+          dataSourceId: dataSource.id,
+          dataSourceType: dataSource.dataSourceType,
+          entriesCached: 0,
+          totalRows: 0,
+        };
       }
-    }
+    });
+
+    // Wait for all warmings to complete
+    const results = await Promise.all(warmingPromises);
+
+    // Calculate totals
+    const successfulWarmings = results.filter((r) => r.success);
+    const totalEntriesCached = results.reduce((sum, r) => sum + r.entriesCached, 0);
+    const totalRows = results.reduce((sum, r) => sum + r.totalRows, 0);
+
+    const measureBasedCount = results.filter((r) => r.dataSourceType === 'measure-based').length;
+    const tableBasedCount = results.filter((r) => r.dataSourceType === 'table-based').length;
 
     const duration = Date.now() - startTime;
 
     log.info('Cache warming completed for all data sources', {
-      dataSourcesWarmed: dataSources.length,
+      dataSourcesWarmed: successfulWarmings.length,
+      dataSourcesFailed: results.length - successfulWarmings.length,
+      totalDataSources: dataSources.length,
+      measureBasedCount,
+      tableBasedCount,
       totalEntriesCached,
       totalRows,
       duration,
       durationMinutes: Math.round(duration / 60000),
+      executionMode: 'parallel',
     });
 
     return {
-      dataSourcesWarmed: dataSources.length,
+      dataSourcesWarmed: successfulWarmings.length,
       totalEntriesCached,
       totalRows,
       duration,

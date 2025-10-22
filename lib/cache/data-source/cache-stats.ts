@@ -37,19 +37,28 @@ interface CachedDataEntry {
 export interface CacheStatsResult {
   totalKeys: number;
   totalMemoryMB: number;
+  totalMemoryGB: number; // Added for large caches
   cacheKeys: string[];
   keysByLevel: Record<string, number>;
+  keysByType: {
+    // Added for type breakdown
+    'measure-based': number;
+    'table-based': number;
+  };
   byDataSource: Record<
     number,
     {
       keys: number;
       memoryMB: number;
+      memoryGB: number; // Added for large caches
       measures: string[];
+      dataSourceType?: 'measure-based' | 'table-based'; // Added for type info
     }
   >;
   largestEntries: Array<{
     key: string;
     sizeMB: number;
+    sizeGB: number; // Added for large caches
     rowCount?: number;
   }>;
 }
@@ -74,8 +83,13 @@ export class CacheStatsService {
       return {
         totalKeys: 0,
         totalMemoryMB: 0,
+        totalMemoryGB: 0,
         cacheKeys: [],
         keysByLevel: {},
+        keysByType: {
+          'measure-based': 0,
+          'table-based': 0,
+        },
         byDataSource: {},
         largestEntries: [],
       };
@@ -117,8 +131,13 @@ export class CacheStatsService {
       return {
         totalKeys: 0,
         totalMemoryMB: 0,
+        totalMemoryGB: 0,
         cacheKeys: [],
         keysByLevel: {},
+        keysByType: {
+          'measure-based': 0,
+          'table-based': 0,
+        },
         byDataSource: {},
         largestEntries: [],
       };
@@ -128,8 +147,13 @@ export class CacheStatsService {
       return {
         totalKeys: 0,
         totalMemoryMB: 0,
+        totalMemoryGB: 0,
         cacheKeys: [],
         keysByLevel: {},
+        keysByType: {
+          'measure-based': 0,
+          'table-based': 0,
+        },
         byDataSource: {},
         largestEntries: [],
       };
@@ -143,8 +167,14 @@ export class CacheStatsService {
       'Level 3 (Measure+Practice+Freq)': 0,
       'Level 4 (Full)': 0,
     };
-    const byDataSource: Record<number, { keys: number; memoryMB: number; measures: Set<string> }> =
-      {};
+    const keysByType = {
+      'measure-based': 0,
+      'table-based': 0,
+    };
+    const byDataSource: Record<
+      number,
+      { keys: number; memoryMB: number; measures: Set<string>; dataSourceType?: 'measure-based' | 'table-based' }
+    > = {};
     const entrySizes: Array<{ key: string; size: number; rowCount?: number }> = [];
 
     for (const key of keys) {
@@ -154,27 +184,40 @@ export class CacheStatsService {
           const size = Buffer.byteLength(value, 'utf8');
           totalSize += size;
 
-          // Parse key to extract data source ID
-          // Format: datasource:{id}:m:{measure}:p:{practice}:prov:{provider}:freq:{frequency}
-          const match = key.match(/^datasource:(\d+):/);
-          if (match?.[1]) {
+          // Parse key to extract data source ID and type
+          // Formats:
+          // - Measure-based: datasource:{id}:m:{measure}:p:{practice}:prov:{provider}:freq:{frequency}
+          // - Table-based: datasource:{id}:table:p:{practice}:prov:{provider}
+          const match = key.match(/^datasource:(\d+):(\w+):/);
+          if (match?.[1] && match?.[2]) {
             const dataSourceId = parseInt(match[1], 10);
+            const typeIndicator = match[2];
+            const dataSourceType: 'measure-based' | 'table-based' =
+              typeIndicator === 'table' ? 'table-based' : 'measure-based';
+
+            // Track by type
+            keysByType[dataSourceType]++;
+
             if (!byDataSource[dataSourceId]) {
               byDataSource[dataSourceId] = {
                 keys: 0,
                 memoryMB: 0,
                 measures: new Set<string>(),
+                dataSourceType,
               };
             }
             const dsStats = byDataSource[dataSourceId];
             if (dsStats) {
               dsStats.keys++;
               dsStats.memoryMB += size / 1024 / 1024;
+              dsStats.dataSourceType = dataSourceType;
 
-              // Extract measure name
-              const measureMatch = key.match(/:m:([^:]+):/);
-              if (measureMatch?.[1] && measureMatch[1] !== '*') {
-                dsStats.measures.add(measureMatch[1]);
+              // Extract measure name (measure-based only)
+              if (dataSourceType === 'measure-based') {
+                const measureMatch = key.match(/:m:([^:]+):/);
+                if (measureMatch?.[1] && measureMatch[1] !== '*') {
+                  dsStats.measures.add(measureMatch[1]);
+                }
               }
             }
           }
@@ -219,30 +262,50 @@ export class CacheStatsService {
     const largestEntries = entrySizes
       .sort((a, b) => b.size - a.size)
       .slice(0, 10)
-      .map((entry) => ({
-        key: entry.key,
-        sizeMB: entry.size / 1024 / 1024,
-        ...(entry.rowCount !== undefined && { rowCount: entry.rowCount }),
-      }));
+      .map((entry) => {
+        const sizeMB = entry.size / 1024 / 1024;
+        const sizeGB = entry.size / (1024 * 1024 * 1024);
+        return {
+          key: entry.key,
+          sizeMB: Math.round(sizeMB * 100) / 100,
+          sizeGB: Math.round(sizeGB * 100) / 100,
+          ...(entry.rowCount !== undefined && { rowCount: entry.rowCount }),
+        };
+      });
 
     // Convert byDataSource to final format (Set → Array)
     const byDataSourceFinal: Record<
       number,
-      { keys: number; memoryMB: number; measures: string[] }
+      {
+        keys: number;
+        memoryMB: number;
+        memoryGB: number;
+        measures: string[];
+        dataSourceType?: 'measure-based' | 'table-based';
+      }
     > = {};
     for (const [dataSourceId, stats] of Object.entries(byDataSource)) {
+      const memoryMB = stats.memoryMB;
+      const memoryGB = stats.memoryMB / 1024;
       byDataSourceFinal[parseInt(dataSourceId, 10)] = {
         keys: stats.keys,
-        memoryMB: Math.round(stats.memoryMB * 100) / 100,
+        memoryMB: Math.round(memoryMB * 100) / 100,
+        memoryGB: Math.round(memoryGB * 100) / 100,
         measures: Array.from(stats.measures).sort(),
+        dataSourceType: stats.dataSourceType,
       };
     }
 
+    const totalMemoryMB = totalSize / 1024 / 1024;
+    const totalMemoryGB = totalSize / (1024 * 1024 * 1024);
+
     return {
       totalKeys: keys.length,
-      totalMemoryMB: Math.round((totalSize / 1024 / 1024) * 100) / 100,
+      totalMemoryMB: Math.round(totalMemoryMB * 100) / 100,
+      totalMemoryGB: Math.round(totalMemoryGB * 100) / 100,
       cacheKeys: keys,
       keysByLevel,
+      keysByType,
       byDataSource: byDataSourceFinal,
       largestEntries,
     };

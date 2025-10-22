@@ -544,7 +544,8 @@ function UniversalChartComponent(props: AnalyticsChartProps) {
         title={title || `${measure} - ${actualFrequency}`}
         onExport={handleExport}
         onRefresh={refetch}
-        {...((chartType === 'bar' ||
+        {...((chartType === 'line' ||
+          chartType === 'bar' ||
           chartType === 'stacked-bar' ||
           chartType === 'horizontal-bar') && {
           onFullscreen: () => setIsFullscreen(true),
@@ -604,9 +605,12 @@ function UniversalChartComponent(props: AnalyticsChartProps) {
         )}
       </div>
 
-      {/* Fullscreen Modal for Bar Charts */}
+      {/* Fullscreen Modal for Line and Bar Charts */}
       {isFullscreen &&
-        (chartType === 'bar' || chartType === 'stacked-bar' || chartType === 'horizontal-bar') && (
+        (chartType === 'line' ||
+          chartType === 'bar' ||
+          chartType === 'stacked-bar' ||
+          chartType === 'horizontal-bar') && (
           <ChartFullscreenModal
             isOpen={isFullscreen}
             onClose={() => setIsFullscreen(false)}

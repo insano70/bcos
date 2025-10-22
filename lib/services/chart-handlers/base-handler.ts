@@ -146,8 +146,19 @@ export abstract class BaseChartHandler implements ChartTypeHandler {
   }
 
   /**
+   * Get data source type for this chart handler
+   * Override in subclasses to specify type explicitly (e.g., table-based)
+   * If not overridden, type will be auto-detected from database
+   */
+  protected getDataSourceType(): 'measure-based' | 'table-based' | undefined {
+    // Default: undefined (will be auto-detected)
+    return undefined;
+  }
+
+  /**
    * Build analytics query parameters from chart config
    * Helper method for fetchData
+   * Subclasses can override getDataSourceType() to specify type explicitly
    */
   protected buildQueryParams(config: Record<string, unknown>): AnalyticsQueryParams {
     // Calculate date range from preset or explicit dates
@@ -164,6 +175,12 @@ export abstract class BaseChartHandler implements ChartTypeHandler {
       end_date: endDate,
       limit: (config.limit as number) || QUERY_LIMITS.DEFAULT_ANALYTICS_LIMIT,
     };
+
+    // Allow subclasses to specify data source type explicitly
+    const dataSourceType = this.getDataSourceType();
+    if (dataSourceType) {
+      queryParams.data_source_type = dataSourceType;
+    }
 
     // Add optional parameters if present
     if (config.measure) {

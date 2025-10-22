@@ -415,7 +415,7 @@ export default function DashboardFilterDropdown({
                 <div>
                   <HierarchySelect
                     items={organizations}
-                    value={pendingFilters.organizationId}
+                    value={pendingFilters.organizationId ?? undefined}
                     onChange={(id) => handleOrganizationChange((id as string) || '')}
                     idField="id"
                     nameField="name"

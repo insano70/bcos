@@ -184,7 +184,7 @@ export class ComboChartHandler extends BaseChartHandler {
     // Get color palette
     const colors = getPaletteColors(colorPalette);
 
-    // Build data map for primary measure
+    // Build data map for primary measure - sum all values for each date
     const primaryDataMap = new Map<string, number>();
     for (const measure of primaryData) {
       const dateValue = measure[dateColumn];
@@ -194,11 +194,13 @@ export class ComboChartHandler extends BaseChartHandler {
           ? Number.parseFloat(measureValue)
           : (measureValue as number) || 0;
       if (dateValue) {
-        primaryDataMap.set(String(dateValue), value);
+        const dateKey = String(dateValue);
+        const currentValue = primaryDataMap.get(dateKey) || 0;
+        primaryDataMap.set(dateKey, currentValue + value);
       }
     }
 
-    // Build data map for secondary measure
+    // Build data map for secondary measure - sum all values for each date
     const secondaryDataMap = new Map<string, number>();
     for (const measure of secondaryData) {
       const dateValue = measure[dateColumn];
@@ -208,7 +210,9 @@ export class ComboChartHandler extends BaseChartHandler {
           ? Number.parseFloat(measureValue)
           : (measureValue as number) || 0;
       if (dateValue) {
-        secondaryDataMap.set(String(dateValue), value);
+        const dateKey = String(dateValue);
+        const currentValue = secondaryDataMap.get(dateKey) || 0;
+        secondaryDataMap.set(dateKey, currentValue + value);
       }
     }
 

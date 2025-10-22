@@ -32,6 +32,18 @@ const flushAllHandler = async (request: NextRequest, userContext: UserContext) =
   const startTime = Date.now();
 
   try {
+    // Parse request body
+    const body = await request.json().catch(() => ({}));
+
+    // Require explicit confirmation to prevent accidental FLUSHALL
+    if (body.confirm !== true) {
+      return createErrorResponse(
+        'Confirmation required: POST body must include {"confirm": true}',
+        400,
+        request
+      );
+    }
+
     // Check if Redis is available
     if (!isRedisAvailable()) {
       return createErrorResponse('Redis is not available', 503, request);

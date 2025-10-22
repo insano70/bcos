@@ -84,6 +84,21 @@ export async function retryWithBackoff<T>(
 
 /**
  * Sleep utility for testing and manual delays
+ *
+ * Provides a Promise-based sleep function for use in tests,
+ * manual delays, and rate limiting implementations.
+ *
+ * @param ms - Milliseconds to sleep
+ * @returns Promise that resolves after the specified delay
+ *
+ * @example
+ * // Wait 1 second before continuing
+ * await sleep(1000);
+ *
+ * @example
+ * // Use in tests to simulate async delays
+ * await sleep(100);
+ * expect(asyncOperation).toHaveBeenCalled();
  */
 export function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));

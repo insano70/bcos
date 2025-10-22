@@ -1,4 +1,4 @@
-import type { DashboardFilterConfig } from '@/components/charts/dashboard-filter-bar';
+import type { DashboardFilterConfig } from '@/lib/types/analytics';
 import type {
   DashboardChartSlot,
   DashboardRow,

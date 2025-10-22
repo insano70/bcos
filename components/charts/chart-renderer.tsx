@@ -17,14 +17,13 @@ import type { ChartData, DualAxisConfig } from '@/lib/types/analytics';
 import AnalyticsBarChart from './analytics-bar-chart';
 import AnalyticsDualAxisChart from './analytics-dual-axis-chart';
 import AnalyticsHorizontalBarChart from './analytics-horizontal-bar-chart';
+import AnalyticsLineChart from './analytics-line-chart';
 import AnalyticsNumberChart from './analytics-number-chart';
 import AnalyticsProgressBarChart from './analytics-progress-bar-chart';
 import AnalyticsStackedBarChart from './analytics-stacked-bar-chart';
 import AnalyticsTableChart from './analytics-table-chart';
 import AreaChart from './area-chart';
 import DoughnutChart from './doughnut-chart';
-// Chart rendering components
-import LineChart01 from './line-chart-01';
 
 /**
  * Formatted cell structure for table charts
@@ -106,7 +105,7 @@ interface ChartRendererProps {
  */
 // biome-ignore lint/suspicious/noExplicitAny: Dynamic component dispatch with heterogeneous prop types
 const CHART_COMPONENTS: Record<string, React.ComponentType<any>> = {
-  line: LineChart01,
+  line: AnalyticsLineChart,
   bar: AnalyticsBarChart,
   'stacked-bar': AnalyticsStackedBarChart,
   'horizontal-bar': AnalyticsHorizontalBarChart,

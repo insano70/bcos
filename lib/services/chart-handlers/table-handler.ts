@@ -47,6 +47,14 @@ export class TableChartHandler extends BaseChartHandler {
   }
 
   /**
+   * Table charts always use table-based data sources
+   * Override to avoid database lookup for type detection
+   */
+  protected getDataSourceType(): 'table-based' {
+    return 'table-based';
+  }
+
+  /**
    * Fetch table data with column metadata
    *
    * Tables require both row data and column definitions. This method:

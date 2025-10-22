@@ -54,7 +54,7 @@ export interface CacheGetResult {
  */
 export class CacheOperations {
   private readonly TTL = 172800; // 48 hours (2 days)
-  private readonly MAX_CACHE_SIZE = 50 * 1024 * 1024; // 50MB
+  private readonly MAX_CACHE_SIZE = 1024 * 1024 * 1024; // 1GB (support for large table-based datasets)
   private readonly MAX_SCAN_ITERATIONS = 10000; // Safety limit to prevent infinite loops
   private readonly STALE_THRESHOLD_HOURS = 4; // Cache considered stale after 4 hours
 
@@ -98,7 +98,8 @@ export class CacheOperations {
       }
     }
 
-    if (isWarm && components.measure && components.frequency) {
+    // For measure-based sources, use indexed cache with measure + frequency
+    if (isWarm && components.dataSourceType !== 'table-based' && components.measure && components.frequency) {
       // Try indexed cache with index lookup
       const filters: CacheQueryFilters = {
         datasourceId: datasourceId,
@@ -112,7 +113,7 @@ export class CacheOperations {
         const rows = await indexedAnalyticsCache.query(filters);
 
         if (rows.length > 0) {
-          log.info('Data source cache hit', {
+          log.info('Data source cache hit (measure-based)', {
             cacheKey: `ds:${datasourceId}:m:${components.measure}:freq:${components.frequency}`,
             cacheLevel: 0,
             rowCount: rows.length,
@@ -129,6 +130,35 @@ export class CacheOperations {
         }
       } catch (error) {
         log.warn('Cache query failed, will try database', { error, components });
+      }
+    }
+
+    // For table-based sources, try direct Redis lookup
+    if (components.dataSourceType === 'table-based') {
+      const client = getRedisClient();
+      if (client) {
+        const key = cacheKeyBuilder.buildKey(components);
+        try {
+          const cached = await client.get(key);
+          if (cached) {
+            const parsed = JSON.parse(cached) as CachedDataEntry;
+            log.info('Data source cache hit (table-based)', {
+              cacheKey: key,
+              cacheLevel: 0,
+              rowCount: parsed.rowCount,
+              cacheAgeHours: cacheAgeHours ? Math.round(cacheAgeHours * 10) / 10 : null,
+              staleness,
+            });
+
+            return {
+              rows: parsed.rows,
+              cacheKey: key,
+              cacheLevel: 0,
+            };
+          }
+        } catch (error) {
+          log.warn('Table-based cache query failed, will try database', { error, key });
+        }
       }
     }
 
@@ -175,10 +205,13 @@ export class CacheOperations {
 
     // Check size limit
     if (cachedData.sizeBytes > this.MAX_CACHE_SIZE) {
+      const sizeGB = cachedData.sizeBytes / (1024 * 1024 * 1024);
+      const maxGB = this.MAX_CACHE_SIZE / (1024 * 1024 * 1024);
+
       log.warn('Data source cache entry too large', {
         key,
-        sizeMB: Math.round(cachedData.sizeBytes / 1024 / 1024),
-        maxMB: Math.round(this.MAX_CACHE_SIZE / 1024 / 1024),
+        sizeGB: Math.round(sizeGB * 100) / 100,
+        maxGB: Math.round(maxGB * 100) / 100,
         rowCount: rows.length,
       });
       return;
@@ -193,13 +226,26 @@ export class CacheOperations {
     try {
       await client.setex(key, effectiveTTL, jsonString);
 
-      log.info('Data source cached', {
-        key,
-        rowCount: rows.length,
-        sizeKB: Math.round(cachedData.sizeBytes / 1024),
-        ttl: effectiveTTL,
-        expiresAt: expiresAt.toISOString(),
-      });
+      // Log in GB if > 100MB, otherwise use KB
+      const sizeMB = cachedData.sizeBytes / (1024 * 1024);
+      const logData =
+        sizeMB > 100
+          ? {
+              key,
+              rowCount: rows.length,
+              sizeGB: Math.round((sizeMB / 1024) * 100) / 100,
+              ttl: effectiveTTL,
+              expiresAt: expiresAt.toISOString(),
+            }
+          : {
+              key,
+              rowCount: rows.length,
+              sizeKB: Math.round(cachedData.sizeBytes / 1024),
+              ttl: effectiveTTL,
+              expiresAt: expiresAt.toISOString(),
+            };
+
+      log.info('Data source cached', logData);
     } catch (error) {
       log.error('Failed to cache data', error instanceof Error ? error : new Error(String(error)), {
         key,
@@ -212,16 +258,21 @@ export class CacheOperations {
    * Invalidate cache entries
    *
    * @param dataSourceId - Optional data source ID (if not provided, clears all)
-   * @param measure - Optional measure filter
+   * @param measure - Optional measure filter (measure-based only)
+   * @param dataSourceType - Optional type filter
    */
-  async invalidate(dataSourceId?: number, measure?: string): Promise<void> {
+  async invalidate(
+    dataSourceId?: number,
+    measure?: string,
+    dataSourceType?: 'measure-based' | 'table-based'
+  ): Promise<void> {
     const client = getRedisClient();
     if (!client) {
       log.debug('Redis not available, skipping cache invalidation');
       return;
     }
 
-    const pattern = cacheKeyBuilder.buildPattern(dataSourceId, measure);
+    const pattern = cacheKeyBuilder.buildPattern(dataSourceId, measure, dataSourceType);
 
     try {
       // Get all matching keys

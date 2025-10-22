@@ -120,10 +120,25 @@ export class CacheInvalidationService {
     try {
       // Use SCAN with cursor properly (like flush-redis.mjs)
       let cursor = '0';
+      let iterations = 0;
+      const MAX_ITERATIONS = 1000; // Safety limit (at 100 keys per scan = 100K keys max)
+
       do {
         const result = await redis.scan(cursor, 'MATCH', indexPattern, 'COUNT', this.SCAN_COUNT);
         cursor = result[0];
         indexKeys.push(...result[1]);
+
+        iterations++;
+        if (iterations > MAX_ITERATIONS) {
+          log.error('SCAN exceeded maximum iterations - possible infinite loop', new Error('SCAN timeout'), {
+            datasourceId,
+            pattern: indexPattern,
+            iterations,
+            keysFound: indexKeys.length,
+            component: 'invalidation-service',
+          });
+          throw new Error(`SCAN exceeded max iterations: ${MAX_ITERATIONS}`);
+        }
       } while (cursor !== '0');
 
       log.info('Index keys scanned for deletion', {

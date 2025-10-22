@@ -6,8 +6,12 @@ import {
   BarElement,
   CategoryScale,
   Chart,
+  Filler,
   Legend,
+  LineController,
+  LineElement,
   LinearScale,
+  PointElement,
   TimeScale,
   Tooltip,
 } from 'chart.js';
@@ -31,7 +35,7 @@ interface ChartFullscreenModalProps {
   onClose: () => void;
   chartTitle: string;
   chartData: ChartData;
-  chartType: 'bar' | 'stacked-bar' | 'horizontal-bar';
+  chartType: 'line' | 'bar' | 'stacked-bar' | 'horizontal-bar';
   frequency?: string;
   stackingMode?: 'normal' | 'percentage';
 }
@@ -66,6 +70,10 @@ export default function ChartFullscreenModal({
       Chart.register(
         BarController,
         BarElement,
+        LineController,
+        LineElement,
+        PointElement,
+        Filler,
         LinearScale,
         CategoryScale,
         TimeScale,
@@ -163,9 +171,10 @@ export default function ChartFullscreenModal({
     };
 
     const isHorizontal = chartType === 'horizontal-bar';
+    const actualChartType = chartType === 'line' ? 'line' : 'bar';
 
     const newChart = new Chart(ctx, {
-      type: 'bar',
+      type: actualChartType,
       data: chartjsData,
       options: {
         indexAxis: isHorizontal ? 'y' : 'x', // Horizontal bars use 'y' as the index axis

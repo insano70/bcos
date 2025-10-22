@@ -10,6 +10,10 @@ import {
   useState,
 } from 'react';
 import { apiClient } from '@/lib/api/client';
+import { authLogger } from '@/lib/utils/client-logger';
+import { AUTH_RETRY_CONFIG, TOKEN_REFRESH_INTERVALS } from '@/lib/utils/auth-constants';
+import { classifyAuthError, shouldRetryAuthError } from '@/lib/utils/auth-errors';
+import { retryWithBackoff } from '@/lib/utils/retry';
 import { useAuthState } from './hooks/use-auth-state';
 import { useCSRFManagement } from './hooks/use-csrf-management';
 import { useMFAFlow } from './hooks/use-mfa-flow';
@@ -65,44 +69,106 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
     csrfTokenRef.current = csrfToken;
   }, [csrfToken]);
 
+  /**
+   * Refresh authentication token with comprehensive retry and error handling
+   *
+   * This function manages the entire token refresh lifecycle including:
+   * - Race condition protection via mutex (prevents concurrent refreshes)
+   * - Exponential backoff retry strategy (3 attempts: 1s → 2s → 4s delays)
+   * - Intelligent error classification (network, rate_limit, invalid_token, etc.)
+   * - Runtime validation of API responses
+   * - State management during retries (preserves auth state until all attempts exhausted)
+   *
+   * **Flow:**
+   * 1. Check if refresh already in progress (wait up to 5s for completion)
+   * 2. Acquire mutex lock
+   * 3. Attempt refresh with retry logic:
+   *    - Network/server errors: retry up to 3 times
+   *    - Rate limits: retry with backoff
+   *    - Invalid tokens: fail immediately
+   *    - CSRF errors: retry once with fresh token
+   * 4. Validate and update user state on success
+   * 5. On failure after retries:
+   *    - Rate limit: preserve session, retry on next periodic refresh
+   *    - Other errors: trigger logout
+   * 6. Release mutex
+   *
+   * **Error Handling:**
+   * - Classifies errors by priority: HTTP status → TypeError → message parsing
+   * - Preserves authentication state during retry attempts
+   * - Only logs out after all retries exhausted (except rate limits)
+   * - Detailed logging at each step for debugging
+   *
+   * **Mutex Implementation:**
+   * - Uses authOperationInProgress ref to prevent concurrent operations
+   * - Concurrent callers wait up to 5 seconds for completion
+   * - Includes error handling for wait loop failures
+   * - Always releases mutex in finally block
+   *
+   * **State Updates:**
+   * - `refreshStart()`: Mark refresh in progress
+   * - `refreshFailure(attempt)`: Update retry count during retries
+   * - `refreshSuccess()`: Update user data and session
+   * - `refreshRetryFailed()`: Clear auth state after exhausting retries
+   *
+   * @throws Never throws - all errors handled internally
+   * @returns Promise<void> - Resolves when refresh complete or all retries exhausted
+   *
+   * @see {@link authHTTPService.refreshAuthToken} - HTTP endpoint for refresh
+   * @see {@link retryWithBackoff} - Exponential backoff implementation
+   * @see {@link classifyAuthError} - Error classification logic
+   * @see {@link AUTH_RETRY_CONFIG} - Retry configuration constants
+   *
+   * @example
+   * // Called automatically every 8 minutes by periodic refresh interval
+   * // Also called by API client on 401 responses
+   * await refreshToken();
+   */
   const refreshToken = useCallback(async () => {
     // RACE CONDITION PROTECTION: Prevent concurrent refresh operations
     // If a refresh is already in progress, wait for it to complete instead of skipping
     if (authOperationInProgress.current) {
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[Auth] Operation already in progress, waiting for completion...');
-      }
+      const waitStartTime = Date.now();
+      authLogger.log('Operation already in progress, waiting for completion...');
 
       try {
-        // Import auth constants
-        const { AUTH_RETRY_CONFIG } = await import('@/lib/utils/auth-constants');
-
         // Wait for the current operation to complete
         const maxWaitTime = AUTH_RETRY_CONFIG.MUTEX_TIMEOUT_MS;
         const checkInterval = AUTH_RETRY_CONFIG.MUTEX_CHECK_INTERVAL_MS;
         let waited = 0;
+        let checkCount = 0;
 
         while (authOperationInProgress.current && waited < maxWaitTime) {
           await new Promise<void>((resolve) => setTimeout(resolve, checkInterval));
           waited += checkInterval;
+          checkCount++;
         }
 
-        if (authOperationInProgress.current) {
-          if (process.env.NODE_ENV === 'development') {
-            console.warn('[Auth] Operation timeout - proceeding anyway');
-          }
+        const waitDuration = Date.now() - waitStartTime;
+        const timedOut = authOperationInProgress.current;
+
+        if (timedOut) {
+          // Mutex wait timeout - log warning with detailed context
+          authLogger.warn('Mutex wait timeout - proceeding anyway', {
+            waitDuration,
+            checksPerformed: checkCount,
+            maxWaitTime,
+          });
         } else {
-          if (process.env.NODE_ENV === 'development') {
-            console.log('[Auth] Operation completed, refresh not needed');
-          }
+          // Mutex released successfully - no refresh needed
+          authLogger.log('Mutex released - concurrent operation completed', {
+            waitDuration,
+            checksPerformed: checkCount,
+          });
           return;
         }
       } catch (error) {
         // If waiting fails, log and proceed with refresh attempt
-        if (process.env.NODE_ENV === 'development') {
-          console.error('[Auth] Error while waiting for concurrent operation:', error);
-        }
-        // Proceed with refresh attempt
+        const waitDuration = Date.now() - waitStartTime;
+        authLogger.error('Error while waiting for mutex release', error, {
+          waitDuration,
+        });
+        // Proceed with refresh attempt despite error
       }
     }
 
@@ -110,11 +176,6 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
 
     try {
       actions.refreshStart();
-
-      // Import retry utilities and constants
-      const { retryWithBackoff } = await import('@/lib/utils/retry');
-      const { classifyAuthError, shouldRetryAuthError } = await import('@/lib/utils/auth-errors');
-      const { AUTH_RETRY_CONFIG } = await import('@/lib/utils/auth-constants');
 
       let attempt = 0;
 
@@ -127,9 +188,7 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
           const currentToken = csrfTokenRef.current;
           const token = currentToken || (await ensureCsrfToken()) || '';
 
-          if (process.env.NODE_ENV === 'development') {
-            console.log(`[Auth] Token refresh attempt ${attempt}`);
-          }
+          authLogger.log(`Token refresh attempt ${attempt}`);
 
           // Use HTTP service to refresh token
           const refreshResult = await authHTTPService.refreshAuthToken(token);
@@ -148,13 +207,11 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
             const classified = classifyAuthError(error);
             const shouldRetry = shouldRetryAuthError(error, attemptNum);
 
-            if (process.env.NODE_ENV === 'development') {
-              console.log(`[Auth] Refresh attempt ${attemptNum} failed:`, {
-                errorType: classified.type,
-                shouldRetry,
-                message: classified.message,
-              });
-            }
+            authLogger.log(`Refresh attempt ${attemptNum} failed`, {
+              errorType: classified.type,
+              shouldRetry,
+              message: classified.message,
+            });
 
             // Update state with retry attempt number
             if (shouldRetry) {
@@ -165,12 +222,10 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
           },
           onRetry: (error, attemptNum, delayMs) => {
             const classified = classifyAuthError(error);
-            if (process.env.NODE_ENV === 'development') {
-              console.log(`[Auth] Retrying refresh in ${delayMs}ms (attempt ${attemptNum + 1})`, {
-                errorType: classified.type,
-                message: classified.message,
-              });
-            }
+            authLogger.log(`Retrying refresh in ${delayMs}ms (attempt ${attemptNum + 1})`, {
+              errorType: classified.type,
+              message: classified.message,
+            });
           },
         }
       );
@@ -217,35 +272,26 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
         sessionId: result.data.sessionId,
       });
 
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[Auth] Token refreshed successfully after', attempt, 'attempt(s)');
-      }
+      authLogger.log(`Token refreshed successfully after ${attempt} attempt(s)`);
     } catch (error) {
       // All retries exhausted - classify the error and determine final action
-      const { classifyAuthError } = await import('@/lib/utils/auth-errors');
       const classified = classifyAuthError(error);
 
-      if (process.env.NODE_ENV === 'development') {
-        console.error('[Auth] Token refresh failed after all retries:', {
-          errorType: classified.type,
-          message: classified.message,
-          shouldRetry: classified.shouldRetry,
-        });
-      }
+      authLogger.error('Token refresh failed after all retries', {
+        errorType: classified.type,
+        message: classified.message,
+        shouldRetry: classified.shouldRetry,
+      });
 
       // Check if this was a rate limit - don't log out, just wait for next periodic refresh
       if (classified.type === 'rate_limit') {
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[Auth] Rate limited - will retry on next periodic refresh');
-        }
+        authLogger.log('Rate limited - will retry on next periodic refresh');
         // Don't trigger refreshRetryFailed - keep user authenticated
         return;
       }
 
       // All other errors: log out after retries exhausted
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[Auth] Session expired after retry attempts');
-      }
+      authLogger.log('Session expired after retry attempts');
       actions.refreshRetryFailed();
     } finally {
       // Always release mutex
@@ -276,9 +322,9 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
       // Clear auth state
       actions.logout();
 
-      console.log('Logout successful');
+      authLogger.log('Logout successful');
     } catch (error) {
-      console.error('Logout error:', error);
+      authLogger.error('Logout error', error);
 
       // Clear CSRF token even on logout failure
       setCsrfToken(null);
@@ -296,14 +342,14 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
 
     // Prevent overlapping user context loading requests
     if (state.rbacLoading) {
-      console.log('User context already loading, skipping duplicate request');
+      authLogger.log('User context already loading, skipping duplicate request');
       return;
     }
 
     try {
       actions.rbacLoadStart();
 
-      console.log('Loading user context for:', state.user.id);
+      authLogger.log('Loading user context for:', { userId: state.user.id });
 
       // Fetch user context via HTTP service
       const data = await authHTTPService.fetchUserContext();
@@ -321,12 +367,12 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
     } catch (error) {
       // Check if this is a session expired error (401)
       if (error instanceof Error && error.message.includes('401')) {
-        console.log('Session expired during user context loading');
+        authLogger.log('Session expired during user context loading');
         actions.sessionExpired();
         return;
       }
 
-      console.error('Failed to load RBAC user context:', error);
+      authLogger.error('Failed to load RBAC user context', error);
       actions.rbacLoadFailure({
         error: error instanceof Error ? error.message : 'Unknown RBAC error',
       });
@@ -336,13 +382,13 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
   const initializeAuth = useCallback(async () => {
     // Prevent redundant initialization calls (React StrictMode calls useEffect twice)
     if (hasInitialized) {
-      console.log('Auth already initialized, skipping...');
+      authLogger.log('Auth already initialized, skipping...');
       return;
     }
 
     try {
       actions.initStart();
-      console.log('Initializing authentication via server-side token refresh...');
+      authLogger.log('Initializing authentication via server-side token refresh...');
       setHasInitialized(true);
 
       // First, check if we already have a valid authentication state from cookies
@@ -350,7 +396,7 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
       const data = await authHTTPService.checkSession();
 
       if (data.success && data.data?.user) {
-        console.log('Found existing valid session, skipping token refresh');
+        authLogger.log('Found existing valid session, skipping token refresh');
 
         // Extract user context from the response to avoid duplicate loading
         const apiUser = data.data.user;
@@ -381,13 +427,13 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
       }
 
       // No valid session found, try token refresh as fallback
-      console.log('No valid session found, attempting token refresh...');
+      authLogger.log('No valid session found, attempting token refresh...');
       await ensureCsrfToken();
       await refreshToken();
     } catch (error) {
       // CRITICAL FIX: Do NOT retry on initialization failure
       // If there's no session, that's a normal state - user needs to login
-      console.log('No active session found:', error);
+      authLogger.log('No active session found', { error });
       actions.initFailure();
       // DO NOT reset hasInitialized - prevents infinite loop
       // User must explicitly login to create a new session
@@ -411,34 +457,22 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
 
   // Set up token refresh interval (based on authentication state, not client-side token)
   useEffect(() => {
-    const setupRefreshInterval = async () => {
-      if (state.isAuthenticated) {
-        // Import token refresh constants
-        const { TOKEN_REFRESH_INTERVALS } = await import('@/lib/utils/auth-constants');
+    if (state.isAuthenticated) {
+      // Refresh token periodically (access tokens last 15 minutes)
+      // Safety margin prevents expiration during network delays or clock skew
+      const refreshInterval = setInterval(
+        () => {
+          // Only refresh if we're still authenticated and not already refreshing
+          if (state.isAuthenticated && !state.isLoading) {
+            authLogger.log('Periodic token refresh triggered');
+            refreshToken();
+          }
+        },
+        TOKEN_REFRESH_INTERVALS.PERIODIC_REFRESH_MS
+      );
 
-        // Refresh token periodically (access tokens last 15 minutes)
-        // Safety margin prevents expiration during network delays or clock skew
-        const refreshInterval = setInterval(
-          () => {
-            // Only refresh if we're still authenticated and not already refreshing
-            if (state.isAuthenticated && !state.isLoading) {
-              if (process.env.NODE_ENV === 'development') {
-                console.log('[Auth] Periodic token refresh triggered');
-              }
-              refreshToken();
-            }
-          },
-          TOKEN_REFRESH_INTERVALS.PERIODIC_REFRESH_MS
-        );
-
-        return () => clearInterval(refreshInterval);
-      }
-    };
-
-    const cleanup = setupRefreshInterval();
-    return () => {
-      cleanup.then((cleanupFn) => cleanupFn?.());
-    };
+      return () => clearInterval(refreshInterval);
+    }
   }, [state.isAuthenticated, refreshToken, state.isLoading]);
 
   // Load RBAC user context when user changes (with debouncing to prevent race conditions)

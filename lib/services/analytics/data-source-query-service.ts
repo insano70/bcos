@@ -36,10 +36,11 @@ export interface DataSourceQueryParams {
   dataSourceId: number;
   schema: string;
   table: string;
-  measure?: string;
+  dataSourceType?: 'measure-based' | 'table-based';
+  measure?: string; // Required for measure-based, N/A for table-based
   practiceUid?: number;
   providerUid?: number;
-  frequency?: string;
+  frequency?: string; // Required for measure-based, N/A for table-based
   startDate?: string;
   endDate?: string;
   advancedFilters?: ChartFilter[];

@@ -307,6 +307,16 @@ export class RedisAdminService {
    */
   async purgeByPattern(pattern: string, preview: boolean = false): Promise<PurgeResult> {
     try {
+      // Validate pattern
+      if (!pattern || pattern.trim().length === 0) {
+        log.warn('Invalid purge pattern - empty or null', {
+          pattern,
+          operation: 'redis_purge_keys',
+          component: 'redis-admin',
+        });
+        throw new Error('Pattern cannot be empty');
+      }
+
       const redis = getRedisClient();
       if (!redis) {
         return { keysDeleted: 0, pattern };
@@ -314,6 +324,9 @@ export class RedisAdminService {
 
       const fullPattern = `${this.getKeyPrefix()}${pattern}`;
       const keys: string[] = [];
+
+      // Absolute maximum to prevent OOM (covers largest datasource scenarios)
+      const ABSOLUTE_MAX_KEYS = 50000;
 
       // Find matching keys using SCAN
       const stream = redis.scanStream({
@@ -323,6 +336,19 @@ export class RedisAdminService {
 
       for await (const batch of stream) {
         keys.push(...batch);
+
+        // Safety check: Stop if we reach absolute maximum
+        if (keys.length >= ABSOLUTE_MAX_KEYS) {
+          log.warn('Reached absolute maximum keys limit during purge scan', {
+            pattern: fullPattern,
+            keysFound: keys.length,
+            limit: ABSOLUTE_MAX_KEYS,
+            operation: 'redis_purge_keys',
+            component: 'redis-admin',
+          });
+          stream.destroy();
+          break;
+        }
       }
 
       // Preview mode - return keys without deleting

@@ -387,6 +387,7 @@ export interface AnalyticsQueryParams {
   calculated_field?: string | undefined;
   multiple_series?: MultipleSeriesConfig[] | undefined;
   data_source_id?: number | undefined;
+  data_source_type?: 'measure-based' | 'table-based' | undefined; // Added for cache type awareness
   period_comparison?: PeriodComparisonConfig | undefined;
   nocache?: boolean | undefined; // Added for cache bypass
 }

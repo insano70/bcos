@@ -55,7 +55,7 @@ export default function RedisPurgeTools() {
   const handleFlushAll = async () => {
     setLoading(true);
     try {
-      await apiClient.post('/api/admin/redis/flushall', {});
+      await apiClient.post('/api/admin/redis/flushall', { confirm: true });
       showToast({ type: 'success', message: 'All Redis keys deleted' });
       setShowFlushAllConfirm(false);
     } catch {

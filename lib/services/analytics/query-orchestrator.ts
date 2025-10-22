@@ -106,6 +106,7 @@ export class QueryOrchestrator {
       table: tableName,
 
       // Cache key components (only include if defined)
+      ...(params.data_source_type && { dataSourceType: params.data_source_type }),
       ...(params.measure && { measure: params.measure }),
       ...(params.practice_uid && { practiceUid: params.practice_uid }),
       ...(providerUid && { providerUid: providerUid }),
