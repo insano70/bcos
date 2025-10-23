@@ -9,17 +9,18 @@ import { log } from '@/lib/logger';
  * Receives and logs Content Security Policy violation reports
  * Used for monitoring and debugging CSP policy effectiveness
  *
- * CURRENT CSP POLICY NOTES:
- * - script-src: Strict nonce-based protection (no 'unsafe-inline')
- * - style-src: Nonce-based for <style> tags + 'unsafe-inline' for style="" attributes
+ * CURRENT CSP POLICY (Production):
+ * - script-src: Strict nonce-based protection (no unsafe-inline)
+ * - style-src: unsafe-inline ONLY (no nonces, no hashes)
  *
- * STYLE-SRC RATIONALE FOR 'unsafe-inline':
- * - Dynamic inline style attributes (style="") are allowed for:
- *   1. User-configured colors (practice branding, color picker)
- *   2. Runtime layouts (chart dimensions, progress bars)
- *   3. Third-party libraries (Radix UI positioning, Framer Motion)
- * - Security: <style> tags still require nonces (nonces override 'unsafe-inline')
- * - Risk: Low - style attributes cannot execute JavaScript
+ * CRITICAL CSP BEHAVIOR:
+ * Per W3C CSP spec, when ANY nonce or hash is present in a directive,
+ * unsafe-inline is IGNORED by the browser. This caused production errors.
+ *
+ * STYLE-SRC RATIONALE:
+ * - Dynamic inline styles required for UI libraries and user customization
+ * - Security: Inline styles cannot execute JavaScript (low XSS risk)
+ * - Scripts remain strictly protected (nonces still required)
  *
  * See: lib/security/headers.ts for full CSP configuration
  */

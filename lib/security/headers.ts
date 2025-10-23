@@ -106,24 +106,25 @@ export function getEnhancedContentSecurityPolicy(nonces?: CSPNonces): string {
     ],
     'style-src': [
       "'self'",
-      // ✅ SECURITY: Nonce for custom inline styles (production only)
-      ...(!isDevelopment && nonces ? [`'nonce-${nonces.styleNonce}'`] : []),
-      // ✅ HYBRID APPROACH: SHA256 hashes for Next.js core styles (production only)
-      ...(!isDevelopment
-        ? [
-            "'sha256-zlqnbDt84zf1iSefLU/ImC54isoprH/MRiVZGskwexk='", // Next.js inline styles
-            "'sha256-skqujXORqzxt1aE0NNXxujEanPTX6raoqSscTV/Ww/Y='", // Next.js runtime styles
-            // ✅ INLINE STYLE ATTRIBUTES: Allow dynamic inline style="" attributes
-            // RATIONALE: Required for:
-            //   1. Dynamic user-configured colors (color-picker, practice branding)
-            //   2. Runtime-computed layouts (chart heights, progress bars)
-            //   3. Third-party UI libraries (Radix UI positioning, Framer Motion animations)
-            // SECURITY: Low risk - style attributes cannot execute JavaScript
-            // NOTE: Nonces still protect <style> tags from XSS (nonces override 'unsafe-inline')
-            "'unsafe-hashes'", // Allows static inline style attributes
-            "'unsafe-inline'", // Allows dynamic inline style attributes
-          ]
-        : []),
+      // ✅ INLINE STYLES: Allow inline style attributes for dynamic UI
+      // CRITICAL: Cannot use nonces/hashes + 'unsafe-inline' together!
+      // Per CSP spec: When ANY nonce or hash is present, 'unsafe-inline' is IGNORED.
+      // This was causing "Refused to apply inline style" errors in production.
+      //
+      // DECISION: Use 'unsafe-inline' only (no nonces, no hashes for styles)
+      // RATIONALE:
+      //   1. Dynamic user-configured colors (color-picker, practice branding)
+      //   2. Runtime-computed layouts (chart heights, progress bars)
+      //   3. Third-party UI libraries (Radix UI positioning, Framer Motion animations)
+      //   4. Inline style attributes cannot execute JavaScript (low XSS risk)
+      //
+      // SECURITY MAINTAINED:
+      //   - Scripts still require nonces (strict protection unchanged)
+      //   - Only inline style="" attributes are permitted
+      //   - <style> tags with 'unsafe-inline' are low risk (CSS injection ≠ XSS)
+      //
+      // See: https://www.w3.org/TR/CSP3/#unsafe-inline-note
+      ...(!isDevelopment ? ["'unsafe-inline'"] : []),
       // Allow unsafe-inline in development for CSS-in-JS and hot reload
       ...(isDevelopment ? ["'unsafe-inline'"] : []),
       // Google Fonts domain for CSS loading
