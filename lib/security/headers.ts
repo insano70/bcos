@@ -100,9 +100,11 @@ export function getEnhancedContentSecurityPolicy(nonces?: CSPNonces): string {
         : []),
       // Allow unsafe-eval and unsafe-inline in development for Next.js hot reload and dev tools
       ...(isDevelopment ? ["'unsafe-eval'", "'unsafe-inline'"] : []),
-      // Trusted CDNs for charts and UI libraries
-      'https://cdn.jsdelivr.net',
-      'https://unpkg.com',
+      // ❌ REMOVED: CDN sources (not actively used in codebase)
+      // If you need to add CDN scripts, use Subresource Integrity (SRI):
+      // <script src="https://cdn.example.com/lib.js" integrity="sha384-HASH" crossorigin="anonymous"></script>
+      // 'https://cdn.jsdelivr.net',
+      // 'https://unpkg.com',
     ],
     'style-src': [
       "'self'",
@@ -134,9 +136,13 @@ export function getEnhancedContentSecurityPolicy(nonces?: CSPNonces): string {
       "'self'",
       'data:', // For base64 encoded images
       'blob:', // For generated images (canvas, charts)
-      'https:', // Allow all HTTPS images
-      // Add your CDN/storage domains here
+      // ✅ SECURITY: Explicit domain whitelist only (no wildcard 'https:')
+      // CRITICAL FIX: Prevents data exfiltration to arbitrary HTTPS domains
+      'https://fonts.googleapis.com', // Google Fonts favicons
+      'https://fonts.gstatic.com', // Google Fonts assets
+      'https://cdn.bendcare.com', // CloudFront CDN for practice images
       ...(process.env.NEXT_PUBLIC_STORAGE_DOMAIN ? [process.env.NEXT_PUBLIC_STORAGE_DOMAIN] : []),
+      // ❌ REMOVED: 'https:' wildcard (too permissive, enables exfiltration)
     ],
     'font-src': [
       "'self'",
