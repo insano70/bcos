@@ -6,6 +6,7 @@ import {
   useDashboardData,
   type DashboardUniversalFilters,
 } from '@/hooks/use-dashboard-data';
+import { useStickyFilters } from '@/hooks/use-sticky-filters';
 import { apiClient } from '@/lib/api/client';
 import {
   DASHBOARD_LAYOUT,
@@ -22,6 +23,7 @@ import type {
 import BatchChartRenderer, { type BatchChartData } from './batch-chart-renderer';
 import ChartErrorBoundary from './chart-error-boundary';
 import DashboardFilterDropdown from './dashboard-filter-dropdown';
+import DashboardFilterPills from './dashboard-filter-pills';
 
 interface DashboardViewProps {
   dashboard: Dashboard;
@@ -31,6 +33,7 @@ interface DashboardViewProps {
 export default function DashboardView({ dashboard, dashboardCharts }: DashboardViewProps) {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { loadPreferences, savePreferences, removeFilter } = useStickyFilters();
   const [availableCharts, setAvailableCharts] = useState<ChartDefinition[]>([]);
   const [isLoadingCharts, setIsLoadingCharts] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -40,10 +43,11 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
   const showFilterBar = filterConfig?.enabled !== false; // Default to true if not specified
 
   // Dashboard-level universal filters with default values
-  // Priority: URL params > default filters from config > system defaults
+  // Priority: URL params > localStorage > default filters from config > system defaults
   const [universalFilters, setUniversalFilters] = useState<DashboardUniversalFilters>(() => {
     const practice = searchParams.get('practice');
     const defaultFilters = filterConfig?.defaultFilters || {};
+    const savedPreferences = loadPreferences();
 
     // Parse practice UID safely with NaN validation
     let practiceUids: number[] | undefined;
@@ -52,17 +56,28 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
       if (!Number.isNaN(parsed)) {
         practiceUids = [parsed];
       }
+    } else if (savedPreferences.practiceUids && savedPreferences.practiceUids.length > 0) {
+      // Use saved practice UIDs if no URL param
+      practiceUids = savedPreferences.practiceUids;
     }
 
     return {
-      // URL params take highest priority, then default config, then system defaults
+      // NEW PRIORITY CHAIN: URL params > localStorage > Dashboard defaults > undefined
       dateRangePreset:
-        searchParams.get('datePreset') || defaultFilters.dateRangePreset || undefined,
+        searchParams.get('datePreset') ||
+        savedPreferences.dateRangePreset ||
+        defaultFilters.dateRangePreset ||
+        undefined,
       startDate: searchParams.get('startDate') || undefined,
       endDate: searchParams.get('endDate') || undefined,
-      organizationId: searchParams.get('org') || defaultFilters.organizationId || undefined,
+      organizationId:
+        searchParams.get('org') ||
+        savedPreferences.organizationId ||
+        defaultFilters.organizationId ||
+        undefined,
       practiceUids,
-      providerName: searchParams.get('provider') || undefined,
+      providerName:
+        searchParams.get('provider') || savedPreferences.providerName || undefined,
     } as DashboardUniversalFilters;
   });
 
@@ -95,8 +110,40 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
     (newFilters: DashboardUniversalFilters) => {
       setUniversalFilters(newFilters);
       updateUrlParams(newFilters);
+      savePreferences(newFilters); // Save to localStorage
     },
-    [updateUrlParams]
+    [updateUrlParams, savePreferences]
+  );
+
+  // Handle removing individual filter pill
+  const handleRemoveFilter = useCallback(
+    (filterKey: keyof DashboardUniversalFilters) => {
+      const newFilters = { ...universalFilters };
+
+      // Remove the specific filter
+      if (filterKey === 'dateRangePreset') {
+        delete newFilters.dateRangePreset;
+        delete newFilters.startDate;
+        delete newFilters.endDate;
+        removeFilter('dateRangePreset');
+      } else if (filterKey === 'organizationId') {
+        delete newFilters.organizationId;
+        removeFilter('organizationId');
+      } else if (filterKey === 'practiceUids') {
+        delete newFilters.practiceUids;
+        removeFilter('practiceUids');
+      } else if (filterKey === 'providerName') {
+        delete newFilters.providerName;
+        removeFilter('providerName');
+      } else {
+        // For startDate, endDate (not stored in sticky filters)
+        delete newFilters[filterKey];
+      }
+
+      setUniversalFilters(newFilters);
+      updateUrlParams(newFilters);
+    },
+    [universalFilters, updateUrlParams, removeFilter]
   );
 
   const loadChartDefinitions = async () => {
@@ -277,18 +324,31 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
 
   return (
     <div className="space-y-4">
-      {/* Compact Title Row with Filter Icon */}
-      <div className="flex items-center justify-between px-4 pt-4">
+      {/* Compact Title Row with Filter Pills and Dropdown */}
+      <div className="flex items-center justify-between gap-4 px-4 pt-4">
+        {/* Left: Dashboard Title */}
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
           {dashboardConfig.dashboardName}
         </h1>
+
+        {/* Right: Filter Pills + Dropdown */}
         {showFilterBar && (
-          <DashboardFilterDropdown
-            initialFilters={universalFilters}
-            onFiltersChange={handleFilterChange}
-            loading={isLoading}
-            align="right"
-          />
+          <div className="flex items-center gap-3">
+            {/* Filter Pills (visual indicators) */}
+            <DashboardFilterPills
+              filters={universalFilters}
+              onRemoveFilter={handleRemoveFilter}
+              loading={isLoading}
+            />
+
+            {/* Filter Dropdown */}
+            <DashboardFilterDropdown
+              initialFilters={universalFilters}
+              onFiltersChange={handleFilterChange}
+              loading={isLoading}
+              align="right"
+            />
+          </div>
         )}
       </div>
 

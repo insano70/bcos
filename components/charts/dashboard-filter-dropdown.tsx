@@ -3,6 +3,7 @@
 import { Popover, PopoverButton, PopoverPanel, Transition } from '@headlessui/react';
 import { useEffect, useState } from 'react';
 import type { DashboardUniversalFilters } from '@/hooks/use-dashboard-data';
+import { useStickyFilters } from '@/hooks/use-sticky-filters';
 import { apiClient } from '@/lib/api/client';
 import HierarchySelect from '@/components/hierarchy-select';
 
@@ -287,6 +288,7 @@ export default function DashboardFilterDropdown({
   loading = false,
   align = 'right',
 }: DashboardFilterDropdownProps) {
+  const { clearAll } = useStickyFilters();
   // Local state for filter editing (not applied until user clicks Apply)
   const [pendingFilters, setPendingFilters] = useState<DashboardUniversalFilters>(initialFilters);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
@@ -363,6 +365,7 @@ export default function DashboardFilterDropdown({
   const handleClear = () => {
     const resetFilters: DashboardUniversalFilters = {};
     setPendingFilters(resetFilters);
+    clearAll(); // Clear localStorage
   };
 
   const handleApply = (close: () => void) => {
