@@ -145,6 +145,19 @@ export async function getUserContext(userId: string): Promise<UserContext> {
       )
     );
 
+  // Enhanced debug logging for role loading
+  log.debug('User roles loaded from database', {
+    userId: user.user_id,
+    email: user.email,
+    userRolesDataCount: userRolesData.length,
+    uniqueRoleIds: Array.from(new Set(userRolesData.map(r => r.role_id))),
+    uniqueRoleNames: Array.from(new Set(userRolesData.map(r => r.role_name))),
+    hasSystemRoles: userRolesData.some(r => r.is_system_role),
+    hasSuperAdminRole: userRolesData.some(r => r.is_system_role && r.role_name === 'super_admin'),
+    organizationsCount: userOrgs.length,
+    component: 'rbac',
+  });
+
   // 5. Transform data into structured format
   const rolesMap = new Map<string, Role>();
   const userRolesMap = new Map<string, UserRole>();
@@ -247,11 +260,30 @@ export async function getUserContext(userId: string): Promise<UserContext> {
   const allPermissions = Array.from(uniquePermissionsMap.values());
 
   // 8. Determine admin status
-  const isSuperAdmin = Array.from(rolesMap.values()).some(
+  const allRoles = Array.from(rolesMap.values());
+  const isSuperAdmin = allRoles.some(
     (role) => role.is_system_role && role.name === 'super_admin'
   );
 
-  const organizationAdminFor = Array.from(rolesMap.values())
+  // Enhanced debug logging for super admin detection
+  if (process.env.NODE_ENV === 'development' || !isSuperAdmin) {
+    log.debug('Super admin status determination', {
+      userId: user.user_id,
+      email: user.email,
+      isSuperAdmin,
+      rolesCount: allRoles.length,
+      roles: allRoles.map(r => ({ 
+        name: r.name, 
+        isSystemRole: r.is_system_role, 
+        organizationId: r.organization_id,
+        permissionsCount: r.permissions?.length || 0 
+      })),
+      organizationsCount: userOrganizationsArray.length,
+      component: 'rbac',
+    });
+  }
+
+  const organizationAdminFor = allRoles
     .filter(
       (role) => !role.is_system_role && role.name === 'practice_admin' && role.organization_id
     )

@@ -55,9 +55,24 @@ export function createRBACMiddleware(
 
       const checker = new PermissionChecker(resolvedUserContext);
 
+      // Enhanced debug logging for permission checks
+      log.debug('RBAC permission check initiated', {
+        userId: resolvedUserContext.user_id,
+        email: resolvedUserContext.email,
+        requiredPermissions: Array.isArray(requiredPermission) ? requiredPermission : [requiredPermission],
+        isSuperAdmin: resolvedUserContext.is_super_admin,
+        rolesCount: resolvedUserContext.roles?.length || 0,
+        roleNames: resolvedUserContext.roles?.map(r => r.name) || [],
+        permissionsCount: resolvedUserContext.all_permissions?.length || 0,
+        organizationsCount: resolvedUserContext.organizations?.length || 0,
+        currentOrganizationId: resolvedUserContext.current_organization_id,
+        accessibleOrganizationsCount: resolvedUserContext.accessible_organizations?.length || 0,
+        component: 'rbac',
+      });
+
       // Super admin bypass - full access to all resources
       if (checker.isSuperAdmin()) {
-        log.debug('Super admin bypass - granting access', {
+        log.info('Super admin bypass - granting access', {
           userId: resolvedUserContext.user_id,
           permissions: Array.isArray(requiredPermission) ? requiredPermission : [requiredPermission],
           component: 'rbac',
@@ -65,10 +80,25 @@ export function createRBACMiddleware(
         return { success: true, userContext: resolvedUserContext };
       }
 
+      log.debug('Not super admin, proceeding with normal permission check', {
+        userId: resolvedUserContext.user_id,
+        isSuperAdmin: checker.isSuperAdmin(),
+        component: 'rbac',
+      });
+
       // Extract resource and organization IDs from request
       const resourceId = options.extractResourceId?.(request);
       const organizationId =
         options.extractOrganizationId?.(request) || resolvedUserContext.current_organization_id;
+      
+      log.debug('Organization context for permission check', {
+        userId: resolvedUserContext.user_id,
+        extractedOrganizationId: options.extractOrganizationId?.(request),
+        currentOrganizationId: resolvedUserContext.current_organization_id,
+        resolvedOrganizationId: organizationId,
+        resourceId,
+        component: 'rbac',
+      });
 
       // Check permissions (support both single permission and array)
       const permissions = Array.isArray(requiredPermission)
@@ -93,14 +123,36 @@ export function createRBACMiddleware(
         hasAccess = checker.hasAnyPermission(permissions, resourceId, organizationId);
         if (!hasAccess) {
           deniedPermissions.push(...permissions);
-          // Debug logging for permission failures
+          
+          // Enhanced debug logging for permission failures
           log.warn('Permission check failed for all provided permissions', {
             permissions,
             resourceId,
             organizationId,
             userId: resolvedUserContext.user_id,
-            userPermissions: resolvedUserContext.all_permissions?.slice(0, 10).map(p => p.name),
+            userEmail: resolvedUserContext.email,
+            userPermissions: resolvedUserContext.all_permissions?.map(p => p.name) || [],
+            userPermissionsCount: resolvedUserContext.all_permissions?.length || 0,
+            userRoles: resolvedUserContext.roles?.map(r => ({ name: r.name, isSystemRole: r.is_system_role, organizationId: r.organization_id })) || [],
+            isSuperAdmin: resolvedUserContext.is_super_admin,
+            currentOrganizationId: resolvedUserContext.current_organization_id,
+            accessibleOrganizations: resolvedUserContext.accessible_organizations?.map(o => ({ id: o.organization_id, name: o.name, isActive: o.is_active })) || [],
             component: 'rbac',
+          });
+
+          // Check each permission individually to understand why it failed
+          permissions.forEach(permission => {
+            const detailedCheck = checker.checkPermission(permission, { resourceId, organizationId });
+            log.warn('Individual permission check details', {
+              permission,
+              userId: resolvedUserContext.user_id,
+              granted: detailedCheck.granted,
+              scope: detailedCheck.scope,
+              reason: detailedCheck.reason,
+              resourceId,
+              organizationId,
+              component: 'rbac',
+            });
           });
         }
       }

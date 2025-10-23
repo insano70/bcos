@@ -164,6 +164,19 @@ export async function getCachedUserContext(userId: string): Promise<UserContext>
       and(eq(user_roles.user_id, userId), eq(user_roles.is_active, true), eq(roles.is_active, true))
     );
 
+  // Enhanced debug logging for role loading (cached path)
+  log.debug('User roles loaded from database (cached)', {
+    userId: user.user_id,
+    email: user.email,
+    userRolesDataCount: userRolesData.length,
+    uniqueRoleIds: Array.from(new Set(userRolesData.map(r => r.role_id))),
+    uniqueRoleNames: Array.from(new Set(userRolesData.map(r => r.role_name))),
+    hasSystemRoles: userRolesData.some(r => r.is_system_role),
+    hasSuperAdminRole: userRolesData.some(r => r.is_system_role && r.role_name === 'super_admin'),
+    organizationsCount: userOrgs.length,
+    component: 'rbac',
+  });
+
   // 4. Transform data into structured format
   const rolesMap = new Map<string, Role>();
   const userRolesMap = new Map<string, UserRole>();
@@ -232,11 +245,30 @@ export async function getCachedUserContext(userId: string): Promise<UserContext>
   const allPermissions = Array.from(uniquePermissionsMap.values());
 
   // 7. Determine admin status
-  const isSuperAdmin = Array.from(rolesMap.values()).some(
+  const allRoles = Array.from(rolesMap.values());
+  const isSuperAdmin = allRoles.some(
     (role) => role.is_system_role && role.name === 'super_admin'
   );
 
-  const organizationAdminFor = Array.from(rolesMap.values())
+  // Enhanced debug logging for super admin detection (cached path)
+  if (process.env.NODE_ENV === 'development' || !isSuperAdmin) {
+    log.debug('Super admin status determination (cached)', {
+      userId: user.user_id,
+      email: user.email,
+      isSuperAdmin,
+      rolesCount: allRoles.length,
+      roles: allRoles.map(r => ({ 
+        name: r.name, 
+        isSystemRole: r.is_system_role, 
+        organizationId: r.organization_id,
+        permissionsCount: r.permissions?.length || 0 
+      })),
+      organizationsCount: userOrgs.length,
+      component: 'rbac',
+    });
+  }
+
+  const organizationAdminFor = allRoles
     .filter(
       (role) => !role.is_system_role && role.name === 'practice_admin' && role.organization_id
     )
