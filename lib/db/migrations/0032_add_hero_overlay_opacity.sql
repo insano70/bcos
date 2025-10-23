@@ -9,7 +9,7 @@
 
 -- Add hero_overlay_opacity column to practice_attributes table
 ALTER TABLE practice_attributes
-  ADD COLUMN hero_overlay_opacity NUMERIC(4,3) DEFAULT 0.1;
+  ADD COLUMN hero_overlay_opacity REAL DEFAULT 0.1;
 
 -- Add constraint to ensure valid range (0.0 to 1.0)
 ALTER TABLE practice_attributes
@@ -18,4 +18,4 @@ ALTER TABLE practice_attributes
 
 -- Add comment for documentation
 COMMENT ON COLUMN practice_attributes.hero_overlay_opacity IS
-  'Opacity of the hero banner image overlay. Range: 0.0 (transparent) to 1.0 (opaque). Default: 0.1. Supports up to 3 decimal places for fine-grained control.';
+  'Opacity of the hero banner image overlay. Range: 0.0 (transparent) to 1.0 (opaque). Default: 0.1.';

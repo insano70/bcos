@@ -1,7 +1,7 @@
 'use client';
 
 import type { QueryClient } from '@tanstack/react-query';
-import type { UseFormWatch, UseFormSetValue } from 'react-hook-form';
+import type { UseFormWatch, UseFormSetValue, UseFormRegister } from 'react-hook-form';
 import ColorPicker from '@/components/color-picker';
 import ImageUpload from '@/components/image-upload';
 import GalleryManager from '@/components/gallery-manager';
@@ -12,7 +12,7 @@ interface BrandingSectionProps {
   watch: UseFormWatch<PracticeFormData>;
   setValue: UseFormSetValue<PracticeFormData>;
   queryClient: QueryClient;
-  register: any;
+  register: UseFormRegister<PracticeFormData>;
 }
 
 export function BrandingSection({

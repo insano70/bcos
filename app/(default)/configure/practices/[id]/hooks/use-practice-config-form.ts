@@ -5,7 +5,6 @@ import { useForm, type UseFormReturn } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api/client';
-import type { SuccessResponse } from '@/lib/api/responses/success';
 import type { Practice, PracticeAttributes } from '@/lib/types/practice';
 import type { PracticeFormData } from '../types';
 import { practiceConfigSchema } from '@/lib/validations/practice-form';

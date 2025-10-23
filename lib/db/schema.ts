@@ -5,6 +5,7 @@ import {
   integer,
   numeric,
   pgTable,
+  real,
   text,
   timestamp,
   uuid,
@@ -213,7 +214,7 @@ export const practice_attributes = pgTable(
     accent_color: varchar('accent_color', { length: 7 }), // Hex color #RRGGBB
 
     // Hero Overlay
-    hero_overlay_opacity: numeric('hero_overlay_opacity', { precision: 4, scale: 3 }).default('0.1'), // 0.0 to 1.0
+    hero_overlay_opacity: real('hero_overlay_opacity').default(0.1), // 0.0 to 1.0
 
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow(),
   },

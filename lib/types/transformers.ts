@@ -102,7 +102,7 @@ export function transformPracticeAttributes(
   if (dbAttributes.logo_url) result.logo_url = dbAttributes.logo_url;
   if (dbAttributes.hero_image_url) result.hero_image_url = dbAttributes.hero_image_url;
   if (dbAttributes.hero_overlay_opacity !== null && dbAttributes.hero_overlay_opacity !== undefined) {
-    result.hero_overlay_opacity = Number(dbAttributes.hero_overlay_opacity);
+    result.hero_overlay_opacity = dbAttributes.hero_overlay_opacity;
   }
   if (dbAttributes.gallery_images)
     result.gallery_images = safeJsonParse(dbAttributes.gallery_images, []);
