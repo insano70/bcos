@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import { getCSRFTokenFromCookie } from '@/lib/security/csrf-client';
 
 interface GalleryManagerProps {
   images: string[];
@@ -29,15 +30,24 @@ export default function GalleryManager({
     setError('');
 
     try {
+      // Get CSRF token from cookie
+      const csrfToken = getCSRFTokenFromCookie();
+
       const uploadPromises = Array.from(files).map(async (file) => {
         const formData = new FormData();
         formData.append('file', file);
         formData.append('type', 'gallery');
         formData.append('practiceId', practiceId);
 
+        const headers: HeadersInit = {};
+        if (csrfToken) {
+          headers['x-csrf-token'] = csrfToken;
+        }
+
         const response = await fetch('/api/upload', {
           method: 'POST',
           credentials: 'include',
+          headers,
           body: formData,
         });
 
