@@ -232,11 +232,11 @@ export function BrandingSection({
         {heroImageUrl && (
           <div className="mt-6 p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-              Hero Image Overlay Opacity
+              Hero Image White Overlay
             </label>
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
-              Control how visible the hero background image appears. Lower values make the image
-              more subtle, while higher values make it more prominent.
+              Control how much white overlay is applied to the hero background image. Higher values
+              fade the image to white, making text easier to read. Lower values show more of the image.
             </p>
             <input
               type="hidden"
@@ -247,7 +247,7 @@ export function BrandingSection({
               min="0"
               max="100"
               step="1"
-              value={Math.round((watch('hero_overlay_opacity') ?? 0.1) * 100)}
+              value={Math.round((watch('hero_overlay_opacity') ?? 0.9) * 100)}
               onChange={(e) =>
                 setValue('hero_overlay_opacity', Number(e.target.value) / 100, {
                   shouldDirty: true,
@@ -256,11 +256,11 @@ export function BrandingSection({
               className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
             />
             <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-2">
-              <span>0% (Transparent)</span>
+              <span>0% (Image Visible)</span>
               <span className="font-semibold text-gray-700 dark:text-gray-300">
-                {Math.round((watch('hero_overlay_opacity') ?? 0.1) * 100)}%
+                {Math.round((watch('hero_overlay_opacity') ?? 0.9) * 100)}%
               </span>
-              <span>100% (Opaque)</span>
+              <span>100% (White)</span>
             </div>
           </div>
         )}

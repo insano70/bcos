@@ -13,13 +13,21 @@ export default function Hero({ practice, attributes, colorStyles }: HeroProps) {
     <section className="relative py-20 gradient-practice">
       {/* Background image if provided */}
       {attributes.hero_image_url && (
-        <div
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-          style={{
-            backgroundImage: `url(${attributes.hero_image_url})`,
-            opacity: attributes.hero_overlay_opacity ?? 0.1
-          }}
-        />
+        <>
+          <div
+            className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+            style={{
+              backgroundImage: `url(${attributes.hero_image_url})`,
+            }}
+          />
+          {/* White overlay to fade image to white */}
+          <div
+            className="absolute inset-0 bg-white"
+            style={{
+              opacity: attributes.hero_overlay_opacity ?? 0.9
+            }}
+          />
+        </>
       )}
       
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
