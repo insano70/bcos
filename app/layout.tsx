@@ -17,6 +17,9 @@ const inter = Inter({
 export const metadata = {
   title: 'Bendcare Thrive',
   description: 'Bendcare Thrive',
+  icons: {
+    apple: '/apple-touch-icon.png',
+  },
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {

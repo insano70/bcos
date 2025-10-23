@@ -1,3 +1,5 @@
+'use client';
+
 import type { Practice, PracticeAttributes, ColorStyles } from '@/lib/types/practice';
 
 interface HeaderProps {
