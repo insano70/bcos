@@ -186,13 +186,16 @@ export async function getBatchEnrichmentData(organizationIds: string[], useCTE: 
       children_count: string | number;
     };
 
+    // Build PostgreSQL array literal to avoid parameter expansion
+    const arrayLiteral = `ARRAY[${validatedIds.map((id) => `'${id}'`).join(',')}]::text[]`;
+
     const results = await db.execute<EnrichmentRow>(sql`
       WITH member_counts AS (
         SELECT
           organization_id,
           COUNT(*) as count
         FROM user_organizations
-        WHERE organization_id = ANY(${validatedIds}::text[])
+        WHERE organization_id = ANY(${sql.raw(arrayLiteral)})
           AND is_active = true
         GROUP BY organization_id
       ),
@@ -201,7 +204,7 @@ export async function getBatchEnrichmentData(organizationIds: string[], useCTE: 
           parent_organization_id,
           COUNT(*) as count
         FROM organizations
-        WHERE parent_organization_id = ANY(${validatedIds}::text[])
+        WHERE parent_organization_id = ANY(${sql.raw(arrayLiteral)})
           AND parent_organization_id IS NOT NULL
           AND is_active = true
           AND deleted_at IS NULL
@@ -211,7 +214,7 @@ export async function getBatchEnrichmentData(organizationIds: string[], useCTE: 
         org_id::text as organization_id,
         COALESCE(m.count, 0) as member_count,
         COALESCE(c.count, 0) as children_count
-      FROM unnest(${validatedIds}::text[]) as org_id
+      FROM unnest(${sql.raw(arrayLiteral)}) as org_id
       LEFT JOIN member_counts m ON org_id = m.organization_id
       LEFT JOIN children_counts c ON org_id = c.parent_organization_id
     `);
