@@ -349,10 +349,23 @@ export class PermissionChecker {
         // User can access resources within their accessible organizations
         const targetOrgId = organizationId || this.userContext.current_organization_id;
 
+        // If no specific organization is provided, allow access if user has ANY accessible organizations
+        // This handles list/read operations where the query will be filtered by accessible organizations
         if (!targetOrgId) {
+          if (this.userContext.accessible_organizations.length === 0) {
+            return {
+              valid: false,
+              reason: 'User has no accessible organizations for organization-scoped permission',
+            };
+          }
+
+          // User has accessible organizations - allow access
+          // The actual filtering will be done by the service layer
           return {
-            valid: false,
-            reason: 'No organization context provided for organization-scoped permission',
+            valid: true,
+            applicableOrganizations: this.userContext.accessible_organizations.map(
+              (org) => org.organization_id
+            ),
           };
         }
 
