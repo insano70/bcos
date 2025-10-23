@@ -39,10 +39,10 @@ const RATE_LIMIT_CONFIGS: Record<string, RateLimitConfig> = {
     // 300/min allows extensive batch operations and large gallery uploads while blocking DoS via large files
   },
   api: {
-    limit: 200, // 200 standard API requests per minute
+    limit: 500, // 500 standard API requests per minute
     windowSeconds: 60, // 1 minute
-    // Rationale: Supports typical dashboard usage (3-4 requests/second)
-    // High enough for complex UIs, low enough to prevent abuse
+    // Rationale: Supports complex dashboard usage (8+ requests/second)
+    // High enough for complex UIs with multiple concurrent requests, low enough to prevent abuse
   },
   session_read: {
     limit: 500, // 500 session verification requests per minute
