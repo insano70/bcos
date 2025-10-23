@@ -1,7 +1,6 @@
-import { and, count, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
+import { and, count, eq, inArray, isNotNull, isNull } from 'drizzle-orm';
 import { db, organizations, user_organizations } from '@/lib/db';
-import { log, SLOW_THRESHOLDS } from '@/lib/logger';
-import { BATCH_QUERY_CTE_THRESHOLD, validateOrganizationIds } from './sanitization';
+import { validateOrganizationIds } from './sanitization';
 
 /**
  * Batch Operations for Organizations
@@ -153,7 +152,7 @@ export async function getBatchChildrenCounts(
  * // childrenCounts: Map { 'org-1' => 3 }
  * ```
  */
-export async function getBatchEnrichmentData(organizationIds: string[], useCTE: boolean = true) {
+export async function getBatchEnrichmentData(organizationIds: string[], _useCTE: boolean = false) {
   // Validate input array
   const validatedIds = validateOrganizationIds(organizationIds);
 
@@ -164,95 +163,15 @@ export async function getBatchEnrichmentData(organizationIds: string[], useCTE: 
     };
   }
 
-  // For small datasets, parallel queries are fine (sub-functions already validate)
-  if (!useCTE || validatedIds.length < BATCH_QUERY_CTE_THRESHOLD) {
-    const [memberCounts, childrenCounts] = await Promise.all([
-      getBatchMemberCounts(organizationIds),
-      getBatchChildrenCounts(organizationIds),
-    ]);
+  // Always use parallel queries with inArray() - simpler and more reliable
+  // CTE path disabled due to sql.raw() issues with large arrays
+  const [memberCounts, childrenCounts] = await Promise.all([
+    getBatchMemberCounts(organizationIds),
+    getBatchChildrenCounts(organizationIds),
+  ]);
 
-    return {
-      memberCounts,
-      childrenCounts,
-    };
-  }
-
-  // Single CTE query for larger datasets
-  const cteStart = Date.now();
-  try {
-    type EnrichmentRow = {
-      organization_id: string;
-      member_count: string | number;
-      children_count: string | number;
-    };
-
-    // Build PostgreSQL array literal to avoid parameter expansion
-    const arrayLiteral = `ARRAY[${validatedIds.map((id) => `'${id}'`).join(',')}]::text[]`;
-
-    const results = await db.execute<EnrichmentRow>(sql`
-      WITH member_counts AS (
-        SELECT
-          organization_id,
-          COUNT(*) as count
-        FROM user_organizations
-        WHERE organization_id = ANY(${sql.raw(arrayLiteral)})
-          AND is_active = true
-        GROUP BY organization_id
-      ),
-      children_counts AS (
-        SELECT
-          parent_organization_id,
-          COUNT(*) as count
-        FROM organizations
-        WHERE parent_organization_id = ANY(${sql.raw(arrayLiteral)})
-          AND parent_organization_id IS NOT NULL
-          AND is_active = true
-          AND deleted_at IS NULL
-        GROUP BY parent_organization_id
-      )
-      SELECT
-        org_id::text as organization_id,
-        COALESCE(m.count, 0) as member_count,
-        COALESCE(c.count, 0) as children_count
-      FROM unnest(${sql.raw(arrayLiteral)}) as org_id
-      LEFT JOIN member_counts m ON org_id = m.organization_id
-      LEFT JOIN children_counts c ON org_id = c.parent_organization_id
-    `);
-
-    // Convert to maps
-    const memberCounts = new Map<string, number>();
-    const childrenCounts = new Map<string, number>();
-
-    // Handle both array and object with rows property
-    const rows: EnrichmentRow[] = Array.isArray(results)
-      ? results
-      : (results as { rows: EnrichmentRow[] }).rows || [];
-    for (const row of rows) {
-      memberCounts.set(row.organization_id, Number(row.member_count));
-      childrenCounts.set(row.organization_id, Number(row.children_count));
-    }
-
-    const duration = Date.now() - cteStart;
-    log.debug('batch enrichment CTE query completed', {
-      operation: 'get_batch_enrichment_data',
-      organizationCount: validatedIds.length,
-      duration,
-      slow: duration > SLOW_THRESHOLDS.DB_QUERY,
-      component: 'batch_operations',
-    });
-
-    return {
-      memberCounts,
-      childrenCounts,
-    };
-  } catch (error) {
-    const duration = Date.now() - cteStart;
-    log.error('batch enrichment CTE query failed', error, {
-      operation: 'get_batch_enrichment_data',
-      organizationCount: validatedIds.length,
-      duration,
-      component: 'batch_operations',
-    });
-    throw error;
-  }
+  return {
+    memberCounts,
+    childrenCounts,
+  };
 }
