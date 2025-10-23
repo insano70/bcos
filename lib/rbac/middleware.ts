@@ -83,6 +83,15 @@ export function createRBACMiddleware(
         hasAccess = checker.hasAnyPermission(permissions, resourceId, organizationId);
         if (!hasAccess) {
           deniedPermissions.push(...permissions);
+          // Debug logging for permission failures
+          log.warn('Permission check failed for all provided permissions', {
+            permissions,
+            resourceId,
+            organizationId,
+            userId: resolvedUserContext.user_id,
+            userPermissions: resolvedUserContext.all_permissions?.slice(0, 10).map(p => p.name),
+            component: 'rbac',
+          });
         }
       }
 

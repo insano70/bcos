@@ -93,7 +93,10 @@ export async function applyGlobalAuth(request: NextRequest): Promise<AuthResult 
   // UNIVERSAL RATE LIMITING: Apply to ALL API routes (public and protected)
   // This runs BEFORE authentication to prevent abuse
   // Note: Route wrappers may apply additional rate limits (defense in depth)
-  const rateLimitType = pathname.startsWith('/api/auth/') ? 'auth' : 'api';
+  // Exception: /api/auth/me uses session_read rate limit (500/min) instead of auth (20/15min)
+  // because it's a high-frequency session verification endpoint, not an authentication endpoint
+  const isSessionEndpoint = pathname === '/api/auth/me';
+  const rateLimitType = pathname.startsWith('/api/auth/') && !isSessionEndpoint ? 'auth' : 'api';
   await applyRateLimit(request, rateLimitType);
 
   // Skip auth for public routes

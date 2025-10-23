@@ -39,6 +39,7 @@ export interface PracticeAttributes {
   // Media
   logo_url?: string;
   hero_image_url?: string;
+  hero_overlay_opacity?: number; // 0.0 to 1.0
   gallery_images?: string[];
 
   // SEO

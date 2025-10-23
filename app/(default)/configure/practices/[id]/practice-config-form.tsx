@@ -149,6 +149,7 @@ export default function PracticeConfigForm({
           watch={watch}
           setValue={setValue}
           queryClient={queryClient}
+          register={register}
         />
 
         {/* Contact Info Section */}

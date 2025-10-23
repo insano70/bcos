@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import { getCSRFTokenFromCookie } from '@/lib/security/csrf-client';
 
 interface ImageUploadProps {
   currentImage?: string;
@@ -43,9 +44,18 @@ export default function ImageUpload({
         formData.append('staffId', staffId);
       }
 
+      // Get CSRF token from cookie
+      const csrfToken = getCSRFTokenFromCookie();
+
+      const headers: HeadersInit = {};
+      if (csrfToken) {
+        headers['x-csrf-token'] = csrfToken;
+      }
+
       const response = await fetch('/api/upload', {
         method: 'POST',
         credentials: 'include',
+        headers,
         body: formData,
       });
 

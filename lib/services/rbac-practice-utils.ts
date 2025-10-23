@@ -44,6 +44,19 @@ export async function verifyPracticeAccess(
 
     // Check ownership for non-super-admins
     const isOwner = practice.owner_user_id === userContext.user_id;
+
+    // Debug logging for access check
+    log.info('Practice access check', {
+      practiceId,
+      userId: userContext.user_id,
+      isSuperAdmin: userContext.is_super_admin,
+      isOwner,
+      ownerUserId: practice.owner_user_id,
+      hasRoles: userContext.roles?.length || 0,
+      roleNames: userContext.roles?.map(r => r.name),
+      component: 'rbac',
+    });
+
     if (!userContext.is_super_admin && !isOwner) {
       throw AuthorizationError('You do not have permission to access this practice');
     }

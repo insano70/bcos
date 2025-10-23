@@ -215,6 +215,13 @@ export const practiceConfigSchema = z.object({
     .optional()
     .or(z.literal('')),
 
+  hero_overlay_opacity: z
+    .number()
+    .min(0, 'Opacity must be at least 0')
+    .max(1, 'Opacity must not exceed 1')
+    .optional()
+    .default(0.1),
+
   gallery_images: z.array(z.string()).default([]),
 
   // ========================================

@@ -12,6 +12,7 @@ interface BrandingSectionProps {
   watch: UseFormWatch<PracticeFormData>;
   setValue: UseFormSetValue<PracticeFormData>;
   queryClient: QueryClient;
+  register: any;
 }
 
 export function BrandingSection({
@@ -19,6 +20,7 @@ export function BrandingSection({
   watch,
   setValue,
   queryClient,
+  register,
 }: BrandingSectionProps) {
   const logoUrl = watch('logo_url');
   const heroImageUrl = watch('hero_image_url');
@@ -112,6 +114,43 @@ export function BrandingSection({
             label="Hero/Banner Image"
           />
         </div>
+
+        {/* Hero Overlay Opacity Control */}
+        {heroImageUrl && (
+          <div className="mt-6 p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+              Hero Image Overlay Opacity
+            </label>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+              Control how visible the hero background image appears. Lower values make the image
+              more subtle, while higher values make it more prominent.
+            </p>
+            <input
+              type="hidden"
+              {...register('hero_overlay_opacity', { valueAsNumber: true })}
+            />
+            <input
+              type="range"
+              min="0"
+              max="100"
+              step="1"
+              value={Math.round((watch('hero_overlay_opacity') ?? 0.1) * 100)}
+              onChange={(e) =>
+                setValue('hero_overlay_opacity', Number(e.target.value) / 100, {
+                  shouldDirty: true,
+                })
+              }
+              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
+            />
+            <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-2">
+              <span>0% (Transparent)</span>
+              <span className="font-semibold text-gray-700 dark:text-gray-300">
+                {Math.round((watch('hero_overlay_opacity') ?? 0.1) * 100)}%
+              </span>
+              <span>100% (Opaque)</span>
+            </div>
+          </div>
+        )}
 
         {/* Gallery Images */}
         <div className="mt-8">

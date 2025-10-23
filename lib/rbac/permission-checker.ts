@@ -89,6 +89,24 @@ export class PermissionChecker {
 
     // Check if user has the permission through any of their roles
     const userPermissions = this.getUserPermissions();
+
+    // Debug logging for permission check
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[PermissionChecker] Checking permission:', {
+        requested: permissionName,
+        parsed: { resource, action, scope },
+        userPermissionsCount: userPermissions.length,
+        userPermissions: userPermissions.map(p => ({
+          name: p.name,
+          resource: p.resource,
+          action: p.action,
+          scope: p.scope,
+          is_active: p.is_active
+        })),
+        userId: this.userContext.user_id
+      });
+    }
+
     const matchingPermissions = userPermissions.filter((permission) => {
       // Exact match
       if (permission.name === permissionName) {
@@ -104,6 +122,15 @@ export class PermissionChecker {
     });
 
     if (matchingPermissions.length === 0) {
+      // Targeted logging ONLY for api:write:organization
+      if (permissionName === 'api:write:organization') {
+        console.error('[DEBUG] api:write:organization check failed:', {
+          userPermissionsCount: this.userContext.all_permissions?.length,
+          hasPermissionByName: this.userContext.all_permissions?.some(p => p.name === 'api:write:organization'),
+          samplePermissionNames: this.userContext.all_permissions?.slice(0, 5).map(p => p.name),
+        });
+      }
+
       return {
         granted: false,
         scope: 'own',
@@ -273,16 +300,8 @@ export class PermissionChecker {
   private getUserPermissions(): Permission[] {
     // Use cached permissions if available (from frontend auth provider)
     if (this.userContext.all_permissions.length > 0) {
-      // When permissions come from frontend (API response), role.permissions is empty
-      // So we just filter by active roles and active permissions
-      const activeRoleIds = new Set(
-        this.userContext.roles.filter((role) => role.is_active).map((role) => role.role_id)
-      );
-
-      // If user has active roles and active permissions, return them
-      if (activeRoleIds.size > 0) {
-        return this.userContext.all_permissions.filter((permission) => permission.is_active);
-      }
+      // When permissions come from frontend (API response), just return active permissions
+      return this.userContext.all_permissions.filter((permission) => permission.is_active);
     }
 
     // Fallback: flatten permissions from roles (used when permissions are embedded in roles)

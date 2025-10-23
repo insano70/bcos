@@ -21,11 +21,12 @@ export default function Hero({ practice, attributes, colorStyles }: HeroProps) {
 
       {/* Background image overlay if provided */}
       {attributes.hero_image_url && (
-        <div 
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-10 -z-10"
-          style={{ 
+        <div
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat -z-10"
+          style={{
             backgroundImage: `url(${attributes.hero_image_url})`,
-            clipPath: 'polygon(0 0, 100% 0, 100% calc(100% - 352px), 0 100%)'
+            clipPath: 'polygon(0 0, 100% 0, 100% calc(100% - 352px), 0 100%)',
+            opacity: attributes.hero_overlay_opacity ?? 0.1
           }}
         />
       )}

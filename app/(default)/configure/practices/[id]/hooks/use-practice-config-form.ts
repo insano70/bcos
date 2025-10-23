@@ -28,10 +28,12 @@ interface UsePracticeConfigFormReturn {
  * Fetch practice attributes from API
  */
 async function fetchPracticeAttributes(practiceId: string): Promise<PracticeAttributes> {
-  const response = await apiClient.get<SuccessResponse<PracticeAttributes>>(
+  const response = await apiClient.get<PracticeAttributes>(
     `/api/practices/${practiceId}/attributes`
   );
-  return response.data;
+
+  // apiClient already unwraps the response, so response is the data itself
+  return response;
 }
 
 /**
@@ -70,6 +72,7 @@ function mapAttributesToFormData(
     // Images
     logo_url: attributes.logo_url || '',
     hero_image_url: attributes.hero_image_url || '',
+    hero_overlay_opacity: attributes.hero_overlay_opacity ?? 0.1,
     gallery_images: attributes.gallery_images || [],
 
     // SEO

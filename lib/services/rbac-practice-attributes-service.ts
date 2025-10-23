@@ -26,6 +26,7 @@ export interface PracticeAttributesData {
   gallery_images?: unknown;
   logo_url?: string | null;
   hero_image_url?: string | null;
+  hero_overlay_opacity?: number;
   primary_color?: string | null;
   secondary_color?: string | null;
   accent_color?: string | null;
@@ -40,6 +41,7 @@ export interface UpdatePracticeAttributesData {
   gallery_images?: unknown;
   logo_url?: string | null | undefined;
   hero_image_url?: string | null | undefined;
+  hero_overlay_opacity?: number | undefined;
   primary_color?: string | null | undefined;
   secondary_color?: string | null | undefined;
   accent_color?: string | null | undefined;
@@ -116,6 +118,7 @@ export function createRBACPracticeAttributesService(
           gallery_images: parseGalleryImages(attributes.gallery_images),
           logo_url: attributes.logo_url,
           hero_image_url: attributes.hero_image_url,
+          hero_overlay_opacity: attributes.hero_overlay_opacity ? Number(attributes.hero_overlay_opacity) : 0.1,
           primary_color: attributes.primary_color,
           secondary_color: attributes.secondary_color,
           accent_color: attributes.accent_color,
@@ -194,6 +197,7 @@ export function createRBACPracticeAttributesService(
           gallery_images: parseGalleryImages(updatedAttributes.gallery_images),
           logo_url: updatedAttributes.logo_url,
           hero_image_url: updatedAttributes.hero_image_url,
+          hero_overlay_opacity: updatedAttributes.hero_overlay_opacity ? Number(updatedAttributes.hero_overlay_opacity) : 0.1,
           primary_color: updatedAttributes.primary_color,
           secondary_color: updatedAttributes.secondary_color,
           accent_color: updatedAttributes.accent_color,

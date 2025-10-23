@@ -249,6 +249,6 @@ const uploadFilesHandler = async (request: NextRequest, userContext: UserContext
 // Export with RBAC protection - file uploads require update permissions
 // The handler internally checks specific permissions based on upload type
 export const POST = rbacRoute(uploadFilesHandler, {
-  permission: ['api:write:organization'],
+  permission: ['practices:update:own', 'practices:manage:all', 'practices:update:organization', 'users:update:own'],
   rateLimit: 'upload',
 });

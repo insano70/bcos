@@ -212,6 +212,9 @@ export const practice_attributes = pgTable(
     secondary_color: varchar('secondary_color', { length: 7 }), // Hex color #RRGGBB
     accent_color: varchar('accent_color', { length: 7 }), // Hex color #RRGGBB
 
+    // Hero Overlay
+    hero_overlay_opacity: numeric('hero_overlay_opacity', { precision: 4, scale: 3 }).default('0.1'), // 0.0 to 1.0
+
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow(),
   },
   (table) => ({

@@ -119,6 +119,30 @@ export default function PracticesContent() {
     navigator.clipboard.writeText(_practice.domain);
   };
 
+  const handleActivate = async (_practice: Practice) => {
+    try {
+      const response = await fetch(`/api/practices/${_practice.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          status: 'active',
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to activate practice');
+      }
+
+      // Refresh the practices list to show updated status
+      refetch();
+    } catch (error) {
+      console.error('Error activating practice:', error);
+      // Could add toast notification here
+    }
+  };
+
   // Define table columns
   const columns: DataTableColumn<Practice>[] = [
     { key: 'checkbox' },
@@ -201,44 +225,64 @@ export default function PracticesContent() {
   ];
 
   // Define dropdown actions
-  const getDropdownActions = (_practice: Practice): DataTableDropdownAction<Practice>[] => [
-    {
-      label: 'Edit Practice',
-      icon: (
-        <svg
-          className="w-4 h-4 fill-current text-gray-400 dark:text-gray-500 shrink-0"
-          viewBox="0 0 16 16"
-        >
-          <path d="m13.7 2.3-1-1c-.4-.4-1-.4-1.4 0l-10 10c-.2.2-.3.4-.3.7v4c0 .6.4 1 1 1h4c.3 0 .5-.1.7-.3l10-10c.4-.4.4-1 0-1.4zM10.5 6.5L9 5l.5-.5L11 6l-.5.5zM2 14v-3l6-6 3 3-6 6H2z" />
-        </svg>
-      ),
-      onClick: handleEdit,
-    },
-    {
-      label: 'Preview Site',
-      icon: (
-        <svg
-          className="w-4 h-4 fill-current text-gray-400 dark:text-gray-500 shrink-0"
-          viewBox="0 0 16 16"
-        >
-          <path d="M8 0C3.6 0 0 3.6 0 8s3.6 8 8 8 8-3.6 8-8-3.6-8-8-8zM7 11.4L3.6 8 5 6.6l2 2 4-4L12.4 6 7 11.4z" />
-        </svg>
-      ),
-      onClick: handlePreview,
-    },
-    {
-      label: 'Copy Domain',
-      icon: (
-        <svg
-          className="w-4 h-4 fill-current text-gray-400 dark:text-gray-500 shrink-0"
-          viewBox="0 0 16 16"
-        >
-          <path d="M11 0H5a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V1a1 1 0 0 0-1-1zM5 2h6v10H5V2z" />
-        </svg>
-      ),
-      onClick: handleCopyDomain,
-    },
-  ];
+  const getDropdownActions = (_practice: Practice): DataTableDropdownAction<Practice>[] => {
+    const actions: DataTableDropdownAction<Practice>[] = [
+      {
+        label: 'Edit Practice',
+        icon: (
+          <svg
+            className="w-4 h-4 fill-current text-gray-400 dark:text-gray-500 shrink-0"
+            viewBox="0 0 16 16"
+          >
+            <path d="m13.7 2.3-1-1c-.4-.4-1-.4-1.4 0l-10 10c-.2.2-.3.4-.3.7v4c0 .6.4 1 1 1h4c.3 0 .5-.1.7-.3l10-10c.4-.4.4-1 0-1.4zM10.5 6.5L9 5l.5-.5L11 6l-.5.5zM2 14v-3l6-6 3 3-6 6H2z" />
+          </svg>
+        ),
+        onClick: handleEdit,
+      },
+      {
+        label: 'Preview Site',
+        icon: (
+          <svg
+            className="w-4 h-4 fill-current text-gray-400 dark:text-gray-500 shrink-0"
+            viewBox="0 0 16 16"
+          >
+            <path d="M8 0C3.6 0 0 3.6 0 8s3.6 8 8 8 8-3.6 8-8-3.6-8-8-8zM7 11.4L3.6 8 5 6.6l2 2 4-4L12.4 6 7 11.4z" />
+          </svg>
+        ),
+        onClick: handlePreview,
+      },
+      {
+        label: 'Copy Domain',
+        icon: (
+          <svg
+            className="w-4 h-4 fill-current text-gray-400 dark:text-gray-500 shrink-0"
+            viewBox="0 0 16 16"
+          >
+            <path d="M11 0H5a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V1a1 1 0 0 0-1-1zM5 2h6v10H5V2z" />
+          </svg>
+        ),
+        onClick: handleCopyDomain,
+      },
+    ];
+
+    // Add "Activate" action only if practice is not already active
+    if (_practice.status !== 'active') {
+      actions.push({
+        label: 'Activate',
+        icon: (
+          <svg
+            className="w-4 h-4 fill-current text-green-500 dark:text-green-400 shrink-0"
+            viewBox="0 0 16 16"
+          >
+            <path d="M8 0C3.6 0 0 3.6 0 8s3.6 8 8 8 8-3.6 8-8-3.6-8-8-8zm3.7 6.7l-4 4c-.2.2-.4.3-.7.3-.3 0-.5-.1-.7-.3l-2-2c-.4-.4-.4-1 0-1.4.4-.4 1-.4 1.4 0l1.3 1.3 3.3-3.3c.4-.4 1-.4 1.4 0 .4.4.4 1 0 1.4z" />
+          </svg>
+        ),
+        onClick: handleActivate,
+      });
+    }
+
+    return actions;
+  };
 
   if (error) {
     // Check if this is a session expiry error
