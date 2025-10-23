@@ -55,6 +55,16 @@ export function createRBACMiddleware(
 
       const checker = new PermissionChecker(resolvedUserContext);
 
+      // Super admin bypass - full access to all resources
+      if (checker.isSuperAdmin()) {
+        log.debug('Super admin bypass - granting access', {
+          userId: resolvedUserContext.user_id,
+          permissions: Array.isArray(requiredPermission) ? requiredPermission : [requiredPermission],
+          component: 'rbac',
+        });
+        return { success: true, userContext: resolvedUserContext };
+      }
+
       // Extract resource and organization IDs from request
       const resourceId = options.extractResourceId?.(request);
       const organizationId =

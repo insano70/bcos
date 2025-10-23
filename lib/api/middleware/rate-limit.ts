@@ -33,10 +33,10 @@ const RATE_LIMIT_CONFIGS: Record<string, RateLimitConfig> = {
     // Lower than 'auth' because MFA should succeed on first try
   },
   upload: {
-    limit: 15, // 15 file uploads per minute
+    limit: 300, // 300 file uploads per minute
     windowSeconds: 60, // 1 minute
     // Rationale: Prevents storage/bandwidth abuse from bulk uploads
-    // 15/min allows batch operations while blocking DoS via large files
+    // 300/min allows extensive batch operations and large gallery uploads while blocking DoS via large files
   },
   api: {
     limit: 200, // 200 standard API requests per minute
