@@ -113,9 +113,15 @@ export function getEnhancedContentSecurityPolicy(nonces?: CSPNonces): string {
         ? [
             "'sha256-zlqnbDt84zf1iSefLU/ImC54isoprH/MRiVZGskwexk='", // Next.js inline styles
             "'sha256-skqujXORqzxt1aE0NNXxujEanPTX6raoqSscTV/Ww/Y='", // Next.js runtime styles
-            // ✅ CHARTS: Allow hashed inline style attributes for Chart.js and React inline styles
-            // More secure than 'unsafe-inline' - only allows style="" attributes, not <style> tags
-            "'unsafe-hashes'",
+            // ✅ INLINE STYLE ATTRIBUTES: Allow dynamic inline style="" attributes
+            // RATIONALE: Required for:
+            //   1. Dynamic user-configured colors (color-picker, practice branding)
+            //   2. Runtime-computed layouts (chart heights, progress bars)
+            //   3. Third-party UI libraries (Radix UI positioning, Framer Motion animations)
+            // SECURITY: Low risk - style attributes cannot execute JavaScript
+            // NOTE: Nonces still protect <style> tags from XSS (nonces override 'unsafe-inline')
+            "'unsafe-hashes'", // Allows static inline style attributes
+            "'unsafe-inline'", // Allows dynamic inline style attributes
           ]
         : []),
       // Allow unsafe-inline in development for CSS-in-JS and hot reload

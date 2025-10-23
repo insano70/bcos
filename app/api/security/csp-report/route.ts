@@ -8,6 +8,20 @@ import { log } from '@/lib/logger';
  * CSP Violation Report Endpoint
  * Receives and logs Content Security Policy violation reports
  * Used for monitoring and debugging CSP policy effectiveness
+ *
+ * CURRENT CSP POLICY NOTES:
+ * - script-src: Strict nonce-based protection (no 'unsafe-inline')
+ * - style-src: Nonce-based for <style> tags + 'unsafe-inline' for style="" attributes
+ *
+ * STYLE-SRC RATIONALE FOR 'unsafe-inline':
+ * - Dynamic inline style attributes (style="") are allowed for:
+ *   1. User-configured colors (practice branding, color picker)
+ *   2. Runtime layouts (chart dimensions, progress bars)
+ *   3. Third-party libraries (Radix UI positioning, Framer Motion)
+ * - Security: <style> tags still require nonces (nonces override 'unsafe-inline')
+ * - Risk: Low - style attributes cannot execute JavaScript
+ *
+ * See: lib/security/headers.ts for full CSP configuration
  */
 
 interface CSPViolationReport {
