@@ -3,13 +3,13 @@
 import type { ComponentType } from 'react';
 import { useEffect, useState, useCallback } from 'react';
 import type {
-  ColorStyles,
   Practice,
   PracticeAttributes,
   PracticeComment,
   StaffMember,
+  TemplateProps,
 } from '@/lib/types/practice';
-import { getColorStyles, getTemplateDefaultColors } from '@/lib/utils/color-utils';
+import { getTemplateDefaultColors, getPracticeCSS } from '@/lib/utils/color-utils';
 
 interface TemplateSwitcherProps {
   practice: Practice;
@@ -17,15 +17,6 @@ interface TemplateSwitcherProps {
   staff: StaffMember[];
   comments: PracticeComment[];
   initialTemplate: string;
-  initialColorStyles: ColorStyles;
-}
-
-interface TemplateComponentProps {
-  practice: Practice;
-  attributes: PracticeAttributes;
-  staff: StaffMember[];
-  comments: PracticeComment[];
-  colorStyles: ColorStyles;
 }
 
 export default function TemplateSwitcher({
@@ -34,12 +25,10 @@ export default function TemplateSwitcher({
   staff,
   comments,
   initialTemplate,
-  initialColorStyles,
 }: TemplateSwitcherProps) {
   const [currentTemplate, setCurrentTemplate] = useState(initialTemplate);
   const [TemplateComponent, setTemplateComponent] =
-    useState<ComponentType<TemplateComponentProps> | null>(null);
-  const [colorStyles, setColorStyles] = useState<ColorStyles>(initialColorStyles);
+    useState<ComponentType<TemplateProps> | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   // Load template component dynamically
@@ -47,7 +36,7 @@ export default function TemplateSwitcher({
     setIsLoading(true);
 
     try {
-      let templateModule: { default: ComponentType<TemplateComponentProps> };
+      let templateModule: { default: ComponentType<TemplateProps> };
 
       // Dynamic import based on template slug
       switch (templateSlug) {
@@ -75,14 +64,25 @@ export default function TemplateSwitcher({
 
       setTemplateComponent(() => templateModule.default);
 
-      // Update color styles for the new template
+      // Update CSS custom properties for the new template
       const defaultColors = getTemplateDefaultColors(templateSlug);
       const brandColors = {
         primary: attributes?.primary_color || defaultColors.primary,
         secondary: attributes?.secondary_color || defaultColors.secondary,
         accent: attributes?.accent_color || defaultColors.accent,
       };
-      setColorStyles(getColorStyles(brandColors));
+
+      // Inject CSS variables dynamically for client-side template switching
+      const css = getPracticeCSS(brandColors);
+      const existingStyle = document.querySelector('[data-practice-id]');
+      if (existingStyle) {
+        existingStyle.innerHTML = css;  // Update existing style tag
+      } else {
+        const style = document.createElement('style');
+        style.setAttribute('data-practice-id', practice.practice_id);
+        style.innerHTML = css;
+        document.head.appendChild(style);
+      }
 
       setCurrentTemplate(templateSlug);
     } catch (error) {
@@ -94,7 +94,7 @@ export default function TemplateSwitcher({
     } finally {
       setIsLoading(false);
     }
-  }, [attributes]);
+  }, [attributes, practice.practice_id]);
 
   // Load initial template on mount
   useEffect(() => {
@@ -116,7 +116,7 @@ export default function TemplateSwitcher({
     return () => {
       window.removeEventListener('template-change', handleTemplateChange as EventListener);
     };
-  }, [currentTemplate, loadTemplate]); // Remove dependency to avoid re-creating listener
+  }, [currentTemplate, loadTemplate]);
 
   // Update loading state when template loading completes
   useEffect(() => {
@@ -153,7 +153,6 @@ export default function TemplateSwitcher({
         attributes={attributes}
         staff={staff}
         comments={comments}
-        colorStyles={colorStyles}
       />
     </div>
   );

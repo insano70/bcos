@@ -5,7 +5,7 @@ import { formatBusinessHours } from '@/lib/utils/business-hours-formatter';
 interface ContactProps {
   practice: Practice;
   attributes: PracticeAttributes;
-  colorStyles: any;
+  colorStyles?: any;
 }
 
 export default function Contact({ practice, attributes, colorStyles }: ContactProps) {

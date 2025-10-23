@@ -2,14 +2,12 @@ import { eq } from 'drizzle-orm';
 import { notFound } from 'next/navigation';
 import TemplatePreviewToolbar from '@/components/template-preview-toolbar';
 import { db, practice_attributes, practices, staff_members, templates } from '@/lib/db';
-import { getTemplateComponent } from '@/lib/template-loader';
 import type { PracticeAttributes } from '@/lib/types/practice';
 import {
   transformPractice,
   transformPracticeAttributes,
   transformStaffMember,
 } from '@/lib/types/transformers';
-import { getColorStyles, getTemplateDefaultColors } from '@/lib/utils/color-utils';
 import TemplateSwitcher from './template-switcher';
 
 async function getPracticeData(practiceId: string) {
@@ -76,18 +74,6 @@ export default async function TemplatePreview({
 
   const { practice, template, attributes, staff } = data;
 
-  // Generate color styles for the template
-  const defaultColors = getTemplateDefaultColors(template.slug);
-  const brandColors = {
-    primary: attributes?.primary_color || defaultColors.primary,
-    secondary: attributes?.secondary_color || defaultColors.secondary,
-    accent: attributes?.accent_color || defaultColors.accent,
-  };
-  const colorStyles = getColorStyles(brandColors);
-
-  // Dynamically load the template component based on the slug
-  const _TemplateComponent = getTemplateComponent(template.slug);
-
   return (
     <div className="min-h-screen">
       {/* Server-rendered toolbar - client component will enhance it */}
@@ -100,7 +86,6 @@ export default async function TemplatePreview({
         staff={staff}
         comments={[]} // Empty comments for preview mode
         initialTemplate={template.slug}
-        initialColorStyles={colorStyles}
       />
     </div>
   );

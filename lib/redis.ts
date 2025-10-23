@@ -95,7 +95,7 @@ class RedisClientManager {
         return;
       }
 
-      log.info('Connecting to Redis', {
+      log.debug('Connecting to Redis', {
         component: 'redis',
         host: config.host,
         port: config.port,
@@ -141,7 +141,7 @@ class RedisClientManager {
 
       // Event: Connected
       this.client.on('connect', () => {
-        log.info('Redis connected successfully', {
+        log.debug('Redis connected successfully', {
           component: 'redis',
           host: '[REDACTED]',
           port: config.port,

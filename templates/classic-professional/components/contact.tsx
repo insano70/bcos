@@ -12,7 +12,7 @@ interface BusinessHourInfo {
 interface ContactProps {
   practice: Practice;
   attributes: PracticeAttributes;
-  colorStyles: ColorStyles;
+  colorStyles?: ColorStyles;
 }
 
 export default function Contact({ practice, attributes, colorStyles }: ContactProps) {

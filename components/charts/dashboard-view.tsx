@@ -337,6 +337,7 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
             {/* Filter Pills (visual indicators) */}
             <DashboardFilterPills
               filters={universalFilters}
+              defaultFilters={filterConfig?.defaultFilters as DashboardUniversalFilters | undefined}
               onRemoveFilter={handleRemoveFilter}
               loading={isLoading}
             />

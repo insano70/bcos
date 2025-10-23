@@ -3,7 +3,7 @@ import type { Practice, PracticeAttributes } from '@/lib/types/practice';
 interface HeaderProps {
   practice: Practice;
   attributes: PracticeAttributes;
-  colorStyles: any;
+  colorStyles?: any;
 }
 
 export default function Header({ practice, attributes, colorStyles }: HeaderProps) {

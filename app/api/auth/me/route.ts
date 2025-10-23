@@ -35,28 +35,8 @@ const handler = async (request: NextRequest, session?: AuthSession) => {
       return createErrorResponse('User context not found', 404, request);
     }
 
-    const duration = Date.now() - startTime;
-
-    log.info('user context retrieved successfully from JWT token', {
-      operation: 'get_user_context',
-      userId: userContext.user_id,
-      email: userContext.email,
-      rbac: {
-        roles: userContext.roles.length,
-        permissions: userContext.all_permissions.length,
-        isSuperAdmin: userContext.is_super_admin,
-        orgAdminFor: userContext.organization_admin_for.length,
-      },
-      organizations: {
-        direct: userContext.organizations.length,
-        accessible: userContext.accessible_organizations.length,
-        current: userContext.current_organization_id || null,
-      },
-      duration,
-      slow: duration > 1000,
-      component: 'auth',
-      cached: true, // JWT token contains cached user context
-    });
+    // Note: Auth success already logged by auth middleware
+    // No need for duplicate logging here
 
     // Return user data with full RBAC context
     return createSuccessResponse(

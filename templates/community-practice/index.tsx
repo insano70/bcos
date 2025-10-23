@@ -1,22 +1,20 @@
 import type { TemplateProps } from '@/lib/types/practice';
 import Head from 'next/head';
-import { getColorStyles, getTemplateDefaultColors } from '@/lib/utils/color-utils';
+import { getTemplateDefaultColors } from '@/lib/utils/color-utils';
 import { PracticeCSSInjector } from '@/components/practice-css-injector';
 
-export default function CommunityPracticeTemplate({ 
-  practice, 
-  attributes, 
-  staff,
-  colorStyles 
+export default function CommunityPracticeTemplate({
+  practice,
+  attributes,
+  staff
 }: TemplateProps) {
-  // Generate color styles if not provided
+  // Get colors for this practice or use template defaults
   const defaultColors = getTemplateDefaultColors('community-practice');
   const brandColors = {
     primary: attributes.primary_color || defaultColors.primary,
     secondary: attributes.secondary_color || defaultColors.secondary,
     accent: attributes.accent_color || defaultColors.accent,
   };
-  const templateColorStyles = colorStyles || getColorStyles(brandColors);
 
   return (
     <>

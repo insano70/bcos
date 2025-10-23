@@ -3,7 +3,7 @@ import type { Practice, PracticeAttributes, ColorStyles } from '@/lib/types/prac
 interface HeroProps {
   practice: Practice;
   attributes: PracticeAttributes;
-  colorStyles: ColorStyles;
+  colorStyles?: ColorStyles;
 }
 
 export default function Hero({ practice, attributes, colorStyles }: HeroProps) {
@@ -43,18 +43,26 @@ export default function Hero({ practice, attributes, colorStyles }: HeroProps) {
           
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <button
-              type="button"
-              className="px-8 py-4 rounded-lg text-lg font-semibold transition-colors bg-practice-primary"
+            <a
+              href="#contact"
+              className="px-8 py-4 rounded-lg text-lg font-semibold transition-colors bg-practice-primary inline-block text-center"
+              onClick={(e) => {
+                e.preventDefault();
+                document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' });
+              }}
             >
               Schedule Appointment
-            </button>
-            <button
-              type="button"
-              className="bg-white px-8 py-4 rounded-lg text-lg font-semibold border-2 transition-colors border-practice-primary"
+            </a>
+            <a
+              href="#contact"
+              className="bg-white px-8 py-4 rounded-lg text-lg font-semibold border-2 transition-colors border-practice-primary inline-block text-center"
+              onClick={(e) => {
+                e.preventDefault();
+                document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' });
+              }}
             >
               Learn More
-            </button>
+            </a>
           </div>
           
           {/* Key highlights */}

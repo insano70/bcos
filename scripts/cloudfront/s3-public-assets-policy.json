@@ -1,0 +1,25 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ListBucketAccess",
+      "Effect": "Allow",
+      "Action": [
+        "s3:ListBucket",
+        "s3:GetBucketLocation"
+      ],
+      "Resource": "arn:aws:s3:::bcos-public-2c2af3de-6771-4cf3-90ff-330d402c1058"
+    },
+    {
+      "Sid": "ObjectAccessInPracticesFolder",
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:PutObjectAcl",
+        "s3:GetObject",
+        "s3:DeleteObject"
+      ],
+      "Resource": "arn:aws:s3:::bcos-public-2c2af3de-6771-4cf3-90ff-330d402c1058/*"
+    }
+  ]
+}

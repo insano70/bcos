@@ -40,13 +40,13 @@ export class PublicRouteBuilder {
    * Build public route handler
    *
    * @param handler - Route handler function (no userContext)
-   * @param reason - Reason for public access (for documentation)
+   * @param _reason - Reason for public access (for documentation) - kept for backward compatibility
    * @param options - Public route options (rateLimit)
    * @returns Next.js route handler function
    */
   static build(
     handler: (request: NextRequest, ...args: unknown[]) => Promise<Response>,
-    reason: string,
+    _reason: string,
     options: PublicRouteOptions = {}
   ) {
     // Build simpler pipeline (no auth or RBAC)
@@ -72,15 +72,6 @@ export class PublicRouteBuilder {
         },
         async () => {
           try {
-            // Log route initiation
-            log.api(`${request.method} ${url.pathname} - Public route`, request, 0, 0);
-
-            log.info('Public route initiated', {
-              endpoint: url.pathname,
-              method: request.method,
-              reason,
-            });
-
             // Execute middleware pipeline
             const result = await pipeline.execute(request, {
               routeType: 'public',
@@ -110,17 +101,15 @@ export class PublicRouteBuilder {
             const response = await handler(request, ...args);
             endHandlerTiming();
 
-            log.info('Handler execution completed', {
-              duration: context.timingTracker.getTiming('handler'),
-              statusCode: response.status,
-            });
-
             const totalDuration = context.timingTracker.getTotalDuration();
 
-            log.info('Public route completed successfully', {
-              statusCode: response.status,
-              totalDuration,
-            });
+            // Log single completion entry with all context
+            log.api(
+              `${request.method} ${url.pathname} completed`,
+              request,
+              response.status,
+              totalDuration
+            );
 
             // Record metrics (no userId for public routes)
             await MetricsRecorder.recordRequest(

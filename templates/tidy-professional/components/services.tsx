@@ -3,7 +3,7 @@ import type { Practice, PracticeAttributes } from '@/lib/types/practice';
 interface ServicesProps {
   practice: Practice;
   attributes: PracticeAttributes;
-  colorStyles: any;
+  colorStyles?: any;
 }
 
 export default function Services({ practice, attributes, colorStyles }: ServicesProps) {

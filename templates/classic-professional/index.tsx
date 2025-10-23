@@ -1,5 +1,5 @@
 import type { TemplateProps } from '@/lib/types/practice';
-import { getColorStyles, getTemplateDefaultColors } from '@/lib/utils/color-utils';
+import { getTemplateDefaultColors } from '@/lib/utils/color-utils';
 import { ServerPracticeCSSInjector } from '@/components/practice-css-injector';
 import Header from './components/header';
 import Hero from './components/hero';
@@ -12,9 +12,9 @@ import Contact from './components/contact';
 import AppointmentForm from './components/appointment-form';
 import Footer from './components/footer';
 
-export default function ClassicProfessionalTemplate({ 
-  practice, 
-  attributes, 
+export default function ClassicProfessionalTemplate({
+  practice,
+  attributes,
   staff,
   comments = [],
   nonce
@@ -26,9 +26,6 @@ export default function ClassicProfessionalTemplate({
     secondary: attributes.secondary_color || defaultColors.secondary,
     accent: attributes.accent_color || defaultColors.accent,
   };
-  
-  // Generate color styles for SSR-compatible rendering
-  const colorStyles = getColorStyles(brandColors);
 
   return (
     <>
@@ -37,26 +34,26 @@ export default function ClassicProfessionalTemplate({
 
       <div className="min-h-screen bg-white bg-practice-secondary">
         {/* Header with navigation */}
-        <Header practice={practice} attributes={attributes} colorStyles={colorStyles} />
-        
+        <Header practice={practice} attributes={attributes} />
+
         {/* Hero section */}
-        <Hero practice={practice} attributes={attributes} colorStyles={colorStyles} />
-        
+        <Hero practice={practice} attributes={attributes} />
+
         {/* Review Carousel section */}
-        <ReviewCarousel colorStyles={colorStyles} comments={comments} />
-        
+        <ReviewCarousel comments={comments} />
+
         {/* About section */}
-        <About practice={practice} attributes={attributes} colorStyles={colorStyles} />
-        
+        <About practice={practice} attributes={attributes} />
+
         {/* Gallery section */}
-        <Gallery attributes={attributes} colorStyles={colorStyles} />
-        
+        <Gallery attributes={attributes} />
+
         {/* Services section */}
-        <Services attributes={attributes} colorStyles={colorStyles} />
-        
+        <Services attributes={attributes} />
+
         {/* Providers section */}
-        <Providers staff={staff} colorStyles={colorStyles} />
-        
+        <Providers staff={staff} />
+
         {/* Appointment Form Section */}
         <section className="py-20 bg-practice-primary-50">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -68,15 +65,15 @@ export default function ClassicProfessionalTemplate({
                 Ready to take the first step toward better health? Request an appointment today.
               </p>
             </div>
-            <AppointmentForm colorStyles={colorStyles} />
+            <AppointmentForm />
           </div>
         </section>
-        
+
         {/* Contact section */}
-        <Contact practice={practice} attributes={attributes} colorStyles={colorStyles} />
-        
+        <Contact practice={practice} attributes={attributes} />
+
         {/* Footer */}
-        <Footer practice={practice} attributes={attributes} colorStyles={colorStyles} />
+        <Footer practice={practice} attributes={attributes} />
       </div>
     </>
   );

@@ -1,6 +1,6 @@
 import type { TemplateProps } from '@/lib/types/practice';
 import Head from 'next/head';
-import { getColorStyles, getTemplateDefaultColors } from '@/lib/utils/color-utils';
+import { getTemplateDefaultColors } from '@/lib/utils/color-utils';
 import { JSONLD } from '@/lib/security/nonce-components';
 import { PracticeCSSInjector } from '@/components/practice-css-injector';
 import Header from './components/header';
@@ -12,20 +12,18 @@ import Contact from './components/contact';
 import AppointmentForm from './components/appointment-form';
 import Footer from './components/footer';
 
-export default function WarmWelcomingTemplate({ 
-  practice, 
-  attributes, 
-  staff,
-  colorStyles 
+export default function WarmWelcomingTemplate({
+  practice,
+  attributes,
+  staff
 }: TemplateProps) {
-  // Generate color styles if not provided
+  // Get colors for this practice or use template defaults
   const defaultColors = getTemplateDefaultColors('warm-welcoming');
   const brandColors = {
     primary: attributes.primary_color || defaultColors.primary,
     secondary: attributes.secondary_color || defaultColors.secondary,
     accent: attributes.accent_color || defaultColors.accent,
   };
-  const templateColorStyles = colorStyles || getColorStyles(brandColors);
 
   return (
     <>
@@ -67,20 +65,20 @@ export default function WarmWelcomingTemplate({
 
       <div className="min-h-screen bg-practice-secondary">
         {/* Header with navigation */}
-        <Header practice={practice} attributes={attributes} colorStyles={templateColorStyles} />
-        
+        <Header practice={practice} attributes={attributes} />
+
         {/* Hero section */}
-        <Hero practice={practice} attributes={attributes} colorStyles={templateColorStyles} />
-        
+        <Hero practice={practice} attributes={attributes} />
+
         {/* About section */}
-        <About practice={practice} attributes={attributes} colorStyles={templateColorStyles} />
-        
+        <About practice={practice} attributes={attributes} />
+
         {/* Services section */}
-        <Services attributes={attributes} colorStyles={templateColorStyles} />
-        
+        <Services attributes={attributes} />
+
         {/* Providers section */}
-        <Providers staff={staff} colorStyles={templateColorStyles} />
-        
+        <Providers staff={staff} />
+
         {/* Appointment Form Section */}
         <section className="py-20 bg-practice-primary-100">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -95,12 +93,12 @@ export default function WarmWelcomingTemplate({
             <AppointmentForm />
           </div>
         </section>
-        
+
         {/* Contact section */}
-        <Contact practice={practice} attributes={attributes} colorStyles={colorStyles} />
-        
+        <Contact practice={practice} attributes={attributes} />
+
         {/* Footer */}
-        <Footer practice={practice} attributes={attributes} colorStyles={colorStyles} />
+        <Footer practice={practice} attributes={attributes} />
       </div>
     </>
   );

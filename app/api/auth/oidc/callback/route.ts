@@ -55,8 +55,6 @@ export const dynamic = 'force-dynamic';
 const oidcCallbackHandler = async (request: NextRequest) => {
   const startTime = Date.now();
 
-  log.api('GET /api/auth/oidc/callback - OIDC callback received', request, 0, 0);
-
   // Use APP_URL for all redirects to avoid internal hostname issues behind load balancer
   // APP_URL is a runtime environment variable (not NEXT_PUBLIC_ which is build-time)
   const baseUrl = process.env.APP_URL || request.url;

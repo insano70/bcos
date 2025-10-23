@@ -1,0 +1,2 @@
+
+An error occurred (InvalidViewerCertificate) when calling the UpdateDistribution operation: The specified SSL certificate doesn't exist, isn't in us-east-1 region, isn't valid, or doesn't include a valid certificate chain.

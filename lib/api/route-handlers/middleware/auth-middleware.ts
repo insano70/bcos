@@ -55,15 +55,6 @@ export class AuthMiddleware implements Middleware {
     const session = await applyGlobalAuth(request);
     endTiming();
 
-    log.info('Global auth check completed', {
-      duration: context.timingTracker.getTiming('auth'),
-    });
-
-    log.debug('Global authentication completed', {
-      hasSession: !!session,
-      hasUser: !!session?.user?.id,
-    });
-
     // Verify session and user exist
     if (!session?.user?.id) {
       log.warn('Authentication failed - no user session', {
@@ -113,15 +104,11 @@ export class AuthMiddleware implements Middleware {
       };
     }
 
-    log.debug('User context loaded successfully', {
-      userId: userContext.user_id,
-      organizationId: userContext.current_organization_id,
-      roleCount: userContext.roles?.length || 0,
-      permissionCount: userContext.all_permissions?.length || 0,
-      isSuperAdmin: userContext.is_super_admin,
+    // Log single comprehensive auth success
+    log.auth('auth_success', true, {
+      userId: session.user.id,
+      duration: context.timingTracker.getTiming('auth'),
     });
-
-    log.auth('auth_success', true, { userId: session.user.id });
 
     // Return updated context with session and userContext
     return {

@@ -4,6 +4,14 @@ import path from 'node:path';
 import { nanoid } from 'nanoid';
 import sharp from 'sharp';
 import { log } from '@/lib/logger';
+import {
+  deleteFromS3,
+  generateS3Key,
+  getPublicUrl,
+  isCloudFrontUrl,
+  isS3Configured,
+  uploadToS3,
+} from '@/lib/s3/public-assets';
 
 /**
  * Enterprise File Upload Service (Pure Functions Module)
@@ -18,6 +26,13 @@ interface UploadOptions {
   optimizeImages?: boolean;
   generateThumbnails?: boolean;
   folder?: string;
+  /**
+   * S3 path segments for building S3 keys
+   * If provided and S3 is configured, files will be uploaded to S3 instead of local filesystem
+   * @example ['practices', '123', 'logo'] => 'practices/123/logo/filename.jpg'
+   * @example ['users', 'user-uuid', 'avatar'] => 'users/user-uuid/avatar/photo.png'
+   */
+  s3PathSegments?: string[];
 }
 
 interface ProcessedFile {
@@ -39,7 +54,9 @@ interface UploadResult {
 /**
  * Default upload configuration
  */
-export const DEFAULT_UPLOAD_OPTIONS: Required<UploadOptions> = {
+export const DEFAULT_UPLOAD_OPTIONS: Required<Omit<UploadOptions, 's3PathSegments'>> & {
+  s3PathSegments: undefined;
+} = {
   allowedTypes: [
     'image/jpeg',
     'image/jpg',
@@ -56,6 +73,7 @@ export const DEFAULT_UPLOAD_OPTIONS: Required<UploadOptions> = {
   optimizeImages: true,
   generateThumbnails: true,
   folder: 'uploads',
+  s3PathSegments: undefined,
 };
 
 /**
@@ -78,6 +96,9 @@ export async function uploadFiles(
     errors: [],
   };
 
+  // Detect S3 usage
+  const useS3 = isS3Configured() && opts.s3PathSegments && opts.s3PathSegments.length > 0;
+
   // Enhanced upload operation logging - permanently enabled
   log.info('File upload operation initiated', {
     fileCount: files.length,
@@ -86,6 +107,8 @@ export async function uploadFiles(
     optimizeImages: opts.optimizeImages,
     generateThumbnails: opts.generateThumbnails,
     targetFolder: opts.folder,
+    storageType: useS3 ? 's3' : 'local',
+    s3PathSegments: useS3 ? opts.s3PathSegments : undefined,
   });
 
   // Security validation logging
@@ -123,7 +146,7 @@ export async function uploadFiles(
   // Process each file
   for (const file of files) {
     try {
-      const fileResult = await processFile(file, opts);
+      const fileResult = await processFile(file, opts as ProcessFileOptions);
       if (fileResult.success && fileResult.file) {
         result.files.push(fileResult.file);
       } else {
@@ -158,7 +181,7 @@ export async function uploadFiles(
       action: 'upload_successful',
       filesProcessed: result.files.length,
       securityValidation: 'passed',
-      storageLocation: 'local_filesystem',
+      storageLocation: useS3 ? 's3_cloudfront' : 'local_filesystem',
     });
   } else {
     log.security('file_upload_failed', 'medium', {
@@ -188,8 +211,87 @@ export async function uploadFile(file: File, options: UploadOptions = {}): Promi
 
 /**
  * Delete uploaded file and its thumbnail
+ * Supports both S3 (CloudFront URLs or S3 keys) and local filesystem paths
  */
 export async function deleteFile(filePath: string): Promise<boolean> {
+  try {
+    // Detect if this is an S3 file (CloudFront URL or S3-like key)
+    const isS3File = isCloudFrontUrl(filePath) || (!filePath.startsWith('/') && filePath.includes('/'));
+
+    if (isS3File && isS3Configured()) {
+      // S3 deletion path
+      return await deleteFileS3(filePath);
+    }
+
+    // Local filesystem deletion path
+    return await deleteFileLocal(filePath);
+  } catch (error) {
+    log.error('File deletion failed', error instanceof Error ? error : new Error(String(error)), {
+      filePath,
+      component: 'file-management',
+      feature: 'secure-uploads',
+      stack: error instanceof Error ? error.stack : undefined,
+      operation: 'deleteFile',
+    });
+    return false;
+  }
+}
+
+/**
+ * Delete file from S3
+ * @internal
+ */
+async function deleteFileS3(filePathOrUrl: string): Promise<boolean> {
+  try {
+    // Extract S3 key from CloudFront URL if needed
+    const s3Key = isCloudFrontUrl(filePathOrUrl)
+      ? (getPublicUrl(filePathOrUrl).split('/').slice(3).join('/') || filePathOrUrl)
+      : filePathOrUrl;
+
+    // Delete main file
+    await deleteFromS3(s3Key);
+
+    log.info('File deleted from S3', {
+      s3Key,
+      component: 'upload-service',
+    });
+
+    // Delete thumbnail if exists
+    // Thumbnail pattern: replace last path segment folder with 'thumbnails'
+    const pathParts = s3Key.split('/');
+    const fileName = pathParts.pop();
+    if (fileName) {
+      const thumbnailKey = [...pathParts, 'thumbnails', fileName].join('/');
+      try {
+        await deleteFromS3(thumbnailKey);
+        log.info('Thumbnail deleted from S3', {
+          s3Key: thumbnailKey,
+          component: 'upload-service',
+        });
+      } catch (_error) {
+        // Thumbnail might not exist, which is fine
+        log.info('Thumbnail not found in S3 (expected if no thumbnail was generated)', {
+          s3Key: thumbnailKey,
+          component: 'upload-service',
+        });
+      }
+    }
+
+    return true;
+  } catch (error) {
+    log.error('S3 file deletion failed', error instanceof Error ? error : new Error(String(error)), {
+      filePathOrUrl,
+      component: 'upload-service',
+    });
+    return false;
+  }
+}
+
+/**
+ * Delete file from local filesystem
+ * @internal
+ */
+async function deleteFileLocal(filePath: string): Promise<boolean> {
   try {
     const fs = await import('node:fs/promises');
     const fullPath = path.join(process.cwd(), 'public', filePath);
@@ -214,14 +316,16 @@ export async function deleteFile(filePath: string): Promise<boolean> {
       await fs.unlink(thumbnailPath);
     }
 
+    log.info('File deleted from local filesystem', {
+      filePath,
+      component: 'upload-service',
+    });
+
     return true;
   } catch (error) {
-    log.error('File deletion failed', error instanceof Error ? error : new Error(String(error)), {
+    log.error('Local file deletion failed', error instanceof Error ? error : new Error(String(error)), {
       filePath,
-      component: 'file-management',
-      feature: 'secure-uploads',
-      stack: error instanceof Error ? error.stack : undefined,
-      operation: 'deleteFile',
+      component: 'upload-service',
     });
     return false;
   }
@@ -251,13 +355,18 @@ export async function getFileInfo(filePath: string) {
   }
 }
 
+type ProcessFileOptions = Required<Omit<UploadOptions, 's3PathSegments'>> & {
+  s3PathSegments?: string[];
+};
+
 /**
  * Process a single file with validation and optimization
+ * Supports both S3 and local filesystem storage with automatic detection
  * @internal
  */
 async function processFile(
   file: File,
-  options: Required<UploadOptions>
+  options: ProcessFileOptions
 ): Promise<{ success: boolean; file?: ProcessedFile; errors: string[] }> {
   const errors: string[] = [];
 
@@ -274,6 +383,104 @@ async function processFile(
     return { success: false, errors };
   }
 
+  // Detect S3 usage
+  const useS3 = isS3Configured() && options.s3PathSegments && options.s3PathSegments.length > 0;
+
+  // Convert File to Buffer
+  const arrayBuffer = await file.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
+
+  let processedBuffer = buffer;
+
+  // Process images (optimization)
+  if (IMAGE_TYPES.includes(file.type) && options.optimizeImages) {
+    const optimized = await optimizeImage(buffer, file.type);
+    processedBuffer = Buffer.from(optimized);
+  }
+
+  // Branch: S3 upload or local filesystem
+  if (useS3) {
+    return await processFileS3(file, processedBuffer, options);
+  }
+
+  return await processFileLocal(file, processedBuffer, options);
+}
+
+/**
+ * Process file for S3 storage
+ * @internal
+ */
+async function processFileS3(
+  file: File,
+  processedBuffer: Buffer,
+  options: ProcessFileOptions
+): Promise<{ success: boolean; file?: ProcessedFile; errors: string[] }> {
+  const errors: string[] = [];
+
+  try {
+    // Generate S3 key
+    const s3Key = generateS3Key(options.s3PathSegments || [], file.name);
+
+    // Upload to S3
+    const uploadResult = await uploadToS3(processedBuffer, s3Key, {
+      contentType: file.type,
+    });
+
+    log.info('File uploaded to S3', {
+      originalName: file.name,
+      s3Key: uploadResult.s3Key,
+      fileUrl: uploadResult.fileUrl,
+      size: uploadResult.size,
+      component: 'upload-service',
+    });
+
+    // Generate thumbnail if needed
+    let thumbnail: string | undefined;
+    if (IMAGE_TYPES.includes(file.type) && options.generateThumbnails) {
+      thumbnail = await generateThumbnailS3(
+        processedBuffer,
+        file.name,
+        options.s3PathSegments || []
+      );
+    }
+
+    const processedFile: ProcessedFile = {
+      originalName: file.name,
+      fileName: path.basename(s3Key),
+      filePath: s3Key, // Store S3 key in filePath for reference
+      fileUrl: uploadResult.fileUrl,
+      mimeType: file.type,
+      size: uploadResult.size,
+      ...(thumbnail && { thumbnail }),
+    };
+
+    return {
+      success: true,
+      file: processedFile,
+      errors: [],
+    };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown S3 upload error';
+    log.error('S3 file upload failed', error instanceof Error ? error : new Error(errorMessage), {
+      fileName: file.name,
+      component: 'upload-service',
+    });
+    errors.push(`Failed to upload ${file.name} to S3: ${errorMessage}`);
+    return { success: false, errors };
+  }
+}
+
+/**
+ * Process file for local filesystem storage
+ * @internal
+ */
+async function processFileLocal(
+  file: File,
+  processedBuffer: Buffer,
+  options: ProcessFileOptions
+): Promise<{ success: boolean; file?: ProcessedFile; errors: string[] }> {
+  const errors: string[] = [];
+
   // Generate unique filename
   const fileExtension = path.extname(file.name);
   const baseName = path.basename(file.name, fileExtension);
@@ -282,23 +489,11 @@ async function processFile(
   const filePath = path.join(process.cwd(), 'public', options.folder, fileName);
   const fileUrl = `/${options.folder}/${fileName}`;
 
-  // Convert File to Buffer
-  const arrayBuffer = await file.arrayBuffer();
-  const buffer = Buffer.from(arrayBuffer);
-
-  let processedBuffer = buffer;
   let thumbnail: string | undefined;
 
-  // Process images
-  if (IMAGE_TYPES.includes(file.type)) {
-    if (options.optimizeImages) {
-      const optimized = await optimizeImage(buffer, file.type);
-      processedBuffer = Buffer.from(optimized);
-    }
-
-    if (options.generateThumbnails) {
-      thumbnail = await generateThumbnail(buffer, fileName, options.folder);
-    }
+  // Generate thumbnail if needed
+  if (IMAGE_TYPES.includes(file.type) && options.generateThumbnails) {
+    thumbnail = await generateThumbnail(processedBuffer, fileName, options.folder);
   }
 
   // Save file
@@ -409,6 +604,54 @@ async function generateThumbnail(
       operation: 'generateThumbnail',
       component: 'file-management',
       feature: 'secure-uploads',
+    });
+    return '';
+  }
+}
+
+/**
+ * Generate thumbnail for images and upload to S3
+ * @internal
+ */
+async function generateThumbnailS3(
+  buffer: Buffer,
+  originalFileName: string,
+  pathSegments: string[]
+): Promise<string> {
+  try {
+    // Generate thumbnail buffer
+    const thumbnailBuffer = await sharp(buffer)
+      .resize(300, 300, {
+        fit: 'cover',
+        position: 'center',
+      })
+      .jpeg({ quality: 80 })
+      .toBuffer();
+
+    // Create thumbnail path segments: [...pathSegments, 'thumbnails']
+    const thumbnailPathSegments = [...pathSegments, 'thumbnails'];
+
+    // Generate S3 key for thumbnail
+    const thumbnailS3Key = generateS3Key(thumbnailPathSegments, originalFileName);
+
+    // Upload thumbnail to S3
+    const thumbnailResult = await uploadToS3(thumbnailBuffer, thumbnailS3Key, {
+      contentType: 'image/jpeg',
+    });
+
+    log.info('Thumbnail uploaded to S3', {
+      s3Key: thumbnailResult.s3Key,
+      fileUrl: thumbnailResult.fileUrl,
+      size: thumbnailResult.size,
+      component: 'upload-service',
+    });
+
+    return thumbnailResult.fileUrl;
+  } catch (error) {
+    log.warn('S3 thumbnail generation failed', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      operation: 'generateThumbnailS3',
+      component: 'upload-service',
     });
     return '';
   }

@@ -3,7 +3,7 @@ import type { Practice, PracticeAttributes, ColorStyles } from '@/lib/types/prac
 interface HeaderProps {
   practice: Practice;
   attributes: PracticeAttributes;
-  colorStyles: ColorStyles;
+  colorStyles?: ColorStyles;
 }
 
 export default function Header({ practice, attributes, colorStyles }: HeaderProps) {
@@ -55,12 +55,16 @@ export default function Header({ practice, attributes, colorStyles }: HeaderProp
                 {attributes.phone}
               </a>
             )}
-            <button
-              type="button"
-              className="px-4 py-2 rounded-lg transition-colors bg-practice-primary"
+            <a
+              href="#contact"
+              className="px-4 py-2 rounded-lg transition-colors bg-practice-primary inline-block"
+              onClick={(e) => {
+                e.preventDefault();
+                document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' });
+              }}
             >
               Schedule Appointment
-            </button>
+            </a>
           </div>
         </div>
       </div>

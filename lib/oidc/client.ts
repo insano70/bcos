@@ -64,7 +64,7 @@ export class OIDCClient {
     this.config = buildOIDCConfig();
 
     // Perform discovery (cached at singleton level, not per-call level)
-    log.info('Fetching OIDC discovery document', {
+    log.debug('Fetching OIDC discovery document', {
       tenantId: this.config.tenantId,
     });
 
@@ -78,7 +78,7 @@ export class OIDCClient {
         this.config.clientSecret
       );
 
-      log.info('OIDC configuration discovered successfully', {
+      log.debug('OIDC configuration discovered successfully', {
         issuer: issuerUrl.href,
       });
     } catch (error) {

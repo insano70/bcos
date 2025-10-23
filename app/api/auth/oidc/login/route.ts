@@ -45,8 +45,6 @@ export const dynamic = 'force-dynamic';
 const oidcLoginHandler = async (request: NextRequest) => {
   const startTime = Date.now();
 
-  log.api('GET /api/auth/oidc/login - OIDC login initiated', request, 0, 0);
-
   try {
     // Check if OIDC is enabled
     if (!isOIDCEnabled()) {
@@ -75,13 +73,6 @@ const oidcLoginHandler = async (request: NextRequest) => {
     const { getDefaultReturnUrl } = await import('@/lib/services/default-dashboard-service');
     const returnUrl = await getDefaultReturnUrl(paramReturnUrl);
 
-    log.info('OIDC login initiation started', {
-      requestId: correlation.current() || 'unknown',
-      ipAddress: metadata.ipAddress,
-      returnUrl,
-      fingerprint: `${fingerprint.substring(0, 16)}...`,
-    });
-
     // Get OIDC client (singleton)
     const oidcClient = await getOIDCClient();
 
@@ -91,10 +82,6 @@ const oidcLoginHandler = async (request: NextRequest) => {
     // Register state for one-time use validation (CRITICAL for CSRF prevention)
     // Database-backed for horizontal scaling
     await databaseStateManager.registerState(state, nonce, fingerprint);
-
-    log.debug('OIDC state token registered', {
-      state: `${state.substring(0, 8)}...`,
-    });
 
     // Encrypt session data before storing (CRITICAL SECURITY)
     const sessionSecret = process.env.OIDC_SESSION_SECRET;
@@ -126,17 +113,15 @@ const oidcLoginHandler = async (request: NextRequest) => {
       path: '/',
     });
 
-    // Audit log - log as login attempt for tracking
-    log.info('OIDC login audit', {
+    // Log single comprehensive entry for login initiation
+    log.info('OIDC login redirect', {
+      operation: 'oidc_login',
       ipAddress: metadata.ipAddress,
       userAgent: metadata.userAgent,
       requestId: correlation.current(),
       returnUrl,
-    });
-
-    log.info('OIDC login redirect', {
-      duration: Date.now() - startTime,
       authEndpoint: url.split('?')[0],
+      duration: Date.now() - startTime,
     });
 
     // Redirect to Microsoft Entra authorization endpoint

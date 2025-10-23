@@ -1,6 +1,6 @@
 import type { TemplateProps } from '@/lib/types/practice';
 import Head from 'next/head';
-import { getColorStyles, getTemplateDefaultColors } from '@/lib/utils/color-utils';
+import { getTemplateDefaultColors } from '@/lib/utils/color-utils';
 import { ServerPracticeCSSInjector } from '@/components/practice-css-injector';
 import Header from './components/header';
 import Hero from './components/hero';
@@ -18,17 +18,15 @@ export default function TidyProfessionalTemplate({
   attributes,
   staff,
   comments = [],
-  colorStyles,
   nonce
 }: TemplateProps) {
-  // Generate color styles if not provided
+  // Get colors for this practice or use template defaults
   const defaultColors = getTemplateDefaultColors('tidy-professional');
   const brandColors = {
     primary: attributes.primary_color || defaultColors.primary,
     secondary: attributes.secondary_color || defaultColors.secondary,
     accent: attributes.accent_color || defaultColors.accent,
   };
-  const templateColorStyles = colorStyles || getColorStyles(brandColors);
 
   return (
     <>
@@ -61,46 +59,39 @@ export default function TidyProfessionalTemplate({
       <ServerPracticeCSSInjector colors={brandColors} practiceId={practice.practice_id} nonce={nonce || ''} />
 
       <div className="flex flex-col min-h-screen overflow-hidden font-inter">
-        <Header 
-          practice={practice} 
-          attributes={attributes} 
-          colorStyles={templateColorStyles} 
+        <Header
+          practice={practice}
+          attributes={attributes}
         />
-        
+
         <main className="grow">
           <Hero
             practice={practice}
             attributes={attributes}
-            colorStyles={templateColorStyles}
           />
 
           <ReviewCarousel
-            colorStyles={templateColorStyles}
             comments={comments}
           />
 
           <About
             practice={practice}
             attributes={attributes}
-            colorStyles={templateColorStyles}
           />
 
           <Gallery
             attributes={attributes}
-            colorStyles={templateColorStyles}
           />
 
           <Services
             practice={practice}
             attributes={attributes}
-            colorStyles={templateColorStyles}
           />
 
           <Providers
             practice={practice}
             attributes={attributes}
             staff={staff}
-            colorStyles={templateColorStyles}
           />
 
           <section className="py-20 bg-practice-primary-50">
@@ -116,7 +107,6 @@ export default function TidyProfessionalTemplate({
               <AppointmentForm
                 practice={practice}
                 attributes={attributes}
-                colorStyles={templateColorStyles}
               />
             </div>
           </section>
@@ -124,14 +114,12 @@ export default function TidyProfessionalTemplate({
           <Contact
             practice={practice}
             attributes={attributes}
-            colorStyles={templateColorStyles}
           />
         </main>
 
-        <Footer 
-          practice={practice} 
-          attributes={attributes} 
-          colorStyles={templateColorStyles} 
+        <Footer
+          practice={practice}
+          attributes={attributes}
         />
       </div>
 

@@ -91,6 +91,8 @@ export interface Education {
 }
 
 // Color styles interface for templates
+// @deprecated - Use CSS custom properties (bg-practice-primary, text-practice-primary, etc.) instead
+// This interface will be removed in a future version
 export interface ColorStyles {
   primary: {
     backgroundColor: string;
@@ -149,6 +151,7 @@ export interface TemplateProps {
   attributes: PracticeAttributes;
   staff: StaffMember[];
   comments?: PracticeComment[]; // Optional customer reviews for carousel
-  colorStyles?: ColorStyles; // Dynamic color styles for the template
+  /** @deprecated - Use CSS custom properties instead. This prop will be removed in a future version. */
+  colorStyles?: ColorStyles; // Dynamic color styles for the template (DEPRECATED)
   nonce?: string; // CSP nonce for inline scripts and styles
 }

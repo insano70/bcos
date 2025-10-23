@@ -2,7 +2,7 @@ import type { StaffMember } from '@/lib/types/practice';
 
 interface ProvidersProps {
   staff: StaffMember[];
-  colorStyles: any;
+  colorStyles?: any;
 }
 
 export default function Providers({ staff, colorStyles }: ProvidersProps) {

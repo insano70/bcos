@@ -55,6 +55,34 @@ const uploadFilesHandler = async (request: NextRequest, userContext: UserContext
     // Get practice-specific data
     const practiceId = data.get('practiceId') as string | null;
     const imageType = data.get('type') as string; // 'logo' | 'hero' | 'provider' | 'gallery'
+    const staffId = data.get('staffId') as string | null;
+
+    // Build S3 path segments dynamically based on upload context
+    // If practiceId and imageType are provided, use S3 storage
+    let s3PathSegments: string[] | undefined;
+    if (practiceId && imageType) {
+      s3PathSegments = ['practices', practiceId];
+
+      // Add imageType to path
+      if (imageType === 'provider' && staffId) {
+        // Staff photos: practices/{practiceId}/staff/{staffId}
+        s3PathSegments.push('staff', staffId);
+      } else if (imageType === 'provider') {
+        // Staff photos without staffId: practices/{practiceId}/staff
+        s3PathSegments.push('staff');
+      } else {
+        // Other types: practices/{practiceId}/{imageType}
+        s3PathSegments.push(imageType);
+      }
+
+      log.info('S3 path segments generated', {
+        practiceId,
+        imageType,
+        staffId: staffId || undefined,
+        s3PathSegments,
+        userId: userContext.user_id,
+      });
+    }
 
     // Upload files
     const uploadStartTime = Date.now();
@@ -73,11 +101,14 @@ const uploadFilesHandler = async (request: NextRequest, userContext: UserContext
       ],
       maxFileSize: 10 * 1024 * 1024, // 10MB
       maxFiles: 5,
+      ...(s3PathSegments && { s3PathSegments }),
     });
     log.info('File upload service completed', {
       duration: Date.now() - uploadStartTime,
       fileCount: files.length,
       success: result.success,
+      storageType: s3PathSegments ? 's3' : 'local',
+      s3PathSegments: s3PathSegments || undefined,
     });
 
     // Log the upload action
@@ -132,7 +163,6 @@ const uploadFilesHandler = async (request: NextRequest, userContext: UserContext
             break;
 
           case 'provider': {
-            const staffId = data.get('staffId') as string;
             if (!staffId) {
               return createErrorResponse(
                 'Staff ID is required for provider photo uploads',

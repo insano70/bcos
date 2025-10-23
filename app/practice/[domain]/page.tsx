@@ -11,7 +11,6 @@ import {
   transformPracticeAttributes,
   transformStaffMember,
 } from '@/lib/types/transformers';
-import { getColorStyles, getTemplateDefaultColors } from '@/lib/utils/color-utils';
 
 async function getPracticeByDomain(domain: string) {
   log.info('practice lookup initiated', {
@@ -171,16 +170,6 @@ export default async function PracticeWebsite({ params }: { params: Promise<{ do
   const parsedAttributes = attributes;
   const parsedStaff = staff;
 
-  // Generate color styles for the template
-  const defaultColors = getTemplateDefaultColors(template?.slug || 'classic-professional');
-  const brandColors = {
-    primary: parsedAttributes.primary_color || defaultColors.primary,
-    secondary: parsedAttributes.secondary_color || defaultColors.secondary,
-    accent: parsedAttributes.accent_color || defaultColors.accent,
-  };
-  // Legacy colorStyles for backward compatibility during migration
-  const colorStyles = getColorStyles(brandColors);
-
   // Dynamically load the correct template component
   const TemplateComponent = getTemplateComponent(template?.slug || 'classic-professional');
 
@@ -190,7 +179,6 @@ export default async function PracticeWebsite({ params }: { params: Promise<{ do
       attributes={parsedAttributes}
       staff={parsedStaff}
       comments={comments}
-      colorStyles={colorStyles}
       nonce={nonce}
     />
   );

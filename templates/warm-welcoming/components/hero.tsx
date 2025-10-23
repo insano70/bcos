@@ -3,7 +3,7 @@ import type { Practice, PracticeAttributes } from '@/lib/types/practice';
 interface HeroProps {
   practice: Practice;
   attributes: PracticeAttributes;
-  colorStyles: any;
+  colorStyles?: any;
 }
 
 export default function Hero({ practice, attributes, colorStyles }: HeroProps) {

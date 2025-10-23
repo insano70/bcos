@@ -5,7 +5,7 @@ import type { PracticeAttributes } from '@/lib/types/practice';
 
 interface GalleryProps {
   attributes: PracticeAttributes;
-  colorStyles: any;
+  colorStyles?: any;
 }
 
 export default function Gallery({ attributes, colorStyles }: GalleryProps) {

@@ -68,15 +68,6 @@ export function buildAuthRoute(
         },
         async () => {
           try {
-            // Log route initiation
-            log.api(`${request.method} ${url.pathname} - Auth route`, request, 0, 0);
-
-            log.info('Auth route initiated', {
-              endpoint: url.pathname,
-              method: request.method,
-              requireAuth: options.requireAuth !== false,
-            });
-
             // Execute middleware pipeline
             const result = await pipeline.execute(request, {
               routeType: 'auth',
@@ -118,19 +109,15 @@ export function buildAuthRoute(
             const response = await handler(request, session, ...args);
             endHandlerTiming();
 
-            log.info('Handler execution completed', {
-              duration: context.timingTracker.getTiming('handler'),
-              userId: context.userId,
-              statusCode: response.status,
-            });
-
             const totalDuration = context.timingTracker.getTotalDuration();
 
-            log.info('Auth route completed successfully', {
-              userId: context.userId,
-              statusCode: response.status,
-              totalDuration,
-            });
+            // Log single completion entry with all context
+            log.api(
+              `${request.method} ${url.pathname} completed`,
+              request,
+              response.status,
+              totalDuration
+            );
 
             // Record metrics
             await MetricsRecorder.recordRequest(

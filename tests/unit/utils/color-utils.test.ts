@@ -3,7 +3,6 @@ import {
   darkenColor,
   generateColorCSS,
   generateSSRColorStyles,
-  getColorStyles,
   getTemplateDefaultColors,
   hexToRgb,
   hexToRgba,
@@ -23,9 +22,36 @@ describe('color-utils', () => {
     it('should return correct colors for modern-minimalist template', () => {
       const colors = getTemplateDefaultColors('modern-minimalist');
       expect(colors).toEqual({
-        primary: '#00AEEF',
-        secondary: '#FFFFFF',
-        accent: '#44C0AE',
+        primary: '#2D3748',
+        secondary: '#F7FAFC',
+        accent: '#ED8936',
+      });
+    });
+
+    it('should return correct colors for warm-welcoming template', () => {
+      const colors = getTemplateDefaultColors('warm-welcoming');
+      expect(colors).toEqual({
+        primary: '#D69E2E',
+        secondary: '#FFF5E6',
+        accent: '#C05621',
+      });
+    });
+
+    it('should return correct colors for clinical-focus template', () => {
+      const colors = getTemplateDefaultColors('clinical-focus');
+      expect(colors).toEqual({
+        primary: '#2B6CB0',
+        secondary: '#EDF2F7',
+        accent: '#38A169',
+      });
+    });
+
+    it('should return correct colors for community-practice template', () => {
+      const colors = getTemplateDefaultColors('community-practice');
+      expect(colors).toEqual({
+        primary: '#48BB78',
+        secondary: '#F0FFF4',
+        accent: '#9F7AEA',
       });
     });
 
@@ -229,90 +255,6 @@ describe('color-utils', () => {
     });
   });
 
-  describe('getColorStyles', () => {
-    const testColors = {
-      primary: '#2174EA',
-      secondary: '#F8FAFC',
-      accent: '#5696FF',
-    };
-
-    it('should generate primary color styles', () => {
-      const styles = getColorStyles(testColors);
-
-      expect(styles.primary).toEqual({
-        backgroundColor: '#2174EA',
-        color: 'white',
-      });
-
-      expect(styles.primaryText).toEqual({
-        color: '#2174EA',
-      });
-
-      expect(styles.primaryBorder).toEqual({
-        borderColor: '#2174EA',
-        color: '#2174EA',
-      });
-    });
-
-    it('should generate secondary color styles', () => {
-      const styles = getColorStyles(testColors);
-
-      expect(styles.secondary).toEqual({
-        backgroundColor: '#F8FAFC',
-      });
-
-      expect(styles.secondaryText).toEqual({
-        color: '#F8FAFC',
-      });
-    });
-
-    it('should generate accent color styles', () => {
-      const styles = getColorStyles(testColors);
-
-      expect(styles.accent).toEqual({
-        backgroundColor: '#5696FF',
-        color: 'white',
-      });
-
-      expect(styles.accentText).toEqual({
-        color: '#5696FF',
-      });
-
-      expect(styles.accentBorder).toEqual({
-        borderColor: '#5696FF',
-        color: '#5696FF',
-      });
-    });
-
-    it('should generate background variants', () => {
-      const styles = getColorStyles(testColors);
-
-      expect(styles.primaryBg50).toEqual({
-        backgroundColor: 'rgba(33, 116, 234, 0.05)',
-      });
-
-      expect(styles.primaryBg100).toEqual({
-        backgroundColor: 'rgba(33, 116, 234, 0.1)',
-      });
-    });
-
-    it('should generate gradient styles', () => {
-      const styles = getColorStyles(testColors);
-
-      expect(styles.primaryGradient.background).toContain('linear-gradient');
-      expect(styles.primaryGradient.background).toContain('rgba(33, 116, 234, 0.05)');
-      expect(styles.primaryGradient.background).toContain('rgba(33, 116, 234, 0.1)');
-    });
-
-    it('should handle invalid colors gracefully', () => {
-      const invalidColors = {
-        primary: '#invalid',
-        secondary: '#F8FAFC',
-        accent: '#5696FF',
-      };
-
-      const styles = getColorStyles(invalidColors);
-      expect(styles.primary.backgroundColor).toBe('#invalid');
-    });
-  });
+  // NOTE: getColorStyles() tests removed - function has been deprecated
+  // Templates now use CSS custom properties via getPracticeCSS() instead
 });

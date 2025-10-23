@@ -88,8 +88,6 @@ export async function applyGlobalAuth(request: NextRequest): Promise<AuthResult 
   const pathname = new URL(request.url).pathname;
   const method = request.method;
 
-  log.debug('API auth check initiated', { pathname, path: pathname, method });
-
   // UNIVERSAL RATE LIMITING: Apply to ALL API routes (public and protected)
   // This runs BEFORE authentication to prevent abuse
   // Note: Route wrappers may apply additional rate limits (defense in depth)
@@ -101,7 +99,6 @@ export async function applyGlobalAuth(request: NextRequest): Promise<AuthResult 
 
   // Skip auth for public routes
   if (isPublicApiRoute(pathname)) {
-    log.debug('Public API route detected, no auth required', { pathname, path: pathname, method });
     return null; // No auth required
   }
 
@@ -115,15 +112,9 @@ export async function applyGlobalAuth(request: NextRequest): Promise<AuthResult 
   if (authHeader) {
     hasAuth = true;
     authMethod = 'authorization_header';
-    log.debug('Using Authorization header for authentication', {
-      pathname,
-      path: pathname,
-      method,
-    });
   } else if (cookieHeader?.includes('access-token=')) {
     hasAuth = true;
     authMethod = 'httponly_cookie';
-    log.debug('Using httpOnly cookie for authentication', { pathname, path: pathname, method });
   }
 
   if (!hasAuth) {
@@ -140,20 +131,7 @@ export async function applyGlobalAuth(request: NextRequest): Promise<AuthResult 
 
   // Validate authentication (requireAuth handles both Authorization headers and cookies)
   try {
-    const startTime = Date.now();
     const authResult = await requireAuth(request);
-    const duration = Date.now() - startTime;
-
-    log.info('API authentication successful', {
-      pathname,
-      path: pathname,
-      method,
-      userId: authResult.user.id,
-      userEmail: authResult.user.email?.replace(/(.{2}).*@/, '$1***@'), // Mask email
-      authMethod,
-      duration,
-    });
-
     return authResult;
   } catch (error) {
     log.error(

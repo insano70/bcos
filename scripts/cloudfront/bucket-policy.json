@@ -1,0 +1,26 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "CloudFrontReadAccess",
+      "Effect": "Allow",
+      "Principal": {
+        "CanonicalUser": "62c4836fd4e9dfb7aec2e3f830b357b6bc03351b2a037574038d887a5c6e128b135281ce2f649bfacd8b67d0aaa9dcb2"
+      },
+      "Action": "s3:GetObject",
+      "Resource": "arn:aws:s3:::bcos-public-2c2af3de-6771-4cf3-90ff-330d402c1058/*"
+    },
+    {
+      "Sid": "ECSWriteAccess",
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": "arn:aws:iam::854428944440:role/BCOS-ECSTaskRole"
+      },
+      "Action": [
+        "s3:PutObject",
+        "s3:DeleteObject"
+      ],
+      "Resource": "arn:aws:s3:::bcos-public-2c2af3de-6771-4cf3-90ff-330d402c1058/*"
+    }
+  ]
+}

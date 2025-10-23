@@ -3,7 +3,7 @@ import type { Practice, PracticeAttributes } from '@/lib/types/practice';
 interface ContactProps {
   practice: Practice;
   attributes: PracticeAttributes;
-  colorStyles: any;
+  colorStyles?: any;
 }
 
 export default function Contact({ practice, attributes, colorStyles }: ContactProps) {

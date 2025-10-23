@@ -1,0 +1,12 @@
+{
+    "Location": "https://cloudfront.amazonaws.com/2020-05-31/origin-access-identity/cloudfront/EG2MHQN466TL3",
+    "ETag": "E3UN6WX5RRO2AG",
+    "CloudFrontOriginAccessIdentity": {
+        "Id": "EG2MHQN466TL3",
+        "S3CanonicalUserId": "62c4836fd4e9dfb7aec2e3f830b357b6bc03351b2a037574038d887a5c6e128b135281ce2f649bfacd8b67d0aaa9dcb2",
+        "CloudFrontOriginAccessIdentityConfig": {
+            "CallerReference": "bcos-public-assets-1761231227",
+            "Comment": "OAI for BCOS public assets bucket"
+        }
+    }
+}

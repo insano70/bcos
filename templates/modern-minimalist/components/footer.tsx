@@ -3,7 +3,7 @@ import type { Practice, PracticeAttributes, ColorStyles } from '@/lib/types/prac
 interface FooterProps {
   practice: Practice;
   attributes: PracticeAttributes;
-  colorStyles: ColorStyles;
+  colorStyles?: ColorStyles;
 }
 
 export default function Footer({ practice, attributes, colorStyles }: FooterProps) {

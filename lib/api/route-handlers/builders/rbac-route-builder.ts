@@ -87,17 +87,6 @@ export class RBACRouteBuilder {
         },
         async () => {
           try {
-            // Log route initiation
-            log.api(`${request.method} ${url.pathname} - RBAC route`, request, 0, 0);
-
-            log.info('RBAC route initiated', {
-              endpoint: url.pathname,
-              method: request.method,
-              permissions: Array.isArray(options.permission)
-                ? options.permission
-                : [options.permission],
-            });
-
             // Execute middleware pipeline
             const result = await pipeline.execute(request, {
               routeType: 'rbac',
@@ -135,19 +124,15 @@ export class RBACRouteBuilder {
             const response = await handler(request, context.userContext, ...args);
             endHandlerTiming();
 
-            log.info('Handler execution completed', {
-              duration: context.timingTracker.getTiming('handler'),
-              userId: context.userContext?.user_id,
-              statusCode: response.status,
-            });
-
             const totalDuration = context.timingTracker.getTotalDuration();
 
-            log.info('RBAC route completed successfully', {
-              userId: context.userContext?.user_id,
-              statusCode: response.status,
-              totalDuration,
-            });
+            // Log single completion entry with all context
+            log.api(
+              `${request.method} ${url.pathname} completed`,
+              request,
+              response.status,
+              totalDuration
+            );
 
             // Record metrics
             await MetricsRecorder.recordRequest(

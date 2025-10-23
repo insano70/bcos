@@ -10,38 +10,39 @@ export interface BrandColors {
 
 /**
  * Get default colors for a template
+ * Each template has unique, aesthetically-appropriate defaults
  */
 export function getTemplateDefaultColors(templateSlug: string): BrandColors {
   const defaults: Record<string, BrandColors> = {
     'classic-professional': {
-      primary: '#00AEEF', // bright blue
-      secondary: '#FFFFFF', // white
-      accent: '#44C0AE', // teal
+      primary: '#00AEEF', // Professional bright blue
+      secondary: '#FFFFFF', // Clean white
+      accent: '#44C0AE', // Medical teal/cyan
     },
     'modern-minimalist': {
-      primary: '#00AEEF', // bright blue
-      secondary: '#FFFFFF', // white
-      accent: '#44C0AE', // teal
+      primary: '#2D3748', // Sophisticated charcoal gray
+      secondary: '#F7FAFC', // Soft off-white
+      accent: '#ED8936', // Energetic orange accent
     },
     'warm-welcoming': {
-      primary: '#00AEEF', // bright blue
-      secondary: '#FFFFFF', // white
-      accent: '#44C0AE', // teal
+      primary: '#D69E2E', // Warm golden amber
+      secondary: '#FFF5E6', // Soft cream background
+      accent: '#C05621', // Earthy terracotta
     },
     'clinical-focus': {
-      primary: '#00AEEF', // bright blue
-      secondary: '#FFFFFF', // white
-      accent: '#44C0AE', // teal
+      primary: '#2B6CB0', // Clinical royal blue
+      secondary: '#EDF2F7', // Light clinical gray
+      accent: '#38A169', // Medical green (healing/growth)
     },
     'community-practice': {
-      primary: '#00AEEF', // bright blue
-      secondary: '#FFFFFF', // white
-      accent: '#44C0AE', // teal
+      primary: '#48BB78', // Friendly approachable green
+      secondary: '#F0FFF4', // Light mint background
+      accent: '#9F7AEA', // Community purple
     },
     'tidy-professional': {
-      primary: '#2174EA', // tidy blue
-      secondary: '#F8FAFC', // slate-50
-      accent: '#5696FF', // lighter blue
+      primary: '#2174EA', // Polished modern blue
+      secondary: '#F8FAFC', // Pristine slate-50
+      accent: '#5696FF', // Contemporary light blue
     },
   };
 
@@ -185,53 +186,6 @@ export function getPracticeCSS(colors: BrandColors): string {
   `.trim();
 }
 
-/**
- * Get direct style objects for SSR-compatible rendering (legacy)
- * @deprecated Use getPracticeCSS and CSS classes instead for CSP compliance
- */
-export function getColorStyles(colors: BrandColors): import('@/lib/types/practice').ColorStyles {
-  return {
-    // Primary styles
-    primary: {
-      backgroundColor: colors.primary,
-      color: 'white',
-    },
-    primaryText: {
-      color: colors.primary,
-    },
-    primaryBorder: {
-      borderColor: colors.primary,
-      color: colors.primary,
-    },
-    primaryBg50: {
-      backgroundColor: hexToRgba(colors.primary, 0.05),
-    },
-    primaryBg100: {
-      backgroundColor: hexToRgba(colors.primary, 0.1),
-    },
-    primaryGradient: {
-      background: `linear-gradient(to right, ${hexToRgba(colors.primary, 0.05)}, ${hexToRgba(colors.primary, 0.1)})`,
-    },
-
-    // Secondary styles
-    secondary: {
-      backgroundColor: colors.secondary,
-    },
-    secondaryText: {
-      color: colors.secondary,
-    },
-
-    // Accent styles
-    accent: {
-      backgroundColor: colors.accent,
-      color: 'white',
-    },
-    accentText: {
-      color: colors.accent,
-    },
-    accentBorder: {
-      borderColor: colors.accent,
-      color: colors.accent,
-    },
-  };
-}
+// NOTE: getColorStyles() function has been removed.
+// Use getPracticeCSS() for CSP-compliant CSS custom properties instead.
+// Templates should use CSS classes like bg-practice-primary, text-practice-primary, etc.

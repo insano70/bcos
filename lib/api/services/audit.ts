@@ -62,15 +62,6 @@ class AuditLoggerService {
       ...data.metadata,
     });
 
-    // Business intelligence for audit operations
-    log.info('Audit event processed', {
-      eventType: 'auth',
-      action: data.action,
-      severity,
-      complianceFramework: 'HIPAA',
-      retentionPeriod: '7_years',
-    });
-
     // Always maintain database audit trail for compliance
     await this.log({
       event_type: 'auth',
@@ -227,16 +218,6 @@ class AuditLoggerService {
       if (entry.severity === 'critical') {
         await this.sendCriticalAlert(entry);
       }
-
-      log.debug('Audit log created', {
-        eventType: entry.event_type,
-        action: entry.action,
-        userId: entry.user_id,
-        severity: entry.severity,
-        operation: 'createAuditLog',
-        component: 'audit-system',
-        feature: 'compliance-logging',
-      });
     } catch (error) {
       // Never let audit logging failures break the main application
       log.error('Audit logging failed', error instanceof Error ? error : new Error(String(error)), {

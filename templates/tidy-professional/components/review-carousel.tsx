@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import type { PracticeComment, ColorStyles } from '@/lib/types/practice';
 
 interface ReviewCarouselProps {
-  colorStyles: ColorStyles;
+  colorStyles?: ColorStyles;
   comments: PracticeComment[];
 }
 

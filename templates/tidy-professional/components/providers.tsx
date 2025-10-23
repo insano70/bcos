@@ -4,7 +4,7 @@ interface ProvidersProps {
   practice: Practice;
   attributes: PracticeAttributes;
   staff: StaffMember[];
-  colorStyles: any;
+  colorStyles?: any;
 }
 
 export default function Providers({ practice, attributes, staff, colorStyles }: ProvidersProps) {

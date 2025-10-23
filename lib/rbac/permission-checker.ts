@@ -90,23 +90,6 @@ export class PermissionChecker {
     // Check if user has the permission through any of their roles
     const userPermissions = this.getUserPermissions();
 
-    // Debug logging for permission check
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[PermissionChecker] Checking permission:', {
-        requested: permissionName,
-        parsed: { resource, action, scope },
-        userPermissionsCount: userPermissions.length,
-        userPermissions: userPermissions.map(p => ({
-          name: p.name,
-          resource: p.resource,
-          action: p.action,
-          scope: p.scope,
-          is_active: p.is_active
-        })),
-        userId: this.userContext.user_id
-      });
-    }
-
     const matchingPermissions = userPermissions.filter((permission) => {
       // Exact match
       if (permission.name === permissionName) {
@@ -122,15 +105,6 @@ export class PermissionChecker {
     });
 
     if (matchingPermissions.length === 0) {
-      // Targeted logging ONLY for api:write:organization
-      if (permissionName === 'api:write:organization') {
-        console.error('[DEBUG] api:write:organization check failed:', {
-          userPermissionsCount: this.userContext.all_permissions?.length,
-          hasPermissionByName: this.userContext.all_permissions?.some(p => p.name === 'api:write:organization'),
-          samplePermissionNames: this.userContext.all_permissions?.slice(0, 5).map(p => p.name),
-        });
-      }
-
       return {
         granted: false,
         scope: 'own',

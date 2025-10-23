@@ -3,7 +3,7 @@ import { parseServices, parseConditions } from '@/lib/utils/json-parser';
 
 interface ServicesProps {
   attributes: PracticeAttributes;
-  colorStyles: any;
+  colorStyles?: any;
 }
 
 export default function Services({ attributes, colorStyles }: ServicesProps) {

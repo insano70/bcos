@@ -146,6 +146,7 @@ export default function PracticeConfigForm({
         {/* Branding Section */}
         <BrandingSection
           practiceId={practiceId}
+          practiceName={currentPractice.name}
           watch={watch}
           setValue={setValue}
           queryClient={queryClient}
