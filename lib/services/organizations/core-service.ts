@@ -55,7 +55,10 @@ class OrganizationCoreService extends BaseOrganizationsService {
 
     try {
       // Validate and sanitize pagination parameters
-      const { limit, offset } = validatePagination(options.limit, options.offset);
+      // Use high default limit unless explicitly paginating - users should see all their organizations
+      const { limit, offset } = !options.limit && !options.offset
+        ? { limit: 10000, offset: 0 } // No pagination - show all organizations
+        : validatePagination(options.limit, options.offset);
 
       // Build RBAC WHERE conditions
       const whereConditions = this.buildRBACWhereConditions();
