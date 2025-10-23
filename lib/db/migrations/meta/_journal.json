@@ -169,6 +169,13 @@
       "when": 1761081477917,
       "tag": "0023_flawless_alex_power",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1761211200000,
+      "tag": "0032_add_hero_overlay_opacity",
+      "breakpoints": true
     }
   ]
 }
