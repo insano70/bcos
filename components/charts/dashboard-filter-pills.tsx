@@ -150,7 +150,7 @@ export default function DashboardFilterPills({
     // Showing specific organization
     activePills.push({
       key: 'organizationId',
-      label: isOrgOverride ? 'Organization' : '', // Prefix only if override
+      label: '', // Remove label - position in UI provides context
       value: loadingOrgName ? 'Loading...' : organizationName || 'Unknown',
       tooltip: isOrgOverride
         ? `User override. Click × to return to: ${defaultOrg ? 'default organization' : 'All Organizations'}`
@@ -231,14 +231,14 @@ export default function DashboardFilterPills({
         // Determine pill styling based on whether it's a user override or default
         const pillClasses = pill.isUserOverride
           ? // User override - Violet, prominent
-            'inline-flex items-center gap-1.5 px-3 py-1.5 bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 rounded-full text-sm font-medium border border-violet-200 dark:border-violet-700/50 transition-all hover:bg-violet-200 dark:hover:bg-violet-900/50'
+            'inline-flex items-center gap-1.5 px-3 py-1.5 max-w-full bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 rounded-full text-sm font-medium border border-violet-200 dark:border-violet-700/50 transition-all hover:bg-violet-200 dark:hover:bg-violet-900/50'
           : // Default - Gray, subtle
-            'inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 dark:bg-gray-700/30 text-gray-700 dark:text-gray-300 rounded-full text-sm font-medium border border-gray-300 dark:border-gray-600/50';
+            'inline-flex items-center gap-1.5 px-3 py-1.5 max-w-full bg-gray-100 dark:bg-gray-700/30 text-gray-700 dark:text-gray-300 rounded-full text-sm font-medium border border-gray-300 dark:border-gray-600/50';
 
         return (
           <div key={pill.key} className={pillClasses} title={pill.tooltip}>
             {/* Filter label and value */}
-            <span className="flex items-center gap-1.5">
+            <span className="flex items-center gap-1.5 min-w-0">
               {pill.label && (
                 <span
                   className={
@@ -250,7 +250,11 @@ export default function DashboardFilterPills({
                   {pill.label}:
                 </span>
               )}
-              <span className={pill.loading ? 'opacity-50' : ''}>{pill.value}</span>
+              <span
+                className={`${pill.loading ? 'opacity-50' : ''} truncate max-w-[150px] sm:max-w-[200px] md:max-w-[300px]`}
+              >
+                {pill.value}
+              </span>
             </span>
 
             {/* Remove button - only show if dismissible */}
