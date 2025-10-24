@@ -4,9 +4,11 @@ export const metadata = {
 };
 
 import { Suspense } from 'react';
+import Image from 'next/image';
 import LoginForm from '@/components/auth/login-form';
 import SplitText from '@/components/SplitText';
 import AuthImage from '../auth-image';
+import ThriveLogo from '@/public/Thrive.png';
 
 function LoginFormWrapper() {
   return <LoginForm />;
@@ -20,6 +22,17 @@ export default function SignIn() {
         <div className="md:w-1/2">
           <div className="min-h-[100dvh] h-full flex flex-col justify-center">
             <div className="max-w-sm mx-auto w-full px-4 py-8">
+              {/* Logo - Mobile Only */}
+              <div className="md:hidden mb-8 flex justify-center">
+                <Image
+                  src={ThriveLogo}
+                  alt="Thrive"
+                  width={298}
+                  height={75}
+                  priority
+                  className="w-[18.75rem] h-auto"
+                />
+              </div>
               <SplitText
                 text="Welcome back!"
                 tag="h1"
