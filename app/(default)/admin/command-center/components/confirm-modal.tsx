@@ -61,11 +61,11 @@ export default function ConfirmModal({
   }, [isOpen, requireReason]);
 
   const handleConfirm = useCallback(() => {
-    if (requireReason && reason.trim().length === 0) {
-      return; // Don't confirm if reason is required but empty
+    if (requireReason && reason.trim().length < 10) {
+      return; // Don't confirm if reason is required but less than 10 characters
     }
 
-    onConfirm(requireReason ? reason : undefined);
+    onConfirm(requireReason ? reason.trim() : undefined);
   }, [requireReason, reason, onConfirm]);
 
   // Keyboard navigation
@@ -78,7 +78,7 @@ export default function ConfirmModal({
       }
 
       if (e.key === 'Enter' && e.ctrlKey) {
-        if (!requireReason || reason.trim().length > 0) {
+        if (!requireReason || reason.trim().length >= 10) {
           handleConfirm();
         }
       }
@@ -144,9 +144,16 @@ export default function ConfirmModal({
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                   required
                 />
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  This reason will be logged in the audit trail
-                </p>
+                <div className="flex justify-between items-center mt-1">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    This reason will be logged in the audit trail
+                  </p>
+                  <p
+                    className={`text-xs ${reason.trim().length >= 10 ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}
+                  >
+                    {reason.trim().length}/10 min
+                  </p>
+                </div>
               </div>
             )}
           </div>
@@ -160,7 +167,7 @@ export default function ConfirmModal({
             </button>
             <button type="button" ref={confirmButtonRef}
               onClick={handleConfirm}
-              disabled={requireReason && reason.trim().length === 0}
+              disabled={requireReason && reason.trim().length < 10}
               className={getConfirmButtonClasses()}
             >
               {confirmText}
@@ -170,7 +177,7 @@ export default function ConfirmModal({
           {/* Keyboard hint */}
           <div className="px-6 pb-3 text-xs text-gray-500 dark:text-gray-400 text-center">
             Press <kbd className="px-1 bg-gray-200 dark:bg-gray-700 rounded">ESC</kbd> to cancel
-            {!requireReason || reason.trim().length > 0 ? (
+            {!requireReason || reason.trim().length >= 10 ? (
               <>
                 {' or '}
                 <kbd className="px-1 bg-gray-200 dark:bg-gray-700 rounded">Ctrl+Enter</kbd> to

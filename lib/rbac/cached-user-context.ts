@@ -16,7 +16,7 @@ import {
   users,
 } from '@/lib/db/schema';
 import { log } from '@/lib/logger';
-import type { Permission, Role, UserContext, UserRole } from '@/lib/types/rbac';
+import type { Organization, Permission, Role, UserContext, UserRole } from '@/lib/types/rbac';
 
 // Request-scoped cache to prevent multiple getUserContext calls per request
 const requestCache = new Map<string, Promise<UserContext | null>>();
@@ -222,7 +222,53 @@ export async function getCachedUserContext(userId: string): Promise<UserContext>
     deleted_at: org.org_deleted_at || undefined,
   }));
 
-  // 6. Get all unique permissions across all roles (O(1) deduplication with Set)
+  // 6. Expand accessible organizations to include children via hierarchy
+  const accessibleOrganizations: Organization[] = [];
+
+  // Import hierarchy service for traversal
+  const { organizationHierarchyService } = await import(
+    '@/lib/services/organization-hierarchy-service'
+  );
+
+  // Get all organizations for hierarchy traversal (cached in Redis for 30 days)
+  const allOrganizationsForHierarchy = await organizationHierarchyService.getAllOrganizations();
+
+  // For each direct organization membership, expand to include children
+  for (const userOrg of userOrgs) {
+    // Get all organizations in hierarchy (parent + descendants)
+    const hierarchyIds = await organizationHierarchyService.getOrganizationHierarchy(
+      userOrg.organization_id,
+      allOrganizationsForHierarchy
+    );
+
+    // Add all organizations from hierarchy to accessible list
+    for (const orgId of hierarchyIds) {
+      const org = allOrganizationsForHierarchy.find((o) => o.organization_id === orgId);
+      if (org && !accessibleOrganizations.some((a) => a.organization_id === orgId)) {
+        accessibleOrganizations.push({
+          organization_id: org.organization_id,
+          name: org.name,
+          slug: org.slug,
+          parent_organization_id: org.parent_organization_id,
+          practice_uids: org.practice_uids,
+          is_active: org.is_active,
+          created_at: org.created_at,
+          updated_at: org.updated_at,
+          deleted_at: org.deleted_at,
+        });
+      }
+    }
+  }
+
+  log.info('User accessible organizations resolved with hierarchy (cached path)', {
+    userId: user.user_id,
+    email: user.email,
+    directOrganizationCount: userOrgs.length,
+    totalAccessibleOrganizationCount: accessibleOrganizations.length,
+    includesHierarchy: accessibleOrganizations.length > userOrgs.length,
+  });
+
+  // 7. Get all unique permissions across all roles (O(1) deduplication with Set)
   const uniquePermissionsMap = new Map<string, Permission>();
   Array.from(rolesMap.values()).forEach((role) => {
     role.permissions.forEach((permission) => {
@@ -231,7 +277,7 @@ export async function getCachedUserContext(userId: string): Promise<UserContext>
   });
   const allPermissions = Array.from(uniquePermissionsMap.values());
 
-  // 7. Determine admin status
+  // 8. Determine admin status
   const isSuperAdmin = Array.from(rolesMap.values()).some(
     (role) => role.is_system_role && role.name === 'super_admin'
   );
@@ -264,7 +310,7 @@ export async function getCachedUserContext(userId: string): Promise<UserContext>
     // RBAC information
     roles: Array.from(rolesMap.values()),
     organizations: organizationsArray,
-    accessible_organizations: organizationsArray, // For now, same as organizations
+    accessible_organizations: accessibleOrganizations, // Includes hierarchy expansion
     user_roles: Array.from(userRolesMap.values()),
     user_organizations: userOrgs.map((org) => ({
       user_organization_id: org.user_organization_id,

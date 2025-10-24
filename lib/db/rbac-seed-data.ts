@@ -682,6 +682,7 @@ export const RBAC_ROLES: Record<string, RoleDefinition> = {
       'organizations:read:own',
 
       // Analytics access - organization scope read-only
+      'organizations:read:organization',
       'data-sources:read:organization',
       'analytics:read:organization',
       'charts:read:organization',

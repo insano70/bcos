@@ -21,6 +21,7 @@ import {
   requireOrganizationAccess,
   requirePermission,
 } from './users/rbac-helpers';
+import { createUserRolesService } from './user-roles-service';
 
 /**
  * Users Service with RBAC
@@ -93,6 +94,7 @@ export interface UpdateUserData {
   last_name?: string;
   email?: string;
   password?: string;
+  role_ids?: string[];
   email_verified?: boolean;
   is_active?: boolean;
   provider_uid?: number | null | undefined;
@@ -481,20 +483,23 @@ class RBACUsersService implements UsersServiceInterface {
 
       // Execute user update and role assignment as atomic transaction
       await db.transaction(async (tx) => {
-        // Prepare update data
+        // Extract role_ids before passing to database (users table doesn't have this column)
+        // biome-ignore lint/correctness/noUnusedVariables: role_ids extracted to prevent passing to users table, used after transaction
+        const { role_ids, ...userFieldsOnly } = updateData;
+
+        // Prepare update data for users table only
         const updateFields: Partial<{
           first_name: string;
           last_name: string;
           email: string;
           password?: string;
           password_hash: string;
-          role_ids?: string[];
           email_verified: boolean;
           is_active: boolean;
           provider_uid: number | null | undefined;
           updated_at: Date;
         }> = {
-          ...updateData,
+          ...userFieldsOnly,
           updated_at: new Date(),
         };
 
@@ -531,8 +536,16 @@ class RBACUsersService implements UsersServiceInterface {
             .where(eq(account_security.user_id, userId));
         }
 
+        // Update roles if provided (handled outside transaction due to service dependency)
+        // Note: Role assignment must happen after user update but within same request context
         return user;
       });
+
+      // Update user roles if provided (after transaction to avoid service injection complexity)
+      if (updateData.role_ids !== undefined) {
+        const rolesService = createUserRolesService(this.userContext);
+        await rolesService.assignRolesToUser(userId, updateData.role_ids);
+      }
 
       // Return updated user with organization info
       const userWithOrgs = await this.getUserById(userId);

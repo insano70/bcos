@@ -195,14 +195,14 @@ export default function WarmingJobList({
         </div>
       )}
 
-      {/* Recent Jobs */}
-      {recentJobs.length > 0 && (
-        <details className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-          <summary className="cursor-pointer text-sm font-semibold text-gray-800 dark:text-gray-100 hover:text-violet-600 dark:hover:text-violet-400">
-            Recent Jobs ({recentJobs.length})
-          </summary>
-          <div className="mt-3 space-y-2">
-            {recentJobs.slice(0, 10).map((job) => (
+      {/* Recent Jobs - Always visible with fixed height to prevent layout shift */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+        <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-3">
+          Recent Jobs ({recentJobs.length})
+        </h4>
+        <div className="space-y-2 min-h-[240px]">
+          {recentJobs.length > 0 ? (
+            recentJobs.slice(0, 5).map((job) => (
               <div
                 key={job.jobId}
                 className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-700 last:border-0"
@@ -232,20 +232,14 @@ export default function WarmingJobList({
                   )}
                 </div>
               </div>
-            ))}
-          </div>
-        </details>
-      )}
-
-      {/* No Jobs */}
-      {activeJobs.length === 0 && recentJobs.length === 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 text-center">
-          <div className="text-3xl mb-2">💤</div>
-          <div className="text-sm text-gray-600 dark:text-gray-400">
-            No warming jobs in progress
-          </div>
+            ))
+          ) : (
+            <div className="flex items-center justify-center h-full text-sm text-gray-500 dark:text-gray-400">
+              No recent jobs to display
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }

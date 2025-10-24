@@ -83,19 +83,51 @@ export async function getUserContext(userId: string): Promise<UserContext> {
     );
 
   // 3. Get accessible organizations (includes children via hierarchy)
-  // TEMPORARILY DISABLED: Hierarchy expansion is too expensive with 777 orgs
-  // TODO: Re-enable with proper caching or pagination
-  const accessibleOrganizations = userOrgs.map((org) => ({
-    organization_id: org.organization_id,
-    name: org.org_name,
-    slug: org.org_slug,
-    parent_organization_id: org.org_parent_id || undefined,
-    practice_uids: org.org_practice_uids || undefined,
-    is_active: org.org_is_active ?? true,
-    created_at: org.org_created_at ?? new Date(),
-    updated_at: org.org_updated_at ?? new Date(),
-    deleted_at: org.org_deleted_at || undefined,
-  }));
+  // Expand hierarchy to include all descendant organizations
+  const accessibleOrganizations: Organization[] = [];
+
+  // Import hierarchy service for traversal
+  const { organizationHierarchyService } = await import(
+    '@/lib/services/organization-hierarchy-service'
+  );
+
+  // Get all organizations for hierarchy traversal (cached in Redis for 30 days)
+  const allOrganizations = await organizationHierarchyService.getAllOrganizations();
+
+  // For each direct organization membership, expand to include children
+  for (const userOrg of userOrgs) {
+    // Get all organizations in hierarchy (parent + descendants)
+    const hierarchyIds = await organizationHierarchyService.getOrganizationHierarchy(
+      userOrg.organization_id,
+      allOrganizations
+    );
+
+    // Add all organizations from hierarchy to accessible list
+    for (const orgId of hierarchyIds) {
+      const org = allOrganizations.find((o) => o.organization_id === orgId);
+      if (org && !accessibleOrganizations.some((a) => a.organization_id === orgId)) {
+        accessibleOrganizations.push({
+          organization_id: org.organization_id,
+          name: org.name,
+          slug: org.slug,
+          parent_organization_id: org.parent_organization_id,
+          practice_uids: org.practice_uids,
+          is_active: org.is_active,
+          created_at: org.created_at,
+          updated_at: org.updated_at,
+          deleted_at: org.deleted_at,
+        });
+      }
+    }
+  }
+
+  log.info('User accessible organizations resolved with hierarchy', {
+    userId: user.user_id,
+    email: user.email,
+    directOrganizationCount: userOrgs.length,
+    totalAccessibleOrganizationCount: accessibleOrganizations.length,
+    includesHierarchy: accessibleOrganizations.length > userOrgs.length,
+  });
 
   // 4. Get user's roles with permissions (optimized with database-level deduplication)
   const userRolesData = await db
@@ -230,6 +262,7 @@ export async function getUserContext(userId: string): Promise<UserContext> {
       name: org.org_name,
       slug: org.org_slug,
       parent_organization_id: org.org_parent_id || undefined,
+      practice_uids: org.org_practice_uids || undefined,
       is_active: org.org_is_active ?? true,
       created_at: org.org_created_at ?? new Date(),
       updated_at: org.org_updated_at ?? new Date(),

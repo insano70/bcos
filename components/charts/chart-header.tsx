@@ -110,10 +110,10 @@ export default function ChartHeader({
             {showExportMenu && (
               <>
                 {/* Backdrop */}
-                <div className="fixed inset-0 z-10" onClick={() => setShowExportMenu(false)} />
+                <div className="fixed inset-0 z-40" onClick={() => setShowExportMenu(false)} />
 
                 {/* Dropdown menu */}
-                <div className="absolute right-0 mt-2 w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-20">
+                <div className="absolute right-0 mt-2 w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50">
                   <div className="py-1">
                     <button
                       type="button"

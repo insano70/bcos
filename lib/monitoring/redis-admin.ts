@@ -117,13 +117,23 @@ export class RedisAdminService {
 
       // Get key counts by pattern
       const keyPrefix = this.getKeyPrefix();
-      const patterns = ['chart:data:*', 'ratelimit:*', 'session:*', 'user:*', 'role:*'];
+      const patterns = [
+        'chart:data:*',      // Chart data cache
+        'cache:{ds:*',       // Indexed analytics cache entries
+        'idx:{ds:*',         // Indexed analytics cache indexes
+        'cache:meta:*',      // Cache metadata (last_warm timestamps)
+        'ratelimit:*',       // Rate limiting counters
+        'session:*',         // User sessions
+      ];
 
       const keysByPattern: Record<string, number> = {};
       for (const pattern of patterns) {
         const fullPattern = `${keyPrefix}${pattern}`;
         const count = await this.countKeysByPattern(fullPattern);
-        keysByPattern[pattern] = count;
+        // Only include patterns that have keys
+        if (count > 0) {
+          keysByPattern[pattern] = count;
+        }
       }
 
       // Calculate total keys
@@ -205,21 +215,39 @@ export class RedisAdminService {
         }
       }
 
-      // Get details for each key
-      const keyDetails = await Promise.all(
-        keys.slice(0, limit).map(async (key) => {
-          const type = await redis.type(key);
-          const ttl = await redis.ttl(key);
-          const size = await this.getKeySize(key);
+      // Use pipeline to fetch all key details efficiently
+      // This prevents keys from expiring between SCAN and detail queries
+      const keysToFetch = keys.slice(0, limit);
+      const pipeline = redis.pipeline();
 
-          return {
-            key,
-            type,
-            ttl,
-            size,
-          };
-        })
-      );
+      for (const key of keysToFetch) {
+        pipeline.type(key);
+        pipeline.ttl(key);
+        pipeline.memory('USAGE', key);
+      }
+
+      const results = await pipeline.exec();
+
+      if (!results) {
+        return [];
+      }
+
+      // Process pipeline results (3 results per key: type, ttl, memory)
+      const keyDetails: RedisKeyInfo[] = [];
+      for (let i = 0; i < keysToFetch.length; i++) {
+        const typeResult = results[i * 3];
+        const ttlResult = results[i * 3 + 1];
+        const sizeResult = results[i * 3 + 2];
+
+        if (typeResult && ttlResult && sizeResult) {
+          keyDetails.push({
+            key: keysToFetch[i] || '',
+            type: (typeResult[1] as string) || 'none',
+            ttl: (ttlResult[1] as number) || -2,
+            size: (sizeResult[1] as number) || 0,
+          });
+        }
+      }
 
       return keyDetails;
     } catch (error) {

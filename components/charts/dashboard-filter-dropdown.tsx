@@ -293,6 +293,18 @@ export default function DashboardFilterDropdown({
   const [pendingFilters, setPendingFilters] = useState<DashboardUniversalFilters>(initialFilters);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [loadingOrganizations, setLoadingOrganizations] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Detect mobile viewport
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768); // Tailwind md breakpoint
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Load organizations on mount
   useEffect(() => {
@@ -396,14 +408,20 @@ export default function DashboardFilterDropdown({
         leaveTo="opacity-0"
       >
         <PopoverPanel
-          className={`origin-top-right z-50 absolute top-full min-w-[20rem] max-w-[24rem] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg overflow-hidden mt-1 ${
-            align === 'right' ? 'right-0' : 'left-0'
-          }`}
+          className={`
+            dashboard-filter-panel
+            z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg overflow-hidden
+            ${
+              isMobile
+                ? 'fixed inset-x-4 top-20 max-w-full max-h-[80vh]'
+                : `origin-top-right absolute top-full min-w-[20rem] max-w-[24rem] max-h-[calc(100vh-8rem)] mt-1 ${align === 'right' ? 'right-0' : 'left-0'}`
+            }
+          `}
         >
           {({ close }) => (
-            <div className="max-h-[32rem] overflow-y-auto">
+            <div className="flex flex-col max-h-full">
               {/* Header */}
-              <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+              <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 flex-shrink-0">
                 <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
                   Dashboard Filters
                 </h3>
@@ -412,28 +430,9 @@ export default function DashboardFilterDropdown({
                 </p>
               </div>
 
-              {/* Filter Content */}
-              <div className="p-4 space-y-4">
-                {/* Organization Filter - Top */}
-                <div>
-                  <HierarchySelect
-                    items={organizations}
-                    value={pendingFilters.organizationId ?? undefined}
-                    onChange={(id) => handleOrganizationChange((id as string) || '')}
-                    idField="id"
-                    nameField="name"
-                    parentField="parent_organization_id"
-                    activeField="is_active"
-                    label="Organization"
-                    placeholder="All Organizations"
-                    disabled={loadingOrganizations}
-                    showSearch
-                    allowClear
-                    rootLabel="All Organizations"
-                  />
-                </div>
-
-                {/* Date Range Filter - Below (Dropdown) */}
+              {/* Filter Content - Scrollable area */}
+              <div className="p-4 space-y-4 overflow-y-auto flex-1">
+                {/* Date Range Filter - Top (Dropdown) */}
                 <div>
                   <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                     Date Range
@@ -451,10 +450,29 @@ export default function DashboardFilterDropdown({
                     ))}
                   </select>
                 </div>
+
+                {/* Organization Filter - Below */}
+                <div>
+                  <HierarchySelect
+                    items={organizations}
+                    value={pendingFilters.organizationId ?? undefined}
+                    onChange={(id) => handleOrganizationChange((id as string) || '')}
+                    idField="id"
+                    nameField="name"
+                    parentField="parent_organization_id"
+                    activeField="is_active"
+                    label="Organization"
+                    placeholder="All Organizations"
+                    disabled={loadingOrganizations}
+                    showSearch
+                    allowClear
+                    rootLabel="All Organizations"
+                  />
+                </div>
               </div>
 
               {/* Footer with Apply/Clear */}
-              <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
+              <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 flex-shrink-0">
                 <div className="flex items-center justify-between gap-2">
                   <button
                     type="button"
@@ -478,6 +496,23 @@ export default function DashboardFilterDropdown({
           )}
         </PopoverPanel>
       </Transition>
+
+      {/* CSS override to increase HierarchySelect dropdown height and prevent nested scroll */}
+      <style jsx global>{`
+        /* Target the HierarchySelect dropdown inside dashboard filter */
+        .dashboard-filter-panel .absolute.z-50.w-full {
+          position: static !important;
+          max-height: none !important;
+          box-shadow: none !important;
+          border: none !important;
+          margin-top: 0.5rem !important;
+        }
+
+        /* Make the items list inside HierarchySelect fill available space */
+        .dashboard-filter-panel .overflow-y-auto.flex-1 {
+          max-height: 32rem !important;
+        }
+      `}</style>
     </Popover>
   );
 }
