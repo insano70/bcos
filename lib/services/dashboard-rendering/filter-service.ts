@@ -105,9 +105,9 @@ export class FilterService extends BaseDashboardRenderingService {
       );
     }
 
-    // Organization users can only filter by their own organizations
+    // Organization users can only filter by their accessible organizations (includes hierarchy)
     if (accessInfo.scope === 'organization') {
-      const canAccess = this.userContext.organizations.some(
+      const canAccess = this.userContext.accessible_organizations.some(
         (org) => org.organization_id === organizationId
       );
 
@@ -115,14 +115,16 @@ export class FilterService extends BaseDashboardRenderingService {
         log.security('Organization filter access denied', 'high', {
           userId: this.userContext.user_id,
           requestedOrganizationId: organizationId,
-          userOrganizationIds: this.userContext.organizations.map((o) => o.organization_id),
+          accessibleOrganizationIds: this.userContext.accessible_organizations.map(
+            (o) => o.organization_id
+          ),
           blocked: true,
-          reason: 'user_not_member_of_org',
+          reason: 'user_not_member_of_accessible_orgs',
           component: 'dashboard-rendering',
         });
 
         throw new Error(
-          `Access denied: You do not have permission to filter by organization ${organizationId}. You can only filter by organizations you belong to.`
+          `Access denied: You do not have permission to filter by organization ${organizationId}. You can only filter by organizations in your hierarchy.`
         );
       }
 
