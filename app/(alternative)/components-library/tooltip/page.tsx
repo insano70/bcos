@@ -1,5 +1,5 @@
 export const metadata = {
-  title: 'Tooltip - BendcareOS',
+  title: 'Tooltip - Thrive',
   description: 'Page description',
 };
 

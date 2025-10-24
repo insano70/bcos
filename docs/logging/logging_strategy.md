@@ -398,14 +398,14 @@ Add metric filters:
 this.logGroup.addMetricFilter('ErrorCount', {
   filterPattern: logs.FilterPattern.jsonValue('$.level', '=', 'ERROR'),
   metricName: 'ApplicationErrors',
-  metricNamespace: 'BendCareOS',
+  metricNamespace: 'Thrive',
   metricValue: '1',
 });
 
 this.logGroup.addMetricFilter('SecurityEvents', {
   filterPattern: logs.FilterPattern.jsonValue('$.component', '=', 'security'),
   metricName: 'SecurityEvents',
-  metricNamespace: 'BendCareOS',
+  metricNamespace: 'Thrive',
   metricValue: '1',
 });
 
@@ -415,7 +415,7 @@ this.logGroup.addMetricFilter('SlowRequests', {
     logs.FilterPattern.jsonValue('$.component', '=', 'api')
   ),
   metricName: 'SlowAPIRequests',
-  metricNamespace: 'BendCareOS',
+  metricNamespace: 'Thrive',
   metricValue: '1',
 });
 ```

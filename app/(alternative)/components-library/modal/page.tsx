@@ -1,5 +1,5 @@
 export const metadata = {
-  title: 'Modal - BendcareOS',
+  title: 'Modal - Thrive',
   description: 'Page description',
 };
 

@@ -1,5 +1,5 @@
 export const metadata = {
-  title: 'Badge - BendcareOS',
+  title: 'Badge - Thrive',
   description: 'Page description',
 };
 

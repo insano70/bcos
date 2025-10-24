@@ -1,5 +1,5 @@
 export const metadata = {
-  title: 'Alert - BendcareOS',
+  title: 'Alert - Thrive',
   description: 'Page description',
 };
 

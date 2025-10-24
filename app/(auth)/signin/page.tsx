@@ -1,6 +1,6 @@
 export const metadata = {
-  title: 'Sign In - BendcareOS',
-  description: 'Page description',
+  title: 'Thrive',
+  description: 'Sign in to Thrive powered by Bendcare',
 };
 
 import { Suspense } from 'react';

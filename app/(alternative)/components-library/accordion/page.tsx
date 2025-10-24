@@ -1,5 +1,5 @@
 export const metadata = {
-  title: 'Accordion - BendcareOS',
+  title: 'Accordion - Thrive',
   description: 'Page description',
 };
 
