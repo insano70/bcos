@@ -238,6 +238,21 @@ export class CacheWarmingService {
       rows
     );
 
+    // IMPORTANT: Set metadata so cache is marked as warm
+    // Table-based sources don't create indexes, so we must set metadata manually
+    const client = getRedisClient();
+    if (client) {
+      const metadataKey = `cache:meta:{ds:${dataSourceId}}:last_warm`;
+      const timestamp = new Date().toISOString();
+      await client.set(metadataKey, timestamp);
+
+      log.info('Table-based cache metadata set', {
+        dataSourceId,
+        metadataKey,
+        timestamp,
+      });
+    }
+
     const duration = Date.now() - startTime;
 
     log.info('Table-based data source warming completed', {
@@ -289,6 +304,14 @@ export class CacheWarmingService {
 
     // Route to appropriate warming method based on type
     if (dataSourceType === 'table-based') {
+      // Validate table-based configuration
+      if (!tableName || !schemaName) {
+        throw new Error(
+          `Table-based data source ${dataSourceId} is missing required configuration. ` +
+          `tableName: ${tableName || 'null'}, schemaName: ${schemaName || 'null'}. ` +
+          `Please update the chart_data_sources table with valid table_name and schema_name values.`
+        );
+      }
       result = await this.warmTableBasedDataSource(dataSourceId, tableName, schemaName);
     } else {
       // Measure-based: delegate to indexed cache which handles locking, grouping, and index creation
