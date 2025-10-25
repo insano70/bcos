@@ -17,8 +17,14 @@ const addRelationshipSchema = z
     child_type_id: z.string().uuid('Please select a child type'),
     relationship_name: createSafeTextSchema(1, 100, 'Relationship name'),
     is_required: z.boolean().default(false),
-    min_count: z.coerce.number().int().min(0).optional(),
-    max_count: z.coerce.number().int().min(1).optional(),
+    min_count: z.preprocess(
+      (val) => (val === '' || val === null || val === undefined ? undefined : val),
+      z.coerce.number().int().min(0).optional()
+    ),
+    max_count: z.preprocess(
+      (val) => (val === '' || val === null || val === undefined ? undefined : val),
+      z.coerce.number().int().min(1).optional()
+    ),
     auto_create: z.boolean().default(false),
     display_order: z.coerce.number().int().min(0).default(0),
   })

@@ -639,3 +639,4 @@ canvas.style.height = '100%';
 
 **We don't NEED to refactor** - but if you build more charts in the future, consider their shared hook approach.
 
+

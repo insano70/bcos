@@ -341,3 +341,4 @@ responsive: true,  // ❌ Not fixed
 
 **Want me to proceed with fixing these now?**
 
+

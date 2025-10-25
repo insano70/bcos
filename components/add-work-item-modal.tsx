@@ -10,22 +10,35 @@ import UserPicker from '@/components/user-picker';
 import { useOrganizations } from '@/lib/hooks/use-organizations';
 import { useUsers } from '@/lib/hooks/use-users';
 import { useWorkItemFields } from '@/lib/hooks/use-work-item-fields';
+import { useTypeRelationshipsForParent } from '@/lib/hooks/use-work-item-type-relationships';
 import { useActiveWorkItemTypes } from '@/lib/hooks/use-work-item-types';
-import { useCreateWorkItem } from '@/lib/hooks/use-work-items';
+import { useCreateWorkItem, useWorkItem } from '@/lib/hooks/use-work-items';
 import { createSafeTextSchema } from '@/lib/validations/sanitization';
 import Toast from './toast';
 
 const createWorkItemSchema = z.object({
   work_item_type_id: z.string().min(1, 'Work item type is required').uuid('Invalid work item type'),
-  organization_id: z.string().uuid('Invalid organization ID').optional(),
+  organization_id: z
+    .string()
+    .optional()
+    .transform((val) => (val === '' ? undefined : val))
+    .pipe(z.string().uuid('Invalid organization ID').optional()),
   subject: createSafeTextSchema(1, 500, 'Subject'),
   description: createSafeTextSchema(0, 10000, 'Description').optional(),
   priority: z.enum(['critical', 'high', 'medium', 'low'], {
     message: 'Priority must be one of: critical, high, medium, low',
   }),
-  assigned_to: z.string().uuid('Invalid user ID').optional(),
+  assigned_to: z
+    .string()
+    .optional()
+    .transform((val) => (val === '' ? undefined : val))
+    .pipe(z.string().uuid('Invalid user ID').optional()),
   due_date: z.string().optional(),
-  parent_work_item_id: z.string().uuid('Invalid parent work item ID').optional(),
+  parent_work_item_id: z
+    .string()
+    .optional()
+    .transform((val) => (val === '' ? undefined : val))
+    .pipe(z.string().uuid('Invalid parent work item ID').optional()),
 });
 
 type CreateWorkItemForm = z.infer<typeof createWorkItemSchema>;
@@ -34,16 +47,32 @@ interface AddWorkItemModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  parentWorkItemId?: string;
 }
 
-export default function AddWorkItemModal({ isOpen, onClose, onSuccess }: AddWorkItemModalProps) {
+export default function AddWorkItemModal({ isOpen, onClose, onSuccess, parentWorkItemId }: AddWorkItemModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [customFieldValues, setCustomFieldValues] = useState<Record<string, unknown>>({});
   const createWorkItem = useCreateWorkItem();
-  const { data: workItemTypes, isLoading: typesLoading } = useActiveWorkItemTypes();
+  const { data: allWorkItemTypes, isLoading: typesLoading } = useActiveWorkItemTypes();
   const { data: organizations = [] } = useOrganizations();
   const { data: users = [] } = useUsers();
+  
+  // Fetch parent work item if creating a sub-item
+  const { data: parentWorkItem } = useWorkItem(parentWorkItemId || null);
+  
+  // Fetch type relationships for the parent type
+  const { data: typeRelationships } = useTypeRelationshipsForParent(
+    parentWorkItem?.work_item_type_id || undefined
+  );
+  
+  // Filter work item types based on parent relationships
+  const workItemTypes = parentWorkItemId && typeRelationships
+    ? allWorkItemTypes?.filter((type) =>
+        typeRelationships.some((rel) => rel.child_type_id === type.id)
+      )
+    : allWorkItemTypes;
 
   const workItemTypeId = useId();
   const subjectId = useId();
@@ -69,7 +98,7 @@ export default function AddWorkItemModal({ isOpen, onClose, onSuccess }: AddWork
       priority: 'medium',
       assigned_to: undefined,
       due_date: undefined,
-      parent_work_item_id: undefined,
+      parent_work_item_id: parentWorkItemId || undefined,
     },
   });
 
@@ -84,6 +113,13 @@ export default function AddWorkItemModal({ isOpen, onClose, onSuccess }: AddWork
       setValue('work_item_type_id', workItemTypes[0].id);
     }
   }, [workItemTypes, selectedTypeId, setValue]);
+
+  // Set parent work item ID when provided
+  useEffect(() => {
+    if (parentWorkItemId) {
+      setValue('parent_work_item_id', parentWorkItemId);
+    }
+  }, [parentWorkItemId, setValue]);
 
   const onSubmit = async (data: CreateWorkItemForm) => {
     setIsSubmitting(true);

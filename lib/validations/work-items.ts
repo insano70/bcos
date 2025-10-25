@@ -11,9 +11,9 @@ const prioritySchema = z.enum(['critical', 'high', 'medium', 'low'], {
   message: 'Priority must be one of: critical, high, medium, low',
 });
 
-// Status category enum (for filtering)
-const statusCategorySchema = z.enum(['todo', 'in_progress', 'completed'], {
-  message: 'Status category must be one of: todo, in_progress, completed',
+// Status category enum (for filtering and status creation)
+const statusCategorySchema = z.enum(['backlog', 'in_progress', 'completed', 'cancelled'], {
+  message: 'Status category must be one of: backlog, in_progress, completed, cancelled',
 });
 
 /**

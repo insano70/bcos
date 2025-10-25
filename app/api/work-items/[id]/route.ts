@@ -79,6 +79,7 @@ const getWorkItemHandler = async (
       created_by_name: workItem.created_by_name,
       created_at: workItem.created_at,
       updated_at: workItem.updated_at,
+      custom_fields: workItem.custom_fields,
     });
   } catch (error) {
     log.error('work item read failed', error, {

@@ -17,7 +17,7 @@ import Toast from './toast';
 
 const statusSchema = z.object({
   status_name: createSafeTextSchema(1, 100, 'Status name'),
-  status_category: z.enum(['backlog', 'in_progress', 'done', 'cancelled']),
+  status_category: z.enum(['backlog', 'in_progress', 'completed', 'cancelled']),
   color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Must be a valid hex color'),
   is_initial: z.boolean(),
   is_final: z.boolean(),
@@ -90,7 +90,7 @@ export default function ManageStatusesModal({
     setValue('status_name', status.status_name);
     setValue(
       'status_category',
-      status.status_category as 'backlog' | 'in_progress' | 'done' | 'cancelled'
+      status.status_category as 'backlog' | 'in_progress' | 'completed' | 'cancelled'
     );
     setValue('color', status.color || '#3b82f6');
     setValue('is_initial', status.is_initial);
@@ -155,7 +155,7 @@ export default function ManageStatusesModal({
   const categoryColors = {
     backlog: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
     in_progress: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
-    done: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
+    completed: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
     cancelled: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
   };
 
@@ -265,7 +265,7 @@ export default function ManageStatusesModal({
                           >
                             <option value="backlog">Backlog</option>
                             <option value="in_progress">In Progress</option>
-                            <option value="done">Done</option>
+                            <option value="completed">Completed</option>
                             <option value="cancelled">Cancelled</option>
                           </select>
                           {errors.status_category && (

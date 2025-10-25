@@ -110,9 +110,7 @@ const getFieldsHandler = async (
     const { searchParams } = new URL(request.url);
     const queryParams = {
       work_item_type_id: workItemTypeId,
-      is_visible: searchParams.get('is_visible')
-        ? searchParams.get('is_visible') === 'true'
-        : undefined,
+      is_visible: searchParams.get('is_visible') || undefined,
       limit: searchParams.get('limit') ? parseInt(searchParams.get('limit') ?? '0', 10) : undefined,
       offset: searchParams.get('offset')
         ? parseInt(searchParams.get('offset') ?? '0', 10)

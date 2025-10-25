@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useCallback, useMemo, useState } from 'react';
 import AddWorkItemModal from '@/components/add-work-item-modal';
 import DataTable, {
@@ -15,6 +16,7 @@ import { apiClient } from '@/lib/api/client';
 import { useWorkItems, type WorkItem } from '@/lib/hooks/use-work-items';
 
 export default function WorkItemsContent() {
+  const router = useRouter();
   const { data: workItems, isLoading, error, refetch } = useWorkItems();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -185,7 +187,13 @@ export default function WorkItemsContent() {
         header: 'Subject',
         sortable: true,
         render: (item) => (
-          <div className="font-medium text-gray-800 dark:text-gray-100">{item.subject}</div>
+          <button
+            type="button"
+            onClick={() => router.push(`/work/${item.id}`)}
+            className="font-medium text-gray-800 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors text-left"
+          >
+            {item.subject}
+          </button>
         ),
       },
       {
@@ -256,12 +264,24 @@ export default function WorkItemsContent() {
       },
       { key: 'actions' },
     ],
-    [formatDate, getPriorityColor, getStatusColor]
+    [formatDate, getPriorityColor, getStatusColor, router]
   );
 
   // Dropdown actions (memoized to prevent recreation on every render)
   const getDropdownActions = useCallback(
     (_workItem: WorkItem): DataTableDropdownAction<WorkItem>[] => [
+      {
+        label: 'View Details',
+        icon: (
+          <svg
+            className="w-4 h-4 fill-current text-gray-400 dark:text-gray-500 shrink-0"
+            viewBox="0 0 16 16"
+          >
+            <path d="M8 2C4.5 2 1.5 4.5 0 8c1.5 3.5 4.5 6 8 6s6.5-2.5 8-6c-1.5-3.5-4.5-6-8-6zm0 10c-2.2 0-4-1.8-4-4s1.8-4 4-4 4 1.8 4 4-1.8 4-4 4zm0-6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
+          </svg>
+        ),
+        onClick: (w) => router.push(`/work/${w.id}`),
+      },
       {
         label: 'Edit',
         icon: (
@@ -287,7 +307,7 @@ export default function WorkItemsContent() {
           `Are you sure you want to delete "${w.subject}"? This action cannot be undone.`,
       },
     ],
-    [handleEditWorkItem, handleDeleteWorkItem]
+    [handleEditWorkItem, handleDeleteWorkItem, router]
   );
 
   // Bulk actions for mass operations (memoized)
