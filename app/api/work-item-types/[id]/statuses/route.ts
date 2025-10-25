@@ -47,7 +47,7 @@ const getStatusesHandler = async (
 
     return createSuccessResponse({
       statuses: statuses.map((status) => ({
-        id: status.work_item_status_id,
+        work_item_status_id: status.work_item_status_id,
         work_item_type_id: status.work_item_type_id,
         status_name: status.status_name,
         status_category: status.status_category,

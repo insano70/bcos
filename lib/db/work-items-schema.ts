@@ -54,7 +54,7 @@ export const work_item_statuses = pgTable(
       .notNull()
       .references(() => work_item_types.work_item_type_id, { onDelete: 'cascade' }),
     status_name: text('status_name').notNull(),
-    status_category: text('status_category').notNull(), // 'todo', 'in_progress', 'completed'
+    status_category: text('status_category').notNull(), // 'backlog', 'in_progress', 'completed', 'cancelled'
     is_initial: boolean('is_initial').default(false).notNull(),
     is_final: boolean('is_final').default(false).notNull(),
     color: text('color'),

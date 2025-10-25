@@ -1,4 +1,5 @@
 import { and, asc, count, eq, isNull } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 import { db } from '@/lib/db';
 import { work_item_type_relationships, work_item_types } from '@/lib/db/schema';
 import { log } from '@/lib/logger';
@@ -77,9 +78,9 @@ export class RBACWorkItemTypeRelationshipsService extends BaseRBACService {
         conditions.push(eq(work_item_type_relationships.auto_create, auto_create));
       }
 
-      // Create aliases for parent and child types
-      const parentType = work_item_types;
-      const childType = work_item_types;
+      // Create proper table aliases for self-join
+      const parentType = alias(work_item_types, 'parent_type');
+      const childType = alias(work_item_types, 'child_type');
 
       // Execute query with joins
       const results = await db
@@ -192,8 +193,9 @@ export class RBACWorkItemTypeRelationshipsService extends BaseRBACService {
     relationshipId: string
   ): Promise<WorkItemTypeRelationshipWithDetails | null> {
     try {
-      const parentType = work_item_types;
-      const childType = work_item_types;
+      // Create proper table aliases for self-join
+      const parentType = alias(work_item_types, 'parent_type');
+      const childType = alias(work_item_types, 'child_type');
 
       const results = await db
         .select({

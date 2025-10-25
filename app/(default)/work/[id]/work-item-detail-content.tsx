@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import AddWorkItemModal from '@/components/add-work-item-modal';
 import { useAuth } from '@/components/auth/rbac-auth-provider';
 import DeleteWorkItemModal from '@/components/delete-work-item-modal';
 import EditWorkItemModal from '@/components/edit-work-item-modal';
@@ -35,6 +36,7 @@ export default function WorkItemDetailContent({ workItemId }: WorkItemDetailCont
   const deleteWorkItem = useDeleteWorkItem();
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isAddSubItemModalOpen, setIsAddSubItemModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<
     'details' | 'comments' | 'activity' | 'history' | 'watchers' | 'subItems'
   >('details');
@@ -298,14 +300,45 @@ export default function WorkItemDetailContent({ workItemId }: WorkItemDetailCont
           {activeTab === 'subItems' && (
             <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                  Child Work Items
-                </h2>
-                {children && children.length > 0 && (
-                  <span className="text-sm text-gray-500 dark:text-gray-400">
-                    {children.length} {children.length === 1 ? 'item' : 'items'}
-                  </span>
-                )}
+                <div className="flex items-center gap-3">
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                    Child Work Items
+                  </h2>
+                  {children && children.length > 0 && (
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                      {children.length} {children.length === 1 ? 'item' : 'items'}
+                    </span>
+                  )}
+                </div>
+                <ProtectedComponent
+                  permissions={[
+                    'work-items:create:own',
+                    'work-items:create:organization',
+                    'work-items:manage:all',
+                  ]}
+                  requireAll={false}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setIsAddSubItemModalOpen(true)}
+                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 rounded-lg transition-colors"
+                  >
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 4v16m8-8H4"
+                      />
+                    </svg>
+                    Add Sub-Item
+                  </button>
+                </ProtectedComponent>
               </div>
 
               {children && children.length > 0 ? (
@@ -452,6 +485,17 @@ export default function WorkItemDetailContent({ workItemId }: WorkItemDetailCont
           onConfirm={handleDelete}
         />
       )}
+
+      {/* Add Sub-Item Modal */}
+      <AddWorkItemModal
+        isOpen={isAddSubItemModalOpen}
+        onClose={() => setIsAddSubItemModalOpen(false)}
+        onSuccess={() => {
+          setIsAddSubItemModalOpen(false);
+          refetch();
+        }}
+        parentWorkItemId={workItemId}
+      />
     </div>
   );
 }

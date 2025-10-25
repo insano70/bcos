@@ -161,10 +161,10 @@ export function useDeleteWorkItem() {
  */
 export function useWorkItemChildren(parentId: string | null) {
   return useQuery<WorkItem[], Error>({
-    queryKey: ['work-items', parentId, 'children'],
+    queryKey: ['work-item-children', parentId],
     queryFn: async () => {
       const data = await apiClient.get<WorkItem[]>(`/api/work-items/${parentId}/children`);
-      return data;
+      return data || [];
     },
     enabled: !!parentId,
     staleTime: 5 * 60 * 1000,
@@ -177,10 +177,10 @@ export function useWorkItemChildren(parentId: string | null) {
  */
 export function useWorkItemAncestors(workItemId: string | null) {
   return useQuery<WorkItem[], Error>({
-    queryKey: ['work-items', workItemId, 'ancestors'],
+    queryKey: ['work-item-ancestors', workItemId],
     queryFn: async () => {
       const data = await apiClient.get<WorkItem[]>(`/api/work-items/${workItemId}/ancestors`);
-      return data;
+      return data || [];
     },
     enabled: !!workItemId,
     staleTime: 5 * 60 * 1000,

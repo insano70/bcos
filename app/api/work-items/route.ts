@@ -73,6 +73,7 @@ const getWorkItemsHandler = async (request: NextRequest, userContext: UserContex
       created_by_name: item.created_by_name,
       created_at: item.created_at,
       updated_at: item.updated_at,
+      custom_fields: item.custom_fields,
     }));
 
     // Prepare sanitized filter context

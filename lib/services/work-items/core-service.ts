@@ -119,8 +119,15 @@ class WorkItemCoreService extends BaseWorkItemsService {
         }
       }
 
-      // Map result to WorkItemWithDetails
-      const workItem = this.mapWorkItemResult(result);
+      // Fetch custom field values for this work item
+      const customFieldsStart = Date.now();
+      const customFieldsService = createWorkItemCustomFieldsService(this.userContext);
+      const customFieldsMap = await customFieldsService.getCustomFieldValues([workItemId]);
+      const customFieldsDuration = Date.now() - customFieldsStart;
+
+      // Map result to WorkItemWithDetails with custom fields
+      const customFields = customFieldsMap.get(workItemId);
+      const workItem = this.mapWorkItemResult(result, customFields);
       const duration = Date.now() - startTime;
 
       // Log successful read using logTemplates
@@ -135,6 +142,8 @@ class WorkItemCoreService extends BaseWorkItemsService {
           status: workItem.status_name,
           organizationId: workItem.organization_id,
           queryDuration,
+          customFieldsDuration,
+          customFieldCount: customFields ? Object.keys(customFields).length : 0,
           slow: queryDuration > SLOW_THRESHOLDS.DB_QUERY,
           rbacScope: this.getRBACScope(),
           component: 'core_service',
