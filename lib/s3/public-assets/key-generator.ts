@@ -1,51 +1,6 @@
 import { nanoid } from 'nanoid';
 import type { GenerateKeyOptions } from './types';
-
-/**
- * Sanitize a path segment to be safe for S3 keys
- * Removes invalid characters and prevents path traversal
- *
- * @param segment - Path segment to sanitize
- * @returns Sanitized segment
- */
-function sanitizePathSegment(segment: string): string {
-  return segment
-    .trim()
-    .replace(/[^a-zA-Z0-9_-]/g, '-') // Replace invalid chars with hyphen
-    .replace(/-+/g, '-') // Collapse multiple hyphens
-    .replace(/^-|-$/g, ''); // Remove leading/trailing hyphens
-}
-
-/**
- * Sanitize a filename to be safe for S3 keys
- * Preserves extension, converts to lowercase
- *
- * @param fileName - Filename to sanitize
- * @param preserveName - If true, preserve original name with minimal sanitization
- * @returns Sanitized filename
- */
-function sanitizeFileName(fileName: string, preserveName = false): string {
-  // Extract extension
-  const parts = fileName.split('.');
-  const ext = parts.length > 1 ? parts.pop() : '';
-  const name = parts.join('.');
-
-  if (preserveName) {
-    // Minimal sanitization - only remove dangerous characters
-    const safeName = name.replace(/[^a-zA-Z0-9._-]/g, '_');
-    return ext ? `${safeName}.${ext.toLowerCase()}` : safeName;
-  }
-
-  // Full sanitization - lowercase, replace special chars
-  const safeName = name
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9._-]/g, '_')
-    .replace(/_+/g, '_')
-    .replace(/^_|_$/g, '');
-
-  return ext ? `${safeName}.${ext.toLowerCase()}` : safeName;
-}
+import { sanitizeFileName, sanitizePathSegment } from '../shared/sanitization';
 
 /**
  * Generate S3 key for a file with flexible path composition
