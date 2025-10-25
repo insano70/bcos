@@ -2,34 +2,8 @@
  * TypeScript types and interfaces for S3 public assets service
  */
 
-/**
- * Options for generating S3 keys
- */
-export interface GenerateKeyOptions {
-  /**
-   * Whether to add a unique ID to the filename
-   * @default true
-   */
-  addUniqueId?: boolean;
-
-  /**
-   * Whether to preserve the original filename exactly (no sanitization)
-   * @default false
-   */
-  preserveName?: boolean;
-
-  /**
-   * Whether to add a timestamp to the filename
-   * @default false
-   */
-  addTimestamp?: boolean;
-
-  /**
-   * Length of the unique ID to generate
-   * @default 10
-   */
-  uniqueIdLength?: number;
-}
+// Re-export shared types used by both public and private asset systems
+export type { GenerateKeyOptions } from '../shared/types';
 
 /**
  * Options for uploading files to S3

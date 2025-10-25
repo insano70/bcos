@@ -50,6 +50,24 @@ export const env = createEnv({
       .transform((val) => val === 'true')
       .optional(),
 
+    // S3 Private Assets - Secure file storage with presigned URLs
+    S3_PRIVATE_REGION: z.string().optional(),
+    S3_PRIVATE_ACCESS_KEY_ID: z.string().optional(),
+    S3_PRIVATE_SECRET_ACCESS_KEY: z.string().optional(),
+    S3_PRIVATE_BUCKET: z.string().optional(),
+    S3_PRIVATE_UPLOAD_EXPIRATION: z.coerce
+      .number()
+      .int()
+      .min(60, 'Upload expiration must be at least 60 seconds')
+      .max(86400, 'Upload expiration must not exceed 24 hours')
+      .optional(),
+    S3_PRIVATE_DOWNLOAD_EXPIRATION: z.coerce
+      .number()
+      .int()
+      .min(60, 'Download expiration must be at least 60 seconds')
+      .max(3600, 'Download expiration must not exceed 1 hour')
+      .optional(),
+
     // Application URL (server-side runtime configuration)
     APP_URL: z.string().url('APP_URL must be a valid URL').default('http://localhost:4001'),
 
@@ -102,6 +120,14 @@ export const env = createEnv({
     OIDC_ALLOWED_DOMAINS: process.env.OIDC_ALLOWED_DOMAINS,
     OIDC_SUCCESS_REDIRECT: process.env.OIDC_SUCCESS_REDIRECT,
     OIDC_STRICT_FINGERPRINT: process.env.OIDC_STRICT_FINGERPRINT,
+
+    // S3 Private Assets
+    S3_PRIVATE_REGION: process.env.S3_PRIVATE_REGION,
+    S3_PRIVATE_ACCESS_KEY_ID: process.env.S3_PRIVATE_ACCESS_KEY_ID,
+    S3_PRIVATE_SECRET_ACCESS_KEY: process.env.S3_PRIVATE_SECRET_ACCESS_KEY,
+    S3_PRIVATE_BUCKET: process.env.S3_PRIVATE_BUCKET,
+    S3_PRIVATE_UPLOAD_EXPIRATION: process.env.S3_PRIVATE_UPLOAD_EXPIRATION,
+    S3_PRIVATE_DOWNLOAD_EXPIRATION: process.env.S3_PRIVATE_DOWNLOAD_EXPIRATION,
 
     APP_URL: process.env.APP_URL,
     NODE_ENV: process.env.NODE_ENV,
@@ -339,4 +365,61 @@ export const isOIDCEnabled = () => {
     throw new Error('isOIDCEnabled can only be used on the server side');
   }
   return getOIDCConfig() !== undefined;
+};
+
+/**
+ * Get S3 Private Assets Configuration
+ * Server-side only
+ * 
+ * Returns configuration for secure file uploads with presigned URLs.
+ * Used for work item attachments, invoices, reports, and other sensitive files.
+ * 
+ * @returns S3 private assets configuration
+ * @throws Error if called from client side
+ * 
+ * @example
+ * const config = getPrivateS3Config();
+ * console.log(`Bucket: ${config.bucket}`);
+ * console.log(`Upload expiration: ${config.uploadExpiration}s`);
+ */
+export const getPrivateS3Config = () => {
+  if (typeof window !== 'undefined') {
+    throw new Error('getPrivateS3Config can only be used on the server side');
+  }
+
+  return {
+    region: env.S3_PRIVATE_REGION || 'us-east-1',
+    accessKeyId: env.S3_PRIVATE_ACCESS_KEY_ID || '',
+    secretAccessKey: env.S3_PRIVATE_SECRET_ACCESS_KEY || '',
+    bucket: env.S3_PRIVATE_BUCKET || '',
+    uploadExpiration: env.S3_PRIVATE_UPLOAD_EXPIRATION || 3600, // 1 hour default
+    downloadExpiration: env.S3_PRIVATE_DOWNLOAD_EXPIRATION || 900, // 15 minutes default
+  };
+};
+
+/**
+ * Check if S3 Private Assets are enabled
+ * Server-side only
+ * 
+ * Validates that all required S3 private assets credentials are configured.
+ * Use this to gracefully handle missing S3 configuration.
+ * 
+ * @returns True if all required credentials are configured
+ * @throws Error if called from client side
+ * 
+ * @example
+ * if (isPrivateS3Enabled()) {
+ *   // Generate presigned URLs
+ *   const { uploadUrl } = await generateUploadUrl(...);
+ * } else {
+ *   // Handle gracefully or throw error
+ *   throw new Error('S3 private assets not configured');
+ * }
+ */
+export const isPrivateS3Enabled = () => {
+  if (typeof window !== 'undefined') {
+    throw new Error('isPrivateS3Enabled can only be used on the server side');
+  }
+  const config = getPrivateS3Config();
+  return !!(config.region && config.accessKeyId && config.secretAccessKey && config.bucket);
 };

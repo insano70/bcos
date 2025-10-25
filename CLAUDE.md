@@ -1,67 +1,124 @@
-# Claude AI Assistant Rules and Guidelines
+# CLAUDE.md
 
-This document contains the rules, guidelines, and context for AI assistants working on this codebase.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
--Application uses Next.js 15, Node.js 24, AWS/ECS Fargate, Postgres 17 on RDS, AWS Elasticache Valkey for caching, Drizzle ORM, biome for lint, strict typescript
+## Tech Stack
 
-## Git Operations
+**Application**: Next.js 15, Node.js 24, React 19, TypeScript 5.9 (strict mode)
+**Infrastructure**: AWS ECS Fargate, PostgreSQL 17 (RDS), AWS Elasticache (Valkey/Redis)
+**Database**: Drizzle ORM 0.44 with modular schema architecture
+**Linting**: Biome 2.2 (linter + formatter), custom logger lint rule
+**Testing**: Vitest 3.2 with React Testing Library, parallel test execution
+**Package Manager**: pnpm
 
-### Strict Prohibitions
-- **NEVER** use `git reset`, `git reset --hard`, `git reset --soft`, or any destructive git operations under any circumstances
-- **FORBIDDEN**: All forms of `git reset` are prohibited
-- Do not interact with git unless explicitly instructed to do so
-- Do not commit work without being told to do so
-- Never run force push to main/master
-- Never skip hooks (`--no-verify`, `--no-gpg-sign`, etc.) unless explicitly requested
+## Commands
 
-## Code Quality Standards
+### Development
+```bash
+pnpm dev              # Start dev server on port 4001
+pnpm dev:turbo        # Start dev with Turbopack (faster)
+pnpm dev:warm         # Start dev with cache warming
+```
 
-### Type Safety
-- **FORBIDDEN**: The `any` type is never to be used under any circumstance
-- If you encounter the `any` type in existing code, address it and report it to the user
-- Maintain strict TypeScript typing throughout the codebase
+### Type Checking & Linting
+```bash
+pnpm tsc              # Type check entire codebase
+pnpm lint             # Run Biome + custom logger lint
+pnpm lint:biome       # Run Biome only
+pnpm lint:logger      # Check for server logger in client files
+pnpm lint:fix         # Auto-fix Biome issues
+pnpm format           # Format code with Biome
+pnpm check            # Lint + format (auto-fix)
+```
 
-### Quality Over Speed
-- Do not take shortcuts for speed
-- Speed is not the priority; high quality code is the priority
-- Always prioritize correctness and maintainability
+**REQUIRED**: After any code changes, run `pnpm tsc` AND `pnpm lint`. Fix all errors before proceeding, even unrelated ones.
 
-### Post-Change Validation
-- **ALWAYS** run `pnpm tsc` after any code changes are completed
-- **ALWAYS** run `pnpm lint` after any code changes are completed
-- Fix all errors before proceeding, even if they were unrelated to your changes
+### Testing
+```bash
+# Run tests
+pnpm test                    # All tests (parallel)
+pnpm test:run                # Run once and exit
+pnpm test:watch              # Watch mode
+pnpm test:ui                 # Vitest UI
 
-## Security
+# Specific suites
+pnpm test:unit               # Unit tests only
+pnpm test:integration        # Integration tests
+pnpm test:api                # API route tests
+pnpm test:rbac               # RBAC permission tests
+pnpm test:saml               # SAML authentication tests
+pnpm test:e2e                # End-to-end tests
 
-- Security is paramount
-- Never make an infrastructure or code change that will negatively impact the security profile
-- Always consider security implications of any changes
+# Coverage
+pnpm test:coverage           # Generate coverage report
+pnpm test:coverage:ui        # Coverage with UI
+
+# Performance
+pnpm test:parallel           # Parallel execution
+pnpm test:parallel:max       # Max parallelism (8 workers)
+pnpm test:sequential         # Sequential (debugging)
+
+# Single test file
+vitest run path/to/test.ts
+```
+
+### Database
+```bash
+pnpm db:migrate              # Run pending migrations
+pnpm db:generate             # Generate new migration from schema
+pnpm db:validate             # Validate migration integrity
+pnpm db:push                 # Push schema directly (dev only)
+pnpm db:seed                 # Seed database with test data
+pnpm db:psql                 # Connect to PostgreSQL
+pnpm db:check                # Test database connection
+```
+
+### Build & Deploy
+```bash
+pnpm build                   # Production build (validates env first)
+pnpm start                   # Start production server
+```
+
+## Architecture
+
+### Modular Database Schema
+
+Database schema uses a **modular architecture** via re-exports in `lib/db/schema.ts`. Each domain has its own schema file:
+
+- `rbac-schema.ts` - Users, roles, permissions, organizations
+- `refresh-token-schema.ts` - Sessions, tokens, login attempts, account security
+- `webauthn-schema.ts` - WebAuthn credentials and challenges
+- `oidc-schema.ts` - OIDC states and nonces
+- `work-item-schema.ts` - Work items core tables
+- `work-item-fields-schema.ts` - Custom field definitions and values
+- `analytics-schema.ts` - Charts, dashboards, data sources
+- `chart-config-schema.ts` - Chart display configurations
+- `audit-schema.ts` - Audit trail
+- `csrf-schema.ts` - CSRF failure monitoring
+
+**Import pattern**: Always import from `@/lib/db/schema` (never from individual schema files):
+
+```typescript
+import { users, roles, permissions } from '@/lib/db/schema';
+```
 
 ### API Route Security Wrappers
 
-All API routes **MUST** use one of the three security wrapper functions. Direct route exports without wrappers are **FORBIDDEN** except for specific auth system routes with documented justification.
-
-#### 1. **rbacRoute** - RBAC Permission-Based Protection (Default Choice)
-
-**Use for**: Most API routes requiring permission-based access control
+**CRITICAL**: All API routes MUST use one of three security wrapper functions. Direct route exports are FORBIDDEN.
 
 **Location**: `@/lib/api/route-handlers`
 
-**Handler receives**: `userContext` (full RBAC context with user, roles, permissions)
+#### 1. `rbacRoute` - RBAC Permission-Based (Default for Business Logic)
 
-**Example**:
+Use for all business logic requiring specific permissions:
+
 ```typescript
 import { rbacRoute } from '@/lib/api/route-handlers';
 import type { UserContext } from '@/lib/types/rbac';
 
 const handler = async (request: NextRequest, userContext: UserContext) => {
-  // Handler has access to:
-  // - userContext.user_id
-  // - userContext.roles (array of role objects)
-  // - userContext.all_permissions (array of permission objects)
-  // - userContext.is_super_admin
-  // - userContext.current_organization_id
-
+  // Access: userContext.user_id, userContext.roles, userContext.all_permissions
+  // userContext.is_super_admin, userContext.current_organization_id
   return NextResponse.json({ data });
 };
 
@@ -70,7 +127,7 @@ export const GET = rbacRoute(handler, {
   rateLimit: 'api',
 });
 
-// Multiple permissions (user needs ANY of these)
+// Multiple permissions (user needs ANY)
 export const POST = rbacRoute(handler, {
   permission: ['users:create:all', 'users:create:organization'],
   rateLimit: 'api',
@@ -84,29 +141,38 @@ export const PUT = rbacRoute(handler, {
 });
 ```
 
-**Permission naming convention**: `resource:action:scope`
-- Resource: `users`, `practices`, `analytics`, `work_items`, etc.
-- Action: `read`, `create`, `update`, `delete`, `manage`
-- Scope: `all`, `organization`, `own`
+**Permission Format**: `resource:action:scope`
+- **Resources**: `users`, `practices`, `analytics`, `work_items`, `roles`
+- **Actions**: `read`, `create`, `update`, `delete`, `manage`
+- **Scopes**: `all`, `organization`, `own`
 
-**Examples**: `users:read:all`, `practices:update:organization`, `analytics:read:own`
+#### 2. `authRoute` - Authentication Without RBAC
 
-#### 2. **publicRoute** - No Authentication Required
+Use for auth system routes (MFA, profile, sessions):
 
-**Use for**: Public endpoints (health checks, CSRF tokens, login, CSP reports, contact forms)
+```typescript
+import { authRoute } from '@/lib/api/route-handlers';
+import type { AuthSession } from '@/lib/api/route-handlers';
 
-**Location**: `@/lib/api/route-handlers`
+const handler = async (request: NextRequest, session?: AuthSession) => {
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  // Access: session.user.id, session.user.email, session.accessToken
+  return NextResponse.json({ data });
+};
 
-**Handler receives**: `request` only (no session or userContext)
+export const GET = authRoute(handler, { rateLimit: 'api' });
+```
 
-**Requires**: Documented reason string (mandatory)
+#### 3. `publicRoute` - No Authentication
 
-**Example**:
+Use for public endpoints only (health checks, CSRF tokens, login):
+
 ```typescript
 import { publicRoute } from '@/lib/api/route-handlers';
 
 const handler = async (request: NextRequest) => {
-  // No authentication available here
   return NextResponse.json({ status: 'ok' });
 };
 
@@ -117,421 +183,380 @@ export const GET = publicRoute(
 );
 ```
 
-**Common valid reasons**:
-- "Health check endpoint for monitoring tools and load balancers"
-- "CSRF tokens must be available to anonymous users for form protection"
-- "Authentication endpoint - must be public"
-- "Allow visitors to submit contact forms"
-- "CSP violation reporting endpoint - browsers send these automatically"
+**Rate Limit Options**:
+- `auth`: 10 req/min (authentication endpoints)
+- `api`: 100 req/min (standard operations)
+- `upload`: 20 req/min (file uploads)
 
-#### 3. **authRoute** - Authentication Without RBAC
+**Exception**: Only `/api/auth/refresh` and `/api/auth/logout` may skip wrappers (custom auth flows with internal validation).
 
-**Use for**: Auth system routes that need authentication but not permission checking (MFA, profile, sessions)
+### Logging System
 
-**Location**: `@/lib/api/route-handlers`
+**CRITICAL**: Custom logging wrapper at `lib/logger/index.ts` - server-side only.
 
-**Handler receives**: `session` object (not userContext)
+**FORBIDDEN**: Client-side imports of `@/lib/logger` (enforced by custom lint rule).
 
-**Example**:
 ```typescript
-import { authRoute } from '@/lib/api/route-handlers';
-import type { AuthSession } from '@/lib/api/route-handler';
+import { log, correlation } from '@/lib/logger';
 
-const handler = async (request: NextRequest, session?: AuthSession) => {
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+// Basic logging
+log.info('Operation completed', { data });
+log.error('Operation failed', error, { context });
 
-  // Handler has access to:
-  // - session.user.id
-  // - session.user.email
-  // - session.user.roles
-  // - session.accessToken
-  // - session.sessionId
-  // - session.userContext (full RBAC data)
-
-  return NextResponse.json({ data });
+// API routes with correlation ID
+export const POST = async (request: NextRequest) => {
+  return correlation.withContext(
+    correlation.generate(),
+    { method: request.method, path: new URL(request.url).pathname },
+    async () => {
+      log.api('Request started', request);
+      // ... handler logic
+      log.api('Request completed', request, 200, duration);
+      return NextResponse.json(result);
+    }
+  );
 };
 
-export const GET = authRoute(handler, { rateLimit: 'api' });
+// Specialized logging
+log.auth('login', true, { userId, method: 'saml' });
+log.security('rate_limit_exceeded', 'high', { blocked: true });
+log.db('SELECT', 'users', duration, { recordCount });
 ```
 
-**When to use authRoute vs rbacRoute**:
-- Use `authRoute` for: MFA endpoints, credential management, user profile, session management
-- Use `rbacRoute` for: Everything else (business logic, admin operations, data access)
+**Enriched Logging Patterns**:
 
-#### Rate Limiting Options
-
-All wrappers support rate limiting:
-- `rateLimit: 'auth'` - Strict limits for authentication endpoints (10 req/min)
-- `rateLimit: 'api'` - Standard API limits (100 req/min)
-- `rateLimit: 'upload'` - Relaxed limits for file uploads (20 req/min)
-
-#### Forbidden Patterns
-
-**❌ NEVER do this** (direct export without wrapper):
 ```typescript
-export async function GET(request: NextRequest) {
-  // FORBIDDEN: No wrapper!
-  return NextResponse.json({ data });
+import { log, SLOW_THRESHOLDS, logTemplates, calculateChanges } from '@/lib/logger';
+
+// Success log with rich context
+log.info('operation completed - summary', {
+  operation: 'list_users',  // Required: unique operation ID
+  userId: userContext.user_id,
+  results: { returned: 25, total: 100, page: 1 },
+  duration,
+  slow: duration > SLOW_THRESHOLDS.API_OPERATION,
+  component: 'api',  // Required for CloudWatch filtering
+});
+
+// CRUD operations with templates
+const template = logTemplates.crud.create('user', {
+  resourceId: String(newUser.user_id),
+  resourceName: newUser.email,
+  userId: userContext.user_id,
+  duration,
+});
+log.info(template.message, template.context);
+
+// UPDATE with change tracking
+const changes = calculateChanges(existingUser, updatedData);
+const template = logTemplates.crud.update('user', {
+  resourceId: String(user.user_id),
+  userId: userContext.user_id,
+  changes,
+  duration,
+});
+log.info(template.message, template.context);
+```
+
+**Slow Thresholds**:
+- `DB_QUERY`: 500ms (detect missing indexes)
+- `API_OPERATION`: 1000ms (user experience threshold)
+- `AUTH_OPERATION`: 2000ms (password hashing, MFA)
+
+**What NOT to Log**:
+- ❌ Verbose intermediate logs (rate limit check, validation, etc.)
+- ❌ Debug console.log statements
+- ✅ One comprehensive final log per operation
+
+**Features**:
+- Automatic context capture (file, line, function)
+- Correlation ID tracking across requests
+- PII sanitization (emails, SSNs, credit cards, UUIDs)
+- Production sampling (INFO: 10%, DEBUG: 1%)
+- CloudWatch Logs integration
+
+**NEVER**: Use external logging libraries (Pino, Winston). Never use `console.*` directly.
+
+### RBAC System
+
+**Permission Hierarchy**: Super Admin > Organization Admin > Manager > Staff
+
+**Caching**: User context cached in Redis with automatic invalidation on permission changes.
+
+**Server-side permission checks**: `lib/rbac/server-permission-service.ts`
+
+```typescript
+import { ServerPermissionService } from '@/lib/rbac/server-permission-service';
+
+const hasPermission = await ServerPermissionService.hasPermission(
+  userId,
+  'users:update:all'
+);
+```
+
+### Environment Variables
+
+**Validation**: T3 Env + Zod schema in `lib/env.ts`
+
+**Required variables** (`.env.local`):
+- `DATABASE_URL` - PostgreSQL connection string
+- `JWT_SECRET` - Min 32 chars for JWT access tokens
+- `JWT_REFRESH_SECRET` - Min 32 chars for refresh tokens
+- `CSRF_SECRET` - Min 32 chars for CSRF protection
+- `APP_URL` - Application URL (e.g., http://localhost:4001)
+- `NEXT_PUBLIC_APP_URL` - Client-side app URL
+
+**Optional** (authentication):
+- `ENTRA_TENANT_ID`, `ENTRA_APP_ID`, `ENTRA_CLIENT_SECRET` - Microsoft Entra ID
+- `OIDC_*` - OpenID Connect configuration
+- `SMTP_*` - AWS SES email configuration
+
+**Optional** (S3 file storage):
+- `S3_PUBLIC_*` - Public assets (logos, avatars) via CloudFront CDN
+- `S3_PRIVATE_*` - Private assets (attachments, documents) with presigned URLs
+
+### S3 File Storage
+
+**Architecture**: Two separate S3 systems with shared utilities for consistency.
+
+**Systems**:
+1. **Public Assets** (`lib/s3/public-assets/`) - CDN-backed public files
+2. **Private Assets** (`lib/s3/private-assets/`) - Secure files with presigned URLs
+3. **Shared** (`lib/s3/shared/`) - Common types and sanitization functions
+
+#### Private Assets (Secure Files)
+
+**Use cases**: Work item attachments, invoices, reports, user documents, any sensitive files requiring access control.
+
+**Pattern**: Two-step upload with presigned URLs (client uploads directly to S3, bypassing server).
+
+```typescript
+import { 
+  generateS3Key, 
+  generateUploadUrl, 
+  generateDownloadUrl, 
+  deleteFile 
+} from '@/lib/s3/private-assets';
+
+// 1. Generate S3 key with consistent pattern
+const s3Key = generateS3Key(
+  ['work-items', workItemId, 'attachments'],  // Path segments
+  fileName                                     // Original filename
+);
+// => 'work-items/abc-123/attachments/document_k3j2h4g5.pdf'
+
+// 2. Generate presigned upload URL (1 hour expiration, with size limit)
+const { uploadUrl, bucket } = await generateUploadUrl(s3Key, {
+  contentType: 'application/pdf',
+  expiresIn: 3600,  // 1 hour
+  maxFileSize: 50 * 1024 * 1024,  // 50MB limit for documents
+  metadata: {
+    resource_type: 'work_item_attachment',
+    resource_id: workItemId,
+    uploaded_by: userId,
+  }
+});
+
+// 3. Return uploadUrl to client (client uploads directly to S3)
+
+// 4. Generate presigned download URL (15 min expiration)
+const { downloadUrl } = await generateDownloadUrl(s3Key, {
+  fileName: 'document.pdf',
+  expiresIn: 900,  // 15 minutes
+  disposition: 'attachment',
+});
+```
+
+**Resource Type Patterns**:
+```typescript
+// Work item attachments
+['work-items', workItemId, 'attachments']
+// => 'work-items/abc-123/attachments/file_xyz.pdf'
+
+// Invoices by organization and period
+['invoices', orgId, '2024', 'january']
+// => 'invoices/org-456/2024/january/invoice_xyz.pdf'
+
+// Reports with timestamp versioning
+generateS3Key(['reports', orgId, 'analytics'], 'report.xlsx', { 
+  addTimestamp: true 
+})
+// => 'reports/org-789/analytics/report_1704067200000_xyz.xlsx'
+
+// User documents (nested structure)
+['users', userId, 'documents', 'licenses']
+// => 'users/user-456/documents/licenses/license_xyz.jpg'
+```
+
+**Security**:
+- ✅ Separate IAM credentials (`S3_PRIVATE_*` env vars)
+- ✅ Short-lived presigned URLs (15 min download, 1 hour upload)
+- ✅ Server-side RBAC checks required before URL generation
+- ✅ Path traversal prevention via sanitization
+- ✅ MIME type whitelist (blocks executables, scripts)
+- ✅ File size limits by type (50MB images/documents, 100MB archives/default)
+- ✅ Comprehensive audit logging with metadata
+
+**File Upload Constraints**:
+```typescript
+import { FILE_SIZE_LIMITS, ALLOWED_MIME_TYPES } from '@/lib/s3/private-assets';
+
+// File size limits by category
+FILE_SIZE_LIMITS.image      // 50MB
+FILE_SIZE_LIMITS.document   // 50MB
+FILE_SIZE_LIMITS.archive    // 100MB
+FILE_SIZE_LIMITS.default    // 100MB
+
+// Allowed MIME types (whitelist)
+ALLOWED_MIME_TYPES.has('application/pdf')        // ✅ true
+ALLOWED_MIME_TYPES.has('image/jpeg')             // ✅ true
+ALLOWED_MIME_TYPES.has('application/x-msdownload') // ❌ false (executables blocked)
+```
+
+**Image Thumbnails** (automatic for images):
+```typescript
+import { isImage, generateThumbnail, getThumbnailKey } from '@/lib/s3/private-assets';
+
+// Check if file is an image
+if (isImage('image/jpeg')) {
+  // Generate thumbnail (max 300x300px, JPEG, 80% quality)
+  const thumbnailBuffer = await generateThumbnail(imageBuffer, 'image/jpeg');
+  
+  // Thumbnail key automatically generated
+  const thumbnailKey = getThumbnailKey('work-items/abc/photo.jpg');
+  // => 'work-items/abc/thumbnails/photo_thumb.jpg'
 }
 ```
 
-**❌ NEVER do this** (legacy imports):
-```typescript
-// FORBIDDEN: Old location
-import { publicRoute, secureRoute } from '@/lib/api/route-handler';
+**Key generation options**:
+- `addUniqueId: true` (default) - Adds collision-resistant nanoid
+- `addTimestamp: false` (default) - Adds Unix timestamp for versioning
+- `preserveName: false` (default) - Lowercase sanitization vs minimal sanitization
 
-// CORRECT: New location
-import { publicRoute, authRoute } from '@/lib/api/route-handlers';
+#### Public Assets (CDN Files)
+
+**Use cases**: Practice logos, user avatars, hero images, static assets.
+
+**Pattern**: Server-side buffer upload, returns CloudFront CDN URL.
+
+```typescript
+import { generateS3Key, uploadToS3, deleteFromS3 } from '@/lib/s3/public-assets';
+
+// Generate S3 key (same pattern as private assets)
+const s3Key = generateS3Key(['practices', practiceId, 'logo'], 'logo.jpg');
+
+// Upload file buffer
+const buffer = await file.arrayBuffer().then(ab => Buffer.from(ab));
+const { fileUrl, size } = await uploadToS3(buffer, s3Key, {
+  contentType: 'image/jpeg',
+  cacheControl: 'public, max-age=31536000, immutable',  // 1 year
+});
+
+// Returns: { fileUrl: 'https://cdn.bendcare.com/practices/123/logo/logo_xyz.jpg' }
 ```
 
-#### Exception: Complex Auth System Routes
+**Consistency**: Both systems use identical `generateS3Key()` API for developer experience.
 
-Only the following routes are allowed to NOT use wrappers due to custom authentication flow:
-- `/api/auth/refresh` - Custom refresh token validation
-- `/api/auth/logout` - Custom cookie clearing and CSRF handling
+**Configuration**:
+```bash
+# Private Assets (required for attachments)
+S3_PRIVATE_REGION=us-east-1
+S3_PRIVATE_ACCESS_KEY_ID=AKIA...
+S3_PRIVATE_SECRET_ACCESS_KEY=secret...
+S3_PRIVATE_BUCKET=bcos-private-assets
+S3_PRIVATE_UPLOAD_EXPIRATION=3600    # Optional: 1 hour default
+S3_PRIVATE_DOWNLOAD_EXPIRATION=900   # Optional: 15 min default
 
-These routes implement internal authentication via:
-- `requireAuth(request)` - Standard auth validation
-- `verifyRefreshToken()` - Refresh token validation
-- `verifyCSRFToken()` - CSRF protection
-- `applyRateLimit()` - Rate limiting
+# Public Assets (required for logos/avatars)
+S3_PUBLIC_REGION=us-east-1
+S3_PUBLIC_ACCESS_KEY_ID=AKIA...
+S3_PUBLIC_SECRET_ACCESS_KEY=secret...
+S3_PUBLIC_BUCKET=bcos-public-assets
+CDN_URL=https://cdn.bendcare.com
+```
 
-**All other routes MUST use a wrapper.**
+## Code Quality Standards
 
-#### Migration from Legacy Wrappers
+### TypeScript Rules
 
-If you encounter these legacy patterns, migrate them:
+- **FORBIDDEN**: The `any` type under all circumstances
+- **REQUIRED**: Strict mode with `strictNullChecks`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`
+- If you encounter `any` in existing code, address it and report to user
+
+### Testing Standards
+
+- **Test Quality**: Tests must test real code and add value, not "testing theater"
+- **Test Failures**: Analyze first, determine if code is wrong, test is wrong, or requirement changed
+- **DO NOT**: Blindly modify tests to make them pass
+- **Priority**: Quality code, not 100% pass rate
+
+### File Naming
+
+- **DO NOT**: Use adjectives or buzzwords ("enhanced", "optimized", "new", "updated")
+- **DO**: Name files plainly and descriptively
+- Focus on what the file does, not marketing language
+
+### Post-Change Validation
+
+**REQUIRED** after any code changes:
+1. `pnpm tsc` - Fix TypeScript errors
+2. `pnpm lint` - Fix linting errors
+3. Fix ALL errors (even unrelated ones) before proceeding
+
+### Quality Over Speed
+
+- Do NOT take shortcuts for speed
+- Speed is NOT the priority; high quality code is the priority
+- Always prioritize correctness and maintainability
+
+## Security
+
+### Priority
+
+Security is paramount. Never make changes that negatively impact security profile.
+
+### API Route Protection Audit
+
+Last audited: 2025-01-17
+- Total Routes: 110
+- Protected with rbacRoute: 84.7%
+- Public Routes: 8.8%
+- Auth Routes: 2.4%
+- Unprotected: 0% (all have internal auth)
+
+### Migration from Legacy Wrappers
+
+If you encounter these patterns, migrate them:
 
 **Legacy** → **Modern**:
 - `secureRoute()` → `authRoute()`
 - `adminRoute()` → `rbacRoute()` with `permission: 'admin:*:*'`
 - `publicRoute()` from `@/lib/api/route-handler` → `publicRoute()` from `@/lib/api/route-handlers`
 
-#### Security Audit Status
+## Git Operations
 
-Last audited: 2025-01-17
-- **Total Routes**: 110
-- **Protected with rbacRoute**: 84.7%
-- **Public Routes**: 8.8%
-- **Auth Routes**: 2.4%
-- **Unprotected**: 0% (all have internal auth)
+### Strict Prohibitions
 
-## Logging Standards
+- **NEVER**: Use `git reset` (hard, soft, or any form) - FORBIDDEN
+- **NEVER**: Force push to main/master
+- **NEVER**: Skip hooks (`--no-verify`, `--no-gpg-sign`) unless explicitly requested
+- **DO NOT**: Interact with git unless explicitly instructed
+- **DO NOT**: Commit work without being told to do so
 
-### Node Only
-Logging is Node-only. Do not import logging into the client. This will cause build failures and is forbidden.
+### Commit Message Format
 
-**IMPORTANT**: A custom lint rule enforces this. Client-side files with `'use client'` directive cannot import `@/lib/logger`. The linter will fail the build if this rule is violated. See [docs/linting/NO_SERVER_LOGGER_IN_CLIENT.md](docs/linting/NO_SERVER_LOGGER_IN_CLIENT.md) for details. 
+When creating commits (only when explicitly requested):
 
-### Core Principles
-- Use native `console.log/error/warn/debug` through the logger wrapper in `lib/logger/index.ts`
-- **NEVER** use external logging libraries (Pino, Winston, etc.)
-- **NEVER** use `console.*` directly - always use the `log` wrapper
-- All logs automatically include file, line, function, and correlation ID
+```bash
+git commit -m "$(cat <<'EOF'
+Commit message here - focus on "why" not "what"
 
-### Logger Usage
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
 
-#### Import Pattern
-```typescript
-import { log, correlation } from '@/lib/logger';
+Co-Authored-By: Claude <noreply@anthropic.com>
+EOF
+)"
 ```
-
-#### Basic Logging
-```typescript
-// Info logging
-log.info('Operation completed', { data });
-
-// Warnings
-log.warn('Approaching limit', { limit, current });
-
-// Errors (always include error object)
-try {
-  await operation();
-} catch (error) {
-  log.error('Operation failed', error, { context });
-  // Automatically includes stack trace, file, line, function
-}
-
-// Debug (1% sampled in production)
-log.debug('Debug state', { variable });
-```
-
-#### API Routes with Correlation
-```typescript
-export const POST = async (request: NextRequest) => {
-  return correlation.withContext(
-    correlation.generate(),
-    {
-      method: request.method,
-      path: new URL(request.url).pathname,
-    },
-    async () => {
-      log.api('Request started', request);
-
-      try {
-        // ... handler logic
-
-        log.api('Request completed', request, 200, duration);
-        return NextResponse.json(result);
-      } catch (error) {
-        log.error('Request failed', error);
-        return NextResponse.json({ error: 'Failed' }, { status: 500 });
-      }
-    }
-  );
-};
-```
-
-#### Specialized Logging
-```typescript
-// Authentication
-log.auth('login', true, { userId, method: 'saml' });
-log.auth('login', false, { email, reason: 'invalid_password' });
-
-// Security events
-log.security('suspicious_activity', 'high', {
-  blocked: true,
-  reason: 'rate_limit_exceeded'
-});
-
-// Database operations
-log.db('SELECT', 'users', duration, { recordCount });
-```
-
-### PII Protection
-- **NEVER** log raw passwords, tokens, or sensitive data
-- The logger automatically sanitizes: emails, phone numbers, SSNs, credit cards, UUIDs
-- When in doubt, use generic identifiers instead of actual values
-
-### Log Levels
-- **ERROR**: Application errors, exceptions, failures (100% in production)
-- **WARN**: Potential issues, degraded performance (100% in production)
-- **INFO**: Business events, successful operations (10% sampled in production)
-- **DEBUG**: Detailed debugging (1% sampled in production)
-
-### Required Context
-When logging errors, always include:
-1. The error object itself
-2. Relevant context (operation, resourceId, etc.)
-3. Never suppress stack traces
-
-### Debugging
-- Use CloudWatch Logs Insights for production debugging
-- Query by `correlationId` to trace complete requests
-- All logs include automatic context capture (file:line:function)
-- See `/docs/logging_strategy.md` for CloudWatch query examples
-
-## Enriched Logging Patterns
-
-### Standard Patterns for API Routes
-
-#### Success Log Pattern
-All successful operations should log with rich context:
-
-```typescript
-import { log, SLOW_THRESHOLDS } from '@/lib/logger';
-
-const duration = Date.now() - startTime;
-
-log.info('operation completed - summary', {
-  operation: 'list_users',  // Required: unique operation identifier
-  userId: userContext.user_id,  // Required: who performed the operation
-  results: {
-    returned: users.length,
-    total: totalCount,
-    page: currentPage,
-  },
-  filters: sanitizeFilters(filters),  // Use sanitizeFilters() for filter context
-  duration,
-  slow: duration > SLOW_THRESHOLDS.API_OPERATION,  // Use constants
-  component: 'api',  // Required: component tag for CloudWatch filtering
-});
-```
-
-#### Error Log Pattern
-All errors must include operation and component:
-
-```typescript
-log.error('operation failed', error, {
-  operation: 'create_user',  // Required
-  userId: userContext.user_id,
-  duration: Date.now() - startTime,
-  component: 'api',  // Required
-});
-```
-
-#### CRUD Operations Pattern
-For standard CRUD operations, use logTemplates:
-
-```typescript
-import { logTemplates, calculateChanges } from '@/lib/logger';
-
-// CREATE
-const template = logTemplates.crud.create('user', {
-  resourceId: String(newUser.user_id),
-  resourceName: newUser.email,
-  userId: userContext.user_id,
-  organizationId: userContext.current_organization_id,
-  duration,
-  metadata: { role: newUser.role, emailVerified: newUser.email_verified },
-});
-log.info(template.message, template.context);
-
-// UPDATE (with change tracking)
-const changes = calculateChanges(existingUser, updatedData);
-const template = logTemplates.crud.update('user', {
-  resourceId: String(user.user_id),
-  resourceName: user.email,
-  userId: userContext.user_id,
-  changes,
-  duration,
-  metadata: { fieldsChanged: Object.keys(changes).length },
-});
-log.info(template.message, template.context);
-
-// LIST
-const template = logTemplates.crud.list('users', {
-  userId: userContext.user_id,
-  organizationId: userContext.current_organization_id,
-  filters: { status: 'active', role: 'admin' },
-  results: { returned: 25, total: 100, page: 1 },
-  duration,
-});
-log.info(template.message, template.context);
-```
-
-### Slow Thresholds
-
-Use centralized constants for consistency:
-
-```typescript
-import { SLOW_THRESHOLDS } from '@/lib/logger';
-
-// Database queries - 500ms threshold
-slow: dbDuration > SLOW_THRESHOLDS.DB_QUERY
-
-// Standard API operations - 1000ms threshold
-slow: duration > SLOW_THRESHOLDS.API_OPERATION
-
-// Complex auth operations - 2000ms threshold
-slow: duration > SLOW_THRESHOLDS.AUTH_OPERATION
-```
-
-**Rationale:**
-- `DB_QUERY: 500ms` - Detect missing indexes, complex joins
-- `API_OPERATION: 1000ms` - User experience threshold for simple operations
-- `AUTH_OPERATION: 2000ms` - Tolerance for password hashing, token generation, MFA
-
-### Security Event Logging
-
-Always preserve security logs:
-
-```typescript
-// Authentication events
-log.auth('login_attempt', true, {
-  userId,
-  method: 'password',
-  mfaRequired: true
-});
-
-// Security threats
-log.security('rate_limit_exceeded', 'high', {
-  userId,
-  ipAddress: metadata.ipAddress,
-  blocked: true,
-  threat: 'credential_attack',
-});
-
-// Use AuditLogger for compliance
-await AuditLogger.logUserAction({
-  action: 'user_deleted',
-  userId: actingUserId,
-  resourceType: 'user',
-  resourceId: deletedUserId,
-  ipAddress: metadata.ipAddress,
-  metadata: { reason: 'admin_action' },
-});
-```
-
-### What NOT to Log
-
-#### ❌ Verbose Intermediate Logs
-```typescript
-// DON'T DO THIS:
-log.info('Rate limit check completed', { duration: 5 });
-log.info('Request validation completed', { duration: 12 });
-log.info('Database query completed', { duration: 234 });
-log.info('Response formatted', { duration: 3 });
-
-// DO THIS INSTEAD:
-// Remove intermediate logs, keep one comprehensive final log
-log.info('user list completed - returned 25 of 100', {
-  operation: 'list_users',
-  results: { returned: 25, total: 100 },
-  query: { duration: 234, slow: false },
-  duration: 254,  // Total duration only
-  component: 'api',
-});
-```
-
-#### ❌ Debug console.log Statements
-```typescript
-// DON'T DO THIS:
-console.log('🔍 Debugging:', data);
-
-// DO THIS INSTEAD:
-log.debug('debugging context', { data });  // 1% sampled in production
-```
-
-### CloudWatch Queries
-
-Query logs by operation:
-```
-fields @timestamp, message, duration, operation, userId
-| filter component = "api" and operation = "list_users"
-| sort @timestamp desc
-| limit 100
-```
-
-Find slow operations:
-```
-fields @timestamp, message, duration, operation
-| filter slow = true
-| stats count() by operation
-| sort count desc
-```
-
-Trace request by correlation ID:
-```
-fields @timestamp, message, level, file
-| filter correlationId = "abc123..."
-| sort @timestamp asc
-```
-
-## File Naming Conventions
-
-- Do not use adjectives or buzzwords in file naming
-- Avoid: "enhanced", "optimized", "new", "updated", etc.
-- Name files plainly and descriptively
-- Focus on what the file does, not marketing language
-
-## Testing Standards
-
-### Test Quality
-- Do not create "testing theater" where the test only tests itself
-- Tests should always test real code and should add value
-- Quality code is the priority, not 100% pass rate
-
-### Test Failures
-- When addressing testing failures, always analyze first and determine appropriate action
-- Do not blindly modify tests to make them pass
-- If a test is failing, determine if:
-  - The code is wrong (fix the code)
-  - The test is wrong (fix the test)
-  - The requirement changed (discuss with user)
-- Do it correctly, not just to make tests pass
 
 ## Development Workflow
 
@@ -540,17 +565,17 @@ fields @timestamp, message, level, file
 3. Run `pnpm lint` to check linting rules
 4. Fix any errors that you created
 5. Only proceed when all checks pass
-6. Do not create documents unless asked. Display your findings to the user.
-7. Do not defer work unless previously instructed and approved.
+6. **DO NOT** create documents unless asked - display findings to user
+7. **DO NOT** defer work unless previously instructed and approved
 
 ## Project Context
 
-- OS: macOS (darwin 24.6.0)
-- Shell: zsh
-- Package Manager: pnpm
-- Workspace: `/Users/pstewart/bcos`
-- Tech Stack: Next.js, TypeScript, React
-- Infrastructure: AWS CDK
+- **OS**: macOS (darwin 24.6.0)
+- **Shell**: zsh
+- **Package Manager**: pnpm
+- **Workspace**: `/Users/pstewart/bcos`
+- **Tech Stack**: Next.js 15, TypeScript 5.9, React 19
+- **Infrastructure**: AWS CDK for IaC
 
 ## Key Principles
 
@@ -560,5 +585,3 @@ fields @timestamp, message, level, file
 4. **Test Value**: Tests must provide real value, not just coverage
 5. **Clean Git History**: No destructive git operations
 6. **Explicit Actions**: Only commit or interact with git when explicitly instructed
-
-

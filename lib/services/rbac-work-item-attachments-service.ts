@@ -6,14 +6,18 @@ import { BaseRBACService } from '@/lib/rbac/base-service';
 import {
   deleteFile,
   generateDownloadUrl,
+  generateS3Key,
   generateUploadUrl,
-} from '@/lib/s3/work-items-attachments';
+} from '@/lib/s3/private-assets';
+import { FILE_SIZE_LIMITS, IMAGE_MIME_TYPES } from '@/lib/s3/private-assets/constants';
 import type { UserContext } from '@/lib/types/rbac';
 import { PermissionDeniedError } from '@/lib/types/rbac';
 
 /**
  * Work Item Attachments Service with RBAC
  * Phase 2: Manages file attachments on work items with automatic permission checking
+ * 
+ * Uses the generic private S3 assets system for secure file uploads with presigned URLs.
  */
 
 export interface CreateWorkItemAttachmentData {
@@ -212,13 +216,28 @@ export class RBACWorkItemAttachmentsService extends BaseRBACService {
     // Generate attachment ID for S3 key
     const attachmentId = crypto.randomUUID();
 
-    // Generate presigned upload URL
-    const { uploadUrl, s3Key, bucket } = await generateUploadUrl(
-      attachmentData.work_item_id,
-      attachmentId,
-      attachmentData.file_name,
-      attachmentData.file_type
+    // Generate S3 key using generic private assets pattern
+    const s3Key = generateS3Key(
+      ['work-items', attachmentData.work_item_id, 'attachments'],
+      attachmentData.file_name
     );
+
+    // Determine file size limit based on file type
+    const isImage = IMAGE_MIME_TYPES.has(attachmentData.file_type);
+    const maxFileSize = isImage ? FILE_SIZE_LIMITS.image : FILE_SIZE_LIMITS.document;
+
+    // Generate presigned upload URL with metadata for audit trails
+    const { uploadUrl, bucket } = await generateUploadUrl(s3Key, {
+      contentType: attachmentData.file_type,
+      expiresIn: 3600, // 1 hour
+      maxFileSize, // Enforce size limit based on file type
+      metadata: {
+        resource_type: 'work_item_attachment',
+        resource_id: attachmentData.work_item_id,
+        attachment_id: attachmentId,
+        uploaded_by: this.userContext.user_id,
+      },
+    });
 
     // Create attachment record
     const [newAttachment] = await db
@@ -280,8 +299,12 @@ export class RBACWorkItemAttachmentsService extends BaseRBACService {
       throw new Error('Attachment not found');
     }
 
-    // Generate download URL
-    const downloadUrl = await generateDownloadUrl(attachment.s3_key, attachment.file_name);
+    // Generate presigned download URL with short expiration for security
+    const { downloadUrl } = await generateDownloadUrl(attachment.s3_key, {
+      fileName: attachment.file_name,
+      expiresIn: 900, // 15 minutes
+      disposition: 'attachment',
+    });
 
     log.info('Download URL generated', {
       attachmentId,
