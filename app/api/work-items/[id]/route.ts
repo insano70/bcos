@@ -305,11 +305,7 @@ const updateWorkItemHandler = async (
       component: 'work-items',
     });
 
-    return createErrorResponse(
-      error instanceof Error ? error.message : 'Unknown error',
-      error instanceof NotFoundError ? 404 : 500,
-      request
-    );
+    return createErrorResponse(error as Error, 500, request);
   }
 };
 

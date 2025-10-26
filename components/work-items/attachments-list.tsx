@@ -2,12 +2,14 @@
 
 import { format } from 'date-fns';
 import { useState } from 'react';
+import DeleteConfirmationModal from '@/components/delete-confirmation-modal';
 import {
   formatFileSize,
   getFileIcon,
   useDeleteAttachment,
   useDownloadAttachment,
   useWorkItemAttachments,
+  type WorkItemAttachment,
 } from '@/lib/hooks/use-work-item-attachments';
 
 interface AttachmentsListProps {
@@ -16,22 +18,29 @@ interface AttachmentsListProps {
 
 export default function AttachmentsList({ workItemId }: AttachmentsListProps) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [selectedAttachment, setSelectedAttachment] = useState<WorkItemAttachment | null>(null);
+  
   const { data: attachments, isLoading, error } = useWorkItemAttachments(workItemId);
   const deleteMutation = useDeleteAttachment();
   const downloadMutation = useDownloadAttachment();
 
-  const handleDelete = async (attachmentId: string, fileName: string) => {
-    if (!confirm(`Are you sure you want to delete "${fileName}"?`)) {
-      return;
-    }
+  const handleDeleteClick = (attachment: WorkItemAttachment) => {
+    setSelectedAttachment(attachment);
+    setDeleteModalOpen(true);
+  };
 
-    setDeletingId(attachmentId);
+  const handleConfirmDelete = async () => {
+    if (!selectedAttachment) return;
+    
+    setDeletingId(selectedAttachment.work_item_attachment_id);
     try {
-      await deleteMutation.mutateAsync(attachmentId);
+      await deleteMutation.mutateAsync(selectedAttachment.work_item_attachment_id);
     } catch (error) {
       console.error('Failed to delete attachment:', error);
     } finally {
       setDeletingId(null);
+      setSelectedAttachment(null);
     }
   };
 
@@ -136,9 +145,9 @@ export default function AttachmentsList({ workItemId }: AttachmentsListProps) {
                   </svg>
                 </button>
 
-                <button type="button" onClick={() =>
-                    handleDelete(attachment.work_item_attachment_id, attachment.file_name)
-                  }
+                <button
+                  type="button"
+                  onClick={() => handleDeleteClick(attachment)}
                   disabled={isDeleting}
                   className="p-2 text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
                   title="Delete"
@@ -167,6 +176,37 @@ export default function AttachmentsList({ workItemId }: AttachmentsListProps) {
           </div>
         );
       })}
+
+      {/* Delete Confirmation Modal */}
+      {selectedAttachment && (
+        <DeleteConfirmationModal
+          isOpen={deleteModalOpen}
+          setIsOpen={setDeleteModalOpen}
+          title="Delete Attachment"
+          itemName={selectedAttachment.file_name}
+          message="This action cannot be undone"
+          confirmButtonText="Delete Attachment"
+          onConfirm={handleConfirmDelete}
+        >
+          {/* Show file details for context */}
+          <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
+            <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+              <div className="flex justify-between">
+                <span>File size:</span>
+                <span className="font-medium">{formatFileSize(selectedAttachment.file_size)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>File type:</span>
+                <span className="font-medium">{selectedAttachment.file_type}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Uploaded by:</span>
+                <span className="font-medium">{selectedAttachment.uploaded_by_name}</span>
+              </div>
+            </div>
+          </div>
+        </DeleteConfirmationModal>
+      )}
     </div>
   );
 }

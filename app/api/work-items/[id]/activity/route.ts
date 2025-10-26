@@ -61,8 +61,8 @@ const getWorkItemActivityHandler = async (
       activity.map((item) => ({
         work_item_activity_id: item.work_item_activity_id,
         work_item_id: item.work_item_id,
-        user_id: item.user_id,
-        user_name: item.user_name,
+        created_by: item.user_id,
+        created_by_name: item.user_name,
         activity_type: item.activity_type,
         field_name: item.field_name,
         old_value: item.old_value,

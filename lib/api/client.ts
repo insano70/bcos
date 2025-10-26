@@ -40,16 +40,25 @@ class ApiClient {
 
   /**
    * Make an authenticated API request
+   * Supports both JSON and FormData payloads
    */
   async request<T>(endpoint: string, options: RequestInit & ApiClientOptions = {}): Promise<T> {
     const { headers = {}, includeAuth = true, ...requestOptions } = options;
 
+    // Detect FormData (don't set Content-Type, browser handles multipart/form-data)
+    const isFormData = requestOptions.body instanceof FormData;
+
     // API request logging (client-side debug)
-    apiClientLogger.log('API Client Request:', { endpoint, hasAuthContext: !!this.authContext });
+    apiClientLogger.log('API Client Request:', { 
+      endpoint, 
+      hasAuthContext: !!this.authContext,
+      isFormData,
+    });
 
     // Build request headers
     const requestHeaders = new Headers({
-      'Content-Type': 'application/json',
+      // Only set Content-Type for JSON, not FormData
+      ...(!isFormData && { 'Content-Type': 'application/json' }),
       ...(headers as Record<string, string>),
     });
 
@@ -261,26 +270,35 @@ class ApiClient {
   }
 
   async post<T>(endpoint: string, data?: unknown, options?: ApiClientOptions): Promise<T> {
+    // Handle FormData and JSON differently
+    const body = data instanceof FormData ? data : (data ? JSON.stringify(data) : null);
+    
     return this.request<T>(endpoint, {
       ...options,
       method: 'POST',
-      body: data ? JSON.stringify(data) : null,
+      body,
     });
   }
 
   async put<T>(endpoint: string, data?: unknown, options?: ApiClientOptions): Promise<T> {
+    // Handle FormData and JSON differently
+    const body = data instanceof FormData ? data : (data ? JSON.stringify(data) : null);
+    
     return this.request<T>(endpoint, {
       ...options,
       method: 'PUT',
-      body: data ? JSON.stringify(data) : null,
+      body,
     });
   }
 
   async patch<T>(endpoint: string, data?: unknown, options?: ApiClientOptions): Promise<T> {
+    // Handle FormData and JSON differently
+    const body = data instanceof FormData ? data : (data ? JSON.stringify(data) : null);
+    
     return this.request<T>(endpoint, {
       ...options,
       method: 'PATCH',
-      body: data ? JSON.stringify(data) : null,
+      body,
     });
   }
 

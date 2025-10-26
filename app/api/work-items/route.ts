@@ -173,6 +173,7 @@ const createWorkItemHandler = async (request: NextRequest, userContext: UserCont
       priority: validatedData.priority,
       assigned_to: validatedData.assigned_to || null,
       due_date: validatedData.due_date || null,
+      parent_work_item_id: validatedData.parent_work_item_id || null,
     });
 
     // Handle custom field values if provided

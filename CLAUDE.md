@@ -475,6 +475,55 @@ S3_PUBLIC_BUCKET=bcos-public-assets
 CDN_URL=https://cdn.bendcare.com
 ```
 
+### Confirmation Modals
+
+**Component**: Use `DeleteConfirmationModal` for all destructive actions (never use native `window.confirm()`)
+
+**Usage**:
+```typescript
+import DeleteConfirmationModal from '@/components/delete-confirmation-modal';
+
+const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+const [itemToDelete, setItemToDelete] = useState<Item | null>(null);
+
+// On delete button click
+<button onClick={() => {
+  setItemToDelete(item);
+  setDeleteModalOpen(true);
+}}>Delete</button>
+
+// Render modal
+{itemToDelete && (
+  <DeleteConfirmationModal
+    isOpen={deleteModalOpen}
+    setIsOpen={setDeleteModalOpen}
+    title="Delete Item"
+    itemName={itemToDelete.name}
+    message="This action cannot be undone."
+    confirmButtonText="Delete Item"
+    onConfirm={async () => await handleDelete(itemToDelete.id)}
+  />
+)}
+```
+
+**For DataTable dropdown actions**:
+```typescript
+// Use confirmModal (preferred over confirm)
+const dropdownActions = (item: User) => [
+  {
+    label: 'Delete',
+    variant: 'danger',
+    onClick: handleDelete,
+    confirmModal: {  // ✅ Custom modal
+      title: 'Delete User',
+      message: 'This action cannot be undone.',
+      confirmText: 'Delete User',
+    },
+    // confirm: 'Are you sure?'  // ❌ Deprecated (native browser dialog)
+  }
+];
+```
+
 ## Code Quality Standards
 
 ### TypeScript Rules

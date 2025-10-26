@@ -27,10 +27,10 @@ export default function WorkItemCommentsSection({ workItemId }: WorkItemComments
   const { data: comments = [], isLoading } = useQuery<Comment[]>({
     queryKey: ['work-item-comments', workItemId],
     queryFn: async () => {
-      const response = await apiClient.get<{ success: boolean; data: Comment[] }>(
+      const response = await apiClient.get<Comment[]>(
         `/api/work-items/${workItemId}/comments`
       );
-      return response.data;
+      return response || [];
     },
     staleTime: 30 * 1000, // 30 seconds
   });
@@ -38,11 +38,11 @@ export default function WorkItemCommentsSection({ workItemId }: WorkItemComments
   // Add comment mutation
   const addComment = useMutation({
     mutationFn: async (commentText: string) => {
-      const response = await apiClient.post<{ success: boolean; data: Comment }>(
+      const response = await apiClient.post<Comment>(
         `/api/work-items/${workItemId}/comments`,
         { comment_text: commentText }
       );
-      return response.data;
+      return response;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['work-item-comments', workItemId] });

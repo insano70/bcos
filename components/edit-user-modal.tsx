@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useEffect, useId, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
+import { apiClient } from '@/lib/api/client';
 import { passwordSchema } from '@/lib/config/password-policy';
 import { type User, useUpdateUser } from '@/lib/hooks/use-users';
 import { createNameSchema, safeEmailSchema } from '@/lib/validations/sanitization';
@@ -182,17 +183,7 @@ export default function EditUserModal({ isOpen, onClose, onSuccess, user }: Edit
     if (!user) return;
 
     try {
-      const response = await fetch(`/api/admin/users/${user.id}/mfa/reset`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to reset MFA');
-      }
+      await apiClient.post(`/api/admin/users/${user.id}/mfa/reset`, {});
 
       // Show success toast
       setShowMFAResetSuccess(true);

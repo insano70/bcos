@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useId, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
+import DeleteConfirmationModal from './delete-confirmation-modal';
 import {
   useCreateWorkItemStatus,
   useDeleteWorkItemStatus,
@@ -134,18 +135,25 @@ export default function ManageStatusesModal({
     }
   };
 
-  const handleDeleteStatus = async (status: WorkItemStatus) => {
-    if (!confirm(`Are you sure you want to delete "${status.status_name}"?`)) {
-      return;
-    }
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [statusToDelete, setStatusToDelete] = useState<WorkItemStatus | null>(null);
 
+  const handleDeleteClick = (status: WorkItemStatus) => {
+    setStatusToDelete(status);
+    setDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!statusToDelete) return;
+    
     try {
       await deleteStatus.mutateAsync({
-        id: status.work_item_status_id,
+        id: statusToDelete.work_item_status_id,
         typeId: workItemTypeId,
       });
       setToastMessage('Status deleted successfully');
       setShowToast(true);
+      setStatusToDelete(null);
       refetch();
     } catch (error) {
       console.error('Failed to delete status:', error);
@@ -416,7 +424,7 @@ export default function ManageStatusesModal({
                               </button>
                               <button
                                 type="button"
-                                onClick={() => handleDeleteStatus(status)}
+                                onClick={() => handleDeleteClick(status)}
                                 className="text-red-400 hover:text-red-600 dark:hover:text-red-300"
                                 title="Delete"
                               >
@@ -452,6 +460,19 @@ export default function ManageStatusesModal({
       <Toast type="success" open={showToast} setOpen={setShowToast}>
         {toastMessage}
       </Toast>
+      
+      {/* Delete Confirmation Modal */}
+      {statusToDelete && (
+        <DeleteConfirmationModal
+          isOpen={deleteModalOpen}
+          setIsOpen={setDeleteModalOpen}
+          title="Delete Status"
+          itemName={statusToDelete.status_name}
+          message="This action cannot be undone. Work items using this status will need to be updated."
+          confirmButtonText="Delete Status"
+          onConfirm={handleConfirmDelete}
+        />
+      )}
     </>
   );
 }

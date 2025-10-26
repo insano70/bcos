@@ -90,7 +90,7 @@ export class RBACWorkItemFieldValuesService extends BaseRBACService {
         work_item_field_id: work_item_fields.work_item_field_id,
         field_name: work_item_fields.field_name,
         field_type: work_item_fields.field_type,
-        is_required: work_item_fields.is_required,
+        is_required_on_creation: work_item_fields.is_required_on_creation,
       })
       .from(work_item_fields)
       .where(
@@ -122,9 +122,9 @@ export class RBACWorkItemFieldValuesService extends BaseRBACService {
       }
     }
 
-    // Check for required fields
+    // Check for required fields on creation
     for (const field of validFields) {
-      if (field.is_required && !(field.work_item_field_id in fieldValues)) {
+      if (field.is_required_on_creation && !(field.work_item_field_id in fieldValues)) {
         throw new Error(`Required field missing: ${field.field_name}`);
       }
     }

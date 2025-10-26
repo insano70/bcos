@@ -45,8 +45,9 @@ export const work_item_fields = pgTable(
     // Field Configuration (for conditional visibility, etc.)
     field_config: jsonb('field_config').$type<FieldConfig>(), // Typed as FieldConfig
 
-    // Validation Rules
-    is_required: boolean('is_required').default(false),
+    // Validation Rules - Two-tier requirement system
+    is_required_on_creation: boolean('is_required_on_creation').default(false).notNull(),
+    is_required_to_complete: boolean('is_required_to_complete').default(false).notNull(),
     validation_rules: jsonb('validation_rules').$type<ValidationRules>(), // Typed as ValidationRules
     default_value: text('default_value'),
 

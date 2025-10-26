@@ -63,7 +63,6 @@ export interface ValidationRules {
   pattern?: string;
   minLength?: number;
   maxLength?: number;
-  required?: boolean;
 }
 
 /**
@@ -78,7 +77,8 @@ export interface WorkItemField {
   field_description: string | null;
   field_options: FieldOption[] | null;
   field_config: FieldConfig | null;
-  is_required: boolean;
+  is_required_on_creation: boolean;
+  is_required_to_complete: boolean;
   validation_rules: ValidationRules | null;
   default_value: string | null;
   display_order: number;
@@ -120,7 +120,8 @@ export interface CreateWorkItemFieldData {
   field_description?: string;
   field_options?: FieldOption[];
   field_config?: FieldConfig;
-  is_required?: boolean;
+  is_required_on_creation?: boolean;
+  is_required_to_complete?: boolean;
   validation_rules?: ValidationRules;
   default_value?: string;
   display_order?: number;
@@ -135,7 +136,8 @@ export interface UpdateWorkItemFieldData {
   field_description?: string;
   field_options?: FieldOption[];
   field_config?: FieldConfig;
-  is_required?: boolean;
+  is_required_on_creation?: boolean;
+  is_required_to_complete?: boolean;
   validation_rules?: ValidationRules;
   default_value?: string;
   display_order?: number;

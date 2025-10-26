@@ -30,7 +30,7 @@ export default function WorkItemDetailContent({ workItemId }: WorkItemDetailCont
   const router = useRouter();
   const { data: workItem, isLoading, error, refetch } = useWorkItem(workItemId);
   const { data: watchers } = useWorkItemWatchers(workItemId);
-  const { data: children } = useWorkItemChildren(workItemId);
+  const { data: children, refetch: refetchChildren } = useWorkItemChildren(workItemId);
   const { user } = useAuth();
   const _updateWorkItem = useUpdateWorkItem();
   const deleteWorkItem = useDeleteWorkItem();
@@ -493,6 +493,7 @@ export default function WorkItemDetailContent({ workItemId }: WorkItemDetailCont
         onSuccess={() => {
           setIsAddSubItemModalOpen(false);
           refetch();
+          refetchChildren();
         }}
         parentWorkItemId={workItemId}
       />

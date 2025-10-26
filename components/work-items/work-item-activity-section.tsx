@@ -24,10 +24,10 @@ export default function WorkItemActivitySection({ workItemId }: WorkItemActivity
   const { data: activity = [], isLoading } = useQuery<ActivityItem[]>({
     queryKey: ['work-item-activity', workItemId],
     queryFn: async () => {
-      const response = await apiClient.get<{ success: boolean; data: ActivityItem[] }>(
+      const response = await apiClient.get<ActivityItem[]>(
         `/api/work-items/${workItemId}/activity`
       );
-      return response.data;
+      return response || [];
     },
     staleTime: 30 * 1000, // 30 seconds
   });

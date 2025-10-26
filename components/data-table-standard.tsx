@@ -1,6 +1,7 @@
 'use client';
 
 import { Fragment, type ReactNode, useMemo, useState } from 'react';
+import DeleteConfirmationModal from './delete-confirmation-modal';
 import PaginationClassic from '@/components/pagination-classic';
 import { useItemSelection } from '@/components/utils/use-item-selection';
 import { usePagination } from '@/lib/hooks/use-pagination';
@@ -26,7 +27,30 @@ export interface DataTableDropdownAction<T> {
   icon?: ReactNode;
   onClick: (item: T) => void | Promise<void>;
   variant?: 'default' | 'danger';
+  
+  /**
+   * @deprecated Use confirmModal instead for better UX
+   * Native browser confirm dialog (ugly, but works)
+   */
   confirm?: string | ((item: T) => string);
+  
+  /**
+   * Custom confirmation modal (recommended)
+   * Shows beautiful modal matching app UI design
+   * 
+   * @example
+   * confirmModal: {
+   *   title: 'Delete User',
+   *   message: (user) => `This action cannot be undone.`,
+   *   confirmText: 'Delete User',
+   * }
+   */
+  confirmModal?: {
+    title: string | ((item: T) => string);
+    message: string | ((item: T) => string);
+    confirmText?: string | ((item: T) => string);
+  };
+  
   show?: (item: T) => boolean;
 }
 
@@ -36,7 +60,22 @@ export interface DataTableBulkAction<T> {
   icon?: ReactNode;
   onClick: (items: T[]) => void | Promise<void>;
   variant?: 'default' | 'danger';
+  
+  /**
+   * @deprecated Use confirmModal instead for better UX
+   * Native browser confirm dialog (ugly, but works)
+   */
   confirm?: string;
+  
+  /**
+   * Custom confirmation modal (recommended)
+   * Shows beautiful modal matching app UI design
+   */
+  confirmModal?: {
+    title: string;
+    message: string;
+    confirmText?: string;
+  };
 }
 
 // Selection mode
@@ -107,6 +146,10 @@ export default function DataTable<T extends { id: string | number }>({
 
   // Expanded rows state
   const [expandedRows, setExpandedRows] = useState<Set<string | number>>(new Set());
+  
+  // Bulk action confirmation modal state
+  const [bulkModalOpen, setBulkModalOpen] = useState(false);
+  const [pendingBulkAction, setPendingBulkAction] = useState<DataTableBulkAction<T> | null>(null);
 
   // Filter visible columns
   const visibleColumns = initialColumns.filter((col) => !hiddenColumns.has(String(col.key)));
@@ -270,7 +313,17 @@ export default function DataTable<T extends { id: string | number }>({
                       key={action.label}
                       type="button"
                       onClick={() => {
+                        // Check for custom modal first (preferred)
+                        if (action.confirmModal) {
+                          setPendingBulkAction(action);
+                          setBulkModalOpen(true);
+                          return;
+                        }
+                        
+                        // Fallback to native confirm (deprecated)
                         if (action.confirm && !confirm(action.confirm)) return;
+                        
+                        // Execute action
                         action.onClick(selectedItemsData);
                       }}
                       className={`btn-sm ${
@@ -435,7 +488,7 @@ export default function DataTable<T extends { id: string | number }>({
                       return (
                         <tr key={`skeleton-row-${currentRow}`}>
                           {expandable && (
-                            <td className="px-2 first:pl-5 last:pr-5 py-3">
+                            <td key={`skeleton-expand-${currentRow}`} className="px-2 first:pl-5 last:pr-5 py-3">
                               <div className="h-4 w-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
                             </td>
                           )}
@@ -551,6 +604,24 @@ export default function DataTable<T extends { id: string | number }>({
             onNext={pagination.goToNext}
           />
         </div>
+      )}
+      
+      {/* Bulk Action Confirmation Modal */}
+      {pendingBulkAction && pendingBulkAction.confirmModal && (
+        <DeleteConfirmationModal
+          isOpen={bulkModalOpen}
+          setIsOpen={setBulkModalOpen}
+          title={pendingBulkAction.confirmModal.title}
+          itemName={`${selectedItems.length} item${selectedItems.length !== 1 ? 's' : ''}`}
+          message={pendingBulkAction.confirmModal.message}
+          confirmButtonText={pendingBulkAction.confirmModal.confirmText || 'Confirm'}
+          onConfirm={async () => {
+            if (pendingBulkAction) {
+              await pendingBulkAction.onClick(selectedItemsData);
+              setPendingBulkAction(null);
+            }
+          }}
+        />
       )}
     </>
   );

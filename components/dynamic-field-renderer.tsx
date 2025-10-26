@@ -34,7 +34,7 @@ export default function DynamicFieldRenderer({
           <div key={field.work_item_field_id}>
             <label className="block text-sm font-medium mb-1" htmlFor={fieldId}>
               {field.field_label}
-              {field.is_required && <span className="text-red-500 ml-1">*</span>}
+              {field.is_required_on_creation && <span className="text-red-500 ml-1">*</span>}
             </label>
             {field.field_description && (
               <p className="text-xs text-gray-500 mb-2">{field.field_description}</p>
@@ -45,7 +45,7 @@ export default function DynamicFieldRenderer({
               className={`form-input w-full ${error ? 'border-red-500' : ''}`}
               value={(value as string) || ''}
               onChange={(e) => onChange(field.work_item_field_id, e.target.value)}
-              required={field.is_required}
+              required={field.is_required_on_creation}
             />
             {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
           </div>
@@ -56,7 +56,7 @@ export default function DynamicFieldRenderer({
           <div key={field.work_item_field_id}>
             <label className="block text-sm font-medium mb-1" htmlFor={fieldId}>
               {field.field_label}
-              {field.is_required && <span className="text-red-500 ml-1">*</span>}
+              {field.is_required_on_creation && <span className="text-red-500 ml-1">*</span>}
             </label>
             {field.field_description && (
               <p className="text-xs text-gray-500 mb-2">{field.field_description}</p>
@@ -67,7 +67,7 @@ export default function DynamicFieldRenderer({
               className={`form-input w-full ${error ? 'border-red-500' : ''}`}
               value={(value as number) || ''}
               onChange={(e) => onChange(field.work_item_field_id, parseFloat(e.target.value))}
-              required={field.is_required}
+              required={field.is_required_on_creation}
               min={field.validation_rules?.min}
               max={field.validation_rules?.max}
             />
@@ -80,7 +80,7 @@ export default function DynamicFieldRenderer({
           <div key={field.work_item_field_id}>
             <label className="block text-sm font-medium mb-1" htmlFor={fieldId}>
               {field.field_label}
-              {field.is_required && <span className="text-red-500 ml-1">*</span>}
+              {field.is_required_on_creation && <span className="text-red-500 ml-1">*</span>}
             </label>
             {field.field_description && (
               <p className="text-xs text-gray-500 mb-2">{field.field_description}</p>
@@ -91,7 +91,7 @@ export default function DynamicFieldRenderer({
               className={`form-input w-full ${error ? 'border-red-500' : ''}`}
               value={(value as string) || ''}
               onChange={(e) => onChange(field.work_item_field_id, e.target.value)}
-              required={field.is_required}
+              required={field.is_required_on_creation}
             />
             {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
           </div>
@@ -102,7 +102,7 @@ export default function DynamicFieldRenderer({
           <div key={field.work_item_field_id}>
             <label className="block text-sm font-medium mb-1" htmlFor={fieldId}>
               {field.field_label}
-              {field.is_required && <span className="text-red-500 ml-1">*</span>}
+              {field.is_required_on_creation && <span className="text-red-500 ml-1">*</span>}
             </label>
             {field.field_description && (
               <p className="text-xs text-gray-500 mb-2">{field.field_description}</p>
@@ -113,7 +113,7 @@ export default function DynamicFieldRenderer({
               className={`form-input w-full ${error ? 'border-red-500' : ''}`}
               value={(value as string) || ''}
               onChange={(e) => onChange(field.work_item_field_id, e.target.value)}
-              required={field.is_required}
+              required={field.is_required_on_creation}
             />
             {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
           </div>
@@ -124,7 +124,7 @@ export default function DynamicFieldRenderer({
           <div key={field.work_item_field_id}>
             <label className="block text-sm font-medium mb-1" htmlFor={fieldId}>
               {field.field_label}
-              {field.is_required && <span className="text-red-500 ml-1">*</span>}
+              {field.is_required_on_creation && <span className="text-red-500 ml-1">*</span>}
             </label>
             {field.field_description && (
               <p className="text-xs text-gray-500 mb-2">{field.field_description}</p>
@@ -134,7 +134,7 @@ export default function DynamicFieldRenderer({
               className={`form-select w-full ${error ? 'border-red-500' : ''}`}
               value={(value as string) || ''}
               onChange={(e) => onChange(field.work_item_field_id, e.target.value)}
-              required={field.is_required}
+              required={field.is_required_on_creation}
             >
               <option value="">Select an option...</option>
               {field.field_options?.map((option) => (
@@ -162,7 +162,7 @@ export default function DynamicFieldRenderer({
             <div className="ml-3">
               <label className="text-sm font-medium" htmlFor={fieldId}>
                 {field.field_label}
-                {field.is_required && <span className="text-red-500 ml-1">*</span>}
+                {field.is_required_on_creation && <span className="text-red-500 ml-1">*</span>}
               </label>
               {field.field_description && (
                 <p className="text-xs text-gray-500 mt-1">{field.field_description}</p>
@@ -178,7 +178,7 @@ export default function DynamicFieldRenderer({
           <div key={field.work_item_field_id}>
             <label className="block text-sm font-medium mb-1" htmlFor={fieldId}>
               {field.field_label}
-              {field.is_required && <span className="text-red-500 ml-1">*</span>}
+              {field.is_required_on_creation && <span className="text-red-500 ml-1">*</span>}
             </label>
             {field.field_description && (
               <p className="text-xs text-gray-500 mb-2">{field.field_description}</p>
@@ -190,7 +190,7 @@ export default function DynamicFieldRenderer({
               placeholder="User ID (UUID)"
               value={(value as string) || ''}
               onChange={(e) => onChange(field.work_item_field_id, e.target.value)}
-              required={field.is_required}
+              required={field.is_required_on_creation}
             />
             <p className="text-xs text-gray-500 mt-1">Enter a user UUID</p>
             {error && <p className="text-xs text-red-500 mt-1">{error}</p>}

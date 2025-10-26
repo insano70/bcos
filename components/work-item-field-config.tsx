@@ -80,17 +80,23 @@ export default function WorkItemFieldConfig({
         },
       },
       {
-        key: 'is_required',
-        header: 'Required',
-        sortable: true,
+        key: 'is_required_on_creation',
+        header: 'Requirements',
+        sortable: false,
         align: 'center',
         render: (item) => (
-          <div className="text-center">
-            {item.is_required ? (
+          <div className="text-center space-x-1">
+            {item.is_required_on_creation && (
               <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
-                Required
+                On Creation
               </span>
-            ) : (
+            )}
+            {item.is_required_to_complete && (
+              <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-medium rounded-full bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">
+                To Complete
+              </span>
+            )}
+            {!item.is_required_on_creation && !item.is_required_to_complete && (
               <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400">
                 Optional
               </span>
