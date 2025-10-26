@@ -3,6 +3,7 @@
 import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import DeleteConfirmationModal from './delete-confirmation-modal';
 import {
   useUpdateWorkItemTransition,
   type WorkItemStatusTransition,
@@ -70,10 +71,20 @@ export default function EditTransitionConfigModal({
     }
   };
 
-  const handleCancel = () => {
-    if (hasChanges && !confirm('You have unsaved changes. Are you sure you want to close?')) {
+  const [unsavedModalOpen, setUnsavedModalOpen] = useState(false);
+
+  const handleCancelClick = () => {
+    if (hasChanges) {
+      setUnsavedModalOpen(true);
       return;
     }
+    setValidationConfig(parseValidationConfigSafe(transition.validation_config));
+    setActionConfig(parseActionConfigSafe(transition.action_config));
+    setHasChanges(false);
+    onClose();
+  };
+
+  const handleConfirmClose = async () => {
     setValidationConfig(parseValidationConfigSafe(transition.validation_config));
     setActionConfig(parseActionConfigSafe(transition.action_config));
     setHasChanges(false);
@@ -91,8 +102,9 @@ export default function EditTransitionConfigModal({
   };
 
   return (
-    <Transition show={isOpen}>
-      <Dialog onClose={handleCancel}>
+    <>
+      <Transition show={isOpen}>
+      <Dialog onClose={handleCancelClick}>
         <TransitionChild
           enter="ease-out duration-200"
           enterFrom="opacity-0"
@@ -128,7 +140,7 @@ export default function EditTransitionConfigModal({
                   <button
                     type="button"
                     className="text-gray-400 dark:text-gray-500 hover:text-gray-500 dark:hover:text-gray-400"
-                    onClick={handleCancel}
+                    onClick={handleCancelClick}
                   >
                     <span className="sr-only">Close</span>
                     <svg className="w-4 h-4 fill-current">
@@ -192,7 +204,7 @@ export default function EditTransitionConfigModal({
                   <div className="flex gap-2">
                     <button
                       type="button"
-                      onClick={handleCancel}
+                      onClick={handleCancelClick}
                       className="btn border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 text-gray-800 dark:text-gray-300"
                     >
                       Cancel
@@ -213,5 +225,17 @@ export default function EditTransitionConfigModal({
         </TransitionChild>
       </Dialog>
     </Transition>
+      
+      {/* Unsaved Changes Warning Modal */}
+      <DeleteConfirmationModal
+        isOpen={unsavedModalOpen}
+        setIsOpen={setUnsavedModalOpen}
+        title="Unsaved Changes"
+        itemName="unsaved changes"
+        message="You have unsaved changes. Are you sure you want to close without saving?"
+        confirmButtonText="Close Without Saving"
+        onConfirm={handleConfirmClose}
+      />
+    </>
   );
 }

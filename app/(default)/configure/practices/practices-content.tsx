@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { apiClient } from '@/lib/api/client';
 import AddPracticeModal from '@/components/add-practice-modal';
 import DataTable, {
   type DataTableColumn,
@@ -121,19 +122,9 @@ export default function PracticesContent() {
 
   const handleActivate = async (_practice: Practice) => {
     try {
-      const response = await fetch(`/api/practices/${_practice.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          status: 'active',
-        }),
+      await apiClient.put(`/api/practices/${_practice.id}`, {
+        status: 'active',
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to activate practice');
-      }
 
       // Refresh the practices list to show updated status
       refetch();

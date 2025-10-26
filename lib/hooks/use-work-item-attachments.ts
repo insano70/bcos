@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { apiClient } from '@/lib/api/client';
 
 /**
  * Work Item Attachment interface
@@ -48,17 +49,12 @@ export function useWorkItemAttachments(workItemId: string | undefined) {
   return useQuery({
     queryKey: ['work-item-attachments', workItemId],
     queryFn: async () => {
-      if (!workItemId) throw new Error('Work item ID is required');
-
-      const response = await fetch(`/api/work-items/${workItemId}/attachments`);
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to fetch attachments');
-      }
-
-      const data = await response.json();
-      return data.data as WorkItemAttachment[];
+      if (!workItemId) return [];
+      
+      const data = await apiClient.get<WorkItemAttachment[]>(
+        `/api/work-items/${workItemId}/attachments`
+      );
+      return Array.isArray(data) ? data : [];
     },
     enabled: !!workItemId,
   });
@@ -75,27 +71,16 @@ export function useUploadAttachment() {
 
   return useMutation({
     mutationFn: async (data: UploadAttachmentData) => {
-      // Step 1: Get presigned upload URL from API
-      const response = await fetch(`/api/work-items/${data.work_item_id}/attachments`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          work_item_id: data.work_item_id,
+      // Step 1: Get presigned upload URL from API (using apiClient for CSRF token)
+      const uploadData = await apiClient.post<UploadAttachmentResponse>(
+        `/api/work-items/${data.work_item_id}/attachments`,
+        {
+          // work_item_id comes from URL path, not body
           file_name: data.file.name,
           file_size: data.file.size,
           file_type: data.file.type,
-        }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to initiate upload');
-      }
-
-      const result = await response.json();
-      const uploadData = result.data as UploadAttachmentResponse;
+        }
+      );
 
       // Step 2: Upload file to S3 using presigned URL
       const uploadResponse = await fetch(uploadData.upload_url, {
@@ -129,15 +114,7 @@ export function useDeleteAttachment() {
 
   return useMutation({
     mutationFn: async (attachmentId: string) => {
-      const response = await fetch(`/api/work-item-attachments/${attachmentId}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to delete attachment');
-      }
-
+      await apiClient.delete(`/api/work-item-attachments/${attachmentId}`);
       return attachmentId;
     },
     onSuccess: () => {
@@ -155,15 +132,10 @@ export function useDeleteAttachment() {
 export function useDownloadAttachment() {
   return useMutation({
     mutationFn: async (attachmentId: string) => {
-      const response = await fetch(`/api/work-item-attachments/${attachmentId}/download`);
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to get download URL');
-      }
-
-      const data = await response.json();
-      return data.data.download_url as string;
+      const data = await apiClient.get<{ download_url: string }>(
+        `/api/work-item-attachments/${attachmentId}/download`
+      );
+      return data.download_url;
     },
     onSuccess: (downloadUrl: string) => {
       // Open download URL in new tab

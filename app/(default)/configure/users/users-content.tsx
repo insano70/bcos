@@ -289,10 +289,14 @@ export default function UsersContent() {
         </svg>
       ),
       onClick: handleToggleActive,
-      confirm: (u) =>
-        u.is_active
-          ? `Are you sure you want to inactivate ${u.first_name} ${u.last_name}? They will no longer be able to access the system.`
-          : `Are you sure you want to activate ${u.first_name} ${u.last_name}?`,
+      confirmModal: {
+        title: (u) => (u.is_active ? 'Inactivate User' : 'Activate User'),
+        message: (u) =>
+          u.is_active
+            ? 'They will no longer be able to access the system.'
+            : 'They will regain access to the system.',
+        confirmText: (u) => (u.is_active ? 'Inactivate User' : 'Activate User'),
+      },
     },
     {
       label: 'Delete',
@@ -303,8 +307,11 @@ export default function UsersContent() {
       ),
       onClick: handleDeleteUser,
       variant: 'danger',
-      confirm: (u) =>
-        `Are you sure you want to delete ${u.first_name} ${u.last_name}? This action cannot be undone.`,
+      confirmModal: {
+        title: 'Delete User',
+        message: 'This action cannot be undone.',
+        confirmText: 'Delete User',
+      },
     },
   ];
 

@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { apiClient } from '@/lib/api/client';
 
 export default function DashboardRedirect() {
   const router = useRouter();
@@ -12,13 +13,13 @@ export default function DashboardRedirect() {
     const redirectToDefaultDashboard = async () => {
       try {
         // Fetch the default dashboard
-        const response = await fetch('/api/admin/analytics/dashboards/default');
-        const data = await response.json();
+        const data = await apiClient.get<{ defaultDashboard?: { dashboard_id: string } }>(
+          '/api/admin/analytics/dashboards/default'
+        );
 
         // If a default dashboard is configured, redirect to it
-        if (data.data?.defaultDashboard?.dashboard_id) {
-          const dashboardId = data.data.defaultDashboard.dashboard_id;
-          router.replace(`/dashboard/view/${dashboardId}`);
+        if (data.defaultDashboard?.dashboard_id) {
+          router.replace(`/dashboard/view/${data.defaultDashboard.dashboard_id}`);
         } else {
           // No default dashboard configured - show welcome page
           setShowWelcome(true);

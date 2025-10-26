@@ -103,9 +103,23 @@ export default function AddWorkItemModal({ isOpen, onClose, onSuccess, parentWor
   });
 
   const selectedTypeId = watch('work_item_type_id');
-  const { data: customFields = [] } = useWorkItemFields({
+  const { data: allCustomFields = [] } = useWorkItemFields({
     work_item_type_id: selectedTypeId || '',
   });
+
+  // Determine which fields should be hidden (inherited from parent)
+  const inheritedFields =
+    parentWorkItem && selectedTypeId && typeRelationships
+      ? typeRelationships.find((rel) => rel.child_type_id === selectedTypeId)?.auto_create_config
+          ?.inherit_fields || []
+      : [];
+
+  const isFieldInherited = (fieldName: string) => inheritedFields.includes(fieldName);
+
+  // Filter out custom fields that are inherited
+  const customFields = allCustomFields.filter(
+    (field) => !isFieldInherited(`custom_field_${field.work_item_field_id}`)
+  );
 
   // Pre-select first work item type when types load
   useEffect(() => {
@@ -121,10 +135,88 @@ export default function AddWorkItemModal({ isOpen, onClose, onSuccess, parentWor
     }
   }, [parentWorkItemId, setValue]);
 
+  // Inherit fields from parent work item based on relationship configuration
+  useEffect(() => {
+    if (!parentWorkItem || !selectedTypeId || !typeRelationships) return;
+
+    // Find the relationship for the selected child type
+    const relationship = typeRelationships.find((rel) => rel.child_type_id === selectedTypeId);
+    if (!relationship?.auto_create_config?.inherit_fields) return;
+
+    const inheritFields = relationship.auto_create_config.inherit_fields;
+
+    // Map of parent work item fields to form fields
+    inheritFields.forEach((field) => {
+      switch (field) {
+        case 'subject':
+          if (parentWorkItem.subject) {
+            setValue('subject', parentWorkItem.subject);
+          }
+          break;
+        case 'description':
+          if (parentWorkItem.description) {
+            setValue('description', parentWorkItem.description);
+          }
+          break;
+        case 'priority':
+          if (parentWorkItem.priority) {
+            setValue('priority', parentWorkItem.priority as 'critical' | 'high' | 'medium' | 'low');
+          }
+          break;
+        case 'assigned_to':
+          if (parentWorkItem.assigned_to) {
+            setValue('assigned_to', parentWorkItem.assigned_to);
+          }
+          break;
+        case 'due_date':
+          if (parentWorkItem.due_date) {
+            // Format date for input field (YYYY-MM-DD)
+            const dueDate = new Date(parentWorkItem.due_date);
+            const formattedDate = dueDate.toISOString().split('T')[0];
+            setValue('due_date', formattedDate);
+          }
+          break;
+        case 'organization_id':
+          if (parentWorkItem.organization_id) {
+            setValue('organization_id', parentWorkItem.organization_id);
+          }
+          break;
+        default:
+          // Handle custom fields
+          if (field.startsWith('custom_field_') && parentWorkItem.custom_fields) {
+            const fieldId = field.replace('custom_field_', '');
+            if (parentWorkItem.custom_fields[fieldId] !== undefined) {
+              setCustomFieldValues((prev) => ({
+                ...prev,
+                [fieldId]: parentWorkItem.custom_fields?.[fieldId],
+              }));
+            }
+          }
+          break;
+      }
+    });
+  }, [parentWorkItem, selectedTypeId, typeRelationships, setValue]);
+
   const onSubmit = async (data: CreateWorkItemForm) => {
     setIsSubmitting(true);
 
     try {
+      // Format custom field date values to ISO format
+      const formattedCustomFields: Record<string, unknown> = {};
+      if (Object.keys(customFieldValues).length > 0) {
+        Object.entries(customFieldValues).forEach(([fieldId, value]) => {
+          const field = allCustomFields.find((f) => f.work_item_field_id === fieldId);
+
+          // Convert date fields to ISO format
+          if (field?.field_type === 'date' && value && typeof value === 'string') {
+            // Date input gives us YYYY-MM-DD, convert to ISO datetime (midnight UTC)
+            formattedCustomFields[fieldId] = new Date(`${value}T00:00:00.000Z`).toISOString();
+          } else {
+            formattedCustomFields[fieldId] = value;
+          }
+        });
+      }
+
       const workItemData = {
         work_item_type_id: data.work_item_type_id,
         organization_id: data.organization_id,
@@ -137,7 +229,7 @@ export default function AddWorkItemModal({ isOpen, onClose, onSuccess, parentWor
             ? new Date(data.due_date).toISOString()
             : undefined,
         parent_work_item_id: data.parent_work_item_id,
-        custom_fields: Object.keys(customFieldValues).length > 0 ? customFieldValues : undefined,
+        custom_fields: Object.keys(formattedCustomFields).length > 0 ? formattedCustomFields : undefined,
       };
 
       await createWorkItem.mutateAsync(workItemData);
@@ -258,151 +350,167 @@ export default function AddWorkItemModal({ isOpen, onClose, onSuccess, parentWor
                 </div>
 
                 {/* Subject */}
-                <div>
-                  <label
-                    htmlFor={subjectId}
-                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-                  >
-                    Subject <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    id={subjectId}
-                    type="text"
-                    {...register('subject')}
-                    disabled={isSubmitting}
-                    className="form-input w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 disabled:opacity-50"
-                    placeholder="Enter work item subject"
-                  />
-                  {errors.subject && (
-                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">
-                      {errors.subject.message}
-                    </p>
-                  )}
-                </div>
-
-                {/* Description */}
-                <div>
-                  <label
-                    htmlFor={descriptionId}
-                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-                  >
-                    Description
-                  </label>
-                  <textarea
-                    id={descriptionId}
-                    {...register('description')}
-                    disabled={isSubmitting}
-                    rows={4}
-                    className="form-textarea w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 disabled:opacity-50"
-                    placeholder="Enter work item description"
-                  />
-                  {errors.description && (
-                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">
-                      {errors.description.message}
-                    </p>
-                  )}
-                </div>
-
-                {/* Priority and Organization Row */}
-                <div className="grid grid-cols-2 gap-4">
-                  {/* Priority */}
+                {!isFieldInherited('subject') && (
                   <div>
                     <label
-                      htmlFor={priorityId}
+                      htmlFor={subjectId}
                       className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
                     >
-                      Priority <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      id={priorityId}
-                      {...register('priority')}
-                      disabled={isSubmitting}
-                      className="form-select w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 disabled:opacity-50"
-                    >
-                      <option value="low">Low</option>
-                      <option value="medium">Medium</option>
-                      <option value="high">High</option>
-                      <option value="critical">Critical</option>
-                    </select>
-                    {errors.priority && (
-                      <p className="mt-1 text-sm text-red-600 dark:text-red-400">
-                        {errors.priority.message}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Organization */}
-                  <div>
-                    <label
-                      htmlFor={organizationId}
-                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-                    >
-                      Organization
-                    </label>
-                    <select
-                      id={organizationId}
-                      {...register('organization_id')}
-                      disabled={isSubmitting}
-                      className="form-select w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 disabled:opacity-50"
-                    >
-                      <option value="">Use current organization</option>
-                      {activeOrganizations.map((org) => (
-                        <option key={org.id} value={org.id}>
-                          {org.name}
-                        </option>
-                      ))}
-                    </select>
-                    {errors.organization_id && (
-                      <p className="mt-1 text-sm text-red-600 dark:text-red-400">
-                        {errors.organization_id.message}
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                {/* Assigned To and Due Date Row */}
-                <div className="grid grid-cols-2 gap-4">
-                  {/* Assigned To */}
-                  <div>
-                    <label
-                      htmlFor="assigned_to"
-                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-                    >
-                      Assigned To
-                    </label>
-                    <UserPicker
-                      users={activeUsers}
-                      value={watch('assigned_to')}
-                      onChange={(userId) => setValue('assigned_to', userId)}
-                      disabled={isSubmitting}
-                      error={errors.assigned_to?.message}
-                      placeholder="Unassigned"
-                      allowClear={true}
-                    />
-                  </div>
-
-                  {/* Due Date */}
-                  <div>
-                    <label
-                      htmlFor={dueDateId}
-                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-                    >
-                      Due Date
+                      Subject <span className="text-red-500">*</span>
                     </label>
                     <input
-                      id={dueDateId}
-                      type="date"
-                      {...register('due_date')}
+                      id={subjectId}
+                      type="text"
+                      {...register('subject')}
                       disabled={isSubmitting}
                       className="form-input w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 disabled:opacity-50"
+                      placeholder="Enter work item subject"
                     />
-                    {errors.due_date && (
+                    {errors.subject && (
                       <p className="mt-1 text-sm text-red-600 dark:text-red-400">
-                        {errors.due_date.message}
+                        {errors.subject.message}
                       </p>
                     )}
                   </div>
-                </div>
+                )}
+
+                {/* Description */}
+                {!isFieldInherited('description') && (
+                  <div>
+                    <label
+                      htmlFor={descriptionId}
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                    >
+                      Description
+                    </label>
+                    <textarea
+                      id={descriptionId}
+                      {...register('description')}
+                      disabled={isSubmitting}
+                      rows={4}
+                      className="form-textarea w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 disabled:opacity-50"
+                      placeholder="Enter work item description"
+                    />
+                    {errors.description && (
+                      <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                        {errors.description.message}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Priority and Organization Row */}
+                {(!isFieldInherited('priority') || !isFieldInherited('organization_id')) && (
+                  <div className={`grid ${!isFieldInherited('priority') && !isFieldInherited('organization_id') ? 'grid-cols-2' : 'grid-cols-1'} gap-4`}>
+                    {/* Priority */}
+                    {!isFieldInherited('priority') && (
+                      <div>
+                        <label
+                          htmlFor={priorityId}
+                          className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                        >
+                          Priority <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                          id={priorityId}
+                          {...register('priority')}
+                          disabled={isSubmitting}
+                          className="form-select w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 disabled:opacity-50"
+                        >
+                          <option value="low">Low</option>
+                          <option value="medium">Medium</option>
+                          <option value="high">High</option>
+                          <option value="critical">Critical</option>
+                        </select>
+                        {errors.priority && (
+                          <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                            {errors.priority.message}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Organization */}
+                    {!isFieldInherited('organization_id') && (
+                      <div>
+                        <label
+                          htmlFor={organizationId}
+                          className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                        >
+                          Organization
+                        </label>
+                        <select
+                          id={organizationId}
+                          {...register('organization_id')}
+                          disabled={isSubmitting}
+                          className="form-select w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 disabled:opacity-50"
+                        >
+                          <option value="">Use current organization</option>
+                          {activeOrganizations.map((org) => (
+                            <option key={org.id} value={org.id}>
+                              {org.name}
+                            </option>
+                          ))}
+                        </select>
+                        {errors.organization_id && (
+                          <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                            {errors.organization_id.message}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Assigned To and Due Date Row */}
+                {(!isFieldInherited('assigned_to') || !isFieldInherited('due_date')) && (
+                  <div className={`grid ${!isFieldInherited('assigned_to') && !isFieldInherited('due_date') ? 'grid-cols-2' : 'grid-cols-1'} gap-4`}>
+                    {/* Assigned To */}
+                    {!isFieldInherited('assigned_to') && (
+                      <div>
+                        <label
+                          htmlFor="assigned_to"
+                          className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                        >
+                          Assigned To
+                        </label>
+                        <UserPicker
+                          users={activeUsers}
+                          value={watch('assigned_to')}
+                          onChange={(userId) => setValue('assigned_to', userId)}
+                          disabled={isSubmitting}
+                          error={errors.assigned_to?.message}
+                          placeholder="Unassigned"
+                          allowClear={true}
+                        />
+                      </div>
+                    )}
+
+                    {/* Due Date */}
+                    {!isFieldInherited('due_date') && (
+                      <div>
+                        <label
+                          htmlFor={dueDateId}
+                          className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                        >
+                          Due Date
+                        </label>
+                        <input
+                          id={dueDateId}
+                          type="date"
+                          {...register('due_date')}
+                          disabled={isSubmitting}
+                          className="form-input w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 disabled:opacity-50"
+                        />
+                        {errors.due_date && (
+                          <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                            {errors.due_date.message}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Phase 3: Custom Fields */}
                 {customFields.length > 0 && (

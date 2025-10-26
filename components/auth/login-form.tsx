@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useId, useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { apiClient } from '@/lib/api/client';
 import { loginSchema } from '@/lib/validations/auth';
 import MFASetupDialog from './mfa-setup-dialog';
 import MFAVerifyDialog from './mfa-verify-dialog';
@@ -61,14 +62,15 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
   useEffect(() => {
     const fetchDefaultDashboard = async () => {
       try {
-        const response = await fetch('/api/admin/analytics/dashboards/default');
-        const data = await response.json();
+        const data = await apiClient.get<{ defaultDashboard?: { dashboard_id: string; dashboard_name: string } }>(
+          '/api/admin/analytics/dashboards/default'
+        );
 
-        if (data.data?.defaultDashboard?.dashboard_id) {
-          setDefaultDashboardId(data.data.defaultDashboard.dashboard_id);
+        if (data.defaultDashboard?.dashboard_id) {
+          setDefaultDashboardId(data.defaultDashboard.dashboard_id);
           console.log('Default dashboard found', {
-            dashboardName: data.data.defaultDashboard.dashboard_name,
-            dashboardId: data.data.defaultDashboard.dashboard_id,
+            dashboardName: data.defaultDashboard.dashboard_name,
+            dashboardId: data.defaultDashboard.dashboard_id,
           });
         }
       } catch (error) {

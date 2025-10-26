@@ -9,7 +9,7 @@ import { work_item_statuses, work_items } from '@/lib/db/schema';
 import { calculateChanges, log, logTemplates, SLOW_THRESHOLDS } from '@/lib/logger';
 
 // 4. Errors
-import { NotFoundError } from '@/lib/api/responses/error';
+import { NotFoundError, ValidationError } from '@/lib/api/responses/error';
 
 // 5. Types
 import type { UserContext } from '@/lib/types/rbac';
@@ -590,6 +590,29 @@ class WorkItemCoreService extends BaseWorkItemsService {
           targetWorkItem.status_id,
           updateData.status_id
         );
+
+        // Check if transitioning to completed status - validate required-to-complete fields
+        const [newStatus] = await db
+          .select({ status_category: work_item_statuses.status_category })
+          .from(work_item_statuses)
+          .where(eq(work_item_statuses.work_item_status_id, updateData.status_id))
+          .limit(1);
+
+        if (newStatus?.status_category === 'completed') {
+          const { validateForCompletion } = await import('./field-completion-validator');
+          const validationResult = await validateForCompletion(
+            workItemId,
+            targetWorkItem.work_item_type_id
+          );
+
+          if (!validationResult.isValid) {
+            throw ValidationError(
+              { missingFields: validationResult.missingFields },
+              validationResult.errorMessage ||
+                'Work item cannot be completed: required fields are missing'
+            );
+          }
+        }
       }
 
       // Calculate changes for audit logging

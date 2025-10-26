@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { getCSRFTokenFromCookie } from '@/lib/security/csrf-client';
+import { apiClient } from '@/lib/api/client';
 
 interface ImageUploadProps {
   currentImage?: string;
@@ -44,30 +44,12 @@ export default function ImageUpload({
         formData.append('staffId', staffId);
       }
 
-      // Get CSRF token from cookie
-      const csrfToken = getCSRFTokenFromCookie();
-
-      const headers: HeadersInit = {};
-      if (csrfToken) {
-        headers['x-csrf-token'] = csrfToken;
-      }
-
-      const response = await fetch('/api/upload', {
-        method: 'POST',
-        credentials: 'include',
-        headers,
-        body: formData,
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Upload failed');
-      }
-
+      // Use apiClient for automatic CSRF token handling
+      const result = await apiClient.post<{ url: string }>('/api/upload', formData);
+      
       // The service layer has already updated the database
       // Just notify the parent component to refresh/update UI
-      onImageUploaded(result.data.url);
+      onImageUploaded(result.url);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Upload failed');
     } finally {

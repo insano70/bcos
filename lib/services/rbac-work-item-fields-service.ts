@@ -63,7 +63,8 @@ export class RBACWorkItemFieldsService extends BaseRBACService {
         field_description: work_item_fields.field_description,
         field_options: work_item_fields.field_options,
         field_config: work_item_fields.field_config,
-        is_required: work_item_fields.is_required,
+        is_required_on_creation: work_item_fields.is_required_on_creation,
+        is_required_to_complete: work_item_fields.is_required_to_complete,
         validation_rules: work_item_fields.validation_rules,
         default_value: work_item_fields.default_value,
         display_order: work_item_fields.display_order,
@@ -91,7 +92,8 @@ export class RBACWorkItemFieldsService extends BaseRBACService {
       field_description: row.field_description,
       field_options: row.field_options as FieldOption[] | null,
       field_config: row.field_config as WorkItemField['field_config'],
-      is_required: row.is_required ?? false,
+      is_required_on_creation: row.is_required_on_creation ?? false,
+      is_required_to_complete: row.is_required_to_complete ?? false,
       validation_rules: row.validation_rules as ValidationRules | null,
       default_value: row.default_value,
       display_order: row.display_order ?? 0,
@@ -130,7 +132,8 @@ export class RBACWorkItemFieldsService extends BaseRBACService {
       field_description: result.field_description,
       field_options: result.field_options as FieldOption[] | null,
       field_config: result.field_config as WorkItemField['field_config'],
-      is_required: result.is_required ?? false,
+      is_required_on_creation: result.is_required_on_creation ?? false,
+      is_required_to_complete: result.is_required_to_complete ?? false,
       validation_rules: result.validation_rules as ValidationRules | null,
       default_value: result.default_value,
       display_order: result.display_order ?? 0,
@@ -180,7 +183,8 @@ export class RBACWorkItemFieldsService extends BaseRBACService {
         field_options: fieldData.field_options
           ? JSON.parse(JSON.stringify(fieldData.field_options))
           : null,
-        is_required: fieldData.is_required ?? false,
+        is_required_on_creation: fieldData.is_required_on_creation ?? false,
+        is_required_to_complete: fieldData.is_required_to_complete ?? false,
         validation_rules: fieldData.validation_rules
           ? JSON.parse(JSON.stringify(fieldData.validation_rules))
           : null,

@@ -204,7 +204,6 @@ export type WorkItemMove = z.infer<typeof workItemMoveSchema>;
  * Phase 2: Work Item Comments Schemas
  */
 export const workItemCommentCreateSchema = z.object({
-  work_item_id: z.string().uuid('Invalid work item ID'),
   parent_comment_id: z.string().uuid('Invalid parent comment ID').optional().nullable(),
   comment_text: createSafeTextSchema(1, 5000, 'Comment text'),
 });
@@ -214,7 +213,6 @@ export const workItemCommentUpdateSchema = z.object({
 });
 
 export const workItemCommentQuerySchema = z.object({
-  work_item_id: z.string().uuid('Invalid work item ID'),
   limit: z
     .string()
     .default('50')
@@ -284,7 +282,6 @@ export const workItemActivityCreateSchema = z.object({
 });
 
 export const workItemActivityQuerySchema = z.object({
-  work_item_id: z.string().uuid('Invalid work item ID'),
   activity_type: z.string().optional(),
   limit: z
     .string()

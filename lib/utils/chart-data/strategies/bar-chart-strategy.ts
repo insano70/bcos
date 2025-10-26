@@ -147,6 +147,23 @@ export class BarChartStrategy extends BaseChartTransformStrategy {
       };
     });
 
+    // Sort datasets by total value (descending) for stacked bar charts
+    // This ensures largest segments appear at the bottom of the stack
+    const sortedDatasets = datasets
+      .map((dataset) => {
+        // Calculate total value for this dataset across all dates
+        const total = dataset.data.reduce((sum, val) => {
+          const numericValue = typeof val === 'number' ? val : 0;
+          return sum + numericValue;
+        }, 0);
+
+        return { dataset, total };
+      })
+      // Sort by total descending (largest first = bottom of stack)
+      .sort((a, b) => b.total - a.total)
+      // Extract dataset objects
+      .map((item) => item.dataset);
+
     // Create category labels based on frequency
     // Extract frequency dynamically from data (no hardcoded field names)
     const frequency = this.extractTimePeriod(measures);
@@ -156,7 +173,7 @@ export class BarChartStrategy extends BaseChartTransformStrategy {
 
     const chartData: ChartData = {
       labels: categoryLabels,
-      datasets,
+      datasets: sortedDatasets,
     };
 
     return this.attachMeasureType(chartData, this.extractMeasureType(measures));

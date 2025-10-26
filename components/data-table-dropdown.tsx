@@ -1,13 +1,23 @@
 'use client';
 
 import { type ReactNode, useEffect, useRef, useState } from 'react';
+import DeleteConfirmationModal from './delete-confirmation-modal';
 
 interface DataTableDropdownAction<T> {
   label: string | ((item: T) => string);
   icon?: ReactNode;
   onClick: (item: T) => void | Promise<void>;
   variant?: 'default' | 'danger';
+  
+  /** @deprecated Use confirmModal instead */
   confirm?: string | ((item: T) => string);
+  
+  confirmModal?: {
+    title: string | ((item: T) => string);
+    message: string | ((item: T) => string);
+    confirmText?: string | ((item: T) => string);
+  };
+  
   show?: (item: T) => boolean;
 }
 
@@ -19,6 +29,8 @@ interface DataTableDropdownProps<T> {
 export default function DataTableDropdown<T>({ item, actions }: DataTableDropdownProps<T>) {
   const [isOpen, setIsOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [confirmModalOpen, setConfirmModalOpen] = useState(false);
+  const [pendingAction, setPendingAction] = useState<DataTableDropdownAction<T> | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Close dropdown when clicking outside
@@ -35,14 +47,29 @@ export default function DataTableDropdown<T>({ item, actions }: DataTableDropdow
     };
   }, []);
 
-  const handleAction = async (action: DataTableDropdownAction<T>) => {
-    const confirmMessage =
-      typeof action.confirm === 'function' ? action.confirm(item) : action.confirm;
-
-    if (confirmMessage && !confirm(confirmMessage)) {
+  const handleActionClick = (action: DataTableDropdownAction<T>) => {
+    // Check for custom modal first (preferred)
+    if (action.confirmModal) {
+      setPendingAction(action);
+      setConfirmModalOpen(true);
+      setIsOpen(false); // Close dropdown when modal opens
       return;
     }
+    
+    // Fallback to native confirm (deprecated)
+    if (action.confirm) {
+      const confirmMessage =
+        typeof action.confirm === 'function' ? action.confirm(item) : action.confirm;
+      if (!confirm(confirmMessage)) {
+        return;
+      }
+    }
+    
+    // Execute action
+    handleAction(action);
+  };
 
+  const handleAction = async (action: DataTableDropdownAction<T>) => {
     setIsProcessing(true);
     try {
       await action.onClick(item);
@@ -51,6 +78,13 @@ export default function DataTableDropdown<T>({ item, actions }: DataTableDropdow
       console.error('Action failed:', error);
     } finally {
       setIsProcessing(false);
+    }
+  };
+  
+  const handleConfirmModal = async () => {
+    if (pendingAction) {
+      await handleAction(pendingAction);
+      setPendingAction(null);
     }
   };
 
@@ -104,7 +138,7 @@ export default function DataTableDropdown<T>({ item, actions }: DataTableDropdow
                         ? 'text-red-500 hover:text-red-600'
                         : 'text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-200'
                     }`}
-                    onClick={() => handleAction(action)}
+                    onClick={() => handleActionClick(action)}
                     disabled={isProcessing}
                   >
                     {action.icon && (
@@ -121,6 +155,37 @@ export default function DataTableDropdown<T>({ item, actions }: DataTableDropdow
             })}
           </ul>
         </div>
+      )}
+      
+      {/* Confirmation Modal */}
+      {pendingAction && pendingAction.confirmModal && (
+        <DeleteConfirmationModal
+          isOpen={confirmModalOpen}
+          setIsOpen={setConfirmModalOpen}
+          title={
+            typeof pendingAction.confirmModal.title === 'function'
+              ? pendingAction.confirmModal.title(item)
+              : pendingAction.confirmModal.title
+          }
+          itemName={
+            typeof pendingAction.label === 'function'
+              ? pendingAction.label(item)
+              : pendingAction.label
+          }
+          message={
+            typeof pendingAction.confirmModal.message === 'function'
+              ? pendingAction.confirmModal.message(item)
+              : pendingAction.confirmModal.message
+          }
+          confirmButtonText={
+            pendingAction.confirmModal.confirmText
+              ? typeof pendingAction.confirmModal.confirmText === 'function'
+                ? pendingAction.confirmModal.confirmText(item)
+                : pendingAction.confirmModal.confirmText
+              : 'Confirm'
+          }
+          onConfirm={handleConfirmModal}
+        />
       )}
     </div>
   );

@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useState } from 'react';
 import AddWorkItemFieldModal from '@/components/add-work-item-field-modal';
+import DeleteConfirmationModal from '@/components/delete-confirmation-modal';
 import EditWorkItemFieldModal from '@/components/edit-work-item-field-modal';
 import ModalBlank from '@/components/modal-blank';
 import { useDeleteWorkItemField, useWorkItemFields } from '@/lib/hooks/use-work-item-fields';
@@ -22,6 +23,8 @@ export default function ManageWorkItemFieldsModal({
 }: ManageWorkItemFieldsModalProps) {
   const [isAddFieldOpen, setIsAddFieldOpen] = useState(false);
   const [editingField, setEditingField] = useState<WorkItemField | null>(null);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [fieldToDelete, setFieldToDelete] = useState<WorkItemField | null>(null);
 
   const {
     data: fields,
@@ -34,19 +37,22 @@ export default function ManageWorkItemFieldsModal({
 
   const deleteField = useDeleteWorkItemField();
 
-  const handleDeleteField = useCallback(
-    async (fieldId: string) => {
-      if (confirm('Are you sure you want to delete this field? This action cannot be undone.')) {
-        try {
-          await deleteField.mutateAsync(fieldId);
-          refetch();
-        } catch (error) {
-          console.error('Failed to delete field:', error);
-        }
-      }
-    },
-    [deleteField, refetch]
-  );
+  const handleDeleteClick = useCallback((field: WorkItemField) => {
+    setFieldToDelete(field);
+    setDeleteModalOpen(true);
+  }, []);
+
+  const handleConfirmDelete = useCallback(async () => {
+    if (!fieldToDelete) return;
+    
+    try {
+      await deleteField.mutateAsync(fieldToDelete.work_item_field_id);
+      refetch();
+      setFieldToDelete(null);
+    } catch (error) {
+      console.error('Failed to delete field:', error);
+    }
+  }, [fieldToDelete, deleteField, refetch]);
 
   const handleEditField = useCallback((field: WorkItemField) => {
     setEditingField(field);
@@ -168,9 +174,14 @@ export default function ManageWorkItemFieldsModal({
                       <h4 className="font-medium text-gray-900 dark:text-gray-100">
                         {field.field_label}
                       </h4>
-                      {field.is_required && (
+                      {field.is_required_on_creation && (
                         <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400">
-                          Required
+                          Required on Creation
+                        </span>
+                      )}
+                      {field.is_required_to_complete && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-400">
+                          Required to Complete
                         </span>
                       )}
                       <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200">
@@ -229,7 +240,7 @@ export default function ManageWorkItemFieldsModal({
                     {/* Delete */}
                     <button
                       type="button"
-                      onClick={() => handleDeleteField(field.work_item_field_id)}
+                      onClick={() => handleDeleteClick(field)}
                       className="p-1 text-red-400 hover:text-red-600 dark:hover:text-red-300"
                       title="Delete field"
                     >
@@ -278,6 +289,19 @@ export default function ManageWorkItemFieldsModal({
           }}
           field={editingField}
           allFields={sortedFields}
+        />
+      )}
+      
+      {/* Delete Confirmation Modal */}
+      {fieldToDelete && (
+        <DeleteConfirmationModal
+          isOpen={deleteModalOpen}
+          setIsOpen={setDeleteModalOpen}
+          title="Delete Custom Field"
+          itemName={fieldToDelete.field_name}
+          message="This action cannot be undone. All data for this field will be lost."
+          confirmButtonText="Delete Field"
+          onConfirm={handleConfirmDelete}
         />
       )}
     </>

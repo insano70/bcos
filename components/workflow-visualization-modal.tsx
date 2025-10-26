@@ -2,6 +2,7 @@
 
 import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
 import { useState } from 'react';
+import DeleteConfirmationModal from './delete-confirmation-modal';
 import { useWorkItemStatuses, type WorkItemStatus } from '@/lib/hooks/use-work-item-statuses';
 import {
   useCreateWorkItemTransition,
@@ -87,18 +88,25 @@ export default function WorkflowVisualizationModal({
     }
   };
 
-  const handleDeleteTransition = async (transition: WorkItemStatusTransition) => {
-    if (!confirm('Are you sure you want to delete this transition rule?')) {
-      return;
-    }
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [transitionToDelete, setTransitionToDelete] = useState<WorkItemStatusTransition | null>(null);
 
+  const handleDeleteClick = (transition: WorkItemStatusTransition) => {
+    setTransitionToDelete(transition);
+    setDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!transitionToDelete) return;
+    
     try {
       await deleteTransition.mutateAsync({
-        id: transition.work_item_status_transition_id,
+        id: transitionToDelete.work_item_status_transition_id,
         typeId: workItemTypeId,
       });
       setToastMessage('Transition deleted');
       setShowToast(true);
+      setTransitionToDelete(null);
       refetch();
     } catch (error) {
       console.error('Failed to delete transition:', error);
@@ -350,7 +358,7 @@ export default function WorkflowVisualizationModal({
                                     </button>
                                     <button
                                       type="button"
-                                      onClick={() => handleDeleteTransition(transition)}
+                                      onClick={() => handleDeleteClick(transition)}
                                       className="text-red-400 hover:text-red-600 dark:hover:text-red-300"
                                       title="Delete rule"
                                     >
@@ -410,6 +418,19 @@ export default function WorkflowVisualizationModal({
       <Toast type="success" open={showToast} setOpen={setShowToast}>
         {toastMessage}
       </Toast>
+      
+      {/* Delete Confirmation Modal */}
+      {transitionToDelete && (
+        <DeleteConfirmationModal
+          isOpen={deleteModalOpen}
+          setIsOpen={setDeleteModalOpen}
+          title="Delete Transition Rule"
+          itemName="transition rule"
+          message="This action cannot be undone."
+          confirmButtonText="Delete Rule"
+          onConfirm={handleConfirmDelete}
+        />
+      )}
     </>
   );
 }

@@ -176,6 +176,13 @@
       "when": 1761211200000,
       "tag": "0032_add_hero_overlay_opacity",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1761482547164,
+      "tag": "0025_glamorous_madripoor",
+      "breakpoints": true
     }
   ]
 }
