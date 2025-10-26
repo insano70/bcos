@@ -48,6 +48,9 @@ export class RBACWorkItemTypesService extends BaseRBACService {
       // Build WHERE conditions
       const conditions = [isNull(work_item_types.deleted_at)];
 
+      // Check access scope for work-items:read
+      const accessScope = this.getAccessScope('work-items', 'read');
+
       // Filter by organization_id or include global types
       if (organization_id) {
         // Include both global types (null) and organization-specific types
@@ -58,6 +61,9 @@ export class RBACWorkItemTypesService extends BaseRBACService {
         if (orgCondition) {
           conditions.push(orgCondition);
         }
+      } else if (accessScope.scope === 'all' || this.isSuperAdmin()) {
+        // Super admin or 'all' scope: show all work item types (no organization filter)
+        // This allows super admins to see both global and all organization-specific types
       } else if (this.userContext.current_organization_id) {
         // If no org filter but user has current org, show global + current org types
         const orgCondition = or(
@@ -138,6 +144,9 @@ export class RBACWorkItemTypesService extends BaseRBACService {
     try {
       const conditions = [isNull(work_item_types.deleted_at)];
 
+      // Check access scope for work-items:read
+      const accessScope = this.getAccessScope('work-items', 'read');
+
       if (organization_id) {
         const orgCondition = or(
           isNull(work_item_types.organization_id),
@@ -146,6 +155,8 @@ export class RBACWorkItemTypesService extends BaseRBACService {
         if (orgCondition) {
           conditions.push(orgCondition);
         }
+      } else if (accessScope.scope === 'all' || this.isSuperAdmin()) {
+        // Super admin or 'all' scope: count all work item types (no organization filter)
       } else if (this.userContext.current_organization_id) {
         const orgCondition = or(
           isNull(work_item_types.organization_id),
