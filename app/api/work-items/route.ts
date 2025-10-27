@@ -38,6 +38,7 @@ const getWorkItemsHandler = async (request: NextRequest, userContext: UserContex
       offset: query.offset,
       sortBy: query.sortBy,
       sortOrder: query.sortOrder,
+      show_hierarchy: query.show_hierarchy,
     });
 
     // Get total count
@@ -50,6 +51,7 @@ const getWorkItemsHandler = async (request: NextRequest, userContext: UserContex
       assigned_to: query.assigned_to,
       created_by: query.created_by,
       search: query.search,
+      show_hierarchy: query.show_hierarchy,
     });
 
     const responseData = workItems.map((item) => ({
@@ -85,6 +87,7 @@ const getWorkItemsHandler = async (request: NextRequest, userContext: UserContex
       assignee: query.assigned_to,
       creator: query.created_by,
       search: query.search,
+      hierarchy: query.show_hierarchy,
     });
 
     // Count active filters
@@ -97,6 +100,7 @@ const getWorkItemsHandler = async (request: NextRequest, userContext: UserContex
       query.assigned_to,
       query.created_by,
       query.search,
+      query.show_hierarchy !== 'root_only' ? query.show_hierarchy : undefined,
     ].filter(Boolean);
 
     // Enriched success log - consolidates 6 separate logs into 1 comprehensive log
