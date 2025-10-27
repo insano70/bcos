@@ -158,7 +158,7 @@ export default function DataTableDropdown<T>({ item, actions }: DataTableDropdow
       )}
       
       {/* Confirmation Modal */}
-      {pendingAction && pendingAction.confirmModal && (
+      {pendingAction?.confirmModal && (
         <DeleteConfirmationModal
           isOpen={confirmModalOpen}
           setIsOpen={setConfirmModalOpen}

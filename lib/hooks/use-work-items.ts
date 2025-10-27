@@ -38,6 +38,7 @@ interface WorkItemsQueryParams {
   offset?: number;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
+  show_hierarchy?: 'root_only' | 'all';
 }
 
 /**
@@ -114,8 +115,61 @@ export function useCreateWorkItem() {
       const result = await apiClient.post<WorkItem>('/api/work-items', data);
       return result;
     },
-    onSuccess: () => {
+    // Optimistic update: immediately add to cache before server responds
+    onMutate: async (data) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['work-items'] });
+
+      // Snapshot the previous values
+      const previousWorkItems = queryClient.getQueryData<WorkItem[]>(['work-items']);
+
+      // Create optimistic work item with temporary ID
+      // Note: We use 'as WorkItem' since we can't create a complete WorkItem before the server responds
+      // The server will provide the complete object with all required fields
+      const optimisticWorkItem = {
+        id: `temp-${Date.now()}`,
+        work_item_type_id: data.work_item_type_id,
+        work_item_type_name: 'Loading...',
+        organization_id: data.organization_id ?? '',
+        organization_name: 'Loading...',
+        subject: data.subject,
+        description: data.description ?? null,
+        status_id: '',
+        status_name: 'New',
+        status_category: 'new',
+        priority: data.priority ?? 'medium',
+        assigned_to: data.assigned_to ?? null,
+        assigned_to_name: null,
+        due_date: data.due_date ? new Date(data.due_date) : null,
+        started_at: null,
+        completed_at: null,
+        created_by: '',
+        created_by_name: 'You',
+        created_at: new Date(),
+        updated_at: new Date(),
+      } as WorkItem;
+
+      // Optimistically add the work item to lists
+      queryClient.setQueriesData<WorkItem[]>({ queryKey: ['work-items'] }, (old) => {
+        if (!old) return [optimisticWorkItem];
+        // Type guard: only update if old is an array (some queries return single objects)
+        if (!Array.isArray(old)) return old;
+        return [...old, optimisticWorkItem];
+      });
+
+      // Return context with snapshot for rollback
+      return { previousWorkItems };
+    },
+    // Rollback on error
+    onError: (_err, _data, context) => {
+      if (context?.previousWorkItems) {
+        queryClient.setQueryData(['work-items'], context.previousWorkItems);
+      }
+    },
+    // Always refetch after error or success to sync with server (gets real ID)
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['work-items'] });
+      queryClient.invalidateQueries({ queryKey: ['work-item-children'] });
     },
   });
 }
@@ -131,9 +185,68 @@ export function useUpdateWorkItem() {
       const result = await apiClient.put<WorkItem>(`/api/work-items/${id}`, data);
       return result;
     },
-    onSuccess: (_, variables) => {
+    // Optimistic update: immediately update the cache before server responds
+    onMutate: async ({ id, data }) => {
+      // Cancel outgoing refetches so they don't overwrite our optimistic update
+      await queryClient.cancelQueries({ queryKey: ['work-items'] });
+      await queryClient.cancelQueries({ queryKey: ['work-items', id] });
+
+      // Snapshot the previous values
+      const previousWorkItem = queryClient.getQueryData<WorkItem>(['work-items', id]);
+      const previousWorkItems = queryClient.getQueryData<WorkItem[]>(['work-items']);
+
+      // Optimistically update the individual work item
+      if (previousWorkItem) {
+        const updatedWorkItem: WorkItem = {
+          ...previousWorkItem,
+          ...(data.subject !== undefined && { subject: data.subject }),
+          ...(data.description !== undefined && { description: data.description }),
+          ...(data.status_id !== undefined && { status_id: data.status_id }),
+          ...(data.priority !== undefined && { priority: data.priority }),
+          ...(data.assigned_to !== undefined && { assigned_to: data.assigned_to }),
+          ...(data.due_date !== undefined && { due_date: data.due_date ? new Date(data.due_date) : null }),
+          updated_at: new Date(),
+        };
+        queryClient.setQueryData<WorkItem>(['work-items', id], updatedWorkItem);
+      }
+
+      // Optimistically update the work item in lists
+      queryClient.setQueriesData<WorkItem[]>({ queryKey: ['work-items'] }, (old) => {
+        if (!old) return old;
+        // Type guard: only update if old is an array (some queries return single objects)
+        if (!Array.isArray(old)) return old;
+        return old.map((item) => {
+          if (item.id !== id) return item;
+          return {
+            ...item,
+            ...(data.subject !== undefined && { subject: data.subject }),
+            ...(data.description !== undefined && { description: data.description }),
+            ...(data.status_id !== undefined && { status_id: data.status_id }),
+            ...(data.priority !== undefined && { priority: data.priority }),
+            ...(data.assigned_to !== undefined && { assigned_to: data.assigned_to }),
+            ...(data.due_date !== undefined && { due_date: data.due_date ? new Date(data.due_date) : null }),
+            updated_at: new Date(),
+          };
+        });
+      });
+
+      // Return context with snapshot for rollback
+      return { previousWorkItem, previousWorkItems };
+    },
+    // Rollback on error
+    onError: (_err, { id }, context) => {
+      if (context?.previousWorkItem) {
+        queryClient.setQueryData(['work-items', id], context.previousWorkItem);
+      }
+      if (context?.previousWorkItems) {
+        queryClient.setQueryData(['work-items'], context.previousWorkItems);
+      }
+    },
+    // Always refetch after error or success to sync with server
+    onSettled: (_, __, variables) => {
       queryClient.invalidateQueries({ queryKey: ['work-items'] });
       queryClient.invalidateQueries({ queryKey: ['work-items', variables.id] });
+      queryClient.invalidateQueries({ queryKey: ['work-item-children'] });
     },
   });
 }
@@ -148,8 +261,39 @@ export function useDeleteWorkItem() {
     mutationFn: async (id: string) => {
       await apiClient.delete(`/api/work-items/${id}`);
     },
-    onSuccess: () => {
+    // Optimistic update: immediately remove from cache before server responds
+    onMutate: async (id) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['work-items'] });
+
+      // Snapshot the previous values
+      const previousWorkItem = queryClient.getQueryData<WorkItem>(['work-items', id]);
+      const previousWorkItems = queryClient.getQueryData<WorkItem[]>(['work-items']);
+
+      // Optimistically remove the work item from lists
+      queryClient.setQueriesData<WorkItem[]>({ queryKey: ['work-items'] }, (old) => {
+        if (!old) return old;
+        // Type guard: only update if old is an array (some queries return single objects)
+        if (!Array.isArray(old)) return old;
+        return old.filter((item) => item.id !== id);
+      });
+
+      // Return context with snapshot for rollback
+      return { previousWorkItem, previousWorkItems };
+    },
+    // Rollback on error
+    onError: (_err, id, context) => {
+      if (context?.previousWorkItems) {
+        queryClient.setQueryData(['work-items'], context.previousWorkItems);
+      }
+      if (context?.previousWorkItem) {
+        queryClient.setQueryData(['work-items', id], context.previousWorkItem);
+      }
+    },
+    // Always refetch after error or success to sync with server
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['work-items'] });
+      queryClient.invalidateQueries({ queryKey: ['work-item-children'] });
     },
   });
 }
@@ -173,6 +317,7 @@ export function useWorkItemChildren(parentId: string | null) {
       }
     },
     enabled: !!parentId,
+    placeholderData: [], // Use placeholderData instead of initialData to allow fetch
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
   });

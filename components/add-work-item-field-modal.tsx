@@ -22,7 +22,8 @@ export default function AddWorkItemFieldModal({
   const [fieldLabel, setFieldLabel] = useState('');
   const [fieldType, setFieldType] = useState<FieldType>('text');
   const [fieldDescription, setFieldDescription] = useState('');
-  const [isRequired, setIsRequired] = useState(false);
+  const [isRequiredOnCreation, setIsRequiredOnCreation] = useState(false);
+  const [isRequiredToComplete, setIsRequiredToComplete] = useState(false);
   const [isVisible, setIsVisible] = useState(true);
   const [displayOrder, setDisplayOrder] = useState(0);
   const [options, setOptions] = useState<FieldOption[]>([]);
@@ -34,7 +35,8 @@ export default function AddWorkItemFieldModal({
   const fieldTypeId = useId();
   const fieldDescriptionId = useId();
   const displayOrderId = useId();
-  const isRequiredId = useId();
+  const isRequiredOnCreationId = useId();
+  const isRequiredToCompleteId = useId();
   const isVisibleId = useId();
 
   const createFieldMutation = useCreateWorkItemField();
@@ -49,7 +51,8 @@ export default function AddWorkItemFieldModal({
         field_label: fieldLabel,
         field_type: fieldType,
         field_description: fieldDescription || undefined,
-        is_required: isRequired,
+        is_required_on_creation: isRequiredOnCreation,
+        is_required_to_complete: isRequiredToComplete,
         is_visible: isVisible,
         display_order: displayOrder,
         field_options: fieldType === 'dropdown' ? options : undefined,
@@ -60,7 +63,8 @@ export default function AddWorkItemFieldModal({
       setFieldLabel('');
       setFieldType('text');
       setFieldDescription('');
-      setIsRequired(false);
+      setIsRequiredOnCreation(false);
+      setIsRequiredToComplete(false);
       setIsVisible(true);
       setDisplayOrder(0);
       setOptions([]);
@@ -242,14 +246,26 @@ export default function AddWorkItemFieldModal({
           <div className="space-y-2">
             <div className="flex items-center">
               <input
-                id={isRequiredId}
+                id={isRequiredOnCreationId}
                 type="checkbox"
                 className="form-checkbox"
-                checked={isRequired}
-                onChange={(e) => setIsRequired(e.target.checked)}
+                checked={isRequiredOnCreation}
+                onChange={(e) => setIsRequiredOnCreation(e.target.checked)}
               />
-              <label htmlFor={isRequiredId} className="ml-2 text-sm">
-                Required field
+              <label htmlFor={isRequiredOnCreationId} className="ml-2 text-sm">
+                Required on Creation
+              </label>
+            </div>
+            <div className="flex items-center">
+              <input
+                id={isRequiredToCompleteId}
+                type="checkbox"
+                className="form-checkbox"
+                checked={isRequiredToComplete}
+                onChange={(e) => setIsRequiredToComplete(e.target.checked)}
+              />
+              <label htmlFor={isRequiredToCompleteId} className="ml-2 text-sm">
+                Required to Complete
               </label>
             </div>
             <div className="flex items-center">

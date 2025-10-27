@@ -41,6 +41,7 @@ export interface WorkItemQueryOptions {
   offset?: number | undefined;
   sortBy?: string | undefined;
   sortOrder?: 'asc' | 'desc' | undefined;
+  show_hierarchy?: 'root_only' | 'all' | undefined;
 }
 
 export interface WorkItemWithDetails {

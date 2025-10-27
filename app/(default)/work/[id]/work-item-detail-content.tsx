@@ -2,24 +2,24 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import AddWorkItemModal from '@/components/add-work-item-modal';
 import { useAuth } from '@/components/auth/rbac-auth-provider';
 import DeleteWorkItemModal from '@/components/delete-work-item-modal';
 import EditWorkItemModal from '@/components/edit-work-item-modal';
 import { ProtectedComponent } from '@/components/rbac/protected-component';
 import { WorkItemWatchButton } from '@/components/work-item-watch-button';
 import { WorkItemWatchersList } from '@/components/work-item-watchers-list';
+import EditableWorkItemsTable from '@/components/editable-work-items-table';
 import WorkItemActivitySection from '@/components/work-items/work-item-activity-section';
 import WorkItemAttachmentsSection from '@/components/work-items/work-item-attachments-section';
 import WorkItemBreadcrumbs from '@/components/work-items/work-item-breadcrumbs';
 import WorkItemCommentsSection from '@/components/work-items/work-item-comments-section';
+import WorkItemHierarchyBreadcrumbs from '@/components/work-items/work-item-hierarchy-breadcrumbs';
 import WorkItemHierarchySection from '@/components/work-items/work-item-hierarchy-section';
 import { useWorkItemWatchers } from '@/lib/hooks/use-work-item-watchers';
 import {
   useDeleteWorkItem,
   useUpdateWorkItem,
   useWorkItem,
-  useWorkItemChildren,
 } from '@/lib/hooks/use-work-items';
 
 interface WorkItemDetailContentProps {
@@ -30,16 +30,15 @@ export default function WorkItemDetailContent({ workItemId }: WorkItemDetailCont
   const router = useRouter();
   const { data: workItem, isLoading, error, refetch } = useWorkItem(workItemId);
   const { data: watchers } = useWorkItemWatchers(workItemId);
-  const { data: children, refetch: refetchChildren } = useWorkItemChildren(workItemId);
   const { user } = useAuth();
   const _updateWorkItem = useUpdateWorkItem();
   const deleteWorkItem = useDeleteWorkItem();
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [isAddSubItemModalOpen, setIsAddSubItemModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<
     'details' | 'comments' | 'activity' | 'history' | 'watchers' | 'subItems'
   >('details');
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   // Check if current user is watching
   const isWatching = watchers?.some((w) => w.user_id === user?.id) || false;
@@ -47,6 +46,19 @@ export default function WorkItemDetailContent({ workItemId }: WorkItemDetailCont
   const handleDelete = async (id: string) => {
     await deleteWorkItem.mutateAsync(id);
     router.push('/work');
+  };
+
+  // Handle tab switching with unsaved changes warning
+  const handleTabChange = (newTab: typeof activeTab) => {
+    if (hasUnsavedChanges && activeTab === 'subItems') {
+      const confirmed = window.confirm(
+        'You have unsaved changes in the sub-items table. Are you sure you want to leave? Your changes will be lost.'
+      );
+      if (!confirmed) {
+        return;
+      }
+    }
+    setActiveTab(newTab);
   };
 
   if (isLoading) {
@@ -208,7 +220,7 @@ export default function WorkItemDetailContent({ workItemId }: WorkItemDetailCont
         <nav className="flex gap-6">
           <button
             type="button"
-            onClick={() => setActiveTab('details')}
+            onClick={() => handleTabChange('details')}
             className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
               activeTab === 'details'
                 ? 'border-gray-900 dark:border-gray-100 text-gray-900 dark:text-gray-100'
@@ -219,7 +231,7 @@ export default function WorkItemDetailContent({ workItemId }: WorkItemDetailCont
           </button>
           <button
             type="button"
-            onClick={() => setActiveTab('comments')}
+            onClick={() => handleTabChange('comments')}
             className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
               activeTab === 'comments'
                 ? 'border-gray-900 dark:border-gray-100 text-gray-900 dark:text-gray-100'
@@ -230,7 +242,7 @@ export default function WorkItemDetailContent({ workItemId }: WorkItemDetailCont
           </button>
           <button
             type="button"
-            onClick={() => setActiveTab('activity')}
+            onClick={() => handleTabChange('activity')}
             className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
               activeTab === 'activity'
                 ? 'border-gray-900 dark:border-gray-100 text-gray-900 dark:text-gray-100'
@@ -241,7 +253,7 @@ export default function WorkItemDetailContent({ workItemId }: WorkItemDetailCont
           </button>
           <button
             type="button"
-            onClick={() => setActiveTab('watchers')}
+            onClick={() => handleTabChange('watchers')}
             className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
               activeTab === 'watchers'
                 ? 'border-gray-900 dark:border-gray-100 text-gray-900 dark:text-gray-100'
@@ -252,7 +264,7 @@ export default function WorkItemDetailContent({ workItemId }: WorkItemDetailCont
           </button>
           <button
             type="button"
-            onClick={() => setActiveTab('subItems')}
+            onClick={() => handleTabChange('subItems')}
             className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
               activeTab === 'subItems'
                 ? 'border-gray-900 dark:border-gray-100 text-gray-900 dark:text-gray-100'
@@ -265,8 +277,10 @@ export default function WorkItemDetailContent({ workItemId }: WorkItemDetailCont
       </div>
 
       {/* Tab Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
+      <div
+        className={`grid grid-cols-1 gap-6 ${activeTab === 'subItems' ? '' : 'lg:grid-cols-3'}`}
+      >
+        <div className={activeTab === 'subItems' ? '' : 'lg:col-span-2'}>
           {activeTab === 'details' && (
             <div className="space-y-6">
               {/* Description */}
@@ -298,168 +312,59 @@ export default function WorkItemDetailContent({ workItemId }: WorkItemDetailCont
           )}
 
           {activeTab === 'subItems' && (
-            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                    Child Work Items
-                  </h2>
-                  {children && children.length > 0 && (
-                    <span className="text-sm text-gray-500 dark:text-gray-400">
-                      {children.length} {children.length === 1 ? 'item' : 'items'}
-                    </span>
-                  )}
-                </div>
-                <ProtectedComponent
-                  permissions={[
-                    'work-items:create:own',
-                    'work-items:create:organization',
-                    'work-items:manage:all',
-                  ]}
-                  requireAll={false}
-                >
-                  <button
-                    type="button"
-                    onClick={() => setIsAddSubItemModalOpen(true)}
-                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 rounded-lg transition-colors"
-                  >
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 4v16m8-8H4"
-                      />
-                    </svg>
-                    Add Sub-Item
-                  </button>
-                </ProtectedComponent>
-              </div>
-
-              {children && children.length > 0 ? (
-                <div className="space-y-2">
-                  {children.map((child) => (
-                    <div
-                      key={child.id}
-                      className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer"
-                      onClick={() => router.push(`/work/${child.id}`)}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                              {child.subject}
-                            </span>
-                            <span
-                              className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                                child.priority === 'critical'
-                                  ? 'text-red-700 bg-red-100 dark:bg-red-900/30 dark:text-red-400'
-                                  : child.priority === 'high'
-                                    ? 'text-orange-700 bg-orange-100 dark:bg-orange-900/30 dark:text-orange-400'
-                                    : child.priority === 'medium'
-                                      ? 'text-yellow-700 bg-yellow-100 dark:bg-yellow-900/30 dark:text-yellow-400'
-                                      : 'text-green-700 bg-green-100 dark:bg-green-900/30 dark:text-green-400'
-                              }`}
-                            >
-                              {child.priority}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-3 text-xs text-gray-600 dark:text-gray-400">
-                            <span className="inline-flex items-center px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400">
-                              {child.status_name}
-                            </span>
-                            <span>{child.work_item_type_name}</span>
-                            {child.assigned_to_name && (
-                              <span>Assigned to {child.assigned_to_name}</span>
-                            )}
-                          </div>
-                        </div>
-                        <svg
-                          className="w-5 h-5 text-gray-400 flex-shrink-0"
-                          fill="none"
-                          viewBox="0 0 20 20"
-                          stroke="currentColor"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M9 5l7 7-7 7"
-                          />
-                        </svg>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <svg
-                    className="w-12 h-12 mx-auto text-gray-400 mb-3"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={1.5}
-                      d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-                    />
-                  </svg>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">No child work items</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                    Create a new work item and set this item as its parent
-                  </p>
-                </div>
-              )}
+            <div>
+              <WorkItemHierarchyBreadcrumbs workItemId={workItemId} />
+              <EditableWorkItemsTable
+                parentWorkItemId={workItemId}
+                onUnsavedChangesChange={setHasUnsavedChanges}
+              />
             </div>
           )}
         </div>
 
-        <div className="lg:col-span-1">
-          {/* Hierarchy */}
-          <WorkItemHierarchySection workItemId={workItemId} />
+        {activeTab !== 'subItems' && (
+          <div className="lg:col-span-1">
+            {/* Hierarchy */}
+            <WorkItemHierarchySection workItemId={workItemId} />
 
-          {/* Details Card */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mt-6">
-            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">Details</h3>
-            <dl className="space-y-3">
-              <div>
-                <dt className="text-xs font-medium text-gray-500 dark:text-gray-400">Created by</dt>
-                <dd className="mt-1 text-sm text-gray-900 dark:text-gray-100">
-                  {workItem.created_by_name}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-xs font-medium text-gray-500 dark:text-gray-400">Created at</dt>
-                <dd className="mt-1 text-sm text-gray-900 dark:text-gray-100">
-                  {formatDate(workItem.created_at)}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                  Last updated
-                </dt>
-                <dd className="mt-1 text-sm text-gray-900 dark:text-gray-100">
-                  {formatDate(workItem.updated_at)}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                  Organization
-                </dt>
-                <dd className="mt-1 text-sm text-gray-900 dark:text-gray-100">
-                  {workItem.organization_name}
-                </dd>
-              </div>
-            </dl>
+            {/* Details Card */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mt-6">
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">
+                Details
+              </h3>
+              <dl className="space-y-3">
+                <div>
+                  <dt className="text-xs font-medium text-gray-500 dark:text-gray-400">Created by</dt>
+                  <dd className="mt-1 text-sm text-gray-900 dark:text-gray-100">
+                    {workItem.created_by_name}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs font-medium text-gray-500 dark:text-gray-400">Created at</dt>
+                  <dd className="mt-1 text-sm text-gray-900 dark:text-gray-100">
+                    {formatDate(workItem.created_at)}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                    Last updated
+                  </dt>
+                  <dd className="mt-1 text-sm text-gray-900 dark:text-gray-100">
+                    {formatDate(workItem.updated_at)}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                    Organization
+                  </dt>
+                  <dd className="mt-1 text-sm text-gray-900 dark:text-gray-100">
+                    {workItem.organization_name}
+                  </dd>
+                </div>
+              </dl>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Edit Modal */}
@@ -486,17 +391,6 @@ export default function WorkItemDetailContent({ workItemId }: WorkItemDetailCont
         />
       )}
 
-      {/* Add Sub-Item Modal */}
-      <AddWorkItemModal
-        isOpen={isAddSubItemModalOpen}
-        onClose={() => setIsAddSubItemModalOpen(false)}
-        onSuccess={() => {
-          setIsAddSubItemModalOpen(false);
-          refetch();
-          refetchChildren();
-        }}
-        parentWorkItemId={workItemId}
-      />
     </div>
   );
 }

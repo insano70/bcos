@@ -102,7 +102,7 @@ export abstract class BaseWorkItemsService extends BaseRBACService {
    * Build complete WHERE conditions for work item queries
    *
    * Combines base RBAC filtering with optional query filters.
-   * Supports filtering by type, organization, status, priority, assignment, and search.
+   * Supports filtering by type, organization, status, priority, assignment, search, and hierarchy.
    *
    * @param options - Query filter options
    * @returns Array of SQL where conditions
@@ -151,6 +151,12 @@ export abstract class BaseWorkItemsService extends BaseRBACService {
         conditions.push(searchCondition);
       }
     }
+
+    // Apply hierarchy filter (default: root_only)
+    if (options.show_hierarchy === 'root_only') {
+      conditions.push(isNull(work_items.parent_work_item_id));
+    }
+    // If show_hierarchy === 'all', no additional filter needed
 
     return conditions;
   }

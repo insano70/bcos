@@ -90,7 +90,7 @@ export function useUpdateWorkItemField() {
 
   return useMutation({
     mutationFn: async ({ fieldId, data }: { fieldId: string; data: UpdateWorkItemFieldData }) => {
-      const result = await apiClient.put<WorkItemField>(`/api/work-item-fields/${fieldId}`, data);
+      const result = await apiClient.patch<WorkItemField>(`/api/work-item-fields/${fieldId}`, data);
       return result;
     },
     onSuccess: (result) => {

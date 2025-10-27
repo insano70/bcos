@@ -42,7 +42,7 @@ describe('S3 Upload Integration', () => {
     name: string,
     content: string,
     type: string,
-    size: number
+    _size: number
   ): File {
     const blob = new Blob([content], { type });
     return new File([blob], name, { type }) as File & { size: number };

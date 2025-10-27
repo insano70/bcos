@@ -169,6 +169,7 @@ export const workItemQuerySchema = z.object({
     .enum(['subject', 'priority', 'due_date', 'created_at', 'updated_at'])
     .default('created_at'),
   sortOrder: z.enum(['asc', 'desc']).default('desc'),
+  show_hierarchy: z.enum(['root_only', 'all']).default('root_only'),
 });
 
 export const workItemParamsSchema = z.object({

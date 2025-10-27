@@ -607,7 +607,7 @@ export default function DataTable<T extends { id: string | number }>({
       )}
       
       {/* Bulk Action Confirmation Modal */}
-      {pendingBulkAction && pendingBulkAction.confirmModal && (
+      {pendingBulkAction?.confirmModal && (
         <DeleteConfirmationModal
           isOpen={bulkModalOpen}
           setIsOpen={setBulkModalOpen}

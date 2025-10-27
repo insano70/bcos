@@ -6,11 +6,11 @@ import { useState } from 'react';
 import { apiClient } from '@/lib/api/client';
 
 interface HierarchyItem {
-  work_item_id: string;
+  id: string;
   subject: string;
   status_name: string;
   priority: string;
-  depth: number;
+  depth?: number; // Optional since children endpoint may not include depth
 }
 
 interface WorkItemHierarchySectionProps {
@@ -25,23 +25,27 @@ export default function WorkItemHierarchySection({ workItemId }: WorkItemHierarc
   const { data: ancestors = [] } = useQuery<HierarchyItem[]>({
     queryKey: ['work-item-ancestors', workItemId],
     queryFn: async () => {
-      const response = await apiClient.get<{ success: boolean; data: HierarchyItem[] }>(
+      // apiClient.get automatically unwraps { success: true, data: [...] } responses
+      const data = await apiClient.get<HierarchyItem[]>(
         `/api/work-items/${workItemId}/ancestors`
       );
-      return response.data;
+      return data;
     },
+    placeholderData: [], // Use placeholderData instead of initialData to allow fetch
     staleTime: 5 * 60 * 1000,
   });
 
-  // Fetch children
+  // Fetch children for hierarchy sidebar (different query key to avoid conflicts)
   const { data: children = [] } = useQuery<HierarchyItem[]>({
-    queryKey: ['work-item-children', workItemId],
+    queryKey: ['work-item-hierarchy-children', workItemId],
     queryFn: async () => {
-      const response = await apiClient.get<{ success: boolean; data: HierarchyItem[] }>(
+      // apiClient.get automatically unwraps { success: true, data: [...] } responses
+      const data = await apiClient.get<HierarchyItem[]>(
         `/api/work-items/${workItemId}/children`
       );
-      return response.data;
+      return data;
     },
+    placeholderData: [], // Use placeholderData instead of initialData to allow fetch
     staleTime: 5 * 60 * 1000,
   });
 
@@ -93,9 +97,9 @@ export default function WorkItemHierarchySection({ workItemId }: WorkItemHierarc
               <div className="space-y-2">
                 {ancestors.map((item) => (
                   <button
-                    key={item.work_item_id}
+                    key={item.id}
                     type="button"
-                    onClick={() => handleItemClick(item.work_item_id)}
+                    onClick={() => handleItemClick(item.id)}
                     className="w-full text-left p-2 rounded border border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
                   >
                     <div className="flex items-start justify-between gap-2">
@@ -155,9 +159,9 @@ export default function WorkItemHierarchySection({ workItemId }: WorkItemHierarc
               <div className="space-y-2">
                 {children.map((item) => (
                   <button
-                    key={item.work_item_id}
+                    key={item.id}
                     type="button"
-                    onClick={() => handleItemClick(item.work_item_id)}
+                    onClick={() => handleItemClick(item.id)}
                     className="w-full text-left p-2 rounded border border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
                   >
                     <div className="flex items-start justify-between gap-2">

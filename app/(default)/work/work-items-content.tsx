@@ -17,7 +17,10 @@ import { useWorkItems, type WorkItem } from '@/lib/hooks/use-work-items';
 
 export default function WorkItemsContent() {
   const router = useRouter();
-  const { data: workItems, isLoading, error, refetch } = useWorkItems();
+  const [hierarchyFilter, setHierarchyFilter] = useState<'root_only' | 'all'>('root_only');
+  const { data: workItems, isLoading, error, refetch } = useWorkItems({
+    show_hierarchy: hierarchyFilter,
+  });
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedWorkItem, setSelectedWorkItem] = useState<WorkItem | null>(null);
@@ -61,6 +64,13 @@ export default function WorkItemsContent() {
         { label: 'Low', value: 'low', field: 'priority', comparator: 'low' },
       ],
     },
+    {
+      group: 'Hierarchy',
+      options: [
+        { label: 'Root Items Only', value: 'root_only', field: 'show_hierarchy', comparator: 'root_only' },
+        { label: 'All Items', value: 'all', field: 'show_hierarchy', comparator: 'all' },
+      ],
+    },
   ];
 
   // Apply filters (optimized single-pass)
@@ -91,7 +101,15 @@ export default function WorkItemsContent() {
   }, [workItems, activeFilters, dateRange]);
 
   const handleFilterChange = useCallback((filters: ActiveFilter[]) => {
-    setActiveFilters(filters);
+    // Handle hierarchy filter separately (applies at query level)
+    const hierarchyFilterItem = filters.find((f) => f.field === 'show_hierarchy');
+    if (hierarchyFilterItem) {
+      setHierarchyFilter(hierarchyFilterItem.comparator as 'root_only' | 'all');
+    }
+
+    // Store other filters for client-side filtering
+    const otherFilters = filters.filter((f) => f.field !== 'show_hierarchy');
+    setActiveFilters(otherFilters);
   }, []);
 
   const handleDateChange = useCallback((newDateRange: DateRange) => {
