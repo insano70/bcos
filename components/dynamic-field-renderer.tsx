@@ -1,6 +1,8 @@
 'use client';
 
 import { useMemo } from 'react';
+import DateInput from '@/components/inputs/date-input';
+import DateTimeInput from '@/components/inputs/datetime-input';
 import type { WorkItemField } from '@/lib/types/work-item-fields';
 
 interface DynamicFieldRendererProps {
@@ -85,13 +87,12 @@ export default function DynamicFieldRenderer({
             {field.field_description && (
               <p className="text-xs text-gray-500 mb-2">{field.field_description}</p>
             )}
-            <input
+            <DateInput
               id={fieldId}
-              type="date"
-              className={`form-input w-full ${error ? 'border-red-500' : ''}`}
-              value={(value as string) || ''}
-              onChange={(e) => onChange(field.work_item_field_id, e.target.value)}
+              value={(value as string) || null}
+              onChange={(val) => onChange(field.work_item_field_id, val)}
               required={field.is_required_on_creation}
+              error={error}
             />
             {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
           </div>
@@ -107,13 +108,12 @@ export default function DynamicFieldRenderer({
             {field.field_description && (
               <p className="text-xs text-gray-500 mb-2">{field.field_description}</p>
             )}
-            <input
+            <DateTimeInput
               id={fieldId}
-              type="datetime-local"
-              className={`form-input w-full ${error ? 'border-red-500' : ''}`}
-              value={(value as string) || ''}
-              onChange={(e) => onChange(field.work_item_field_id, e.target.value)}
+              value={(value as string) || null}
+              onChange={(val) => onChange(field.work_item_field_id, val)}
               required={field.is_required_on_creation}
+              error={error}
             />
             {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
           </div>

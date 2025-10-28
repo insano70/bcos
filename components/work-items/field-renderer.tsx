@@ -1,5 +1,6 @@
 'use client';
 
+import DateInput from '@/components/inputs/date-input';
 import {
   CurrencyField,
   EmailField,
@@ -127,13 +128,12 @@ export function FieldRenderer({
         {field.field_description && (
           <p className="text-sm text-gray-500 dark:text-gray-400">{field.field_description}</p>
         )}
-        <input
-          type="date"
-          value={(value as string) || ''}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) => onChange(e.target.value)}
+        <DateInput
+          value={(value as string) || null}
+          onChange={onChange}
           disabled={disabled}
           required={isRequired}
-          className={`form-input w-full ${error ? 'border-red-500' : ''}`}
+          error={error}
         />
         {error && <p className="text-sm text-red-500">{error}</p>}
       </div>

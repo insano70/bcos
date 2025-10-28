@@ -201,22 +201,7 @@ export default function AddWorkItemModal({ isOpen, onClose, onSuccess, parentWor
     setIsSubmitting(true);
 
     try {
-      // Format custom field date values to ISO format
-      const formattedCustomFields: Record<string, unknown> = {};
-      if (Object.keys(customFieldValues).length > 0) {
-        Object.entries(customFieldValues).forEach(([fieldId, value]) => {
-          const field = allCustomFields.find((f) => f.work_item_field_id === fieldId);
-
-          // Convert date fields to ISO format
-          if (field?.field_type === 'date' && value && typeof value === 'string') {
-            // Date input gives us YYYY-MM-DD, convert to ISO datetime (midnight UTC)
-            formattedCustomFields[fieldId] = new Date(`${value}T00:00:00.000Z`).toISOString();
-          } else {
-            formattedCustomFields[fieldId] = value;
-          }
-        });
-      }
-
+      // Custom fields are already in correct ISO format from DateInput/DateTimeInput components
       const workItemData = {
         work_item_type_id: data.work_item_type_id,
         organization_id: data.organization_id,
@@ -229,7 +214,7 @@ export default function AddWorkItemModal({ isOpen, onClose, onSuccess, parentWor
             ? new Date(data.due_date).toISOString()
             : undefined,
         parent_work_item_id: data.parent_work_item_id,
-        custom_fields: Object.keys(formattedCustomFields).length > 0 ? formattedCustomFields : undefined,
+        custom_fields: Object.keys(customFieldValues).length > 0 ? customFieldValues : undefined,
       };
 
       await createWorkItem.mutateAsync(workItemData);

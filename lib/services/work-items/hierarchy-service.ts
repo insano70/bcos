@@ -18,6 +18,7 @@ import type { WorkItemWithDetails } from '@/lib/types/work-items';
 // 6. Internal services and utilities
 import { BaseWorkItemsService } from './base-service';
 import { WORK_ITEM_CONSTRAINTS } from './constants';
+import { createWorkItemCustomFieldsService } from './custom-fields-service';
 import { getWorkItemQueryBuilder } from './query-builder';
 
 /**
@@ -111,8 +112,17 @@ class WorkItemHierarchyService extends BaseWorkItemsService {
         .orderBy(asc(work_items.created_at));
       const queryDuration = Date.now() - queryStart;
 
-      // Map results to WorkItemWithDetails
-      const children = results.map((result) => this.mapWorkItemResult(result));
+      // Fetch custom field values for all child work items using dedicated service
+      const workItemIds = results.map((r) => r.work_item_id);
+      const customFieldsStart = Date.now();
+      const customFieldsService = createWorkItemCustomFieldsService(this.userContext);
+      const customFieldsMap = await customFieldsService.getCustomFieldValues(workItemIds);
+      const customFieldsDuration = Date.now() - customFieldsStart;
+
+      // Map results to WorkItemWithDetails with custom fields
+      const children = results.map((result) =>
+        this.mapWorkItemResult(result, customFieldsMap.get(result.work_item_id))
+      );
 
       const duration = Date.now() - startTime;
 
@@ -126,7 +136,9 @@ class WorkItemHierarchyService extends BaseWorkItemsService {
         component: 'hierarchy_service',
         metadata: {
           queryDuration,
+          customFieldsDuration,
           slow: queryDuration > SLOW_THRESHOLDS.DB_QUERY,
+          slowCustomFields: customFieldsDuration > SLOW_THRESHOLDS.DB_QUERY,
           rbacScope: this.getRBACScope(),
         },
       });
@@ -230,8 +242,17 @@ class WorkItemHierarchyService extends BaseWorkItemsService {
         .orderBy(asc(work_items.depth));
       const queryDuration = Date.now() - queryStart;
 
-      // Map results to WorkItemWithDetails
-      const ancestors = results.map((result) => this.mapWorkItemResult(result));
+      // Fetch custom field values for all ancestor work items using dedicated service
+      const workItemIds = results.map((r) => r.work_item_id);
+      const customFieldsStart = Date.now();
+      const customFieldsService = createWorkItemCustomFieldsService(this.userContext);
+      const customFieldsMap = await customFieldsService.getCustomFieldValues(workItemIds);
+      const customFieldsDuration = Date.now() - customFieldsStart;
+
+      // Map results to WorkItemWithDetails with custom fields
+      const ancestors = results.map((result) =>
+        this.mapWorkItemResult(result, customFieldsMap.get(result.work_item_id))
+      );
 
       const duration = Date.now() - startTime;
 
@@ -245,7 +266,9 @@ class WorkItemHierarchyService extends BaseWorkItemsService {
         component: 'hierarchy_service',
         metadata: {
           queryDuration,
+          customFieldsDuration,
           slow: queryDuration > SLOW_THRESHOLDS.DB_QUERY,
+          slowCustomFields: customFieldsDuration > SLOW_THRESHOLDS.DB_QUERY,
           rbacScope: this.getRBACScope(),
           depth: workItem.depth,
         },
