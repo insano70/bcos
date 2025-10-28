@@ -166,7 +166,7 @@ export default function EditableWorkItemsTable({
         editable: false,
       },
       {
-        key: 'work_item_type_name',
+        key: 'work_item_type_id',
         header: 'Type',
         width: '150px',
         editable: true,
@@ -176,9 +176,9 @@ export default function EditableWorkItemsTable({
             {item.work_item_type_name}
           </span>
         ),
-        renderEdit: (item, _value, onChange, error) => (
+        renderEdit: (item, value, onChange, error) => (
           <select
-            value={item.work_item_type_id}
+            value={String(value || item.work_item_type_id)}
             onChange={(e) => onChange(e.target.value)}
             className={`form-select w-full ${error ? 'border-red-500' : ''}`}
           >
@@ -227,7 +227,7 @@ export default function EditableWorkItemsTable({
         },
       },
       {
-        key: 'status_name',
+        key: 'status_id',
         header: 'Status',
         width: '150px',
         editable: true,
@@ -236,9 +236,9 @@ export default function EditableWorkItemsTable({
             {item.status_name}
           </span>
         ),
-        renderEdit: (item, _value, onChange, error) => (
+        renderEdit: (item, value, onChange, error) => (
           <select
-            value={item.status_id}
+            value={String(value || item.status_id)}
             onChange={(e) => onChange(e.target.value)}
             className={`form-select w-full ${error ? 'border-red-500' : ''}`}
           >
@@ -375,31 +375,8 @@ export default function EditableWorkItemsTable({
         throw new ValidationError(validationResult.customFieldErrors, formatValidationErrorsForToast(validationResult));
       }
 
-      // Format custom fields before sending (ensure datetime fields are in ISO format)
-      // We need to format ALL custom fields if any are being sent, not just changed ones
-      let formattedCustomFields: Record<string, unknown> | undefined;
-      if (changes.custom_fields) {
-        formattedCustomFields = {};
-
-        // Merge current and changed custom fields
-        const allCustomFields = { ...item.custom_fields, ...changes.custom_fields };
-
-        for (const [fieldId, value] of Object.entries(allCustomFields)) {
-          const field = customFields.find((f) => f.work_item_field_id === fieldId);
-
-          if (field?.field_type === 'datetime' && value && typeof value === 'string') {
-            // If value is just a date (YYYY-MM-DD), convert to ISO datetime
-            if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-              formattedCustomFields[fieldId] = `${value}T00:00:00.000Z`;
-            } else {
-              // Already in correct format or has time component
-              formattedCustomFields[fieldId] = value;
-            }
-          } else if (value !== undefined && value !== null) {
-            formattedCustomFields[fieldId] = value;
-          }
-        }
-      }
+      // Custom fields are already in correct ISO format from DateInput/DateTimeInput components
+      // No conversion needed - pass through directly
 
       // Validation passed - proceed with save
       await updateWorkItem.mutateAsync({
@@ -411,7 +388,7 @@ export default function EditableWorkItemsTable({
           priority: changes.priority as string | undefined,
           assigned_to: (changes.assigned_to === null ? undefined : changes.assigned_to) as string | undefined,
           due_date: changes.due_date ? (changes.due_date as Date).toISOString() : undefined,
-          custom_fields: formattedCustomFields,
+          custom_fields: changes.custom_fields as Record<string, unknown> | undefined,
         },
       });
 
@@ -472,14 +449,73 @@ export default function EditableWorkItemsTable({
         throw new Error('No allowed child types configured');
       }
 
-      // Create stub work item
+      // Find the relationship configuration for this child type
+      const relationship = typeRelationships.find((rel) => rel.child_type_id === firstAllowedType.id);
+      const inheritFields = relationship?.auto_create_config?.inherit_fields || [];
+
+      // Build inherited field values from parent based on configuration
+      const inheritedData: {
+        subject?: string;
+        description?: string;
+        priority?: string;
+        assigned_to?: string;
+        due_date?: string;
+      } = {};
+
+      // Build inherited custom fields
+      const inheritedCustomFields: Record<string, unknown> = {};
+
+      // Apply field inheritance based on relationship configuration
+      inheritFields.forEach((field) => {
+        switch (field) {
+          case 'subject':
+            if (parentWorkItem.subject) {
+              inheritedData.subject = parentWorkItem.subject;
+            }
+            break;
+          case 'description':
+            if (parentWorkItem.description) {
+              inheritedData.description = parentWorkItem.description;
+            }
+            break;
+          case 'priority':
+            if (parentWorkItem.priority) {
+              inheritedData.priority = parentWorkItem.priority;
+            }
+            break;
+          case 'assigned_to':
+            if (parentWorkItem.assigned_to) {
+              inheritedData.assigned_to = parentWorkItem.assigned_to;
+            }
+            break;
+          case 'due_date':
+            if (parentWorkItem.due_date) {
+              inheritedData.due_date = new Date(parentWorkItem.due_date).toISOString();
+            }
+            break;
+          default:
+            // Check if this is a custom field from parent
+            if (parentWorkItem.custom_fields && field in parentWorkItem.custom_fields) {
+              const value = parentWorkItem.custom_fields[field];
+              if (value !== null && value !== undefined) {
+                inheritedCustomFields[field] = value;
+              }
+            }
+            break;
+        }
+      });
+
+      // Create work item with inherited values
       const newWorkItem = await createWorkItem.mutateAsync({
         parent_work_item_id: parentWorkItemId,
         work_item_type_id: firstAllowedType.id,
         organization_id: parentWorkItem.organization_id,
-        subject: 'New Item', // Default subject - user will edit
-        priority: 'medium', // Default priority
-        // All other fields will be null/undefined
+        subject: inheritedData.subject || 'New Item', // Use inherited or default
+        description: inheritedData.description,
+        priority: inheritedData.priority || 'medium',
+        assigned_to: inheritedData.assigned_to,
+        due_date: inheritedData.due_date,
+        custom_fields: Object.keys(inheritedCustomFields).length > 0 ? inheritedCustomFields : undefined,
       });
 
       // Track this as a new item (for validation)

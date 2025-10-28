@@ -90,6 +90,7 @@ export interface CreateWorkItemInput {
   assigned_to?: string | undefined;
   due_date?: string | undefined;
   parent_work_item_id?: string | undefined;
+  custom_fields?: Record<string, unknown> | undefined;
 }
 
 export interface UpdateWorkItemInput {

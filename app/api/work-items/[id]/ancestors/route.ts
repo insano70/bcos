@@ -71,6 +71,7 @@ const getWorkItemAncestorsHandler = async (
         created_by_name: ancestor.created_by_name,
         created_at: ancestor.created_at,
         updated_at: ancestor.updated_at,
+        custom_fields: ancestor.custom_fields,
       }))
     );
   } catch (error) {

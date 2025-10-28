@@ -508,7 +508,7 @@ export default function EditableDataTable<T extends { id: string }>({
         <div>
           <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
             <table className="table-auto w-full dark:text-gray-300">
-              <thead className="text-xs font-semibold uppercase text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-900/20 border-t border-b border-gray-100 dark:border-gray-700/60 sticky top-0 z-10">
+              <thead className="text-xs font-semibold uppercase text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-900 border-t border-b border-gray-100 dark:border-gray-700/60 sticky top-0 z-20">
                 <tr>
                   {expandable && (
                     <th className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap w-px">

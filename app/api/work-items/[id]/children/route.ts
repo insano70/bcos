@@ -71,6 +71,7 @@ const getWorkItemChildrenHandler = async (
         created_by_name: child.created_by_name,
         created_at: child.created_at,
         updated_at: child.updated_at,
+        custom_fields: child.custom_fields,
       }))
     );
   } catch (error) {

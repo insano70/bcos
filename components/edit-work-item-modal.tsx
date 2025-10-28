@@ -106,22 +106,7 @@ export default function EditWorkItemModal({
     setIsSubmitting(true);
 
     try {
-      // Format custom field date values to ISO format
-      const formattedCustomFields: Record<string, unknown> = {};
-      if (Object.keys(customFieldValues).length > 0) {
-        Object.entries(customFieldValues).forEach(([fieldId, value]) => {
-          const field = customFields.find((f) => f.work_item_field_id === fieldId);
-
-          // Convert date fields to ISO format
-          if (field?.field_type === 'date' && value && typeof value === 'string') {
-            // Date input gives us YYYY-MM-DD, convert to ISO datetime (midnight UTC)
-            formattedCustomFields[fieldId] = new Date(`${value}T00:00:00.000Z`).toISOString();
-          } else {
-            formattedCustomFields[fieldId] = value;
-          }
-        });
-      }
-
+      // Custom fields are already in correct ISO format from DateInput/DateTimeInput components
       await updateWorkItem.mutateAsync({
         id: workItem.id,
         data: {
@@ -134,7 +119,7 @@ export default function EditWorkItemModal({
             data.due_date && data.due_date.trim() !== ''
               ? new Date(data.due_date).toISOString()
               : undefined,
-          custom_fields: Object.keys(formattedCustomFields).length > 0 ? formattedCustomFields : undefined,
+          custom_fields: Object.keys(customFieldValues).length > 0 ? customFieldValues : undefined,
         },
       });
 
