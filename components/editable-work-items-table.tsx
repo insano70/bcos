@@ -375,6 +375,32 @@ export default function EditableWorkItemsTable({
         throw new ValidationError(validationResult.customFieldErrors, formatValidationErrorsForToast(validationResult));
       }
 
+      // Format custom fields before sending (ensure datetime fields are in ISO format)
+      // We need to format ALL custom fields if any are being sent, not just changed ones
+      let formattedCustomFields: Record<string, unknown> | undefined;
+      if (changes.custom_fields) {
+        formattedCustomFields = {};
+
+        // Merge current and changed custom fields
+        const allCustomFields = { ...item.custom_fields, ...changes.custom_fields };
+
+        for (const [fieldId, value] of Object.entries(allCustomFields)) {
+          const field = customFields.find((f) => f.work_item_field_id === fieldId);
+
+          if (field?.field_type === 'datetime' && value && typeof value === 'string') {
+            // If value is just a date (YYYY-MM-DD), convert to ISO datetime
+            if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+              formattedCustomFields[fieldId] = `${value}T00:00:00.000Z`;
+            } else {
+              // Already in correct format or has time component
+              formattedCustomFields[fieldId] = value;
+            }
+          } else if (value !== undefined && value !== null) {
+            formattedCustomFields[fieldId] = value;
+          }
+        }
+      }
+
       // Validation passed - proceed with save
       await updateWorkItem.mutateAsync({
         id: item.id,
@@ -385,7 +411,7 @@ export default function EditableWorkItemsTable({
           priority: changes.priority as string | undefined,
           assigned_to: (changes.assigned_to === null ? undefined : changes.assigned_to) as string | undefined,
           due_date: changes.due_date ? (changes.due_date as Date).toISOString() : undefined,
-          custom_fields: changes.custom_fields as Record<string, unknown> | undefined,
+          custom_fields: formattedCustomFields,
         },
       });
 
