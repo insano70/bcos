@@ -366,15 +366,12 @@ export default function EditableDataTable<T extends { id: string }>({
   // Save handler
   const handleSave = async (rowId: string) => {
     const item = data.find((d) => d.id === rowId);
-    const changes = unsavedChanges.get(rowId);
+    const changes = unsavedChanges.get(rowId) || {};
 
     if (!item) return;
 
-    // If no changes, just exit edit mode
-    if (!changes || Object.keys(changes).length === 0) {
-      exitEditMode(rowId);
-      return;
-    }
+    // Note: We don't exit early if changes is empty, because onSave callback
+    // may need to run validation (e.g. for required fields on new items)
 
     // Validate
     const errors = validateRow(item, changes);
@@ -434,7 +431,7 @@ export default function EditableDataTable<T extends { id: string }>({
   };
 
   // Cancel handler
-  const handleCancel = (rowId: string) => {
+  const handleCancel = async (rowId: string) => {
     const item = data.find((d) => d.id === rowId);
     exitEditMode(rowId);
     if (item && onCancel) {
