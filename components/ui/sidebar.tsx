@@ -6,6 +6,7 @@ import { usePermissions } from '@/lib/hooks/use-permissions';
 import Logo from './logo';
 import { AdminMenuSection } from './sidebar/admin-menu-section';
 import { DashboardMenuSection } from './sidebar/dashboard-menu-section';
+import { DataExplorerMenuSection } from './sidebar/data-explorer-menu-section';
 import { useSidebarState } from './sidebar/use-sidebar-state';
 import { WorkMenuSection } from './sidebar/work-menu-section';
 
@@ -50,6 +51,16 @@ export default function Sidebar({ variant = 'default' }: { variant?: 'default' |
     'work-items:read:own',
     'work-items:read:organization',
     'work-items:read:all',
+  ]);
+
+  // Check if user has any permissions to see Data Explorer section
+  const hasDataExplorerAccess = hasAnyPermission([
+    'data-explorer:query:organization',
+    'data-explorer:query:all',
+    'data-explorer:execute:organization',
+    'data-explorer:execute:all',
+    'data-explorer:metadata:read:organization',
+    'data-explorer:metadata:read:all',
   ]);
 
   // Don't render the sidebar until authentication is loaded
@@ -110,6 +121,9 @@ export default function Sidebar({ variant = 'default' }: { variant?: 'default' |
 
           {/* Work Section - Permission gated */}
           {hasWorkAccess && <WorkMenuSection />}
+
+          {/* Data Explorer Section - Permission gated */}
+          {hasDataExplorerAccess && <DataExplorerMenuSection />}
 
           {/* Admin Section - Permission gated, contains Configure and Monitor */}
           {hasAdminAccess && <AdminMenuSection />}

@@ -73,6 +73,18 @@ export const env = createEnv({
 
     // Node Environment
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+
+    // AWS Bedrock (Data Explorer) - AI-powered SQL generation
+    AWS_BEDROCK_REGION: z.string().default('us-east-1'),
+    AWS_BEDROCK_ACCESS_KEY_ID: z.string().optional(),
+    AWS_BEDROCK_SECRET_ACCESS_KEY: z.string().optional(),
+
+    // Data Explorer configuration
+    DATA_EXPLORER_MODEL_ID: z.string().default('anthropic.claude-3-5-sonnet-20241022-v2:0'),
+    DATA_EXPLORER_MAX_TOKENS: z.coerce.number().int().positive().default(4096),
+    DATA_EXPLORER_TEMPERATURE: z.coerce.number().min(0).max(1).default(0.1),
+    DATA_EXPLORER_QUERY_TIMEOUT_MS: z.coerce.number().int().positive().default(30000),
+    DATA_EXPLORER_MAX_ROWS: z.coerce.number().int().positive().default(10000),
   },
 
   /**
@@ -131,6 +143,16 @@ export const env = createEnv({
 
     APP_URL: process.env.APP_URL,
     NODE_ENV: process.env.NODE_ENV,
+
+    // Bedrock configuration
+    AWS_BEDROCK_REGION: process.env.AWS_BEDROCK_REGION,
+    AWS_BEDROCK_ACCESS_KEY_ID: process.env.AWS_BEDROCK_ACCESS_KEY_ID,
+    AWS_BEDROCK_SECRET_ACCESS_KEY: process.env.AWS_BEDROCK_SECRET_ACCESS_KEY,
+    DATA_EXPLORER_MODEL_ID: process.env.DATA_EXPLORER_MODEL_ID,
+    DATA_EXPLORER_MAX_TOKENS: process.env.DATA_EXPLORER_MAX_TOKENS,
+    DATA_EXPLORER_TEMPERATURE: process.env.DATA_EXPLORER_TEMPERATURE,
+    DATA_EXPLORER_QUERY_TIMEOUT_MS: process.env.DATA_EXPLORER_QUERY_TIMEOUT_MS,
+    DATA_EXPLORER_MAX_ROWS: process.env.DATA_EXPLORER_MAX_ROWS,
 
     // Client
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,

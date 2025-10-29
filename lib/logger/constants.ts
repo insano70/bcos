@@ -47,6 +47,9 @@ export const SLOW_THRESHOLDS = {
 
   /** Complex authentication operations (login, refresh, MFA) - 2000ms */
   AUTH_OPERATION: 2000,
+
+  /** Large Language Model calls (e.g., Bedrock) - 3000ms */
+  LLM_CALL: 3000,
 } as const;
 
 /**
