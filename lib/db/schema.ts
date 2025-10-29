@@ -92,6 +92,16 @@ export {
   workItemWatchersRelations,
 } from './work-items-schema';
 
+// Data Explorer tables
+export {
+  explorerTableMetadata,
+  explorerColumnMetadata,
+  explorerQueryHistory,
+  explorerSavedQueries,
+  explorerTableRelationships,
+  explorerQueryPatterns,
+} from './explorer-schema';
+
 // System users (admins who manage the platform)
 export const users = pgTable(
   'users',

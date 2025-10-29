@@ -47,6 +47,7 @@
     "db:backfill:account-security": "tsx --env-file=.env.local scripts/backfill-account-security.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-bedrock-runtime": "^3.918.0",
     "@aws-sdk/client-cloudwatch-logs": "^3.914.0",
     "@aws-sdk/client-s3": "^3.914.0",
     "@aws-sdk/s3-request-presigner": "^3.914.0",
@@ -89,6 +90,7 @@
     "nanoid": "^5.1.6",
     "next": "15.5.6",
     "next-themes": "^0.4.6",
+    "node-sql-parser": "^5.3.13",
     "nodemailer": "^7.0.9",
     "openid-client": "^6.8.1",
     "postgres": "^3.4.7",

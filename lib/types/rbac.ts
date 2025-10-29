@@ -231,7 +231,25 @@ export type PermissionName =
   | DataSourcePermission
   | WorkItemPermission
   | DashboardPermission
-  | ChartPermission;
+  | ChartPermission
+  // Data Explorer permissions
+  | 'data-explorer:query:organization'
+  | 'data-explorer:query:all'
+  | 'data-explorer:execute:own'
+  | 'data-explorer:execute:organization'
+  | 'data-explorer:execute:all'
+  | 'data-explorer:metadata:read:organization'
+  | 'data-explorer:metadata:read:all'
+  | 'data-explorer:metadata:manage:all'
+  | 'data-explorer:history:read:own'
+  | 'data-explorer:history:read:organization'
+  | 'data-explorer:history:read:all'
+  | 'data-explorer:templates:read:organization'
+  | 'data-explorer:templates:read:all'
+  | 'data-explorer:templates:create:organization'
+  | 'data-explorer:templates:manage:own'
+  | 'data-explorer:templates:manage:all'
+  | 'data-explorer:discovery:run:all';
 
 // Role Types for Healthcare Practices
 export type SystemRoleName = 'super_admin';
@@ -258,6 +276,10 @@ export interface UserContext {
   // Users with analytics:read:own permission can only see data where provider_uid = this value
   // If null/undefined, user with analytics:read:own sees NO data (fail-closed security)
   provider_uid?: number | null | undefined;
+
+  // Analytics security - row-level filtering for analytics (optional, used by Data Explorer)
+  accessible_practices?: number[] | undefined;
+  accessible_providers?: number[] | undefined;
 
   // RBAC information
   roles: Role[];

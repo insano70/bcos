@@ -632,6 +632,112 @@ export const RBAC_PERMISSIONS: Record<string, PermissionDefinition> = {
     action: 'write',
     scope: 'organization',
   },
+
+  // ============================================================================
+  // DATA EXPLORER PERMISSIONS
+  // ============================================================================
+  'data-explorer:query:organization': {
+    description: 'Generate SQL queries for organization data',
+    resource: 'data-explorer',
+    action: 'query',
+    scope: 'organization',
+  },
+  'data-explorer:query:all': {
+    description: 'Generate SQL queries for all data (super admin)',
+    resource: 'data-explorer',
+    action: 'query',
+    scope: 'all',
+  },
+  'data-explorer:execute:own': {
+    description: 'Execute queries filtered by own provider_uid',
+    resource: 'data-explorer',
+    action: 'execute',
+    scope: 'own',
+  },
+  'data-explorer:execute:organization': {
+    description: 'Execute queries filtered by organization practice_uids',
+    resource: 'data-explorer',
+    action: 'execute',
+    scope: 'organization',
+  },
+  'data-explorer:execute:all': {
+    description: 'Execute queries without filtering (super admin)',
+    resource: 'data-explorer',
+    action: 'execute',
+    scope: 'all',
+  },
+  'data-explorer:metadata:read:organization': {
+    description: 'View table/column metadata',
+    resource: 'data-explorer',
+    action: 'metadata:read',
+    scope: 'organization',
+  },
+  'data-explorer:metadata:read:all': {
+    description: 'View all metadata',
+    resource: 'data-explorer',
+    action: 'metadata:read',
+    scope: 'all',
+  },
+  'data-explorer:metadata:manage:all': {
+    description: 'Create/update/delete metadata (admin only)',
+    resource: 'data-explorer',
+    action: 'metadata:manage',
+    scope: 'all',
+  },
+  'data-explorer:history:read:own': {
+    description: 'View own query history',
+    resource: 'data-explorer',
+    action: 'history:read',
+    scope: 'own',
+  },
+  'data-explorer:history:read:organization': {
+    description: 'View organization query history',
+    resource: 'data-explorer',
+    action: 'history:read',
+    scope: 'organization',
+  },
+  'data-explorer:history:read:all': {
+    description: 'View all query history',
+    resource: 'data-explorer',
+    action: 'history:read',
+    scope: 'all',
+  },
+  'data-explorer:templates:read:organization': {
+    description: 'View query templates',
+    resource: 'data-explorer',
+    action: 'templates:read',
+    scope: 'organization',
+  },
+  'data-explorer:templates:read:all': {
+    description: 'View all templates',
+    resource: 'data-explorer',
+    action: 'templates:read',
+    scope: 'all',
+  },
+  'data-explorer:templates:create:organization': {
+    description: 'Create query templates',
+    resource: 'data-explorer',
+    action: 'templates:create',
+    scope: 'organization',
+  },
+  'data-explorer:templates:manage:own': {
+    description: 'Manage own templates',
+    resource: 'data-explorer',
+    action: 'templates:manage',
+    scope: 'own',
+  },
+  'data-explorer:templates:manage:all': {
+    description: 'Manage all templates',
+    resource: 'data-explorer',
+    action: 'templates:manage',
+    scope: 'all',
+  },
+  'data-explorer:discovery:run:all': {
+    description: 'Run schema auto-discovery (admin only)',
+    resource: 'data-explorer',
+    action: 'discovery:run',
+    scope: 'all',
+  },
 } as const;
 
 /**
