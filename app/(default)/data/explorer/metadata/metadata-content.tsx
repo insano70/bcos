@@ -15,7 +15,10 @@ import { useTableMetadata } from '@/lib/hooks/use-data-explorer';
 import type { TableMetadata } from '@/lib/types/data-explorer';
 
 export default function MetadataManagementContent() {
-  const { data: tables = [], isLoading, refetch } = useTableMetadata({ is_active: true });
+  const { data: tables = [], isLoading, refetch } = useTableMetadata({ 
+    is_active: true,
+    limit: 1000,  // Get all tables, not just first 50
+  });
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isColumnsModalOpen, setIsColumnsModalOpen] = useState(false);
   const [isDiscoveryModalOpen, setIsDiscoveryModalOpen] = useState(false);
@@ -37,12 +40,35 @@ export default function MetadataManagementContent() {
   }));
 
   const columns: DataTableColumn<TableMetadata & { id: string; completeness: number }>[] = [
-    { key: 'table_name', header: 'Table Name', sortable: true },
-    { key: 'tier', header: 'Tier', sortable: true },
-    { key: 'description', header: 'Description' },
-    { key: 'completeness', header: 'Completeness %', sortable: true },
-    { key: 'is_active', header: 'Active', sortable: true },
-    { key: 'actions', header: 'Actions' },
+    { key: 'table_name', header: 'Table Name', sortable: true, width: 200 },
+    { key: 'tier', header: 'Tier', sortable: true, width: 80 },
+    { 
+      key: 'description', 
+      header: 'Description',
+      render: (item) => (
+        <div className="max-w-md truncate" title={item.description || ''}>
+          {item.description || <span className="italic text-gray-400">No description</span>}
+        </div>
+      ),
+    },
+    { 
+      key: 'completeness', 
+      header: 'Quality', 
+      sortable: true, 
+      width: 120,
+      render: (item) => {
+        const quality = item.completeness;
+        const badge = quality >= 80 ? 'Excellent' : quality >= 60 ? 'Good' : quality >= 40 ? 'Fair' : 'Poor';
+        const color = quality >= 80 ? 'bg-green-100 text-green-800' : quality >= 60 ? 'bg-blue-100 text-blue-800' : quality >= 40 ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-800';
+        return (
+          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${color}`}>
+            {badge} {quality}%
+          </span>
+        );
+      },
+    },
+    { key: 'is_active', header: 'Active', sortable: true, width: 80 },
+    { key: 'actions', header: 'Actions', width: 100 },
   ];
 
   const handleDiscoverTables = async () => {
@@ -202,6 +228,7 @@ export default function MetadataManagementContent() {
         onClose={() => setIsCreateModalOpen(false)}
         onSuccess={() => refetch()}
       />
+
     </div>
   );
 }

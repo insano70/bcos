@@ -100,6 +100,7 @@ export {
   explorerSavedQueries,
   explorerTableRelationships,
   explorerQueryPatterns,
+  explorerSchemaInstructions,
 } from './explorer-schema';
 
 // System users (admins who manage the platform)

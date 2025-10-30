@@ -1,9 +1,9 @@
-import { and, desc, eq, sql, type SQL } from 'drizzle-orm';
+import { and, eq, sql, type SQL, or, desc, asc } from 'drizzle-orm';
 import { BaseRBACService } from '@/lib/rbac/base-service';
 import { db } from '@/lib/db';
-import { explorerColumnMetadata, explorerTableMetadata } from '@/lib/db/schema';
+import { explorerColumnMetadata, explorerTableMetadata, explorerTableRelationships, explorerSchemaInstructions } from '@/lib/db/schema';
 import type { UserContext } from '@/lib/types/rbac';
-import type { ColumnMetadata, MetadataQueryOptions, TableMetadata } from '@/lib/types/data-explorer';
+import type { ColumnMetadata, MetadataQueryOptions, TableMetadata, SchemaInstruction, CreateSchemaInstructionData } from '@/lib/types/data-explorer';
 import { log, SLOW_THRESHOLDS } from '@/lib/logger';
 
 export interface MetadataServiceInterface {
@@ -54,7 +54,7 @@ export class ExplorerMetadataService extends BaseRBACService implements Metadata
       .select()
       .from(explorerTableMetadata)
       .where(conditions.length > 0 ? and(...conditions) : undefined)
-      .orderBy(desc(explorerTableMetadata.tier), explorerTableMetadata.table_name)
+      .orderBy(explorerTableMetadata.tier, explorerTableMetadata.table_name)
       .limit(options.limit ?? 1000)
       .offset(options.offset ?? 0);
 
@@ -206,6 +206,74 @@ export class ExplorerMetadataService extends BaseRBACService implements Metadata
     return Math.round((filled / fields.length) * 100);
   }
 
+  async calculateQualityScore(tableId: string): Promise<number> {
+    if (!this.dbContext) throw new Error('Database context not initialized');
+
+    const [metadata] = await this.dbContext
+      .select()
+      .from(explorerTableMetadata)
+      .where(eq(explorerTableMetadata.table_metadata_id, tableId))
+      .limit(1);
+
+    if (!metadata) return 0;
+
+    let score = 0;
+    const maxScore = 100;
+
+    // Description quality (30 points)
+    if (metadata.description) {
+      const descLength = metadata.description.length;
+      if (descLength > 200) score += 30;
+      else if (descLength > 100) score += 20;
+      else if (descLength > 50) score += 10;
+      else score += 5;
+    }
+
+    // Sample questions (20 points)
+    const questionCount = metadata.sample_questions?.length || 0;
+    if (questionCount >= 3) score += 20;
+    else if (questionCount === 2) score += 13;
+    else if (questionCount === 1) score += 7;
+
+    // Row meaning (10 points)
+    if (metadata.row_meaning && metadata.row_meaning.length > 20) score += 10;
+    else if (metadata.row_meaning) score += 5;
+
+    // Common filters (10 points)
+    const filterCount = metadata.common_filters?.length || 0;
+    if (filterCount >= 3) score += 10;
+    else if (filterCount >= 2) score += 7;
+    else if (filterCount >= 1) score += 4;
+
+    // Column descriptions (20 points)
+    const columns = await this.dbContext
+      .select()
+      .from(explorerColumnMetadata)
+      .where(eq(explorerColumnMetadata.table_id, tableId));
+
+    const columnsWithDesc = columns.filter(c => c.description && c.description.length > 10);
+    const columnCoverage = columns.length > 0 ? columnsWithDesc.length / columns.length : 0;
+    score += Math.round(columnCoverage * 20);
+
+    // Relationships (10 points)
+    const relationships = await this.dbContext
+      .select()
+      .from(explorerTableRelationships)
+      .where(
+        or(
+          eq(explorerTableRelationships.from_table_id, tableId),
+          eq(explorerTableRelationships.to_table_id, tableId)
+        )
+      );
+
+    const relCount = relationships.length;
+    if (relCount >= 3) score += 10;
+    else if (relCount >= 2) score += 7;
+    else if (relCount >= 1) score += 4;
+
+    return Math.min(score, maxScore);
+  }
+
   async createTableMetadata(data: {
     schema_name: string;
     table_name: string;
@@ -260,5 +328,87 @@ export class ExplorerMetadataService extends BaseRBACService implements Metadata
 
     if (!updated) throw new Error('Column metadata not found');
     return updated as ColumnMetadata;
+  }
+
+  async getSchemaInstructions(schemaName: string = 'ih'): Promise<SchemaInstruction[]> {
+    this.requireAnyPermission([
+      'data-explorer:metadata:read:organization',
+      'data-explorer:metadata:read:all',
+    ]);
+
+    if (!this.dbContext) throw new Error('Database context not initialized');
+    
+    const instructions = await this.dbContext
+      .select()
+      .from(explorerSchemaInstructions)
+      .where(
+        and(
+          eq(explorerSchemaInstructions.schema_name, schemaName),
+          eq(explorerSchemaInstructions.is_active, true)
+        )
+      )
+      .orderBy(asc(explorerSchemaInstructions.priority), desc(explorerSchemaInstructions.created_at));
+
+    return instructions as SchemaInstruction[];
+  }
+
+  async createSchemaInstruction(data: CreateSchemaInstructionData): Promise<SchemaInstruction> {
+    this.requirePermission('data-explorer:metadata:manage:all');
+
+    if (!this.dbContext) throw new Error('Database context not initialized');
+    
+    const [created] = await this.dbContext
+      .insert(explorerSchemaInstructions)
+      .values({
+        schema_name: data.schema_name || 'ih',
+        category: data.category,
+        title: data.title,
+        instruction: data.instruction,
+        priority: data.priority || 2,
+        applies_to_tables: data.applies_to_tables,
+        example_query: data.example_query,
+        example_sql: data.example_sql,
+        created_by: this.userContext.user_id,
+      })
+      .returning();
+
+    if (!created) throw new Error('Failed to create schema instruction');
+    return created as SchemaInstruction;
+  }
+
+  async updateSchemaInstruction(id: string, data: Partial<SchemaInstruction>): Promise<SchemaInstruction> {
+    this.requirePermission('data-explorer:metadata:manage:all');
+
+    if (!this.dbContext) throw new Error('Database context not initialized');
+    
+    const [updated] = await this.dbContext
+      .update(explorerSchemaInstructions)
+      .set({
+        ...(data.title !== undefined && { title: data.title }),
+        ...(data.instruction !== undefined && { instruction: data.instruction }),
+        ...(data.category !== undefined && { category: data.category }),
+        ...(data.priority !== undefined && { priority: data.priority }),
+        ...(data.applies_to_tables !== undefined && { applies_to_tables: data.applies_to_tables }),
+        ...(data.example_query !== undefined && { example_query: data.example_query }),
+        ...(data.example_sql !== undefined && { example_sql: data.example_sql }),
+        ...(data.is_active !== undefined && { is_active: data.is_active }),
+        updated_at: new Date(),
+        updated_by: this.userContext.user_id,
+      })
+      .where(eq(explorerSchemaInstructions.instruction_id, id))
+      .returning();
+
+    if (!updated) throw new Error('Schema instruction not found');
+    return updated as SchemaInstruction;
+  }
+
+  async deleteSchemaInstruction(id: string): Promise<void> {
+    this.requirePermission('data-explorer:metadata:manage:all');
+
+    if (!this.dbContext) throw new Error('Database context not initialized');
+    
+    await this.dbContext
+      .delete(explorerSchemaInstructions)
+      .where(eq(explorerSchemaInstructions.instruction_id, id));
   }
 }

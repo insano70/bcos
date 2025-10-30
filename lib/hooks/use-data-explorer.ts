@@ -7,6 +7,7 @@ import type {
   ExecuteQueryResult,
   TableMetadata,
   QueryHistory,
+  SchemaInstruction,
 } from '@/lib/types/data-explorer';
 
 export function useGenerateSQL() {
@@ -26,12 +27,14 @@ export function useTableMetadata(params?: {
   tier?: number;
   is_active?: boolean;
   search?: string;
+  limit?: number;
 }) {
   const searchParams = new URLSearchParams();
   if (params?.schema_name) searchParams.append('schema_name', params.schema_name);
   if (params?.tier !== undefined) searchParams.append('tier', String(params.tier));
   if (params?.is_active !== undefined) searchParams.append('is_active', String(params.is_active));
   if (params?.search) searchParams.append('search', params.search);
+  if (params?.limit !== undefined) searchParams.append('limit', String(params.limit));
 
   return useApiQuery<TableMetadata[]>(
     ['data-explorer', 'metadata', 'tables', JSON.stringify(params)],
@@ -61,6 +64,17 @@ export function useQueryHistory(params?: { limit?: number; offset?: number; stat
 export function useUpdateTableMetadata() {
   return useApiMutation<TableMetadata, { id: string; data: Partial<TableMetadata> }>(
     ({ id, data }) => apiClient.put<TableMetadata>(`/api/data/explorer/metadata/tables/${id}`, data)
+  );
+}
+
+export function useSchemaInstructions() {
+  return useApiQuery<SchemaInstruction[]>(
+    ['data-explorer', 'schema-instructions'],
+    '/api/data/explorer/schema-instructions',
+    {
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      gcTime: 10 * 60 * 1000,
+    }
   );
 }
 

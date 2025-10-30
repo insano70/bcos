@@ -102,9 +102,10 @@ export interface QueryTemplate {
 // API request/response types
 export interface GenerateSQLParams {
   natural_language_query: string;
-  model?: 'anthropic.claude-3-5-sonnet-20241022-v2:0';
+  model?: string; // Optional - backend uses DATA_EXPLORER_MODEL_ID env var
   temperature?: number;
   include_explanation?: boolean;
+  tiers?: Array<1 | 2 | 3>; // Optional - defaults to [1, 2, 3] (all tiers)
 }
 
 export interface GenerateSQLResult {
@@ -153,9 +154,10 @@ export interface ExecuteQueryOptions {
 }
 
 export interface BedrockOptions {
-  model?: string;
-  temperature?: number;
-  include_explanation?: boolean;
+  model?: string | undefined;
+  temperature?: number | undefined;
+  include_explanation?: boolean | undefined;
+  tiers?: Array<1 | 2 | 3> | undefined;
 }
 
 // Query security context
@@ -165,6 +167,35 @@ export interface QuerySecurityContext {
   accessible_providers: number[];
   is_super_admin: boolean;
   has_full_access: boolean;
+}
+
+// Schema instruction
+export interface SchemaInstruction {
+  instruction_id: string;
+  schema_name: string;
+  category: string | null;
+  title: string;
+  instruction: string;
+  priority: number;
+  applies_to_tables: string[] | null;
+  example_query: string | null;
+  example_sql: string | null;
+  is_active: boolean;
+  created_at: Date;
+  updated_at: Date;
+  created_by: string | null;
+  updated_by: string | null;
+}
+
+export interface CreateSchemaInstructionData {
+  schema_name?: string;
+  category?: string;
+  title: string;
+  instruction: string;
+  priority?: number;
+  applies_to_tables?: string[];
+  example_query?: string;
+  example_sql?: string;
 }
 
 // Schema discovery result (Phase 2 placeholder to type ahead)

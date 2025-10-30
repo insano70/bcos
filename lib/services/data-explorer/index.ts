@@ -5,6 +5,8 @@ import { BedrockService } from './bedrock-service';
 import { ExplorerHistoryService } from './explorer-history-service';
 import { QuerySecurityService } from './query-security-service';
 import { SchemaDiscoveryService } from './schema-discovery-service';
+import { ExplorerRelationshipService } from './explorer-relationship-service';
+import { ExplorerPatternService } from './explorer-pattern-service';
 
 export function createRBACExplorerMetadataService(userContext: UserContext): ExplorerMetadataService {
   return new ExplorerMetadataService(userContext);
@@ -36,4 +38,16 @@ export function createRBACExplorerSchemaDiscoveryService(
   userContext: UserContext
 ): SchemaDiscoveryService {
   return new SchemaDiscoveryService(userContext);
+}
+
+export function createRBACExplorerRelationshipService(
+  userContext: UserContext
+): ExplorerRelationshipService {
+  return new ExplorerRelationshipService(userContext);
+}
+
+export function createRBACExplorerPatternService(
+  userContext: UserContext
+): ExplorerPatternService {
+  return new ExplorerPatternService(userContext);
 }

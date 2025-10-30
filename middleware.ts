@@ -226,8 +226,10 @@ export async function middleware(request: NextRequest) {
   // Handle API routes
   if (pathname.startsWith('/api/')) {
     // Request sanitization for JSON bodies
-    // Skip for: CSP reports (policy strings trigger false positives), chart-data (large measure arrays are expected)
-    const skipSanitization = pathname === '/api/security/csp-report' || pathname === '/api/admin/analytics/chart-data'
+    // Skip for: CSP reports (policy strings trigger false positives), chart-data (large measure arrays are expected), data-explorer (contains legitimate SQL/instructions)
+    const skipSanitization = pathname === '/api/security/csp-report' || 
+                             pathname === '/api/admin/analytics/chart-data' ||
+                             pathname.startsWith('/api/data/explorer/')
 
     if (['POST', 'PUT', 'PATCH'].includes(request.method) && !skipSanitization) {
       try {
