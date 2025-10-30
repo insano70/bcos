@@ -36,9 +36,50 @@ export class BedrockService extends BaseRBACService implements BedrockServiceInt
     this.requireAnyPermission(['data-explorer:query:organization', 'data-explorer:query:all']);
 
     const metadataService = createRBACExplorerMetadataService(this.userContext);
-    const tableMetadata = await metadataService.getTableMetadata({ schema_name: 'ih', is_active: true, tier: 1 });
 
-    const prompt = this.buildPrompt(query, tableMetadata, options);
+    // Fetch tables for selected tiers (user-controlled via options)
+    // No limit - modern models can handle large context windows
+    const tiers = options.tiers || [1, 2, 3]; // Default to all tiers if not specified
+
+    // Fetch all tables for selected tiers (queries run in parallel)
+    const tablesByTier = await Promise.all(
+      tiers.map((tier) =>
+        metadataService.getTableMetadata({
+          schema_name: 'ih',
+          is_active: true,
+          tier,
+        })
+      )
+    );
+
+    // Flatten results (already sorted by tier due to sequential tier requests)
+    const tableMetadata = tablesByTier.flat();
+
+    // Get column metadata for each table
+    const tablesWithColumns = await Promise.all(
+      tableMetadata.map(async (table) => {
+        const columns = await metadataService.getColumnMetadata(table.table_metadata_id);
+        return { ...table, columns };
+      })
+    );
+
+    log.info('Fetched table and column metadata for SQL generation', {
+      operation: 'bedrock_get_metadata',
+      tableCount: tablesWithColumns.length,
+      totalColumns: tablesWithColumns.reduce((sum, t) => sum + t.columns.length, 0),
+      sampleTable: tablesWithColumns[0] ? {
+        name: tablesWithColumns[0].table_name,
+        columnCount: tablesWithColumns[0].columns.length,
+        columns: tablesWithColumns[0].columns.slice(0, 5).map(c => c.column_name),
+      } : null,
+      userId: this.userContext.user_id,
+      component: 'ai',
+    });
+
+    // Get schema instructions for prompt
+    const schemaInstructions = await metadataService.getSchemaInstructions('ih');
+
+    const prompt = this.buildPrompt(query, tablesWithColumns, schemaInstructions, options);
     const modelId = options.model || env.DATA_EXPLORER_MODEL_ID;
     const temperature = options.temperature || env.DATA_EXPLORER_TEMPERATURE;
 
@@ -125,10 +166,27 @@ export class BedrockService extends BaseRBACService implements BedrockServiceInt
     return typeof firstContent.text === 'string' ? firstContent.text : '';
   }
 
-  private buildPrompt(query: string, metadata: TableMetadata[], _options: BedrockOptions): string {
+  private buildPrompt(
+    query: string, 
+    metadata: Array<TableMetadata & { columns: Array<{ column_name: string; data_type: string; semantic_type: string | null }> }>,
+    schemaInstructions: Array<{ priority: number; title: string; instruction: string; category: string | null }>,
+    _options: BedrockOptions
+  ): string {
     const tableDescriptions = metadata
-      .map((t) => `${t.table_name}: ${t.description || 'No description available'}`)
-      .join('\n');
+      .map((t) => {
+        const columnList = t.columns.length > 0
+          ? t.columns.map(c => {
+              const semanticHint = c.semantic_type ? ` (${c.semantic_type})` : '';
+              return `    - ${c.column_name}: ${c.data_type}${semanticHint}`;
+            }).join('\n')
+          : '    (no columns discovered yet)';
+        
+        return `TABLE: ih.${t.table_name}
+  Description: ${t.description || 'No description available'}
+  Columns:
+${columnList}`;
+      })
+      .join('\n\n');
 
     return `You are an expert PostgreSQL SQL generator for a healthcare analytics database.
 
@@ -136,10 +194,22 @@ DATABASE CONTEXT:
 - Schema: ih (healthcare data warehouse)
 - Database: PostgreSQL 17
 - All queries are READ-ONLY
-- Tables contain healthcare data (patients, encounters, claims, etc.)
+- Tables contain healthcare data (practice analytics, patient attributes, claims, etc.)
 
-AVAILABLE TABLES (Tier 1):
+AVAILABLE TABLES WITH COLUMNS:
 ${tableDescriptions}
+
+SCHEMA-SPECIFIC RULES (MUST FOLLOW):
+${schemaInstructions.length > 0 
+  ? schemaInstructions
+      .sort((a, b) => a.priority - b.priority)
+      .map(i => {
+        const icon = i.priority === 1 ? '⚠️ CRITICAL' : i.priority === 2 ? '📌 IMPORTANT' : '💡 HELPFUL';
+        const category = i.category ? `[${i.category}]` : '';
+        return `${icon} ${category} ${i.instruction}`;
+      })
+      .join('\n')
+  : '(No schema-specific rules defined)'}
 
 IMPORTANT PATTERNS:
 - Date columns usually end with '_date' or '_dt'
@@ -154,16 +224,18 @@ USER QUESTION: ${query}
 Generate a PostgreSQL query that answers this question.
 
 REQUIREMENTS:
-1. Use the 'ih' schema prefix for all tables (e.g., ih.patients)
-2. Include comments explaining complex logic
-3. Add appropriate JOINs based on the relationships
-4. Use efficient query patterns (avoid SELECT *)
-5. Include appropriate date formatting
-6. Do NOT add LIMIT clause (will be added automatically)
-7. Ensure practice_uid exists in all tables used (for security filtering)
+1. Use the 'ih' schema prefix for all tables (e.g., ih.agg_app_measures)
+2. Use ONLY the columns that exist in the table schemas provided above
+3. Include comments explaining complex logic
+4. Add appropriate JOINs based on the relationships if needed
+5. Use efficient query patterns
+6. Include appropriate date formatting for date columns
+7. Do NOT add LIMIT clause (will be added automatically)
+8. Do NOT add semicolons at the end
+9. Ensure practice_uid column exists in tables used (for security filtering)
 
 OUTPUT FORMAT:
-Return only the SQL query with inline comments. No additional text.`;
+Return ONLY the SQL query with inline comments. No additional text. No markdown formatting.`;
   }
 
   private extractSQL(response: string): string {

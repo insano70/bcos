@@ -4,16 +4,15 @@ import { createSafeTextSchema } from './sanitization';
 // Generate SQL request
 export const generateSQLSchema = z.object({
   natural_language_query: createSafeTextSchema(10, 1000, 'Query'),
-  model: z
-    .enum(['anthropic.claude-3-5-sonnet-20241022-v2:0'])
-    .default('anthropic.claude-3-5-sonnet-20241022-v2:0'),
+  model: z.string().optional(), // Optional - backend uses DATA_EXPLORER_MODEL_ID env var if not provided
   temperature: z.number().min(0).max(1).default(0.1),
   include_explanation: z.boolean().default(true),
+  tiers: z.array(z.union([z.literal(1), z.literal(2), z.literal(3)])).optional(),
 });
 
 // Execute query request
 export const executeQuerySchema = z.object({
-  sql: createSafeTextSchema(1, 100000, 'SQL query'),
+  sql: z.string().min(1, 'SQL query is required').max(100000, 'SQL query too long'),
   limit: z.coerce.number().int().min(1).max(10000).default(1000),
   timeout_ms: z.coerce.number().int().min(1000).max(300000).default(30000),
   dry_run: z.boolean().default(false),
@@ -29,7 +28,7 @@ export const metadataTablesQuerySchema = z.object({
     .optional()
     .transform((val) => (val === 'true' ? true : val === 'false' ? false : undefined)),
   search: z.string().optional(),
-  limit: z.coerce.number().int().min(1).max(100).default(50),
+  limit: z.coerce.number().int().min(1).max(10000).default(100),
   offset: z.coerce.number().int().min(0).default(0),
 });
 

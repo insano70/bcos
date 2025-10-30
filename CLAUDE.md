@@ -102,6 +102,13 @@ Database schema uses a **modular architecture** via re-exports in `lib/db/schema
 import { users, roles, permissions } from '@/lib/db/schema';
 ```
 
+### Drizzle Best Practices
+
+1. **Never manually delete migrations** - Use `drizzle-kit drop` or proper migration rollback
+2. **Always commit migration journal changes** with the corresponding SQL files
+3. **Run `drizzle-kit check`** before and after schema changes
+4. **Keep snapshots in sync** - regenerate if missing
+
 ### API Route Security Wrappers
 
 **CRITICAL**: All API routes MUST use one of three security wrapper functions. Direct route exports are FORBIDDEN.

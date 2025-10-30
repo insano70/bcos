@@ -168,7 +168,7 @@ export default function EditTableMetadataModal({
                       placeholder="What data does this table contain? This helps the AI understand context."
                       required
                     />
-                    <p className="mt-1 text-xs text-gray-500">
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                       Be specific about what each row represents and what business domain it covers.
                     </p>
                   </div>
@@ -203,7 +203,7 @@ export default function EditTableMetadataModal({
                       <option value={2}>Tier 2 - Secondary</option>
                       <option value={3}>Tier 3 - Auxiliary</option>
                     </select>
-                    <p className="mt-1 text-xs text-gray-500">
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                       Tier 1 tables are prioritized for AI SQL generation
                     </p>
                   </div>
@@ -221,7 +221,7 @@ export default function EditTableMetadataModal({
                       className="form-textarea w-full"
                       placeholder={'Enter example questions, one per line:\nWhat is total revenue for January 2024?\nShow me patient visit trends by month\nWhich providers have the highest volume?'}
                     />
-                    <p className="mt-1 text-xs text-gray-500">
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                       One question per line. These help guide users on what to ask.
                     </p>
                   </div>
@@ -239,7 +239,7 @@ export default function EditTableMetadataModal({
                       className="form-input w-full"
                       placeholder="practice_uid, date_index, measure, frequency"
                     />
-                    <p className="mt-1 text-xs text-gray-500">
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                       Comma-separated list of commonly filtered columns
                     </p>
                   </div>

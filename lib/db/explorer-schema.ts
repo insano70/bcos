@@ -181,3 +181,28 @@ export const explorerQueryPatterns = pgTable(
     patternTypeIdx: index('idx_explorer_patterns_type').on(table.pattern_type),
   })
 );
+
+// Schema instructions - global query rules
+export const explorerSchemaInstructions = pgTable(
+  'explorer_schema_instructions',
+  {
+    instruction_id: uuid('instruction_id').defaultRandom().primaryKey(),
+    schema_name: text('schema_name').notNull().default('ih'),
+    category: text('category'), // 'filtering', 'aggregation', 'joining', 'business_rule'
+    title: text('title').notNull(),
+    instruction: text('instruction').notNull(),
+    priority: integer('priority').default(2), // 1=critical, 2=important, 3=helpful
+    applies_to_tables: text('applies_to_tables').array(), // NULL = all tables
+    example_query: text('example_query'),
+    example_sql: text('example_sql'),
+    is_active: boolean('is_active').default(true),
+    created_at: timestamp('created_at', { withTimezone: true }).defaultNow(),
+    updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+    created_by: text('created_by'),
+    updated_by: text('updated_by'),
+  },
+  (table) => ({
+    schemaActiveIdx: index('idx_schema_instructions_schema').on(table.schema_name, table.is_active),
+    priorityIdx: index('idx_schema_instructions_priority').on(table.priority, table.is_active),
+  })
+);

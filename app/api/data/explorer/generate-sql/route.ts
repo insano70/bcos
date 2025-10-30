@@ -27,6 +27,7 @@ const generateSQLHandler = async (
       model: validatedData.model,
       temperature: validatedData.temperature,
       include_explanation: validatedData.include_explanation,
+      tiers: validatedData.tiers,
     });
 
     const historyEntry = await historyService.createHistoryEntry({
