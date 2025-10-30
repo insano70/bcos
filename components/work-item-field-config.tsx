@@ -67,6 +67,7 @@ export default function WorkItemFieldConfig({
             dropdown: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
             checkbox: 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400',
             user_picker: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400',
+            attachment: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
           };
           return (
             <div className="text-center">

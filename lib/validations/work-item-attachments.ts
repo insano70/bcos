@@ -94,3 +94,52 @@ export const workItemAttachmentConfirmSchema = z.object({
 });
 
 export type WorkItemAttachmentConfirm = z.infer<typeof workItemAttachmentConfirmSchema>;
+
+/**
+ * Schema for uploading a field attachment
+ * Used to validate file metadata before generating upload URL for custom field attachments
+ */
+export const fieldAttachmentUploadSchema = z.object({
+  work_item_id: z.string().uuid('Invalid work item ID'),
+  work_item_field_id: z.string().uuid('Invalid field ID'),
+  file_name: z
+    .string()
+    .min(1, 'File name required')
+    .max(500, 'File name too long')
+    .refine((name) => name.trim().length > 0, 'File name cannot be empty'),
+  file_size: z
+    .number()
+    .int('File size must be an integer')
+    .positive('File size must be positive')
+    .max(MAX_FILE_SIZE, `File size exceeds ${MAX_FILE_SIZE / 1024 / 1024}MB limit`),
+  file_type: z
+    .string()
+    .min(1, 'File type required')
+    .refine(
+      (type) => ALLOWED_FILE_TYPES.includes(type as (typeof ALLOWED_FILE_TYPES)[number]),
+      'File type not allowed'
+    ),
+});
+
+export type FieldAttachmentUpload = z.infer<typeof fieldAttachmentUploadSchema>;
+
+/**
+ * Schema for field attachment path parameters
+ */
+export const fieldAttachmentParamsSchema = z.object({
+  id: z.string().uuid('Invalid work item ID'),
+  fieldId: z.string().uuid('Invalid field ID'),
+});
+
+export type FieldAttachmentParams = z.infer<typeof fieldAttachmentParamsSchema>;
+
+/**
+ * Schema for specific field attachment parameters
+ */
+export const fieldAttachmentDetailParamsSchema = z.object({
+  id: z.string().uuid('Invalid work item ID'),
+  fieldId: z.string().uuid('Invalid field ID'),
+  attachmentId: z.string().uuid('Invalid attachment ID'),
+});
+
+export type FieldAttachmentDetailParams = z.infer<typeof fieldAttachmentDetailParamsSchema>;

@@ -235,6 +235,84 @@ export default function FeedbackDashboardPage() {
 
                   {expandedFeedback === item.feedback_id && (
                     <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 space-y-3">
+                      {/* AI Analysis */}
+                      {item.detected_issue && (
+                        <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
+                          <h4 className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-1">
+                            🤖 AI Analysis:
+                          </h4>
+                          <p className="text-sm text-blue-700 dark:text-blue-300">{item.detected_issue}</p>
+                        </div>
+                      )}
+
+                      {/* Affected Resources */}
+                      {(item.affected_tables && item.affected_tables.length > 0) || (item.affected_columns && item.affected_columns.length > 0) ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {item.affected_tables && item.affected_tables.length > 0 && (
+                            <div>
+                              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Affected Tables:
+                              </h4>
+                              <div className="flex flex-wrap gap-1">
+                                {item.affected_tables.map((table) => (
+                                  <span
+                                    key={table}
+                                    className="inline-flex items-center px-2 py-1 rounded text-xs bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400"
+                                  >
+                                    {table}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {item.affected_columns && item.affected_columns.length > 0 && (
+                            <div>
+                              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Affected Columns:
+                              </h4>
+                              <div className="flex flex-wrap gap-1">
+                                {item.affected_columns.map((column) => (
+                                  <span
+                                    key={column}
+                                    className="inline-flex items-center px-2 py-1 rounded text-xs bg-indigo-100 text-indigo-800 dark:bg-indigo-900/20 dark:text-indigo-400"
+                                  >
+                                    {column}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ) : null}
+
+                      {/* Pattern Indicators */}
+                      {(item.similar_query_count > 0 || item.recurrence_score) && (
+                        <div className="flex items-center gap-4 p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded">
+                          {item.similar_query_count > 0 && (
+                            <div className="flex items-center gap-1">
+                              <svg className="w-4 h-4 text-yellow-600 dark:text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                              </svg>
+                              <span className="text-xs text-yellow-800 dark:text-yellow-200">
+                                {item.similar_query_count} similar {item.similar_query_count === 1 ? 'issue' : 'issues'}
+                              </span>
+                            </div>
+                          )}
+                          {item.recurrence_score && (
+                            <div className="flex items-center gap-1">
+                              <svg className="w-4 h-4 text-yellow-600 dark:text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                              </svg>
+                              <span className="text-xs text-yellow-800 dark:text-yellow-200">
+                                Recurrence score: {Number.parseFloat(item.recurrence_score).toFixed(1)}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* SQL Comparison */}
                       <div>
                         <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Original SQL:</h4>
                         <pre className="text-xs bg-gray-50 dark:bg-gray-900 p-3 rounded overflow-x-auto">
@@ -251,22 +329,24 @@ export default function FeedbackDashboardPage() {
                         </div>
                       )}
 
-                      {item.affected_tables && item.affected_tables.length > 0 && (
-                        <div>
-                          <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Affected Tables:</h4>
-                          <p className="text-sm text-gray-600 dark:text-gray-400">
-                            {item.affected_tables.join(', ')}
-                          </p>
-                        </div>
-                      )}
-
+                      {/* Resolution Info */}
                       {item.resolved_at && (
-                        <div>
+                        <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
                           <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Resolution:</h4>
                           <p className="text-sm text-gray-600 dark:text-gray-400">
                             Resolved on {new Date(item.resolved_at).toLocaleString()}
                             {item.resolved_by && ` by ${item.resolved_by}`}
                           </p>
+                          {item.resolution_action !== null && item.resolution_action !== undefined && (
+                            <div className="mt-2">
+                              <p className="text-xs text-gray-500 dark:text-gray-400">
+                                Action taken:{' '}
+                                {typeof item.resolution_action === 'string'
+                                  ? item.resolution_action
+                                  : JSON.stringify(item.resolution_action)}
+                              </p>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
