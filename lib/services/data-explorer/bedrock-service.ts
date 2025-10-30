@@ -168,7 +168,17 @@ export class BedrockService extends BaseRBACService implements BedrockServiceInt
 
   private buildPrompt(
     query: string, 
-    metadata: Array<TableMetadata & { columns: Array<{ column_name: string; data_type: string; semantic_type: string | null }> }>,
+    metadata: Array<TableMetadata & { columns: Array<{ 
+      column_name: string; 
+      data_type: string; 
+      semantic_type: string | null;
+      common_values?: unknown;
+      example_values?: string[] | null;
+      min_value?: string | null;
+      max_value?: string | null;
+      distinct_count?: number | null;
+      null_percentage?: string | null;
+    }> }>,
     schemaInstructions: Array<{ priority: number; title: string; instruction: string; category: string | null }>,
     _options: BedrockOptions
   ): string {
@@ -177,7 +187,36 @@ export class BedrockService extends BaseRBACService implements BedrockServiceInt
         const columnList = t.columns.length > 0
           ? t.columns.map(c => {
               const semanticHint = c.semantic_type ? ` (${c.semantic_type})` : '';
-              return `    - ${c.column_name}: ${c.data_type}${semanticHint}`;
+              
+              // Add statistics if available
+              const stats: string[] = [];
+              
+              // Common values (most useful for status/code columns)
+              if (c.common_values && Array.isArray(c.common_values) && c.common_values.length > 0) {
+                const topValues = c.common_values.slice(0, 5).map((v: { value: string; percentage: number }) => 
+                  `${v.value} (${v.percentage}%)`
+                ).join(', ');
+                stats.push(`common: ${topValues}`);
+              }
+              
+              // Min/Max range (useful for dates and amounts)
+              if (c.min_value && c.max_value) {
+                stats.push(`range: ${c.min_value} to ${c.max_value}`);
+              }
+              
+              // Example values (useful for understanding format)
+              if (c.example_values && c.example_values.length > 0) {
+                const examples = c.example_values.slice(0, 3).join(', ');
+                stats.push(`examples: ${examples}`);
+              }
+              
+              // Distinct count (useful for cardinality understanding)
+              if (c.distinct_count !== null && c.distinct_count !== undefined) {
+                stats.push(`${c.distinct_count} distinct values`);
+              }
+              
+              const statsHint = stats.length > 0 ? ` [${stats.join('; ')}]` : '';
+              return `    - ${c.column_name}: ${c.data_type}${semanticHint}${statsHint}`;
             }).join('\n')
           : '    (no columns discovered yet)';
         

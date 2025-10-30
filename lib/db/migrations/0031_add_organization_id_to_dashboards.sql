@@ -7,18 +7,17 @@
 -- Date: 2025-10-14
 -- ============================================================================
 
-BEGIN;
 
--- Add organization_id column (nullable for universal dashboards)
+-- Add organization_id column (nullable for universal dashboards) (idempotent)
 ALTER TABLE dashboards
-ADD COLUMN organization_id UUID REFERENCES organizations(organization_id) ON DELETE SET NULL;
+ADD COLUMN IF NOT EXISTS organization_id UUID REFERENCES organizations(organization_id) ON DELETE SET NULL;
 
--- Add index for query performance
-CREATE INDEX idx_dashboards_organization_id
+-- Add index for query performance (idempotent)
+CREATE INDEX IF NOT EXISTS idx_dashboards_organization_id
 ON dashboards(organization_id);
 
--- Add composite index for common query pattern (published + active + org filter)
-CREATE INDEX idx_dashboards_published_org
+-- Add composite index for common query pattern (published + active + org filter) (idempotent)
+CREATE INDEX IF NOT EXISTS idx_dashboards_published_org
 ON dashboards(is_published, organization_id)
 WHERE is_active = true;
 
@@ -61,4 +60,3 @@ BEGIN
   RAISE NOTICE '  4. Service layer automatically filters by user organization scope';
 END $$;
 
-COMMIT;

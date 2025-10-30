@@ -82,6 +82,17 @@ export const multiSelectFieldValueSchema = z
   .max(100, 'Cannot select more than 100 options');
 
 /**
+ * Attachment field validation
+ * Validates attachment field values (object with attachment_ids array)
+ */
+export const attachmentFieldValueSchema = z.object({
+  attachment_ids: z
+    .array(z.string().uuid('Invalid attachment ID'))
+    .min(0, 'Attachment IDs must be a valid array')
+    .max(100, 'Cannot have more than 100 attachments per field'),
+});
+
+/**
  * Field value validator factory
  * Returns the appropriate validator for a given field type
  */
@@ -101,6 +112,8 @@ export function getFieldValueValidator(fieldType: string): z.ZodType<unknown> {
       return richTextFieldValueSchema;
     case 'multi_select':
       return multiSelectFieldValueSchema;
+    case 'attachment':
+      return attachmentFieldValueSchema;
     case 'text':
       return z.string().max(5000, 'Text must not exceed 5000 characters');
     case 'number':

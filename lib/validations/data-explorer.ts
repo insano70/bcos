@@ -56,4 +56,106 @@ export const queryHistoryParamsSchema = z.object({
   end_date: z.string().datetime().optional(),
 });
 
+// Column metadata update
+export const updateColumnSchema = z.object({
+  display_name: z.string().min(1).max(255).optional(),
+  description: z.string().max(2000).optional(),
+  semantic_type: z
+    .enum(['date', 'amount', 'identifier', 'code', 'text', 'boolean', 'status'])
+    .nullable()
+    .optional(),
+  value_format: z.string().max(100).optional(),
+  is_phi: z.boolean().optional(),
+});
 
+// Column statistics analysis requests
+export const analyzeColumnSchema = z.object({
+  force: z.boolean().default(false), // Force re-analysis even if recently analyzed
+});
+
+export const analyzeTableColumnsSchema = z.object({
+  force: z.boolean().default(false),
+  resume: z.boolean().default(true), // Continue from last analyzed column
+});
+
+export const analyzeSchemaSchema = z.object({
+  tiers: z.array(z.union([z.literal(1), z.literal(2), z.literal(3)])).optional(),
+  limit: z.coerce.number().int().min(1).max(10000).optional(), // Max columns to analyze
+  force: z.boolean().default(false),
+  resume: z.boolean().default(true),
+});
+
+// Feedback submission
+export const submitFeedbackSchema = z.object({
+  query_history_id: z.string().uuid('Invalid query history ID'),
+  feedback_type: z.enum([
+    'incorrect_sql',
+    'wrong_tables',
+    'missing_join',
+    'wrong_filters',
+    'incorrect_columns',
+    'performance_issue',
+    'security_concern',
+    'other',
+  ]),
+  feedback_category: z.enum([
+    'metadata_gap',
+    'instruction_needed',
+    'relationship_missing',
+    'semantic_misunderstanding',
+    'prompt_issue',
+  ]),
+  severity: z.enum(['low', 'medium', 'high', 'critical']),
+  original_sql: z.string().min(1, 'Original SQL is required').max(100000, 'SQL too long'),
+  corrected_sql: z
+    .string()
+    .max(100000, 'SQL too long')
+    .optional()
+    .transform((val) => val || null),
+  user_explanation: z
+    .string()
+    .max(5000, 'Explanation too long')
+    .optional()
+    .transform((val) => val || null),
+});
+
+// Feedback resolution
+export const resolveFeedbackSchema = z.object({
+  resolution_status: z.enum([
+    'metadata_updated',
+    'instruction_created',
+    'relationship_added',
+    'resolved',
+    'wont_fix',
+  ]),
+  resolution_action: z.unknown().optional(),
+});
+
+// Feedback query params
+export const feedbackQuerySchema = z.object({
+  status: z
+    .enum([
+      'pending',
+      'metadata_updated',
+      'instruction_created',
+      'relationship_added',
+      'resolved',
+      'wont_fix',
+    ])
+    .optional(),
+  severity: z.enum(['low', 'medium', 'high', 'critical']).optional(),
+  feedback_type: z
+    .enum([
+      'incorrect_sql',
+      'wrong_tables',
+      'missing_join',
+      'wrong_filters',
+      'incorrect_columns',
+      'performance_issue',
+      'security_concern',
+      'other',
+    ])
+    .optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+  offset: z.coerce.number().int().min(0).default(0),
+});

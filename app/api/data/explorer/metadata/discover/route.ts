@@ -63,7 +63,7 @@ const discoverSchemaHandler = async (
 };
 
 export const POST = rbacRoute(discoverSchemaHandler, {
-  permission: 'data-explorer:discovery:run:all',
+  permission: 'data-explorer:manage:all',
   rateLimit: 'api',
 });
 

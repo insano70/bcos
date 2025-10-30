@@ -11,8 +11,9 @@ import DiscoveryProgressModal from '@/components/discovery-progress-modal';
 import CreateTableMetadataModal from '@/components/create-table-metadata-modal';
 import { ProtectedComponent } from '@/components/rbac/protected-component';
 import { apiClient } from '@/lib/api/client';
-import { useTableMetadata } from '@/lib/hooks/use-data-explorer';
+import { useTableMetadata, useAnalyzeTableColumns, useAnalyzeSchema } from '@/lib/hooks/use-data-explorer';
 import type { TableMetadata } from '@/lib/types/data-explorer';
+import ModalBlank from '@/components/modal-blank';
 
 export default function MetadataManagementContent() {
   const { data: tables = [], isLoading, refetch } = useTableMetadata({ 
@@ -32,6 +33,17 @@ export default function MetadataManagementContent() {
   } | null>(null);
   const [discoveryError, setDiscoveryError] = useState<string | null>(null);
   const [selectedTable, setSelectedTable] = useState<TableMetadata | null>(null);
+  const [isAnalysisModalOpen, setIsAnalysisModalOpen] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState<{
+    analyzed: number;
+    skipped: number;
+    failed: number;
+    duration_ms: number;
+  } | null>(null);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
+  
+  const analyzeTableColumns = useAnalyzeTableColumns();
+  const analyzeSchema = useAnalyzeSchema();
 
   const tablesWithId = tables.map((item) => ({
     ...item,
@@ -97,6 +109,32 @@ export default function MetadataManagementContent() {
     }
   };
 
+  const handleAnalyzeTable = async (tableId: string) => {
+    setAnalysisResult(null);
+    setAnalysisError(null);
+    setIsAnalysisModalOpen(true);
+
+    try {
+      const result = await analyzeTableColumns.mutateAsync({ tableId, resume: true });
+      setAnalysisResult(result);
+    } catch (err) {
+      setAnalysisError(err instanceof Error ? err.message : 'Analysis failed');
+    }
+  };
+
+  const handleAnalyzeAllTables = async () => {
+    setAnalysisResult(null);
+    setAnalysisError(null);
+    setIsAnalysisModalOpen(true);
+
+    try {
+      const result = await analyzeSchema.mutateAsync({ resume: true });
+      setAnalysisResult(result);
+    } catch (err) {
+      setAnalysisError(err instanceof Error ? err.message : 'Analysis failed');
+    }
+  };
+
   const getDropdownActions = (
     _row: TableMetadata & { id: string; completeness: number }
   ): DataTableDropdownAction<TableMetadata & { id: string; completeness: number }>[] => [
@@ -115,6 +153,12 @@ export default function MetadataManagementContent() {
       },
     },
     {
+      label: 'Analyze Statistics',
+      onClick: (item) => {
+        handleAnalyzeTable(item.table_metadata_id);
+      },
+    },
+    {
       label: 'Delete',
       variant: 'danger',
       onClick: async (item) => {
@@ -122,7 +166,7 @@ export default function MetadataManagementContent() {
         refetch();
       },
       confirmModal: {
-        title: (item) => 'Delete Table Metadata',
+        title: (_item) => 'Delete Table Metadata',
         message: (item) => `This will remove metadata for ${item.schema_name}.${item.table_name}. This action cannot be undone.`,
         confirmText: 'Delete Metadata',
       },
@@ -143,7 +187,7 @@ export default function MetadataManagementContent() {
 
         {/* Actions */}
         <div className="grid grid-flow-col sm:auto-cols-max justify-start sm:justify-end gap-2">
-          <ProtectedComponent permission="data-explorer:metadata:manage:all">
+          <ProtectedComponent permission="data-explorer:manage:all">
             <button
               type="button"
               onClick={() => setIsCreateModalOpen(true)}
@@ -156,7 +200,7 @@ export default function MetadataManagementContent() {
             </button>
           </ProtectedComponent>
 
-          <ProtectedComponent permission="data-explorer:discovery:run:all">
+          <ProtectedComponent permission="data-explorer:manage:all">
             <button
               type="button"
               onClick={handleDiscoverTables}
@@ -167,6 +211,20 @@ export default function MetadataManagementContent() {
                 <path d="M8 0C3.6 0 0 3.6 0 8s3.6 8 8 8 8-3.6 8-8-3.6-8-8-8zm1 12H7V7h2v5zM8 6c-.6 0-1-.4-1-1s.4-1 1-1 1 .4 1 1-.4 1-1 1z" />
               </svg>
               <span className="ml-2">Discover Tables</span>
+            </button>
+          </ProtectedComponent>
+
+          <ProtectedComponent permission="data-explorer:manage:all">
+            <button
+              type="button"
+              onClick={handleAnalyzeAllTables}
+              disabled={analyzeSchema.isPending}
+              className="btn bg-emerald-500 hover:bg-emerald-600 text-white disabled:opacity-50"
+            >
+              <svg className="w-4 h-4 fill-current shrink-0" viewBox="0 0 16 16">
+                <path d="M15 2h-2V0h-2v2H9V0H7v2H5V0H3v2H1a1 1 0 00-1 1v12a1 1 0 001 1h14a1 1 0 001-1V3a1 1 0 00-1-1zM2 14V5h12v9H2z" />
+              </svg>
+              <span className="ml-2">Analyze Statistics</span>
             </button>
           </ProtectedComponent>
         </div>
@@ -228,6 +286,104 @@ export default function MetadataManagementContent() {
         onClose={() => setIsCreateModalOpen(false)}
         onSuccess={() => refetch()}
       />
+
+      {/* Statistics Analysis Modal */}
+      <ModalBlank
+        isOpen={isAnalysisModalOpen}
+        setIsOpen={(open) => {
+          if (!open) {
+            setIsAnalysisModalOpen(false);
+            setAnalysisResult(null);
+            setAnalysisError(null);
+          }
+        }}
+      >
+        <div className="px-5 py-4">
+          {analyzeTableColumns.isPending || analyzeSchema.isPending ? (
+            <div className="text-center py-8">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-violet-100 dark:bg-violet-500/30 mb-4">
+                <svg
+                  className="w-8 h-8 fill-current text-violet-500 animate-spin"
+                  viewBox="0 0 16 16"
+                >
+                  <path d="M8 0a8 8 0 00-8 8h2a6 6 0 116 6v2a8 8 0 008-8z" />
+                </svg>
+              </div>
+              <div className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-1">
+                Analyzing Column Statistics...
+              </div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">
+                This may take a few moments depending on table size
+              </div>
+            </div>
+          ) : analysisError ? (
+            <div className="text-center py-8">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-100 dark:bg-red-500/30 mb-4">
+                <svg className="w-8 h-8 fill-current text-red-500" viewBox="0 0 16 16">
+                  <path d="M8 0C3.6 0 0 3.6 0 8s3.6 8 8 8 8-3.6 8-8-3.6-8-8-8zm3.5 10.1l-1.4 1.4L8 9.4l-2.1 2.1-1.4-1.4L6.6 8 4.5 5.9l1.4-1.4L8 6.6l2.1-2.1 1.4 1.4L9.4 8l2.1 2.1z" />
+                </svg>
+              </div>
+              <div className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-1">
+                Analysis Failed
+              </div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">{analysisError}</div>
+            </div>
+          ) : analysisResult ? (
+            <div className="space-y-4">
+              <div className="text-center py-4">
+                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-500/30 mb-4">
+                  <svg className="w-8 h-8 fill-current text-emerald-500" viewBox="0 0 16 16">
+                    <path d="M8 0C3.6 0 0 3.6 0 8s3.6 8 8 8 8-3.6 8-8-3.6-8-8-8zM7 11.4L3.6 8 5 6.6l2 2 4-4L12.4 6 7 11.4z" />
+                  </svg>
+                </div>
+                <div className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-1">
+                  Analysis Complete
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-lg p-4 text-center">
+                  <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                    {analysisResult.analyzed}
+                  </div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">Analyzed</div>
+                </div>
+                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 text-center">
+                  <div className="text-2xl font-bold text-gray-600 dark:text-gray-400">
+                    {analysisResult.skipped}
+                  </div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">Skipped</div>
+                </div>
+                <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-4 text-center">
+                  <div className="text-2xl font-bold text-red-600 dark:text-red-400">
+                    {analysisResult.failed}
+                  </div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">Failed</div>
+                </div>
+              </div>
+
+              <div className="text-sm text-gray-600 dark:text-gray-400 text-center">
+                Completed in {(analysisResult.duration_ms / 1000).toFixed(2)}s
+              </div>
+            </div>
+          ) : null}
+        </div>
+
+        <div className="px-5 py-4 border-t border-gray-200 dark:border-gray-700/60">
+          <div className="flex flex-wrap justify-end space-x-2">
+            <button
+              className="btn border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 text-gray-800 dark:text-gray-300"
+              onClick={() => {
+                setIsAnalysisModalOpen(false);
+                setAnalysisResult(null);
+                setAnalysisError(null);
+              }}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </ModalBlank>
 
     </div>
   );

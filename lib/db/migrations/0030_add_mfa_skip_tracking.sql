@@ -6,16 +6,16 @@
 -- Purpose: Allow users to skip MFA setup up to 5 times before enforcement.
 -- Security: Maintains fail-closed security posture when skips are exhausted.
 
--- Add MFA skip tracking columns to account_security table
+-- Add MFA skip tracking columns to account_security table (idempotent)
 ALTER TABLE account_security
-  ADD COLUMN mfa_skips_remaining INTEGER NOT NULL DEFAULT 5,
-  ADD COLUMN mfa_skip_count INTEGER NOT NULL DEFAULT 0,
-  ADD COLUMN mfa_first_skipped_at TIMESTAMPTZ,
-  ADD COLUMN mfa_last_skipped_at TIMESTAMPTZ;
+  ADD COLUMN IF NOT EXISTS mfa_skips_remaining INTEGER NOT NULL DEFAULT 5,
+  ADD COLUMN IF NOT EXISTS mfa_skip_count INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS mfa_first_skipped_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS mfa_last_skipped_at TIMESTAMPTZ;
 
--- Add index for efficient MFA enforcement queries
+-- Add index for efficient MFA enforcement queries (idempotent)
 -- Only indexes users without MFA who have exhausted skips
-CREATE INDEX idx_account_security_mfa_skips
+CREATE INDEX IF NOT EXISTS idx_account_security_mfa_skips
   ON account_security(mfa_skips_remaining)
   WHERE mfa_enabled = false AND mfa_skips_remaining <= 0;
 

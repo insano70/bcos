@@ -91,12 +91,12 @@ const createInstructionHandler = async (
 };
 
 export const GET = rbacRoute(getInstructionsHandler, {
-  permission: ['data-explorer:metadata:read:organization', 'data-explorer:metadata:read:all'],
+  permission: ['data-explorer:read:organization', 'data-explorer:read:all'],
   rateLimit: 'api',
 });
 
 export const POST = rbacRoute(createInstructionHandler, {
-  permission: 'data-explorer:metadata:manage:all',
+  permission: 'data-explorer:manage:all',
   rateLimit: 'api',
 });
 

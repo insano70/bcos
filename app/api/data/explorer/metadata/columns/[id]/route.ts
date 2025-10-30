@@ -60,7 +60,7 @@ const updateColumnHandler = async (
 };
 
 export const PUT = rbacRoute(updateColumnHandler, {
-  permission: 'data-explorer:metadata:manage:all',
+  permission: 'data-explorer:manage:all',
   rateLimit: 'api',
 });
 

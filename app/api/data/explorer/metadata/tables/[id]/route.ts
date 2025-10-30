@@ -125,17 +125,17 @@ const deleteTableHandler = async (
 };
 
 export const GET = rbacRoute(getTableHandler, {
-  permission: ['data-explorer:metadata:read:organization', 'data-explorer:metadata:read:all'],
+  permission: ['data-explorer:read:organization', 'data-explorer:read:all'],
   rateLimit: 'api',
 });
 
 export const PUT = rbacRoute(updateTableHandler, {
-  permission: 'data-explorer:metadata:manage:all',
+  permission: 'data-explorer:manage:all',
   rateLimit: 'api',
 });
 
 export const DELETE = rbacRoute(deleteTableHandler, {
-  permission: 'data-explorer:metadata:manage:all',
+  permission: 'data-explorer:manage:all',
   rateLimit: 'api',
 });
 

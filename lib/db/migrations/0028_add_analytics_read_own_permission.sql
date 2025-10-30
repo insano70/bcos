@@ -5,7 +5,6 @@
 -- Date: 2025-10-13
 -- ============================================================================
 
-BEGIN;
 
 -- Create the new permission
 INSERT INTO permissions (
@@ -60,5 +59,4 @@ BEGIN
   RAISE NOTICE '  3. Test provider-level data filtering';
 END $$;
 
-COMMIT;
 

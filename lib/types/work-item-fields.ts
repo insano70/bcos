@@ -20,7 +20,8 @@ export type FieldType =
   | 'email'
   | 'phone'
   | 'currency'
-  | 'percentage';
+  | 'percentage'
+  | 'attachment';
 
 /**
  * Field option for dropdown/multi_select fields
@@ -48,10 +49,19 @@ export interface ConditionalVisibilityRule {
 }
 
 /**
+ * Attachment field configuration
+ * Defines constraints for attachment-type custom fields
+ */
+export interface AttachmentFieldConfig {
+  max_files?: number | null; // Default: 1 (single file), null = unlimited
+}
+
+/**
  * Field configuration (Phase 8)
  */
 export interface FieldConfig {
   conditional_visibility?: ConditionalVisibilityRule[];
+  attachment_config?: AttachmentFieldConfig; // Only for attachment fields
 }
 
 /**

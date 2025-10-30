@@ -73,6 +73,11 @@ export const explorerColumnMetadata = pgTable(
     max_value: text('max_value'),
     distinct_count: integer('distinct_count'),
     null_percentage: decimal('null_percentage', { precision: 5, scale: 2 }),
+    // Statistics analysis tracking
+    statistics_last_analyzed: timestamp('statistics_last_analyzed', { withTimezone: true }),
+    statistics_analysis_status: text('statistics_analysis_status'), // 'pending', 'analyzing', 'completed', 'failed', 'skipped'
+    statistics_analysis_error: text('statistics_analysis_error'),
+    statistics_analysis_duration_ms: integer('statistics_analysis_duration_ms'),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow(),
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow(),
   },
@@ -112,6 +117,11 @@ export const explorerQueryHistory = pgTable(
     result_sample: jsonb('result_sample'),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow(),
     metadata: jsonb('metadata'),
+    
+    // SQL editing tracking
+    was_sql_edited: boolean('was_sql_edited').default(false),
+    original_generated_sql: text('original_generated_sql'), // Store original AI-generated SQL
+    sql_edit_count: integer('sql_edit_count').default(0), // Track number of edits
   },
   (table) => ({
     userCreatedIdx: index('idx_explorer_query_history_user').on(table.user_id, table.created_at),
@@ -204,5 +214,92 @@ export const explorerSchemaInstructions = pgTable(
   (table) => ({
     schemaActiveIdx: index('idx_schema_instructions_schema').on(table.schema_name, table.is_active),
     priorityIdx: index('idx_schema_instructions_priority').on(table.priority, table.is_active),
+  })
+);
+
+// Query feedback
+export const explorerQueryFeedback = pgTable(
+  'explorer_query_feedback',
+  {
+    feedback_id: uuid('feedback_id').defaultRandom().primaryKey(),
+    query_history_id: uuid('query_history_id')
+      .references(() => explorerQueryHistory.query_history_id, { onDelete: 'cascade' })
+      .notNull(),
+    
+    // Feedback classification
+    feedback_type: text('feedback_type').notNull(), 
+    // 'incorrect_sql', 'wrong_tables', 'missing_join', 'wrong_filters', 
+    // 'incorrect_columns', 'performance_issue', 'security_concern', 'other'
+    
+    feedback_category: text('feedback_category').notNull(),
+    // 'metadata_gap', 'instruction_needed', 'relationship_missing', 
+    // 'semantic_misunderstanding', 'prompt_issue'
+    
+    severity: text('severity').notNull(), // 'low', 'medium', 'high', 'critical'
+    
+    // What was wrong
+    original_sql: text('original_sql').notNull(),
+    corrected_sql: text('corrected_sql'), // User's fixed version
+    user_explanation: text('user_explanation'),
+    
+    // AI analysis of the issue
+    detected_issue: text('detected_issue'),
+    affected_tables: text('affected_tables').array(),
+    affected_columns: text('affected_columns').array(),
+    
+    // Resolution tracking
+    resolution_status: text('resolution_status').default('pending'),
+    // 'pending', 'metadata_updated', 'instruction_created', 
+    // 'relationship_added', 'resolved', 'wont_fix'
+    
+    resolution_action: jsonb('resolution_action'), // What was done to fix
+    resolved_at: timestamp('resolved_at', { withTimezone: true }),
+    resolved_by: text('resolved_by'),
+    
+    // Learning metadata
+    similar_query_count: integer('similar_query_count').default(0),
+    recurrence_score: decimal('recurrence_score', { precision: 5, scale: 2 }),
+    
+    created_at: timestamp('created_at', { withTimezone: true }).defaultNow(),
+    created_by: text('created_by').notNull(),
+  },
+  (table) => ({
+    queryHistoryIdx: index('idx_feedback_query_history').on(table.query_history_id),
+    statusIdx: index('idx_feedback_status').on(table.resolution_status),
+    typeIdx: index('idx_feedback_type').on(table.feedback_type, table.feedback_category),
+    severityIdx: index('idx_feedback_severity').on(table.severity),
+  })
+);
+
+// Improvement suggestions
+export const explorerImprovementSuggestions = pgTable(
+  'explorer_improvement_suggestions',
+  {
+    suggestion_id: uuid('suggestion_id').defaultRandom().primaryKey(),
+    feedback_id: uuid('feedback_id')
+      .references(() => explorerQueryFeedback.feedback_id, { onDelete: 'cascade' }),
+    
+    suggestion_type: text('suggestion_type').notNull(),
+    // 'add_metadata', 'add_instruction', 'add_relationship', 
+    // 'update_semantic_type', 'add_example_values'
+    
+    target_type: text('target_type').notNull(), // 'table', 'column', 'relationship', 'instruction'
+    target_id: uuid('target_id'), // ID of the table/column/etc
+    
+    suggested_change: jsonb('suggested_change').notNull(),
+    confidence_score: decimal('confidence_score', { precision: 3, scale: 2 }),
+    
+    status: text('status').default('pending'),
+    // 'pending', 'approved', 'rejected', 'auto_applied'
+    
+    applied_at: timestamp('applied_at', { withTimezone: true }),
+    applied_by: text('applied_by'),
+    
+    created_at: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  },
+  (table) => ({
+    feedbackIdx: index('idx_suggestions_feedback').on(table.feedback_id),
+    statusIdx: index('idx_suggestions_status').on(table.status),
+    typeIdx: index('idx_suggestions_type').on(table.suggestion_type),
   })
 );

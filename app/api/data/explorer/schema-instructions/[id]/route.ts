@@ -99,12 +99,12 @@ const deleteInstructionHandler = async (
 };
 
 export const PUT = rbacRoute(updateInstructionHandler, {
-  permission: 'data-explorer:metadata:manage:all',
+  permission: 'data-explorer:manage:all',
   rateLimit: 'api',
 });
 
 export const DELETE = rbacRoute(deleteInstructionHandler, {
-  permission: 'data-explorer:metadata:manage:all',
+  permission: 'data-explorer:manage:all',
   rateLimit: 'api',
 });
 

@@ -59,8 +59,8 @@ export default function Sidebar({ variant = 'default' }: { variant?: 'default' |
     'data-explorer:query:all',
     'data-explorer:execute:organization',
     'data-explorer:execute:all',
-    'data-explorer:metadata:read:organization',
-    'data-explorer:metadata:read:all',
+    'data-explorer:read:organization',
+    'data-explorer:read:all',
   ]);
 
   // Don't render the sidebar until authentication is loaded

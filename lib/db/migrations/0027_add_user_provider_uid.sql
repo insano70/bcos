@@ -5,15 +5,14 @@
 -- Date: 2025-10-13
 -- ============================================================================
 
-BEGIN;
 
--- Add provider_uid column to users table
+-- Add provider_uid column to users table (idempotent)
 ALTER TABLE users
-ADD COLUMN provider_uid INTEGER;
+ADD COLUMN IF NOT EXISTS provider_uid INTEGER;
 
--- Add index for efficient filtering
+-- Add index for efficient filtering (idempotent)
 -- Partial index (only users with provider_uid) for performance
-CREATE INDEX idx_users_provider_uid
+CREATE INDEX IF NOT EXISTS idx_users_provider_uid
 ON users (provider_uid)
 WHERE provider_uid IS NOT NULL;
 
@@ -44,5 +43,4 @@ BEGIN
   RAISE NOTICE '     SELECT DISTINCT provider_uid, provider_name FROM ih.agg_app_measures WHERE provider_uid IS NOT NULL ORDER BY provider_uid;';
 END $$;
 
-COMMIT;
 

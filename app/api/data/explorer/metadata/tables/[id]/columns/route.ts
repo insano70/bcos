@@ -43,7 +43,7 @@ const getColumnsHandler = async (
 };
 
 export const GET = rbacRoute(getColumnsHandler, {
-  permission: ['data-explorer:metadata:read:organization', 'data-explorer:metadata:read:all'],
+  permission: ['data-explorer:read:organization', 'data-explorer:read:all'],
   rateLimit: 'api',
 });
 

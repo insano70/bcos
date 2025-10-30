@@ -1,7 +1,7 @@
 'use client';
 
 import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { apiClient } from '@/lib/api/client';
 import type { SchemaInstruction } from '@/lib/types/data-explorer';
 import Toast from './toast';
@@ -28,13 +28,7 @@ export default function SchemaInstructionsModal({ isOpen, onClose }: SchemaInstr
   const [formExampleQuery, setFormExampleQuery] = useState('');
   const [formExampleSQL, setFormExampleSQL] = useState('');
 
-  useEffect(() => {
-    if (isOpen) {
-      fetchInstructions();
-    }
-  }, [isOpen]);
-
-  const fetchInstructions = async () => {
+  const fetchInstructions = useCallback(async () => {
     setIsLoading(true);
     try {
       const data = await apiClient.get<SchemaInstruction[]>('/api/data/explorer/schema-instructions');
@@ -44,7 +38,13 @@ export default function SchemaInstructionsModal({ isOpen, onClose }: SchemaInstr
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchInstructions();
+    }
+  }, [isOpen, fetchInstructions]);
 
   const handleEdit = (instruction: SchemaInstruction) => {
     setEditingInstruction(instruction);

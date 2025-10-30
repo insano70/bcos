@@ -47,11 +47,7 @@ const getQueryHandler = async (
 };
 
 export const GET = rbacRoute(getQueryHandler, {
-  permission: [
-    'data-explorer:history:read:own',
-    'data-explorer:history:read:organization',
-    'data-explorer:history:read:all',
-  ],
+  permission: ['data-explorer:read:organization', 'data-explorer:read:all'],
   rateLimit: 'api',
 });
 

@@ -8,6 +8,10 @@ import type {
   TableMetadata,
   QueryHistory,
   SchemaInstruction,
+  QueryFeedback,
+  SubmitFeedbackParams,
+  ResolveFeedbackParams,
+  FeedbackQueryOptions,
 } from '@/lib/types/data-explorer';
 
 export function useGenerateSQL() {
@@ -75,6 +79,91 @@ export function useSchemaInstructions() {
       staleTime: 5 * 60 * 1000, // 5 minutes
       gcTime: 10 * 60 * 1000,
     }
+  );
+}
+
+// Column statistics analysis hooks
+interface AnalyzeColumnResult {
+  column_metadata_id: string;
+  status: 'completed' | 'failed' | 'skipped';
+  duration_ms: number;
+  error?: string;
+}
+
+interface AnalyzeTableColumnsResult {
+  analyzed: number;
+  skipped: number;
+  failed: number;
+  duration_ms: number;
+}
+
+export function useAnalyzeColumn() {
+  return useApiMutation<AnalyzeColumnResult, { columnId: string; force?: boolean }>(
+    ({ columnId, force = false }) =>
+      apiClient.post<AnalyzeColumnResult>(
+        `/api/data/explorer/metadata/columns/${columnId}/analyze`,
+        { force }
+      )
+  );
+}
+
+export function useAnalyzeTableColumns() {
+  return useApiMutation<AnalyzeTableColumnsResult, { tableId: string; force?: boolean; resume?: boolean }>(
+    ({ tableId, force = false, resume = true }) =>
+      apiClient.post<AnalyzeTableColumnsResult>(
+        `/api/data/explorer/metadata/tables/${tableId}/analyze-columns`,
+        { force, resume }
+      )
+  );
+}
+
+export function useAnalyzeSchema() {
+  return useApiMutation<
+    AnalyzeTableColumnsResult,
+    { tiers?: Array<1 | 2 | 3>; limit?: number; force?: boolean; resume?: boolean }
+  >(
+    ({ tiers, limit, force = false, resume = true }) =>
+      apiClient.post<AnalyzeTableColumnsResult>(
+        '/api/data/explorer/metadata/analyze-schema',
+        { tiers, limit, force, resume }
+      )
+  );
+}
+
+// Feedback hooks
+export function useSubmitFeedback() {
+  return useApiMutation<QueryFeedback, SubmitFeedbackParams>(
+    (params) =>
+      apiClient.post<QueryFeedback>('/api/data/explorer/feedback', params)
+  );
+}
+
+export function usePendingFeedback(params?: FeedbackQueryOptions) {
+  const searchParams = new URLSearchParams();
+  if (params?.status) searchParams.append('status', params.status);
+  if (params?.severity) searchParams.append('severity', params.severity);
+  if (params?.feedback_type) searchParams.append('feedback_type', params.feedback_type);
+  if (params?.limit) searchParams.append('limit', String(params.limit));
+  if (params?.offset) searchParams.append('offset', String(params.offset));
+
+  const paramsKey = params ? JSON.stringify(params) : 'all';
+
+  return useApiQuery<QueryFeedback[]>(
+    ['data-explorer', 'feedback', 'pending', paramsKey],
+    `/api/data/explorer/feedback/pending?${searchParams.toString()}`,
+    {
+      staleTime: 1 * 60 * 1000, // 1 minute
+    }
+  );
+}
+
+export function useResolveFeedback() {
+  return useApiMutation<QueryFeedback, { feedbackId: string; data: ResolveFeedbackParams }>(
+    ({ feedbackId, data }) =>
+      apiClient.put<QueryFeedback>(
+        `/api/data/explorer/feedback/${feedbackId}/resolve`,
+        data
+      )
   );
 }
 
