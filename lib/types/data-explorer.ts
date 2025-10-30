@@ -31,7 +31,7 @@ export interface ColumnMetadata {
   display_name: string | null;
   description: string | null;
   data_type: string;
-  semantic_type: 'date' | 'amount' | 'identifier' | 'code' | 'text' | 'boolean' | null;
+  semantic_type: 'date' | 'amount' | 'identifier' | 'code' | 'text' | 'boolean' | 'status' | null;
   is_nullable: boolean;
   is_primary_key: boolean;
   is_foreign_key: boolean;
@@ -45,7 +45,11 @@ export interface ColumnMetadata {
   min_value: string | null;
   max_value: string | null;
   distinct_count: number | null;
-  null_percentage: number | null;
+  null_percentage: string | null;
+  statistics_last_analyzed: Date | null;
+  statistics_analysis_status: 'pending' | 'analyzing' | 'completed' | 'failed' | 'skipped' | null;
+  statistics_analysis_error: string | null;
+  statistics_analysis_duration_ms: number | null;
   created_at: Date;
   updated_at: Date;
 }
@@ -78,6 +82,11 @@ export interface QueryHistory {
   result_sample: unknown;
   created_at: Date;
   metadata: unknown;
+  
+  // SQL editing tracking
+  was_sql_edited: boolean;
+  original_generated_sql: string | null;
+  sql_edit_count: number;
 }
 
 // Saved query template
@@ -97,6 +106,68 @@ export interface QueryTemplate {
   created_by: string | null;
   created_at: Date;
   updated_at: Date;
+}
+
+// Query feedback
+export interface QueryFeedback {
+  feedback_id: string;
+  query_history_id: string;
+  feedback_type:
+    | 'incorrect_sql'
+    | 'wrong_tables'
+    | 'missing_join'
+    | 'wrong_filters'
+    | 'incorrect_columns'
+    | 'performance_issue'
+    | 'security_concern'
+    | 'other';
+  feedback_category:
+    | 'metadata_gap'
+    | 'instruction_needed'
+    | 'relationship_missing'
+    | 'semantic_misunderstanding'
+    | 'prompt_issue';
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  original_sql: string;
+  corrected_sql: string | null;
+  user_explanation: string | null;
+  detected_issue: string | null;
+  affected_tables: string[] | null;
+  affected_columns: string[] | null;
+  resolution_status:
+    | 'pending'
+    | 'metadata_updated'
+    | 'instruction_created'
+    | 'relationship_added'
+    | 'resolved'
+    | 'wont_fix';
+  resolution_action: unknown;
+  resolved_at: Date | null;
+  resolved_by: string | null;
+  similar_query_count: number;
+  recurrence_score: string | null;
+  created_at: Date;
+  created_by: string;
+}
+
+// Improvement suggestion
+export interface ImprovementSuggestion {
+  suggestion_id: string;
+  feedback_id: string | null;
+  suggestion_type:
+    | 'add_metadata'
+    | 'add_instruction'
+    | 'add_relationship'
+    | 'update_semantic_type'
+    | 'add_example_values';
+  target_type: 'table' | 'column' | 'relationship' | 'instruction';
+  target_id: string | null;
+  suggested_change: unknown;
+  confidence_score: string | null;
+  status: 'pending' | 'approved' | 'rejected' | 'auto_applied';
+  applied_at: Date | null;
+  applied_by: string | null;
+  created_at: Date;
 }
 
 // API request/response types
@@ -207,4 +278,45 @@ export interface SchemaDiscoveryResult {
   execution_time_ms: number;
 }
 
+// Feedback API types
+export interface SubmitFeedbackParams {
+  query_history_id: string;
+  feedback_type:
+    | 'incorrect_sql'
+    | 'wrong_tables'
+    | 'missing_join'
+    | 'wrong_filters'
+    | 'incorrect_columns'
+    | 'performance_issue'
+    | 'security_concern'
+    | 'other';
+  feedback_category:
+    | 'metadata_gap'
+    | 'instruction_needed'
+    | 'relationship_missing'
+    | 'semantic_misunderstanding'
+    | 'prompt_issue';
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  original_sql: string;
+  corrected_sql?: string | null;
+  user_explanation?: string | null;
+}
+
+export interface ResolveFeedbackParams {
+  resolution_status:
+    | 'metadata_updated'
+    | 'instruction_created'
+    | 'relationship_added'
+    | 'resolved'
+    | 'wont_fix';
+  resolution_action?: unknown;
+}
+
+export interface FeedbackQueryOptions {
+  status?: QueryFeedback['resolution_status'] | undefined;
+  severity?: QueryFeedback['severity'] | undefined;
+  feedback_type?: QueryFeedback['feedback_type'] | undefined;
+  limit?: number | undefined;
+  offset?: number | undefined;
+}
 

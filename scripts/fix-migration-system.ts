@@ -1,9 +1,9 @@
 /**
  * Fix Drizzle Migration System
- * 
+ *
  * CRITICAL FINDING: __drizzle_migrations table doesn't exist!
  * This means the database was created directly from schema, not through migrations.
- * 
+ *
  * This script will:
  * 1. Create __drizzle_migrations table
  * 2. Mark all existing migrations as applied (since DB already matches schema)
@@ -11,12 +11,12 @@
  * 4. Make system ready for future migrations
  */
 
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { config } from 'dotenv';
 import { sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
-import * as fs from 'node:fs';
-import * as path from 'node:path';
 
 // Load environment variables
 config({ path: '.env.local' });
@@ -71,13 +71,16 @@ async function fixMigrationSystem() {
     // Step 3: Find the problematic entry
     const problematicEntry = journal.entries.find((e) => e.tag === '0026_yummy_luke_cage');
     if (problematicEntry) {
-      console.log(`⚠️  Found problematic entry: ${problematicEntry.tag} (idx ${problematicEntry.idx})`);
+      console.log(
+        `⚠️  Found problematic entry: ${problematicEntry.tag} (idx ${problematicEntry.idx})`
+      );
       console.log('   This migration file was deleted but still in journal\n');
     }
 
     // Step 4: Get list of actual migration files
     const migrationsDir = path.join(process.cwd(), 'lib/db/migrations');
-    const files = fs.readdirSync(migrationsDir)
+    const files = fs
+      .readdirSync(migrationsDir)
       .filter((f) => f.endsWith('.sql'))
       .sort();
 
@@ -93,7 +96,9 @@ async function fixMigrationSystem() {
       return exists;
     });
 
-    console.log(`\nCleaned journal: ${cleanedEntries.length} valid entries (removed ${journal.entries.length - cleanedEntries.length})\n`);
+    console.log(
+      `\nCleaned journal: ${cleanedEntries.length} valid entries (removed ${journal.entries.length - cleanedEntries.length})\n`
+    );
 
     // Step 6: Mark all valid migrations as applied
     console.log('Step 4: Marking migrations as applied in database...');
@@ -101,7 +106,7 @@ async function fixMigrationSystem() {
     for (const entry of cleanedEntries) {
       const hash = `${entry.tag}`;
       const createdAt = entry.when;
-      
+
       await db.execute(sql`
         INSERT INTO __drizzle_migrations (hash, created_at)
         VALUES (${hash}, ${createdAt})
@@ -118,7 +123,7 @@ async function fixMigrationSystem() {
       entries: cleanedEntries,
     };
 
-    const backupPath = journalPath + '.backup';
+    const backupPath = `${journalPath}.backup`;
     fs.copyFileSync(journalPath, backupPath);
     console.log(`Step 5: Backed up journal to ${backupPath}`);
 
@@ -129,7 +134,9 @@ async function fixMigrationSystem() {
     console.log('Summary:');
     console.log(`  - Created __drizzle_migrations table`);
     console.log(`  - Marked ${appliedCount} migrations as applied`);
-    console.log(`  - Removed ${journal.entries.length - cleanedEntries.length} invalid journal entries`);
+    console.log(
+      `  - Removed ${journal.entries.length - cleanedEntries.length} invalid journal entries`
+    );
     console.log(`  - Backed up original journal\n`);
 
     console.log('You can now safely run:');
@@ -155,4 +162,3 @@ if (require.main === module) {
 }
 
 export { fixMigrationSystem };
-

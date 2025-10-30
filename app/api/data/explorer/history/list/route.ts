@@ -64,11 +64,7 @@ const getHistoryHandler = async (
 };
 
 export const GET = rbacRoute(getHistoryHandler, {
-  permission: [
-    'data-explorer:history:read:own',
-    'data-explorer:history:read:organization',
-    'data-explorer:history:read:all',
-  ],
+  permission: ['data-explorer:read:organization', 'data-explorer:read:all'],
   rateLimit: 'api',
 });
 

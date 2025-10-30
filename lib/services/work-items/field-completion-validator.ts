@@ -39,6 +39,13 @@ function isValueEmpty(value: unknown, fieldType: string): boolean {
     return false; // Checkboxes are never "empty" - false is valid
   }
 
+  // For attachment fields
+  if (fieldType === 'attachment') {
+    if (!value || typeof value !== 'object') return true;
+    const attachmentValue = value as { attachment_ids?: string[] };
+    return !attachmentValue.attachment_ids || attachmentValue.attachment_ids.length === 0;
+  }
+
   // Default: null or undefined is empty
   return value === null || value === undefined;
 }

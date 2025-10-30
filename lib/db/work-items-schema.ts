@@ -11,6 +11,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { organizations } from './rbac-schema';
 import { users } from './schema';
+import { work_item_fields } from './work-item-fields-schema';
 
 /**
  * Work Item Types - Configurable work item types (global or per organization)
@@ -298,6 +299,10 @@ export const workItemActivityRelations = relations(work_item_activity, ({ one })
 /**
  * Work Item Attachments - File attachments on work items
  * Phase 2: File management (moved from Phase 5 per product decision)
+ *
+ * Supports both work item-level attachments and custom field attachments:
+ * - work_item_field_id = NULL: Legacy attachment (work item level)
+ * - work_item_field_id = UUID: Custom field attachment (field level)
  */
 export const work_item_attachments = pgTable(
   'work_item_attachments',
@@ -306,6 +311,10 @@ export const work_item_attachments = pgTable(
     work_item_id: uuid('work_item_id')
       .notNull()
       .references(() => work_items.work_item_id, { onDelete: 'cascade' }),
+    work_item_field_id: uuid('work_item_field_id').references(
+      () => work_item_fields.work_item_field_id,
+      { onDelete: 'cascade' }
+    ), // NULL = work item attachment, NOT NULL = field attachment
     file_name: text('file_name').notNull(),
     file_size: integer('file_size').notNull(), // Size in bytes
     file_type: text('file_type').notNull(), // MIME type
@@ -322,6 +331,11 @@ export const work_item_attachments = pgTable(
     uploadedByIdx: index('idx_attachments_uploaded_by').on(table.uploaded_by),
     uploadedAtIdx: index('idx_attachments_uploaded_at').on(table.uploaded_at),
     deletedAtIdx: index('idx_attachments_deleted_at').on(table.deleted_at),
+    fieldIdx: index('idx_attachments_field').on(table.work_item_field_id),
+    workItemFieldIdx: index('idx_attachments_work_item_field').on(
+      table.work_item_id,
+      table.work_item_field_id
+    ),
   })
 );
 

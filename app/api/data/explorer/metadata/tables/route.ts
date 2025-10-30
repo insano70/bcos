@@ -132,12 +132,12 @@ const createTableHandler = async (
 };
 
 export const GET = rbacRoute(getTablesHandler, {
-  permission: ['data-explorer:metadata:read:organization', 'data-explorer:metadata:read:all'],
+  permission: ['data-explorer:read:organization', 'data-explorer:read:all'],
   rateLimit: 'api',
 });
 
 export const POST = rbacRoute(createTableHandler, {
-  permission: 'data-explorer:metadata:manage:all',
+  permission: 'data-explorer:manage:all',
   rateLimit: 'api',
 });
 

@@ -33,7 +33,7 @@ export class SchemaDiscoveryService extends BaseRBACService {
   async discoverTables(schemaName: string = 'ih', limit: number = 1000): Promise<DiscoveryResult> {
     const startTime = Date.now();
 
-    this.requirePermission('data-explorer:discovery:run:all');
+    this.requirePermission('data-explorer:manage:all');
 
     log.info('Starting schema discovery', {
       operation: 'discover_schema',
@@ -153,7 +153,7 @@ export class SchemaDiscoveryService extends BaseRBACService {
   }
 
   async discoverColumns(tableId: string): Promise<number> {
-    this.requirePermission('data-explorer:metadata:manage:all');
+    this.requirePermission('data-explorer:manage:all');
 
     if (!this.dbContext) throw new Error('Database context not initialized');
 
@@ -271,9 +271,13 @@ export class SchemaDiscoveryService extends BaseRBACService {
   private inferSemanticType(
     columnName: string,
     dataType: string
-  ): 'date' | 'amount' | 'identifier' | 'code' | 'text' | 'boolean' | null {
+  ): 'date' | 'amount' | 'identifier' | 'code' | 'text' | 'boolean' | 'status' | null {
     const lower = columnName.toLowerCase();
 
+    // Status columns (high priority for statistics)
+    if (lower.includes('status')) {
+      return 'status';
+    }
     if (lower.includes('date') || lower.includes('_dt') || lower.includes('_at')) {
       return 'date';
     }

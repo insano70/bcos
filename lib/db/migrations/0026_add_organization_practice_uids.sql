@@ -5,15 +5,13 @@
 -- Date: 2025-10-13
 -- ============================================================================
 
-BEGIN;
-
--- Add practice_uids column to organizations table
+-- Add practice_uids column to organizations table (idempotent)
 -- Allows multiple practice_uids per organization (array of integers)
 ALTER TABLE organizations
-ADD COLUMN practice_uids INTEGER[] DEFAULT '{}';
+ADD COLUMN IF NOT EXISTS practice_uids INTEGER[] DEFAULT '{}';
 
--- Add GIN index for efficient array lookups (ANY operator performance)
-CREATE INDEX idx_organizations_practice_uids
+-- Add GIN index for efficient array lookups (ANY operator performance) (idempotent)
+CREATE INDEX IF NOT EXISTS idx_organizations_practice_uids
 ON organizations USING GIN (practice_uids);
 
 -- Add comment explaining the column
@@ -41,6 +39,3 @@ BEGIN
   RAISE NOTICE '  2. Query analytics database to find available practice_uid values:';
   RAISE NOTICE '     SELECT DISTINCT practice_uid, practice FROM ih.agg_app_measures ORDER BY practice_uid;';
 END $$;
-
-COMMIT;
-

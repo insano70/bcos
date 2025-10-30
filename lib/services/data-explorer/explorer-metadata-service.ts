@@ -24,8 +24,8 @@ export class ExplorerMetadataService extends BaseRBACService implements Metadata
     const startTime = Date.now();
 
     this.requireAnyPermission([
-      'data-explorer:metadata:read:organization',
-      'data-explorer:metadata:read:all',
+      'data-explorer:read:organization',
+      'data-explorer:read:all',
     ]);
 
     const conditions: SQL[] = [];
@@ -75,8 +75,8 @@ export class ExplorerMetadataService extends BaseRBACService implements Metadata
 
   async getTableById(tableId: string): Promise<TableMetadata | null> {
     this.requireAnyPermission([
-      'data-explorer:metadata:read:organization',
-      'data-explorer:metadata:read:all',
+      'data-explorer:read:organization',
+      'data-explorer:read:all',
     ]);
 
     if (!this.dbContext) throw new Error('Database context not initialized');
@@ -91,8 +91,8 @@ export class ExplorerMetadataService extends BaseRBACService implements Metadata
 
   async getColumnMetadata(tableId: string): Promise<ColumnMetadata[]> {
     this.requireAnyPermission([
-      'data-explorer:metadata:read:organization',
-      'data-explorer:metadata:read:all',
+      'data-explorer:read:organization',
+      'data-explorer:read:all',
     ]);
 
     if (!this.dbContext) throw new Error('Database context not initialized');
@@ -111,7 +111,7 @@ export class ExplorerMetadataService extends BaseRBACService implements Metadata
   ): Promise<TableMetadata> {
     const startTime = Date.now();
 
-    this.requirePermission('data-explorer:metadata:manage:all');
+    this.requirePermission('data-explorer:manage:all');
 
     if (!this.dbContext) throw new Error('Database context not initialized');
     const [updated] = await this.dbContext
@@ -167,8 +167,8 @@ export class ExplorerMetadataService extends BaseRBACService implements Metadata
 
   async getTableMetadataCount(options: MetadataQueryOptions = {}): Promise<number> {
     this.requireAnyPermission([
-      'data-explorer:metadata:read:organization',
-      'data-explorer:metadata:read:all',
+      'data-explorer:read:organization',
+      'data-explorer:read:all',
     ]);
 
     const conditions: SQL[] = [];
@@ -281,7 +281,7 @@ export class ExplorerMetadataService extends BaseRBACService implements Metadata
     description?: string;
     tier?: 1 | 2 | 3;
   }): Promise<TableMetadata> {
-    this.requirePermission('data-explorer:metadata:manage:all');
+    this.requirePermission('data-explorer:manage:all');
 
     if (!this.dbContext) throw new Error('Database context not initialized');
     const [created] = await this.dbContext
@@ -302,7 +302,7 @@ export class ExplorerMetadataService extends BaseRBACService implements Metadata
   }
 
   async deleteTableMetadata(tableId: string): Promise<void> {
-    this.requirePermission('data-explorer:metadata:manage:all');
+    this.requirePermission('data-explorer:manage:all');
 
     if (!this.dbContext) throw new Error('Database context not initialized');
     await this.dbContext
@@ -311,7 +311,7 @@ export class ExplorerMetadataService extends BaseRBACService implements Metadata
   }
 
   async updateColumnMetadata(columnId: string, data: Partial<ColumnMetadata>): Promise<ColumnMetadata> {
-    this.requirePermission('data-explorer:metadata:manage:all');
+    this.requirePermission('data-explorer:manage:all');
 
     if (!this.dbContext) throw new Error('Database context not initialized');
     const [updated] = await this.dbContext
@@ -332,8 +332,8 @@ export class ExplorerMetadataService extends BaseRBACService implements Metadata
 
   async getSchemaInstructions(schemaName: string = 'ih'): Promise<SchemaInstruction[]> {
     this.requireAnyPermission([
-      'data-explorer:metadata:read:organization',
-      'data-explorer:metadata:read:all',
+      'data-explorer:read:organization',
+      'data-explorer:read:all',
     ]);
 
     if (!this.dbContext) throw new Error('Database context not initialized');
@@ -353,7 +353,7 @@ export class ExplorerMetadataService extends BaseRBACService implements Metadata
   }
 
   async createSchemaInstruction(data: CreateSchemaInstructionData): Promise<SchemaInstruction> {
-    this.requirePermission('data-explorer:metadata:manage:all');
+    this.requirePermission('data-explorer:manage:all');
 
     if (!this.dbContext) throw new Error('Database context not initialized');
     
@@ -377,7 +377,7 @@ export class ExplorerMetadataService extends BaseRBACService implements Metadata
   }
 
   async updateSchemaInstruction(id: string, data: Partial<SchemaInstruction>): Promise<SchemaInstruction> {
-    this.requirePermission('data-explorer:metadata:manage:all');
+    this.requirePermission('data-explorer:manage:all');
 
     if (!this.dbContext) throw new Error('Database context not initialized');
     
@@ -403,7 +403,7 @@ export class ExplorerMetadataService extends BaseRBACService implements Metadata
   }
 
   async deleteSchemaInstruction(id: string): Promise<void> {
-    this.requirePermission('data-explorer:metadata:manage:all');
+    this.requirePermission('data-explorer:manage:all');
 
     if (!this.dbContext) throw new Error('Database context not initialized');
     

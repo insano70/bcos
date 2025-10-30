@@ -126,7 +126,7 @@ export default function SchemaInstructionsContent() {
         </div>
 
         <div className="grid grid-flow-col sm:auto-cols-max justify-start sm:justify-end gap-2">
-          <ProtectedComponent permission="data-explorer:metadata:manage:all">
+          <ProtectedComponent permission="data-explorer:manage:all">
             <button
               type="button"
               onClick={() => setIsCreateModalOpen(true)}

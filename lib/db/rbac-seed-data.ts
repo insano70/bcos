@@ -666,76 +666,22 @@ export const RBAC_PERMISSIONS: Record<string, PermissionDefinition> = {
     action: 'execute',
     scope: 'all',
   },
-  'data-explorer:metadata:read:organization': {
-    description: 'View table/column metadata',
+  'data-explorer:read:organization': {
+    description: 'View table/column metadata and query history for organization',
     resource: 'data-explorer',
-    action: 'metadata:read',
+    action: 'read',
     scope: 'organization',
   },
-  'data-explorer:metadata:read:all': {
-    description: 'View all metadata',
+  'data-explorer:read:all': {
+    description: 'View all metadata and query history (super admin)',
     resource: 'data-explorer',
-    action: 'metadata:read',
+    action: 'read',
     scope: 'all',
   },
-  'data-explorer:metadata:manage:all': {
-    description: 'Create/update/delete metadata (admin only)',
+  'data-explorer:manage:all': {
+    description: 'Full data explorer management - metadata, templates, discovery, statistics (super admin only)',
     resource: 'data-explorer',
-    action: 'metadata:manage',
-    scope: 'all',
-  },
-  'data-explorer:history:read:own': {
-    description: 'View own query history',
-    resource: 'data-explorer',
-    action: 'history:read',
-    scope: 'own',
-  },
-  'data-explorer:history:read:organization': {
-    description: 'View organization query history',
-    resource: 'data-explorer',
-    action: 'history:read',
-    scope: 'organization',
-  },
-  'data-explorer:history:read:all': {
-    description: 'View all query history',
-    resource: 'data-explorer',
-    action: 'history:read',
-    scope: 'all',
-  },
-  'data-explorer:templates:read:organization': {
-    description: 'View query templates',
-    resource: 'data-explorer',
-    action: 'templates:read',
-    scope: 'organization',
-  },
-  'data-explorer:templates:read:all': {
-    description: 'View all templates',
-    resource: 'data-explorer',
-    action: 'templates:read',
-    scope: 'all',
-  },
-  'data-explorer:templates:create:organization': {
-    description: 'Create query templates',
-    resource: 'data-explorer',
-    action: 'templates:create',
-    scope: 'organization',
-  },
-  'data-explorer:templates:manage:own': {
-    description: 'Manage own templates',
-    resource: 'data-explorer',
-    action: 'templates:manage',
-    scope: 'own',
-  },
-  'data-explorer:templates:manage:all': {
-    description: 'Manage all templates',
-    resource: 'data-explorer',
-    action: 'templates:manage',
-    scope: 'all',
-  },
-  'data-explorer:discovery:run:all': {
-    description: 'Run schema auto-discovery (admin only)',
-    resource: 'data-explorer',
-    action: 'discovery:run',
+    action: 'manage',
     scope: 'all',
   },
 } as const;

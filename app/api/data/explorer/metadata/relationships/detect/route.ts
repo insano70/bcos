@@ -67,7 +67,7 @@ const detectRelationshipsHandler = async (
 };
 
 export const POST = rbacRoute(detectRelationshipsHandler, {
-  permission: 'data-explorer:discovery:run:all',
+  permission: 'data-explorer:manage:all',
   rateLimit: 'api',
 });
 

@@ -61,11 +61,7 @@ const rateQueryHandler = async (
 };
 
 export const POST = rbacRoute(rateQueryHandler, {
-  permission: [
-    'data-explorer:history:read:own',
-    'data-explorer:history:read:organization',
-    'data-explorer:history:read:all',
-  ],
+  permission: ['data-explorer:read:organization', 'data-explorer:read:all'],
   rateLimit: 'api',
 });
 

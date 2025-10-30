@@ -32,8 +32,8 @@ export function DataExplorerMenuSection() {
             'data-explorer:query:all',
             'data-explorer:execute:organization',
             'data-explorer:execute:all',
-            'data-explorer:metadata:read:organization',
-            'data-explorer:metadata:read:all',
+            'data-explorer:read:organization',
+            'data-explorer:read:all',
           ]}
           requireAll={false}
         >
@@ -90,11 +90,10 @@ export function DataExplorerMenuSection() {
 
                       {/* Query History */}
                       <ProtectedComponent
-                        permissions={[
-                          'data-explorer:history:read:own',
-                          'data-explorer:history:read:organization',
-                          'data-explorer:history:read:all',
-                        ]}
+                      permissions={[
+                        'data-explorer:read:organization',
+                        'data-explorer:read:all',
+                      ]}
                         requireAll={false}
                       >
                         <li className="mb-1 last:mb-0">
@@ -108,11 +107,11 @@ export function DataExplorerMenuSection() {
 
                       {/* Metadata Management */}
                       <ProtectedComponent
-                        permissions={[
-                          'data-explorer:metadata:read:organization',
-                          'data-explorer:metadata:read:all',
-                          'data-explorer:metadata:manage:all',
-                        ]}
+                      permissions={[
+                        'data-explorer:read:organization',
+                        'data-explorer:read:all',
+                        'data-explorer:manage:all',
+                      ]}
                         requireAll={false}
                       >
                       <li className="mb-1 last:mb-0">
@@ -125,7 +124,7 @@ export function DataExplorerMenuSection() {
                     </ProtectedComponent>
 
                     {/* Schema Instructions */}
-                    <ProtectedComponent permission="data-explorer:metadata:manage:all">
+                        <ProtectedComponent permission="data-explorer:manage:all">
                       <li className="mb-1 last:mb-0">
                         <SidebarLink href="/data/explorer/schema-instructions">
                           <span className="text-sm font-medium lg:opacity-0 lg:sidebar-expanded:opacity-100 2xl:opacity-100 duration-200">

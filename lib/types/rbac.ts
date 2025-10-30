@@ -238,18 +238,9 @@ export type PermissionName =
   | 'data-explorer:execute:own'
   | 'data-explorer:execute:organization'
   | 'data-explorer:execute:all'
-  | 'data-explorer:metadata:read:organization'
-  | 'data-explorer:metadata:read:all'
-  | 'data-explorer:metadata:manage:all'
-  | 'data-explorer:history:read:own'
-  | 'data-explorer:history:read:organization'
-  | 'data-explorer:history:read:all'
-  | 'data-explorer:templates:read:organization'
-  | 'data-explorer:templates:read:all'
-  | 'data-explorer:templates:create:organization'
-  | 'data-explorer:templates:manage:own'
-  | 'data-explorer:templates:manage:all'
-  | 'data-explorer:discovery:run:all';
+  | 'data-explorer:read:organization'
+  | 'data-explorer:read:all'
+  | 'data-explorer:manage:all';
 
 // Role Types for Healthcare Practices
 export type SystemRoleName = 'super_admin';

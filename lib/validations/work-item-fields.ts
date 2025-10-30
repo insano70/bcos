@@ -21,6 +21,7 @@ export const fieldTypeSchema = z.enum([
   'phone',
   'currency',
   'percentage',
+  'attachment',
 ]);
 
 // Field option schema

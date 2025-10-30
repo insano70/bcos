@@ -24,9 +24,8 @@ export class ExplorerHistoryService extends BaseRBACService {
 
   async createHistoryEntry(input: CreateHistoryInput) {
     this.requireAnyPermission([
-      'data-explorer:history:read:own',
-      'data-explorer:history:read:organization',
-      'data-explorer:history:read:all',
+      'data-explorer:read:organization',
+      'data-explorer:read:all',
       'data-explorer:query:organization',
       'data-explorer:query:all',
     ]);
@@ -45,6 +44,10 @@ export class ExplorerHistoryService extends BaseRBACService {
         user_id: input.user_id,
         user_email: input.user_email,
         organization_id: input.organization_id,
+        // Store original generated SQL for edit detection
+        original_generated_sql: input.generated_sql,
+        was_sql_edited: false,
+        sql_edit_count: 0,
       })
       .returning();
 
@@ -54,12 +57,40 @@ export class ExplorerHistoryService extends BaseRBACService {
 
   async updateHistoryEntry(id: string, changes: Record<string, unknown>) {
     this.requireAnyPermission([
-      'data-explorer:history:read:own',
-      'data-explorer:history:read:organization',
-      'data-explorer:history:read:all',
+      'data-explorer:read:organization',
+      'data-explorer:read:all',
     ]);
 
     if (!this.dbContext) throw new Error('Database context not initialized');
+    
+    // If final_sql is being set, check if it differs from original generated SQL
+    if (changes.final_sql && typeof changes.final_sql === 'string') {
+      // Fetch the original entry to compare
+      const [existing] = await this.dbContext
+        .select({
+          original_generated_sql: explorerQueryHistory.original_generated_sql,
+          sql_edit_count: explorerQueryHistory.sql_edit_count,
+        })
+        .from(explorerQueryHistory)
+        .where(eq(explorerQueryHistory.query_history_id, id))
+        .limit(1);
+
+      if (existing?.original_generated_sql) {
+        // Normalize SQL for comparison (remove extra whitespace, case-insensitive)
+        const normalizeSQL = (sql: string) => 
+          sql.trim().replace(/\s+/g, ' ').toLowerCase();
+
+        const originalNormalized = normalizeSQL(existing.original_generated_sql);
+        const finalNormalized = normalizeSQL(changes.final_sql);
+
+        if (originalNormalized !== finalNormalized) {
+          // SQL was edited!
+          changes.was_sql_edited = true;
+          changes.sql_edit_count = (existing.sql_edit_count || 0) + 1;
+        }
+      }
+    }
+
     const [row] = await this.dbContext
       .update(explorerQueryHistory)
       .set(changes)
@@ -71,9 +102,8 @@ export class ExplorerHistoryService extends BaseRBACService {
 
   async listHistory(params?: { limit?: number; offset?: number; status?: string }) {
     this.requireAnyPermission([
-      'data-explorer:history:read:own',
-      'data-explorer:history:read:organization',
-      'data-explorer:history:read:all',
+      'data-explorer:read:organization',
+      'data-explorer:read:all',
     ]);
 
     const conditions: SQL[] = [];
@@ -98,9 +128,8 @@ export class ExplorerHistoryService extends BaseRBACService {
 
   async getQueryById(queryId: string) {
     this.requireAnyPermission([
-      'data-explorer:history:read:own',
-      'data-explorer:history:read:organization',
-      'data-explorer:history:read:all',
+      'data-explorer:read:organization',
+      'data-explorer:read:all',
     ]);
 
     if (!this.dbContext) throw new Error('Database context not initialized');
@@ -115,9 +144,8 @@ export class ExplorerHistoryService extends BaseRBACService {
 
   async rateQuery(queryId: string, rating: 1 | 2 | 3 | 4 | 5, feedback?: string) {
     this.requireAnyPermission([
-      'data-explorer:history:read:own',
-      'data-explorer:history:read:organization',
-      'data-explorer:history:read:all',
+      'data-explorer:read:organization',
+      'data-explorer:read:all',
     ]);
 
     if (!this.dbContext) throw new Error('Database context not initialized');
@@ -132,5 +160,44 @@ export class ExplorerHistoryService extends BaseRBACService {
       .returning();
 
     return updated || null;
+  }
+
+  /**
+   * Get statistics on SQL edits (admin only)
+   * Useful for identifying when AI-generated SQL needs improvement
+   */
+  async getEditStatistics() {
+    this.requirePermission('data-explorer:manage:all');
+
+    if (!this.dbContext) throw new Error('Database context not initialized');
+
+    // Get overall edit statistics
+    const [stats] = await this.dbContext
+      .select({
+        total_queries: sql<number>`count(*)`,
+        edited_queries: sql<number>`count(*) filter (where was_sql_edited = true)`,
+        edit_percentage: sql<number>`round((count(*) filter (where was_sql_edited = true)::numeric / count(*)::numeric * 100), 2)`,
+        avg_edits_per_query: sql<number>`round(avg(sql_edit_count), 2)`,
+      })
+      .from(explorerQueryHistory);
+
+    // Get most frequently edited query patterns
+    const editedQueries = await this.dbContext
+      .select({
+        natural_language_query: explorerQueryHistory.natural_language_query,
+        edit_count: explorerQueryHistory.sql_edit_count,
+        original_sql: explorerQueryHistory.original_generated_sql,
+        final_sql: explorerQueryHistory.final_sql,
+        tables_used: explorerQueryHistory.tables_used,
+      })
+      .from(explorerQueryHistory)
+      .where(eq(explorerQueryHistory.was_sql_edited, true))
+      .orderBy(desc(explorerQueryHistory.sql_edit_count))
+      .limit(20);
+
+    return {
+      overall: stats,
+      top_edited_queries: editedQueries,
+    };
   }
 }

@@ -146,6 +146,9 @@ export default function ViewColumnsModal({
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                           Description
                         </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                          Statistics
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
@@ -239,6 +242,41 @@ export default function ViewColumnsModal({
                                   </svg>
                                 </button>
                               </div>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                            {col.statistics_analysis_status === 'completed' ? (
+                              <div className="space-y-1">
+                                {col.common_values && Array.isArray(col.common_values) && col.common_values.length > 0 ? (
+                                  <div className="text-xs">
+                                    <span className="font-medium">Common:</span>{' '}
+                                    {(col.common_values as Array<{ value: string; percentage: number }>).slice(0, 3).map((v) => `${v.value} (${v.percentage}%)`).join(', ')}
+                                  </div>
+                                ) : null}
+                                {col.min_value && col.max_value ? (
+                                  <div className="text-xs">
+                                    <span className="font-medium">Range:</span> {col.min_value} to {col.max_value}
+                                  </div>
+                                ) : null}
+                                {col.distinct_count !== null && col.distinct_count !== undefined ? (
+                                  <div className="text-xs">
+                                    <span className="font-medium">Distinct:</span> {col.distinct_count}
+                                  </div>
+                                ) : null}
+                                {col.null_percentage ? (
+                                  <div className="text-xs">
+                                    <span className="font-medium">Null:</span> {col.null_percentage}%
+                                  </div>
+                                ) : null}
+                              </div>
+                            ) : col.statistics_analysis_status === 'analyzing' ? (
+                              <span className="text-xs italic text-violet-600">Analyzing...</span>
+                            ) : col.statistics_analysis_status === 'failed' ? (
+                              <span className="text-xs italic text-red-600" title={col.statistics_analysis_error || undefined}>Failed</span>
+                            ) : col.statistics_analysis_status === 'skipped' ? (
+                              <span className="text-xs italic text-gray-400">Skipped</span>
+                            ) : (
+                              <span className="text-xs italic text-gray-400">Not analyzed</span>
                             )}
                           </td>
                         </tr>

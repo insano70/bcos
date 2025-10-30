@@ -7,6 +7,8 @@ import { QuerySecurityService } from './query-security-service';
 import { SchemaDiscoveryService } from './schema-discovery-service';
 import { ExplorerRelationshipService } from './explorer-relationship-service';
 import { ExplorerPatternService } from './explorer-pattern-service';
+import { ColumnStatisticsService } from './column-statistics-service';
+import { FeedbackService } from './feedback-service';
 
 export function createRBACExplorerMetadataService(userContext: UserContext): ExplorerMetadataService {
   return new ExplorerMetadataService(userContext);
@@ -50,4 +52,14 @@ export function createRBACExplorerPatternService(
   userContext: UserContext
 ): ExplorerPatternService {
   return new ExplorerPatternService(userContext);
+}
+
+export function createRBACExplorerColumnStatisticsService(
+  userContext: UserContext
+): ColumnStatisticsService {
+  return new ColumnStatisticsService(userContext);
+}
+
+export function createRBACExplorerFeedbackService(userContext: UserContext): FeedbackService {
+  return new FeedbackService(userContext);
 }

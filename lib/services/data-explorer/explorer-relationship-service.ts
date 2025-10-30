@@ -38,7 +38,7 @@ export class ExplorerRelationshipService extends BaseRBACService {
   async detectRelationships(schemaName: string = 'ih'): Promise<DetectedRelationship[]> {
     const startTime = Date.now();
 
-    this.requirePermission('data-explorer:discovery:run:all');
+    this.requirePermission('data-explorer:manage:all');
 
     log.info('Starting relationship detection', {
       operation: 'detect_relationships',
@@ -119,8 +119,8 @@ export class ExplorerRelationshipService extends BaseRBACService {
 
   async getRelationshipsForTable(tableId: string): Promise<TableRelationship[]> {
     this.requireAnyPermission([
-      'data-explorer:metadata:read:organization',
-      'data-explorer:metadata:read:all',
+      'data-explorer:read:organization',
+      'data-explorer:read:all',
     ]);
 
     if (!this.dbContext) throw new Error('Database context not initialized');
