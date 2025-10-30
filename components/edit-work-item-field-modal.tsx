@@ -37,6 +37,8 @@ export default function EditWorkItemFieldModal({
   const [conditionalVisibilityRules, setConditionalVisibilityRules] = useState<
     ConditionalVisibilityRule[]
   >([]);
+  const [maxFiles, setMaxFiles] = useState<number | null>(1);
+  const [maxFilesUnlimited, setMaxFilesUnlimited] = useState(false);
 
   const fieldNameId = useId();
   const fieldTypeId = useId();
@@ -46,6 +48,7 @@ export default function EditWorkItemFieldModal({
   const isRequiredOnCreationId = useId();
   const isRequiredToCompleteId = useId();
   const isVisibleId = useId();
+  const editMaxFilesUnlimitedId = useId();
 
   const updateFieldMutation = useUpdateWorkItemField();
 
@@ -59,6 +62,19 @@ export default function EditWorkItemFieldModal({
       setDisplayOrder(field.display_order);
       setOptions(field.field_options || []);
       setConditionalVisibilityRules(field.field_config?.conditional_visibility || []);
+
+      // Load attachment config
+      if (field.field_type === 'attachment') {
+        const attachmentConfig = field.field_config?.attachment_config;
+        const maxFilesValue = attachmentConfig?.max_files;
+        if (maxFilesValue === null || maxFilesValue === undefined) {
+          setMaxFilesUnlimited(true);
+          setMaxFiles(null);
+        } else {
+          setMaxFilesUnlimited(false);
+          setMaxFiles(maxFilesValue);
+        }
+      }
     }
   }, [field]);
 
@@ -68,6 +84,31 @@ export default function EditWorkItemFieldModal({
     if (!field) return;
 
     try {
+      // Build field config
+      let fieldConfig:
+        | {
+            attachment_config: { max_files: number | null };
+            conditional_visibility?: ConditionalVisibilityRule[] | undefined;
+          }
+        | { conditional_visibility: ConditionalVisibilityRule[] }
+        | undefined;
+      if (field.field_type === 'attachment') {
+        const attachmentConfig: {
+          attachment_config: { max_files: number | null };
+          conditional_visibility?: ConditionalVisibilityRule[] | undefined;
+        } = {
+          attachment_config: {
+            max_files: maxFilesUnlimited ? null : maxFiles,
+          },
+        };
+        if (conditionalVisibilityRules.length > 0) {
+          attachmentConfig.conditional_visibility = conditionalVisibilityRules;
+        }
+        fieldConfig = attachmentConfig;
+      } else if (conditionalVisibilityRules.length > 0) {
+        fieldConfig = { conditional_visibility: conditionalVisibilityRules };
+      }
+
       await updateFieldMutation.mutateAsync({
         fieldId: field.work_item_field_id,
         data: {
@@ -78,10 +119,7 @@ export default function EditWorkItemFieldModal({
           is_visible: isVisible,
           display_order: displayOrder,
           field_options: field.field_type === 'dropdown' ? options : undefined,
-          field_config:
-            conditionalVisibilityRules.length > 0
-              ? { conditional_visibility: conditionalVisibilityRules }
-              : undefined,
+          field_config: fieldConfig,
         } as never,
       });
 
@@ -206,6 +244,50 @@ export default function EditWorkItemFieldModal({
                   </button>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* Attachment Configuration */}
+          {field.field_type === 'attachment' && (
+            <div className="space-y-3">
+              <label className="block text-sm font-medium">Attachment Settings</label>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id={editMaxFilesUnlimitedId}
+                  checked={maxFilesUnlimited}
+                  onChange={(e) => {
+                    setMaxFilesUnlimited(e.target.checked);
+                    if (e.target.checked) {
+                      setMaxFiles(null);
+                    } else {
+                      setMaxFiles(1);
+                    }
+                  }}
+                  className="form-checkbox"
+                />
+                <label htmlFor={editMaxFilesUnlimitedId} className="text-sm">
+                  Allow unlimited files
+                </label>
+              </div>
+
+              {!maxFilesUnlimited && (
+                <div>
+                  <label className="block text-sm font-medium mb-1">Maximum Files</label>
+                  <input
+                    type="number"
+                    className="form-input w-full"
+                    min="1"
+                    value={maxFiles ?? 1}
+                    onChange={(e) => setMaxFiles(parseInt(e.target.value, 10))}
+                    required
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Maximum number of files that can be attached
+                  </p>
+                </div>
+              )}
             </div>
           )}
 

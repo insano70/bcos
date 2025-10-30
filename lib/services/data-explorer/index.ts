@@ -9,6 +9,12 @@ import { ExplorerRelationshipService } from './explorer-relationship-service';
 import { ExplorerPatternService } from './explorer-pattern-service';
 import { ColumnStatisticsService } from './column-statistics-service';
 import { FeedbackService } from './feedback-service';
+import { SuggestionGeneratorService } from './suggestion-generator';
+import { FeedbackAnalyticsService } from './feedback-analytics-service';
+import { FeedbackNotificationService } from './feedback-notification-service';
+import { TestCaseGeneratorService } from './test-case-generator';
+import { analyzeSQLDiff } from './sql-diff-analyzer';
+import { analyzeFeedback, analyzeFeedbackBatch } from './feedback-analyzer';
 
 export function createRBACExplorerMetadataService(userContext: UserContext): ExplorerMetadataService {
   return new ExplorerMetadataService(userContext);
@@ -63,3 +69,33 @@ export function createRBACExplorerColumnStatisticsService(
 export function createRBACExplorerFeedbackService(userContext: UserContext): FeedbackService {
   return new FeedbackService(userContext);
 }
+
+export function createRBACExplorerSuggestionGeneratorService(
+  userContext: UserContext
+): SuggestionGeneratorService {
+  return new SuggestionGeneratorService(userContext);
+}
+
+// Export feedback analyzer utility functions (not RBAC-based)
+export { analyzeFeedback, analyzeFeedbackBatch };
+
+export function createRBACExplorerFeedbackAnalyticsService(
+  userContext: UserContext
+): FeedbackAnalyticsService {
+  return new FeedbackAnalyticsService(userContext);
+}
+
+export function createRBACExplorerFeedbackNotificationService(
+  userContext: UserContext
+): FeedbackNotificationService {
+  return new FeedbackNotificationService(userContext);
+}
+
+export function createRBACExplorerTestCaseGeneratorService(
+  userContext: UserContext
+): TestCaseGeneratorService {
+  return new TestCaseGeneratorService(userContext);
+}
+
+// Export SQL diff analyzer (not RBAC-based, utility function)
+export { analyzeSQLDiff };

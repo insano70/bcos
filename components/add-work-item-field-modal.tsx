@@ -29,6 +29,8 @@ export default function AddWorkItemFieldModal({
   const [options, setOptions] = useState<FieldOption[]>([]);
   const [newOptionValue, setNewOptionValue] = useState('');
   const [newOptionLabel, setNewOptionLabel] = useState('');
+  const [maxFiles, setMaxFiles] = useState<number | null>(1);
+  const [maxFilesUnlimited, setMaxFilesUnlimited] = useState(false);
 
   const fieldLabelId = useId();
   const fieldNameId = useId();
@@ -38,6 +40,7 @@ export default function AddWorkItemFieldModal({
   const isRequiredOnCreationId = useId();
   const isRequiredToCompleteId = useId();
   const isVisibleId = useId();
+  const maxFilesUnlimitedId = useId();
 
   const createFieldMutation = useCreateWorkItemField();
 
@@ -56,6 +59,14 @@ export default function AddWorkItemFieldModal({
         is_visible: isVisible,
         display_order: displayOrder,
         field_options: fieldType === 'dropdown' ? options : undefined,
+        field_config:
+          fieldType === 'attachment'
+            ? {
+                attachment_config: {
+                  max_files: maxFilesUnlimited ? null : maxFiles,
+                },
+              }
+            : undefined,
       } as never);
 
       // Reset form
@@ -68,6 +79,8 @@ export default function AddWorkItemFieldModal({
       setIsVisible(true);
       setDisplayOrder(0);
       setOptions([]);
+      setMaxFiles(1);
+      setMaxFilesUnlimited(false);
 
       onSuccess();
       onClose();
@@ -158,8 +171,53 @@ export default function AddWorkItemFieldModal({
               <option value="dropdown">Dropdown</option>
               <option value="checkbox">Checkbox</option>
               <option value="user_picker">User Picker</option>
+              <option value="attachment">Attachment</option>
             </select>
           </div>
+
+          {/* Attachment Configuration */}
+          {fieldType === 'attachment' && (
+            <div className="space-y-3">
+              <label className="block text-sm font-medium">Attachment Settings</label>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id={maxFilesUnlimitedId}
+                  checked={maxFilesUnlimited}
+                  onChange={(e) => {
+                    setMaxFilesUnlimited(e.target.checked);
+                    if (e.target.checked) {
+                      setMaxFiles(null);
+                    } else {
+                      setMaxFiles(1);
+                    }
+                  }}
+                  className="form-checkbox"
+                />
+                <label htmlFor={maxFilesUnlimitedId} className="text-sm">
+                  Allow unlimited files
+                </label>
+              </div>
+
+              {!maxFilesUnlimited && (
+                <div>
+                  <label className="block text-sm font-medium mb-1">Maximum Files</label>
+                  <input
+                    type="number"
+                    className="form-input w-full"
+                    min="1"
+                    value={maxFiles ?? 1}
+                    onChange={(e) => setMaxFiles(parseInt(e.target.value, 10))}
+                    required
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Maximum number of files that can be attached
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Dropdown Options */}
           {fieldType === 'dropdown' && (

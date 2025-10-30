@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
+import AttachmentFieldRenderer from '@/components/attachment-field-renderer';
 import DateInput from '@/components/inputs/date-input';
 import DateTimeInput from '@/components/inputs/datetime-input';
 import type { WorkItemField } from '@/lib/types/work-item-fields';
@@ -10,6 +11,7 @@ interface DynamicFieldRendererProps {
   values: Record<string, unknown>;
   onChange: (fieldId: string, value: unknown) => void;
   errors?: Record<string, string>;
+  workItemId?: string; // Required for attachment fields
 }
 
 export default function DynamicFieldRenderer({
@@ -17,6 +19,7 @@ export default function DynamicFieldRenderer({
   values,
   onChange,
   errors = {},
+  workItemId,
 }: DynamicFieldRendererProps) {
   // Sort fields by display order
   const sortedFields = useMemo(() => {
@@ -194,6 +197,26 @@ export default function DynamicFieldRenderer({
             />
             <p className="text-xs text-gray-500 mt-1">Enter a user UUID</p>
             {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+          </div>
+        );
+
+      case 'attachment':
+        if (!workItemId) {
+          return (
+            <div key={field.work_item_field_id} className="text-sm text-gray-500">
+              Attachment fields are only available after the work item is created.
+            </div>
+          );
+        }
+        return (
+          <div key={field.work_item_field_id}>
+            <AttachmentFieldRenderer
+              field={field}
+              workItemId={workItemId}
+              value={value as { attachment_ids?: string[] } | undefined}
+              onChange={(val) => onChange(field.work_item_field_id, val)}
+              error={error}
+            />
           </div>
         );
 
