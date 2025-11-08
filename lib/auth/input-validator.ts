@@ -54,6 +54,9 @@ const DANGEROUS_CHARS = /[<>;"'`\\]/;
  * This function provides defense-in-depth validation even though OIDC/SAML
  * libraries have already validated the response structure and signature.
  *
+ * IMPORTANT: Only email validation failures block authentication.
+ * Name field validation issues are logged but do not prevent login.
+ *
  * @param profile - Raw profile data from authentication provider
  * @param source - Source of authentication (for logging)
  * @returns ValidationResult with sanitized data or errors
@@ -69,7 +72,7 @@ export function validateAuthProfile(
 ): ValidationResult {
   const errors: string[] = [];
 
-  // Validate email (REQUIRED)
+  // Validate email (REQUIRED - ONLY field that blocks authentication)
   if (!profile.email || typeof profile.email !== 'string') {
     errors.push('Email is required and must be a string');
     log.warn(`${source} profile validation failed: missing email`, {
@@ -112,45 +115,43 @@ export function validateAuthProfile(
     return { valid: false, errors };
   }
 
-  // Validate optional displayName
+  // Sanitize optional displayName (validation issues are logged but don't block login)
   let displayName: string | undefined;
   if (profile.displayName !== undefined) {
     if (typeof profile.displayName !== 'string') {
-      errors.push('Display name must be a string');
+      log.warn(`${source} profile validation: displayName is not a string, ignoring`, {
+        type: typeof profile.displayName,
+      });
     } else {
-      displayName = sanitizeName(profile.displayName, 'displayName', errors, source);
+      displayName = sanitizeName(profile.displayName, 'displayName', source);
     }
   }
 
-  // Validate optional givenName
+  // Sanitize optional givenName (validation issues are logged but don't block login)
   let givenName: string | undefined;
   if (profile.givenName !== undefined) {
     if (typeof profile.givenName !== 'string') {
-      errors.push('Given name must be a string');
+      log.warn(`${source} profile validation: givenName is not a string, ignoring`, {
+        type: typeof profile.givenName,
+      });
     } else {
-      givenName = sanitizeName(profile.givenName, 'givenName', errors, source);
+      givenName = sanitizeName(profile.givenName, 'givenName', source);
     }
   }
 
-  // Validate optional surname
+  // Sanitize optional surname (validation issues are logged but don't block login)
   let surname: string | undefined;
   if (profile.surname !== undefined) {
     if (typeof profile.surname !== 'string') {
-      errors.push('Surname must be a string');
+      log.warn(`${source} profile validation: surname is not a string, ignoring`, {
+        type: typeof profile.surname,
+      });
     } else {
-      surname = sanitizeName(profile.surname, 'surname', errors, source);
+      surname = sanitizeName(profile.surname, 'surname', source);
     }
   }
 
-  // Return result
-  if (errors.length > 0) {
-    log.warn(`${source} profile validation failed`, {
-      errors,
-      email: `${email.substring(0, 5)}***`,
-    });
-    return { valid: false, errors };
-  }
-
+  // Return success (only email validation can fail)
   return {
     valid: true,
     errors: [],
@@ -166,16 +167,17 @@ export function validateAuthProfile(
 /**
  * Sanitize name field
  *
+ * Validates and sanitizes name fields but does NOT block authentication on failure.
+ * Issues are logged for monitoring but return undefined instead of throwing errors.
+ *
  * @param name - Raw name value
  * @param fieldName - Field name for logging
- * @param errors - Errors array to append to
  * @param source - Source for logging
  * @returns Sanitized name or undefined if invalid
  */
 function sanitizeName(
   name: string,
   fieldName: string,
-  errors: string[],
   source: string
 ): string | undefined {
   const trimmed = name.trim();
@@ -187,8 +189,7 @@ function sanitizeName(
 
   // Check length
   if (trimmed.length > 100) {
-    errors.push(`${fieldName} is too long (max 100 characters)`);
-    log.warn(`${source} profile validation: ${fieldName} too long`, {
+    log.warn(`${source} profile validation: ${fieldName} too long, ignoring`, {
       length: trimmed.length,
     });
     return undefined;
@@ -196,8 +197,7 @@ function sanitizeName(
 
   // Check for dangerous characters
   if (DANGEROUS_CHARS.test(trimmed)) {
-    errors.push(`${fieldName} contains dangerous characters`);
-    log.error(`${source} profile validation: dangerous characters in ${fieldName}`, {
+    log.error(`${source} profile validation: dangerous characters in ${fieldName}, ignoring`, {
       alert: 'POSSIBLE_INJECTION_ATTEMPT',
       source,
     });
@@ -206,8 +206,7 @@ function sanitizeName(
 
   // Check format (letters, spaces, hyphens, apostrophes, international chars)
   if (!NAME_REGEX.test(trimmed)) {
-    errors.push(`${fieldName} contains invalid characters`);
-    log.warn(`${source} profile validation: ${fieldName} invalid format`, {
+    log.warn(`${source} profile validation: ${fieldName} invalid format, ignoring`, {
       length: trimmed.length,
     });
     return undefined;
