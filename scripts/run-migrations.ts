@@ -84,7 +84,7 @@ function getMigrationFiles(migrationsDir: string): MigrationFile[] {
       return {
         name,
         path: path.join(migrationsDir, name),
-        index: indexMatch ? parseInt(indexMatch[1]) : 0,
+        index: indexMatch ? parseInt(indexMatch[1] ?? '0') : 0,
       };
     });
 

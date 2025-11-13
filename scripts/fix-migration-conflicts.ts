@@ -59,7 +59,8 @@ function fixMigrationConflicts(): void {
       migrationMap.set(migrationNum, []);
     }
 
-    migrationMap.get(migrationNum)!.push({ file, entry });
+    // Only include entry if it exists (exactOptionalPropertyTypes strictness)
+    migrationMap.get(migrationNum)!.push(entry ? { file, entry } : { file });
   });
 
   // Find duplicates
@@ -111,6 +112,7 @@ function fixMigrationConflicts(): void {
 
     // Keep first, renumber rest
     const [keep, ...toRename] = sorted;
+    if (!keep) return; // Skip if no files (shouldn't happen)
     console.log(`✓ Keeping ${keep.file} (idx: ${keep.entry?.idx})`);
 
     toRename.forEach(({ file, entry }) => {
@@ -119,13 +121,12 @@ function fixMigrationConflicts(): void {
       const newFileName = file.replace(/^\d{4}/, newMigrationNum);
       const newTag = newFileName.replace('.sql', '');
 
-      renameOps.push({
-        oldFile: file,
-        newFile: newFileName,
-        oldTag,
-        newTag,
-        entry,
-      });
+      // Only include entry if it exists (exactOptionalPropertyTypes strictness)
+      renameOps.push(
+        entry
+          ? { oldFile: file, newFile: newFileName, oldTag, newTag, entry }
+          : { oldFile: file, newFile: newFileName, oldTag, newTag }
+      );
 
       console.log(`→ Renaming ${file} to ${newFileName}`);
       nextMigrationNum++;
@@ -156,8 +157,8 @@ function fixMigrationConflicts(): void {
     }
 
     // Rename snapshot file if exists
-    const oldSnapshotPath = path.join(SNAPSHOTS_DIR, `${oldTag.split('_')[0]}_snapshot.json`);
-    const newSnapshotPath = path.join(SNAPSHOTS_DIR, `${newTag.split('_')[0]}_snapshot.json`);
+    const oldSnapshotPath = path.join(SNAPSHOTS_DIR, `${oldTag.split('_')[0] ?? '0000'}_snapshot.json`);
+    const newSnapshotPath = path.join(SNAPSHOTS_DIR, `${newTag.split('_')[0] ?? '0000'}_snapshot.json`);
 
     if (fs.existsSync(oldSnapshotPath)) {
       // Check if target snapshot already exists
