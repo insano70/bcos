@@ -44,3 +44,7 @@ CREATE INDEX IF NOT EXISTS idx_explorer_query_history_edited
 ON explorer_query_history(was_sql_edited) 
 WHERE was_sql_edited = true;
 
+
+
+
+
