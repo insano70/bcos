@@ -15,6 +15,7 @@ import path from 'node:path';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import postgres from 'postgres';
+import { log } from '../lib/logger/index.js';
 
 interface MigrationFile {
   name: string;
@@ -38,44 +39,52 @@ function maskDatabaseUrl(url: string): string {
 }
 
 async function checkDatabaseConnection(client: postgres.Sql): Promise<void> {
-  console.log('🔌 Testing database connection...');
+  log.info('🔌 Testing database connection...');
   try {
     const result = await client`SELECT version(), current_database(), current_schema()`;
     if (result[0]) {
-      console.log(`   ✓ Connected to database: ${result[0].current_database}`);
-      console.log(`   ✓ Current schema: ${result[0].current_schema}`);
-      console.log(`   ✓ PostgreSQL version: ${result[0].version?.split(' ')[1] || 'unknown'}`);
+      log.info(`   ✓ Connected to database: ${result[0].current_database}`);
+      log.info(`   ✓ Current schema: ${result[0].current_schema}`);
+      log.info(`   ✓ PostgreSQL version: ${result[0].version?.split(' ')[1] || 'unknown'}`);
     }
   } catch (error) {
-    console.error('   ✗ Database connection test failed');
+    log.error('   ✗ Database connection test failed');
     throw error;
   }
 }
 
 async function getAppliedMigrations(client: postgres.Sql): Promise<AppliedMigration[]> {
-  console.log('\n📋 Checking migration history...');
+  log.info('\n📋 Checking migration history...');
+  log.info('   Querying: SELECT id, hash, created_at FROM __drizzle_migrations ORDER BY id ASC');
   try {
     const result = await client<AppliedMigration[]>`
       SELECT id, hash, created_at
       FROM __drizzle_migrations
       ORDER BY id ASC
     `;
-    console.log(`   Found ${result.length} previously applied migrations`);
+    log.info('Query succeeded');
+    log.info(`Found ${result.length} previously applied migrations`);
     if (result.length > 0) {
-      console.log(`   Latest applied: migration #${result[result.length - 1]?.id || 'unknown'}`);
+      const latest = result[result.length - 1];
+      log.info('Latest applied migration', { id: latest?.id, hash: latest?.hash });
+      log.info('First 5 migrations', { migrations: result.slice(0, 5).map(m => ({ id: m.id, hash: m.hash })) });
     }
     return result;
   } catch (error) {
-    // Table doesn't exist yet - first migration run
-    console.log('   No migration history found (first run)');
-    console.log('   Error details:', error);
+    log.error('Query failed - unable to read migration history', {
+      errorType: error?.constructor?.name,
+      errorMessage: (error as Error)?.message,
+      errorCode: (error as any)?.code,
+      errorStack: (error as Error)?.stack,
+    });
+    log.info('Assuming first run - returning empty migration list');
     return [];
   }
 }
 
 function getMigrationFiles(migrationsDir: string): MigrationFile[] {
-  console.log('\n📁 Scanning migration files...');
-  console.log(`   Directory: ${migrationsDir}`);
+  log.info('\n📁 Scanning migration files...');
+  log.info(`   Directory: ${migrationsDir}`);
 
   const files = fs.readdirSync(migrationsDir)
     .filter(f => f.endsWith('.sql'))
@@ -89,9 +98,9 @@ function getMigrationFiles(migrationsDir: string): MigrationFile[] {
       };
     });
 
-  console.log(`   Found ${files.length} migration files:`);
+  log.info(`   Found ${files.length} migration files:`);
   files.forEach(f => {
-    console.log(`     - ${f.name} (idx: ${f.index})`);
+    log.info(`     - ${f.name} (idx: ${f.index})`);
   });
 
   return files;
@@ -102,28 +111,28 @@ async function runMigrationsWithLogging(): Promise<void> {
   const databaseUrl = process.env.DATABASE_URL;
 
   // Header
-  console.log('═'.repeat(80));
-  console.log('🚀 DATABASE MIGRATION RUNNER - ENHANCED LOGGING');
-  console.log('═'.repeat(80));
-  console.log(`⏰ Start time: ${new Date().toISOString()}`);
-  console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🖥️  Node version: ${process.version}`);
-  console.log(`📦 Working directory: ${process.cwd()}`);
+  log.info('═'.repeat(80));
+  log.info('🚀 DATABASE MIGRATION RUNNER - ENHANCED LOGGING');
+  log.info('═'.repeat(80));
+  log.info(`⏰ Start time: ${new Date().toISOString()}`);
+  log.info(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+  log.info(`🖥️  Node version: ${process.version}`);
+  log.info(`📦 Working directory: ${process.cwd()}`);
 
   if (!databaseUrl) {
-    console.error('\n❌ FATAL: DATABASE_URL environment variable is not set');
-    console.error('   Cannot proceed with migrations');
+    log.error('\n❌ FATAL: DATABASE_URL environment variable is not set');
+    log.error('   Cannot proceed with migrations');
     process.exit(1);
   }
 
-  console.log(`🔗 Database URL: ${maskDatabaseUrl(databaseUrl)}`);
+  log.info(`🔗 Database URL: ${maskDatabaseUrl(databaseUrl)}`);
 
   // Create database connection with migration-specific settings
-  console.log('\n⚙️  Initializing database connection...');
-  console.log('   Settings:');
-  console.log('     - max connections: 1');
-  console.log('     - prepare statements: false');
-  console.log('     - idle timeout: 30s');
+  log.info('\n⚙️  Initializing database connection...');
+  log.info('   Settings:');
+  log.info('     - max connections: 1');
+  log.info('     - prepare statements: false');
+  log.info('     - idle timeout: 30s');
 
   const client = postgres(databaseUrl, {
     max: 1,
@@ -131,7 +140,7 @@ async function runMigrationsWithLogging(): Promise<void> {
     idle_timeout: 30,
     onnotice: (notice) => {
       // Log PostgreSQL NOTICE messages
-      console.log(`   📢 NOTICE [${notice.code}]: ${notice.message}`);
+      log.info(`   📢 NOTICE [${notice.code}]: ${notice.message}`);
     },
   });
 
@@ -146,165 +155,188 @@ async function runMigrationsWithLogging(): Promise<void> {
 
     // Check journal
     const journalPath = './lib/db/migrations/meta/_journal.json';
-    console.log('\n📖 Checking migration journal...');
+    log.info('\n📖 Checking migration journal...');
     if (fs.existsSync(journalPath)) {
       const journal = JSON.parse(fs.readFileSync(journalPath, 'utf8'));
-      console.log(`   Journal version: ${journal.version}`);
-      console.log(`   Journal entries: ${journal.entries?.length || 0}`);
-      console.log(`   Dialect: ${journal.dialect}`);
+      log.info(`   Journal version: ${journal.version}`);
+      log.info(`   Journal entries: ${journal.entries?.length || 0}`);
+      log.info(`   Dialect: ${journal.dialect}`);
     } else {
-      console.log('   ⚠️  No journal file found');
+      log.info('   ⚠️  No journal file found');
     }
 
     // Estimate pending migrations
     const pendingCount = migrationFiles.length - appliedMigrations.length;
-    console.log('\n📊 Migration status:');
-    console.log(`   Total migration files: ${migrationFiles.length}`);
-    console.log(`   Already applied: ${appliedMigrations.length}`);
-    console.log(`   Pending (estimated): ${Math.max(0, pendingCount)}`);
+    log.info('\n📊 Migration status:');
+    log.info(`   Total migration files: ${migrationFiles.length}`);
+    log.info(`   Already applied: ${appliedMigrations.length}`);
+    log.info(`   Pending (estimated): ${Math.max(0, pendingCount)}`);
 
     if (pendingCount <= 0) {
-      console.log('\n✨ No pending migrations detected');
+      log.info('\n✨ No pending migrations detected');
     } else {
-      console.log(`\n🔄 Proceeding to apply ${pendingCount} pending migration(s)...`);
+      log.info(`\n🔄 Proceeding to apply ${pendingCount} pending migration(s)...`);
     }
 
-    console.log(`\n${'─'.repeat(80)}`);
-    console.log('▶️  EXECUTING MIGRATIONS');
-    console.log('─'.repeat(80));
+    log.info(`\n${'─'.repeat(80)}`);
+    log.info('▶️  EXECUTING MIGRATIONS');
+    log.info('─'.repeat(80));
+
+    // Check what Drizzle sees before migrating
+    log.info('\n🔍 Pre-migration Drizzle state check...');
+    try {
+      const drizzleCheck = await client`
+        SELECT COUNT(*) as count FROM drizzle.__drizzle_migrations
+      `;
+      log.info('Drizzle schema check', { count: drizzleCheck[0]?.count || 0, schema: 'drizzle.__drizzle_migrations' });
+    } catch (error) {
+      log.info('Drizzle schema check failed', { error: (error as Error)?.message });
+    }
+
+    try {
+      const publicCheck = await client`
+        SELECT COUNT(*) as count FROM public.__drizzle_migrations
+      `;
+      log.info('Public schema check', { count: publicCheck[0]?.count || 0, schema: 'public.__drizzle_migrations' });
+    } catch (error) {
+      log.info('Public schema check failed', { error: (error as Error)?.message });
+    }
 
     // Run migrations with Drizzle
     const migrationStart = Date.now();
+    log.info('\n🚀 Starting Drizzle migrate()...');
+    log.info(`   Migrations folder: ./lib/db/migrations`);
 
     await migrate(db, {
       migrationsFolder: './lib/db/migrations',
     });
 
+    log.info('✓ Drizzle migrate() completed');
+
     const migrationDuration = Date.now() - migrationStart;
 
-    console.log('─'.repeat(80));
-    console.log(`✅ MIGRATIONS COMPLETED (${migrationDuration}ms)`);
-    console.log('─'.repeat(80));
+    log.info('─'.repeat(80));
+    log.info(`✅ MIGRATIONS COMPLETED (${migrationDuration}ms)`);
+    log.info('─'.repeat(80));
 
     // Post-migration verification
-    console.log('\n🔍 Post-migration verification...');
+    log.info('\n🔍 Post-migration verification...');
     const finalMigrations = await getAppliedMigrations(client);
     const newlyApplied = finalMigrations.length - appliedMigrations.length;
 
     if (newlyApplied > 0) {
-      console.log(`   ✓ Successfully applied ${newlyApplied} new migration(s)`);
-      console.log('\n   Newly applied migrations:');
+      log.info(`   ✓ Successfully applied ${newlyApplied} new migration(s)`);
+      log.info('\n   Newly applied migrations:');
       finalMigrations.slice(-newlyApplied).forEach(m => {
-        console.log(`     - Migration #${m.id} (hash: ${m.hash.substring(0, 12)}...)`);
+        log.info(`     - Migration #${m.id} (hash: ${m.hash.substring(0, 12)}...)`);
       });
     } else {
-      console.log('   ✓ No new migrations were applied (database already up to date)');
+      log.info('   ✓ No new migrations were applied (database already up to date)');
     }
 
     // Summary
     const totalDuration = Date.now() - startTime;
-    console.log(`\n${'═'.repeat(80)}`);
-    console.log('✅ MIGRATION RUNNER COMPLETED SUCCESSFULLY');
-    console.log('═'.repeat(80));
-    console.log(`⏱️  Total duration: ${totalDuration}ms`);
-    console.log(`⏰ End time: ${new Date().toISOString()}`);
-    console.log(`📊 Final migration count: ${finalMigrations.length}`);
-    console.log('═'.repeat(80));
+    log.info(`\n${'═'.repeat(80)}`);
+    log.info('✅ MIGRATION RUNNER COMPLETED SUCCESSFULLY');
+    log.info('═'.repeat(80));
+    log.info(`⏱️  Total duration: ${totalDuration}ms`);
+    log.info(`⏰ End time: ${new Date().toISOString()}`);
+    log.info(`📊 Final migration count: ${finalMigrations.length}`);
+    log.info('═'.repeat(80));
 
     // Close the connection
     await client.end();
-    console.log('\n🔌 Database connection closed');
+    log.info('\n🔌 Database connection closed');
 
     process.exit(0);
   } catch (error) {
     const totalDuration = Date.now() - startTime;
 
-    console.log(`\n${'═'.repeat(80)}`);
-    console.error('❌ MIGRATION RUNNER FAILED');
-    console.log('═'.repeat(80));
+    log.info(`\n${'═'.repeat(80)}`);
+    log.error('❌ MIGRATION RUNNER FAILED');
+    log.info('═'.repeat(80));
 
     // Detailed error logging
     if (error instanceof Error) {
-      console.error('\n🔴 Error Details:');
-      console.error(`   Type: ${error.constructor.name}`);
-      console.error(`   Message: ${error.message}`);
+      log.error('\n🔴 Error Details:');
+      log.error(`   Type: ${error.constructor.name}`);
+      log.error(`   Message: ${error.message}`);
 
       // Check for PostgreSQL-specific error properties
       const pgError = error as any;
       if (pgError.code) {
-        console.error(`\n🔴 PostgreSQL Error Code: ${pgError.code}`);
+        log.error(`\n🔴 PostgreSQL Error Code: ${pgError.code}`);
       }
       if (pgError.severity) {
-        console.error(`   Severity: ${pgError.severity}`);
+        log.error(`   Severity: ${pgError.severity}`);
       }
       if (pgError.detail) {
-        console.error(`   Detail: ${pgError.detail}`);
+        log.error(`   Detail: ${pgError.detail}`);
       }
       if (pgError.hint) {
-        console.error(`   Hint: ${pgError.hint}`);
+        log.error(`   Hint: ${pgError.hint}`);
       }
       if (pgError.position) {
-        console.error(`   Position: ${pgError.position}`);
+        log.error(`   Position: ${pgError.position}`);
       }
       if (pgError.where) {
-        console.error(`   Where: ${pgError.where}`);
+        log.error(`   Where: ${pgError.where}`);
       }
       if (pgError.schema_name) {
-        console.error(`   Schema: ${pgError.schema_name}`);
+        log.error(`   Schema: ${pgError.schema_name}`);
       }
       if (pgError.table_name) {
-        console.error(`   Table: ${pgError.table_name}`);
+        log.error(`   Table: ${pgError.table_name}`);
       }
       if (pgError.column_name) {
-        console.error(`   Column: ${pgError.column_name}`);
+        log.error(`   Column: ${pgError.column_name}`);
       }
       if (pgError.constraint_name) {
-        console.error(`   Constraint: ${pgError.constraint_name}`);
+        log.error(`   Constraint: ${pgError.constraint_name}`);
       }
       if (pgError.file) {
-        console.error(`   Source file: ${pgError.file}:${pgError.line}`);
+        log.error(`   Source file: ${pgError.file}:${pgError.line}`);
       }
       if (pgError.routine) {
-        console.error(`   Routine: ${pgError.routine}`);
+        log.error(`   Routine: ${pgError.routine}`);
       }
 
-      console.error('\n🔴 Stack Trace:');
-      console.error(error.stack);
+      log.error('Stack Trace', { stack: error.stack || 'No stack trace available' });
 
       // Try to extract which migration failed
       const stackLines = error.stack?.split('\n') || [];
       const migrationLine = stackLines.find(line => line.includes('migrations'));
       if (migrationLine) {
-        console.error('\n🔴 Failed in context:');
-        console.error(`   ${migrationLine.trim()}`);
+        log.error('\n🔴 Failed in context:');
+        log.error(`   ${migrationLine.trim()}`);
       }
     } else {
-      console.error('\n🔴 Unknown error type:');
-      console.error(String(error));
+      log.error('\n🔴 Unknown error type:');
+      log.error(String(error));
     }
 
-    console.error('\n📊 Failure Context:');
-    console.error(`   Duration before failure: ${totalDuration}ms`);
-    console.error(`   Timestamp: ${new Date().toISOString()}`);
-    console.error(`   Environment: ${process.env.NODE_ENV || 'development'}`);
+    log.error('\n📊 Failure Context:');
+    log.error(`   Duration before failure: ${totalDuration}ms`);
+    log.error(`   Timestamp: ${new Date().toISOString()}`);
+    log.error(`   Environment: ${process.env.NODE_ENV || 'development'}`);
 
-    console.log(`\n${'═'.repeat(80)}`);
-    console.error('💡 Troubleshooting Tips:');
-    console.error('   1. Check if the database is accessible and credentials are correct');
-    console.error('   2. Verify no other migration process is running (check for locks)');
-    console.error('   3. Review the failed migration SQL file for syntax errors');
-    console.error('   4. Check PostgreSQL logs for more details');
-    console.error('   5. Ensure the database user has sufficient privileges');
-    console.error('   6. Check for duplicate migration numbers or conflicting changes');
-    console.log('═'.repeat(80));
+    log.info(`\n${'═'.repeat(80)}`);
+    log.error('💡 Troubleshooting Tips:');
+    log.error('   1. Check if the database is accessible and credentials are correct');
+    log.error('   2. Verify no other migration process is running (check for locks)');
+    log.error('   3. Review the failed migration SQL file for syntax errors');
+    log.error('   4. Check PostgreSQL logs for more details');
+    log.error('   5. Ensure the database user has sufficient privileges');
+    log.error('   6. Check for duplicate migration numbers or conflicting changes');
+    log.info('═'.repeat(80));
 
     // Attempt to close connection
     try {
       await client.end();
-      console.error('\n🔌 Database connection closed');
+      log.error('\n🔌 Database connection closed');
     } catch (closeError) {
-      console.error('⚠️  Failed to close database connection gracefully');
-      console.error(`   ${String(closeError)}`);
+      log.error('⚠️  Failed to close database connection gracefully');
+      log.error(`   ${String(closeError)}`);
     }
 
     process.exit(1);
