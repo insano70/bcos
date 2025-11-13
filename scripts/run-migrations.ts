@@ -55,11 +55,11 @@ async function checkDatabaseConnection(client: postgres.Sql): Promise<void> {
 
 async function getAppliedMigrations(client: postgres.Sql): Promise<AppliedMigration[]> {
   log.info('\n📋 Checking migration history...');
-  log.info('   Querying: SELECT id, hash, created_at FROM __drizzle_migrations ORDER BY id ASC');
+  log.info('   Querying: SELECT id, hash, created_at FROM drizzle.__drizzle_migrations ORDER BY id ASC');
   try {
     const result = await client<AppliedMigration[]>`
       SELECT id, hash, created_at
-      FROM __drizzle_migrations
+      FROM drizzle.__drizzle_migrations
       ORDER BY id ASC
     `;
     log.info('Query succeeded');
