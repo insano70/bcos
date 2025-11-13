@@ -51,7 +51,7 @@ function fixMigrationConflicts(): void {
   const migrationMap = new Map<number, Array<{ file: string; entry?: JournalEntry }>>();
 
   files.forEach(file => {
-    const migrationNum = parseInt(file.split('_')[0]);
+    const migrationNum = parseInt(file.split('_')[0] || '0');
     const tag = file.replace('.sql', '');
     const entry = journal.entries.find(e => e.tag === tag);
 
