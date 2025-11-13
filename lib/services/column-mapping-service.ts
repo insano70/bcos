@@ -79,12 +79,27 @@ export class ColumnMappingService {
       throw new Error(`Data source ${dataSourceId} not found`);
     }
 
-    // Resolve all required columns
+    // Determine if measure columns are required based on data source type
+    // Table-based sources don't have measure/measureType/timePeriod columns
+    // They may also not have a date field if showing non-temporal data
+    const isTableBased = config.dataSourceType === 'table-based';
+
+    // Resolve columns (analytics fields optional for table-based sources)
     const mapping: DataSourceColumnMapping = {
-      dateField: this.findColumnByType(config.columns, 'date', dataSourceId),
-      measureField: this.findColumnByType(config.columns, 'measure', dataSourceId),
-      measureTypeField: this.findColumnByType(config.columns, 'measureType', dataSourceId),
-      timePeriodField: this.findColumnByType(config.columns, 'timePeriod', dataSourceId),
+      dateField: this.findColumnByType(config.columns, 'date', dataSourceId, !isTableBased),
+      measureField: this.findColumnByType(config.columns, 'measure', dataSourceId, !isTableBased),
+      measureTypeField: this.findColumnByType(
+        config.columns,
+        'measureType',
+        dataSourceId,
+        !isTableBased
+      ),
+      timePeriodField: this.findColumnByType(
+        config.columns,
+        'timePeriod',
+        dataSourceId,
+        !isTableBased
+      ),
       practiceField: this.findColumnByType(config.columns, 'practice', dataSourceId, false),
       providerField: this.findColumnByType(config.columns, 'provider', dataSourceId, false),
     };

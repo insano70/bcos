@@ -48,6 +48,15 @@ export class InMemoryFilterService {
     const mapping = await columnMappingService.getMapping(dataSourceId);
     const dateField = mapping.dateField;
 
+    // If no date field exists (table-based sources), skip date filtering
+    if (!dateField) {
+      log.debug('No date field found, skipping date range filter', {
+        component: 'in-memory-filter-service',
+        dataSourceId,
+      });
+      return rows;
+    }
+
     return rows.filter((row) => {
       const dateValue = row[dateField] as string;
 
