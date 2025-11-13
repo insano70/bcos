@@ -1,12 +1,13 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import DeleteConfirmationModal from '@/components/delete-confirmation-modal';
 import {
   useDeleteFieldAttachment,
   useFieldAttachmentDownloadUrl,
   useFieldAttachments,
   useUploadFieldAttachment,
+  useFieldAttachmentThumbnailUrl,
 } from '@/lib/hooks/use-field-attachments';
 import type { WorkItemField } from '@/lib/types/work-item-fields';
 
@@ -128,6 +129,7 @@ export default function AttachmentFieldRenderer({
   const uploadMutation = useUploadFieldAttachment();
   const deleteMutation = useDeleteFieldAttachment();
   const downloadMutation = useFieldAttachmentDownloadUrl();
+  const thumbnailMutation = useFieldAttachmentThumbnailUrl();
 
   // State
   const [uploadProgress, setUploadProgress] = useState(false);
@@ -137,10 +139,42 @@ export default function AttachmentFieldRenderer({
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [attachmentToDelete, setAttachmentToDelete] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [thumbnailUrls, setThumbnailUrls] = useState<Record<string, string>>({});
 
   // Max files configuration
   const maxFiles = field.field_config?.attachment_config?.max_files ?? 1;
   const canAddMore = maxFiles === null || attachmentIds.length < maxFiles;
+
+  // Load thumbnails for image attachments
+  useEffect(() => {
+    const loadThumbnails = async () => {
+      for (const attachment of attachments) {
+        // Only load thumbnails for images
+        if (attachment.is_image && !thumbnailUrls[attachment.work_item_attachment_id]) {
+          try {
+            const url = await thumbnailMutation.mutateAsync({
+              workItemId,
+              fieldId,
+              attachmentId: attachment.work_item_attachment_id,
+            });
+            if (url) {
+              setThumbnailUrls((prev) => ({
+                ...prev,
+                [attachment.work_item_attachment_id]: url,
+              }));
+            }
+          } catch (error) {
+            // Silently fail - thumbnails are optional
+            console.debug('Failed to load thumbnail:', error);
+          }
+        }
+      }
+    };
+
+    if (attachments.length > 0) {
+      loadThumbnails();
+    }
+  }, [attachments, workItemId, fieldId, thumbnailMutation, thumbnailUrls]);
 
   // File upload handler
   const handleFileSelect = useCallback(
@@ -399,9 +433,20 @@ export default function AttachmentFieldRenderer({
               key={attachment.work_item_attachment_id}
               className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-colors"
             >
-              {/* File icon */}
+              {/* File icon or thumbnail */}
               <div className="flex-shrink-0">
-                <FileIcon type={attachment.file_type} />
+                {attachment.is_image && thumbnailUrls[attachment.work_item_attachment_id] ? (
+                  <div className="w-16 h-16 rounded overflow-hidden bg-gray-100 dark:bg-gray-700">
+                    {/* biome-ignore lint/performance/noImgElement: Using presigned S3 URLs that can't be optimized by Next Image */}
+                    <img
+                      src={thumbnailUrls[attachment.work_item_attachment_id]}
+                      alt={attachment.file_name}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                ) : (
+                  <FileIcon type={attachment.file_type} />
+                )}
               </div>
 
               {/* File details */}

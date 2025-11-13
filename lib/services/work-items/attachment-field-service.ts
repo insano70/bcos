@@ -14,6 +14,9 @@ import {
   generateDownloadUrl,
   generateS3Key,
   generateUploadUrl,
+  getThumbnailKey,
+  isImage,
+  fileExists,
 } from '@/lib/s3/private-assets';
 import { FILE_SIZE_LIMITS, IMAGE_MIME_TYPES } from '@/lib/s3/private-assets/constants';
 import type { UserContext } from '@/lib/types/rbac';
@@ -45,6 +48,8 @@ export interface FieldAttachmentWithDetails {
   uploaded_by: string;
   uploaded_by_name: string;
   uploaded_at: Date;
+  is_image?: boolean;
+  has_thumbnail?: boolean;
 }
 
 export class AttachmentFieldService extends BaseRBACService {
@@ -102,22 +107,27 @@ export class AttachmentFieldService extends BaseRBACService {
       duration: Date.now() - startTime,
     });
 
-    return results.map((result) => ({
-      work_item_attachment_id: result.work_item_attachment_id,
-      work_item_id: result.work_item_id,
-      work_item_field_id: result.work_item_field_id ?? '',
-      file_name: result.file_name,
-      file_size: result.file_size,
-      file_type: result.file_type,
-      s3_key: result.s3_key,
-      s3_bucket: result.s3_bucket,
-      uploaded_by: result.uploaded_by,
-      uploaded_by_name:
-        result.uploaded_by_first_name && result.uploaded_by_last_name
-          ? `${result.uploaded_by_first_name} ${result.uploaded_by_last_name}`
-          : '',
-      uploaded_at: result.uploaded_at || new Date(),
-    }));
+    return results.map((result) => {
+      const isImageFile = isImage(result.file_type);
+      return {
+        work_item_attachment_id: result.work_item_attachment_id,
+        work_item_id: result.work_item_id,
+        work_item_field_id: result.work_item_field_id ?? '',
+        file_name: result.file_name,
+        file_size: result.file_size,
+        file_type: result.file_type,
+        s3_key: result.s3_key,
+        s3_bucket: result.s3_bucket,
+        uploaded_by: result.uploaded_by,
+        uploaded_by_name:
+          result.uploaded_by_first_name && result.uploaded_by_last_name
+            ? `${result.uploaded_by_first_name} ${result.uploaded_by_last_name}`
+            : '',
+        uploaded_at: result.uploaded_at || new Date(),
+        is_image: isImageFile,
+        has_thumbnail: false, // Will be checked lazily on demand
+      };
+    });
   }
 
   /**
@@ -332,6 +342,61 @@ export class AttachmentFieldService extends BaseRBACService {
     });
 
     log.info('Download URL generated', {
+      attachmentId,
+      duration: Date.now() - startTime,
+    });
+
+    return downloadUrl;
+  }
+
+  /**
+   * Generate thumbnail download URL for an image attachment
+   * Returns null if attachment is not an image or thumbnail doesn't exist
+   */
+  async getThumbnailUrl(attachmentId: string): Promise<string | null> {
+    const startTime = Date.now();
+
+    log.info('Generating thumbnail URL for field attachment', {
+      attachmentId,
+      requestingUserId: this.userContext.user_id,
+    });
+
+    // Get attachment details
+    const attachment = await this.getFieldAttachmentById(attachmentId);
+    if (!attachment) {
+      throw new Error('Attachment not found');
+    }
+
+    // Check if it's an image
+    if (!isImage(attachment.file_type)) {
+      log.info('Attachment is not an image, no thumbnail available', {
+        attachmentId,
+        fileType: attachment.file_type,
+      });
+      return null;
+    }
+
+    // Get thumbnail S3 key
+    const thumbnailKey = getThumbnailKey(attachment.s3_key);
+
+    // Check if thumbnail exists
+    const thumbnailExists = await fileExists(thumbnailKey);
+    if (!thumbnailExists) {
+      log.info('Thumbnail does not exist for image', {
+        attachmentId,
+        thumbnailKey,
+      });
+      return null;
+    }
+
+    // Generate presigned download URL for thumbnail
+    const { downloadUrl } = await generateDownloadUrl(thumbnailKey, {
+      fileName: `thumb_${attachment.file_name}`,
+      expiresIn: 900, // 15 minutes
+      disposition: 'inline', // Display in browser
+    });
+
+    log.info('Thumbnail URL generated', {
       attachmentId,
       duration: Date.now() - startTime,
     });

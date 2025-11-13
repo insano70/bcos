@@ -19,6 +19,8 @@ export interface FieldAttachment {
   uploaded_by: string;
   uploaded_by_name: string;
   uploaded_at: Date;
+  is_image?: boolean;
+  has_thumbnail?: boolean;
 }
 
 export interface CreateFieldAttachmentData {
@@ -195,6 +197,75 @@ export function useFieldAttachmentDownloadUrl() {
 
       const data = await response.json();
       return data.downloadUrl as string;
+    },
+  });
+}
+
+/**
+ * Get presigned thumbnail URL for image attachment
+ */
+export function useFieldAttachmentThumbnailUrl() {
+  return useMutation({
+    mutationFn: async ({
+      workItemId,
+      fieldId,
+      attachmentId,
+    }: {
+      workItemId: string;
+      fieldId: string;
+      attachmentId: string;
+    }) => {
+      const response = await fetch(
+        `/api/work-items/${workItemId}/fields/${fieldId}/attachments/${attachmentId}/thumbnail`
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to generate thumbnail URL');
+      }
+
+      const data = await response.json();
+      return data.thumbnail_url as string | null;
+    },
+  });
+}
+
+/**
+ * Generate thumbnail for an existing image attachment
+ */
+export function useGenerateFieldAttachmentThumbnail() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      workItemId,
+      fieldId,
+      attachmentId,
+    }: {
+      workItemId: string;
+      fieldId: string;
+      attachmentId: string;
+    }) => {
+      const response = await fetch(
+        `/api/work-items/${workItemId}/fields/${fieldId}/attachments/${attachmentId}/generate-thumbnail`,
+        {
+          method: 'POST',
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to generate thumbnail');
+      }
+
+      const data = await response.json();
+      return data;
+    },
+    onSuccess: (_, variables) => {
+      // Invalidate field attachments query to refetch
+      queryClient.invalidateQueries({
+        queryKey: ['fieldAttachments', variables.workItemId, variables.fieldId],
+      });
     },
   });
 }

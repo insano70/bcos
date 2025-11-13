@@ -128,17 +128,18 @@ export default function AnalyticsNumberChart({
 
   // Dynamic font size based on character count (Tailwind classes - no inline styles)
   // Mobile-first with responsive scaling: smaller on mobile (<640px), larger on desktop (≥640px)
-  let fontSizeClass = 'text-6xl sm:text-7xl'; // default
+  // Mobile sizes reduced to prevent overflow on narrow screens (iPhone, etc.)
+  let fontSizeClass = 'text-3xl sm:text-7xl'; // default
   if (charCount <= 5) {
-    fontSizeClass = 'text-8xl sm:text-9xl'; // ≤5 chars: $123, 45.5% (96px→128px, 25% increase)
+    fontSizeClass = 'text-5xl sm:text-9xl'; // ≤5 chars: $123, 45.5% (48px→128px)
   } else if (charCount <= 8) {
-    fontSizeClass = 'text-7xl sm:text-8xl'; // 6-8 chars: $1,234, 12.3% (72px→96px, 25% increase)
+    fontSizeClass = 'text-4xl sm:text-8xl'; // 6-8 chars: $1,234, 12.3% (36px→96px)
   } else if (charCount <= 12) {
-    fontSizeClass = 'text-6xl sm:text-7xl'; // 9-12 chars: $1,234,567 (60px→72px, 17% increase)
+    fontSizeClass = 'text-3xl sm:text-7xl'; // 9-12 chars: $1,234,567 (30px→72px)
   } else if (charCount <= 16) {
-    fontSizeClass = 'text-5xl sm:text-6xl'; // 13-16 chars: $123,456,789 (48px→60px, 20% increase)
+    fontSizeClass = 'text-2xl sm:text-6xl'; // 13-16 chars: $123,456,789 (24px→60px)
   } else {
-    fontSizeClass = 'text-4xl sm:text-5xl'; // 17+ chars: $1,234,567,890 (36px→48px, 25% increase)
+    fontSizeClass = 'text-xl sm:text-5xl'; // 17+ chars: $1,234,567,890 (20px→48px)
   }
 
   // Responsive sizing
