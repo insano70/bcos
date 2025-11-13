@@ -65,9 +65,10 @@ async function getAppliedMigrations(client: postgres.Sql): Promise<AppliedMigrat
       console.log(`   Latest applied: migration #${result[result.length - 1]?.id || 'unknown'}`);
     }
     return result;
-  } catch (_error) {
+  } catch (error) {
     // Table doesn't exist yet - first migration run
     console.log('   No migration history found (first run)');
+    console.log('   Error details:', error);
     return [];
   }
 }
