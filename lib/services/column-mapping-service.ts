@@ -82,7 +82,10 @@ export class ColumnMappingService {
     // Determine if measure columns are required based on data source type
     // Table-based sources don't have measure/measureType/timePeriod columns
     // They may also not have a date field if showing non-temporal data
-    const isTableBased = config.dataSourceType === 'table-based';
+    // FALLBACK: If dataSourceType is undefined (stale cache), infer from column presence
+    const isTableBased =
+      config.dataSourceType === 'table-based' ||
+      (!config.dataSourceType && !config.columns.some((col) => col.isMeasure));
 
     // Resolve columns (analytics fields optional for table-based sources)
     const mapping: DataSourceColumnMapping = {
