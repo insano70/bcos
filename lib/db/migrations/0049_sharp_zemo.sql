@@ -180,16 +180,80 @@ DO $$ BEGIN
  END IF;
 END $$;
 --> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_explorer_column_metadata_table" ON "explorer_column_metadata" USING btree ("table_id");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_explorer_column_semantic" ON "explorer_column_metadata" USING btree ("semantic_type");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_explorer_query_history_user" ON "explorer_query_history" USING btree ("user_id","created_at");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_explorer_query_history_status" ON "explorer_query_history" USING btree ("status");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_explorer_query_history_tables" ON "explorer_query_history" USING gin ("tables_used");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_explorer_query_history_org" ON "explorer_query_history" USING btree ("organization_id");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_explorer_patterns_type" ON "explorer_query_patterns" USING btree ("pattern_type");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_explorer_saved_queries_category" ON "explorer_saved_queries" USING btree ("category","is_public");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_explorer_saved_queries_created_by" ON "explorer_saved_queries" USING btree ("created_by");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_schema_instructions_schema" ON "explorer_schema_instructions" USING btree ("schema_name","is_active");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_schema_instructions_priority" ON "explorer_schema_instructions" USING btree ("priority","is_active");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_explorer_table_metadata_schema_table" ON "explorer_table_metadata" USING btree ("schema_name","table_name");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_explorer_table_metadata_tier" ON "explorer_table_metadata" USING btree ("tier","is_active");
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_explorer_column_metadata_table') THEN
+    CREATE INDEX "idx_explorer_column_metadata_table" ON "explorer_column_metadata" USING btree ("table_id");
+  END IF;
+END $$;
+--> statement-breakpoint
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_explorer_column_semantic') THEN
+    CREATE INDEX "idx_explorer_column_semantic" ON "explorer_column_metadata" USING btree ("semantic_type");
+  END IF;
+END $$;
+--> statement-breakpoint
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_explorer_query_history_user') THEN
+    CREATE INDEX "idx_explorer_query_history_user" ON "explorer_query_history" USING btree ("user_id","created_at");
+  END IF;
+END $$;
+--> statement-breakpoint
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_explorer_query_history_status') THEN
+    CREATE INDEX "idx_explorer_query_history_status" ON "explorer_query_history" USING btree ("status");
+  END IF;
+END $$;
+--> statement-breakpoint
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_explorer_query_history_tables') THEN
+    CREATE INDEX "idx_explorer_query_history_tables" ON "explorer_query_history" USING gin ("tables_used");
+  END IF;
+END $$;
+--> statement-breakpoint
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_explorer_query_history_org') THEN
+    CREATE INDEX "idx_explorer_query_history_org" ON "explorer_query_history" USING btree ("organization_id");
+  END IF;
+END $$;
+--> statement-breakpoint
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_explorer_patterns_type') THEN
+    CREATE INDEX "idx_explorer_patterns_type" ON "explorer_query_patterns" USING btree ("pattern_type");
+  END IF;
+END $$;
+--> statement-breakpoint
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_explorer_saved_queries_category') THEN
+    CREATE INDEX "idx_explorer_saved_queries_category" ON "explorer_saved_queries" USING btree ("category","is_public");
+  END IF;
+END $$;
+--> statement-breakpoint
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_explorer_saved_queries_created_by') THEN
+    CREATE INDEX "idx_explorer_saved_queries_created_by" ON "explorer_saved_queries" USING btree ("created_by");
+  END IF;
+END $$;
+--> statement-breakpoint
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_schema_instructions_schema') THEN
+    CREATE INDEX "idx_schema_instructions_schema" ON "explorer_schema_instructions" USING btree ("schema_name","is_active");
+  END IF;
+END $$;
+--> statement-breakpoint
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_schema_instructions_priority') THEN
+    CREATE INDEX "idx_schema_instructions_priority" ON "explorer_schema_instructions" USING btree ("priority","is_active");
+  END IF;
+END $$;
+--> statement-breakpoint
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_explorer_table_metadata_schema_table') THEN
+    CREATE INDEX "idx_explorer_table_metadata_schema_table" ON "explorer_table_metadata" USING btree ("schema_name","table_name");
+  END IF;
+END $$;
+--> statement-breakpoint
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_explorer_table_metadata_tier') THEN
+    CREATE INDEX "idx_explorer_table_metadata_tier" ON "explorer_table_metadata" USING btree ("tier","is_active");
+  END IF;
+END $$;
