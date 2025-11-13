@@ -506,6 +506,24 @@ export class QueryExecutor {
       return 0;
     }
 
+    // Check data source type before attempting to access measure columns
+    const config = await chartConfigService.getDataSourceConfigById(dataSourceId);
+
+    if (!config) {
+      // Fail-safe: if config missing, just return count
+      log.warn('Data source config not found in calculateTotal, returning row count', {
+        dataSourceId,
+        rowCount: rows.length,
+      });
+      return rows.length;
+    }
+
+    // Table-based data sources don't have measure columns - just return count
+    if (config.dataSourceType === 'table-based') {
+      return rows.length;
+    }
+
+    // Measure-based data source logic
     const firstRow = rows[0];
     if (!firstRow) {
       return 0;

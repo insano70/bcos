@@ -31,6 +31,7 @@ describe('ColumnMappingService', () => {
         name: 'Original Data Source',
         tableName: 'ih.agg_app_measures',
         schemaName: 'ih',
+        dataSourceType: 'measure-based',
         isActive: true,
         columns: [
           {
@@ -134,6 +135,7 @@ describe('ColumnMappingService', () => {
         name: 'App Measures with Entities',
         tableName: 'ih.agg_chart_data',
         schemaName: 'ih',
+        dataSourceType: 'measure-based',
         isActive: true,
         columns: [
           {
@@ -242,6 +244,7 @@ describe('ColumnMappingService', () => {
         name: 'Incomplete Data Source',
         tableName: 'test',
         schemaName: 'test',
+        dataSourceType: 'measure-based',
         isActive: true,
         columns: [
           // Missing date field!
@@ -274,6 +277,7 @@ describe('ColumnMappingService', () => {
         name: 'Test',
         tableName: 'test',
         schemaName: 'test',
+        dataSourceType: 'measure-based',
         isActive: true,
         columns: [
           {
@@ -350,6 +354,7 @@ describe('ColumnMappingService', () => {
         name: 'DS1',
         tableName: 'test',
         schemaName: 'test',
+        dataSourceType: 'measure-based' as const,
         isActive: true,
         columns: [
           {
@@ -412,6 +417,7 @@ describe('ColumnMappingService', () => {
         name: 'DS3',
         tableName: 'test',
         schemaName: 'test',
+        dataSourceType: 'measure-based' as const,
         isActive: true,
         columns: [
           {
@@ -492,6 +498,7 @@ describe('ColumnMappingService', () => {
         name: 'Test',
         tableName: 'test',
         schemaName: 'test',
+        dataSourceType: 'measure-based',
         isActive: true,
         columns: [
           {
@@ -564,6 +571,7 @@ describe('ColumnMappingService', () => {
         name: 'Test',
         tableName: 'test',
         schemaName: 'test',
+        dataSourceType: 'measure-based',
         isActive: true,
         columns: [
           {
@@ -640,6 +648,7 @@ describe('ColumnMappingService', () => {
         name: 'Test',
         tableName: 'test',
         schemaName: 'test',
+        dataSourceType: 'measure-based',
         isActive: true,
         columns: [
           {
@@ -720,6 +729,7 @@ describe('ColumnMappingService', () => {
         name: 'Test',
         tableName: 'test',
         schemaName: 'test',
+        dataSourceType: 'measure-based',
         isActive: true,
         columns: [
           {
@@ -817,6 +827,7 @@ describe('ColumnMappingService', () => {
         name: 'Test',
         tableName: 'test',
         schemaName: 'test',
+        dataSourceType: 'measure-based',
         isActive: true,
         columns: [
           {

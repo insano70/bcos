@@ -15,6 +15,7 @@ export interface DataSourceConfig {
   description?: string;
   tableName: string;
   schemaName: string;
+  dataSourceType: 'measure-based' | 'table-based';
   isActive: boolean;
   columns: ColumnConfig[];
 }
@@ -123,6 +124,7 @@ export class ChartConfigService {
         name: cached.name,
         tableName: cached.tableName,
         schemaName: cached.schemaName,
+        dataSourceType: cached.dataSourceType,
         isActive: cached.isActive,
         columns: cached.columns.map((col) => {
           const columnConfig: ColumnConfig = {

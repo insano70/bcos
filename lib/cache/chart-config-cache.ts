@@ -43,6 +43,7 @@ export interface CachedDataSourceConfig {
   description?: string;
   tableName: string;
   schemaName: string;
+  dataSourceType: 'measure-based' | 'table-based';
   isActive: boolean;
   columns: CachedColumnConfig[];
   cachedAt: number;
@@ -392,6 +393,7 @@ class ChartConfigCacheService extends CacheService {
         name: dataSource.data_source_name,
         tableName: dataSource.table_name,
         schemaName: dataSource.schema_name,
+        dataSourceType: (dataSource.data_source_type ?? 'measure-based') as 'measure-based' | 'table-based',
         isActive: dataSource.is_active ?? false,
         columns: columns.map((col) => {
           const cachedCol: CachedColumnConfig = {
