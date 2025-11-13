@@ -52,7 +52,3 @@ export const GET = rbacRoute(getAlertsHandler, {
 
 export const dynamic = 'force-dynamic';
 
-
-
-
-

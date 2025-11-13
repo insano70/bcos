@@ -510,7 +510,3 @@ pnpm lint
 *Audit completed: October 30, 2025*  
 *Next review: After frontend completion*
 
-
-
-
-

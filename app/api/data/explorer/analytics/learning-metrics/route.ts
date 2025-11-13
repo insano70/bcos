@@ -53,7 +53,3 @@ export const GET = rbacRoute(getLearningMetricsHandler, {
 
 export const dynamic = 'force-dynamic';
 
-
-
-
-

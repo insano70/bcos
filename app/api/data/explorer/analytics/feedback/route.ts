@@ -64,7 +64,3 @@ export const GET = rbacRoute(getFeedbackAnalyticsHandler, {
 
 export const dynamic = 'force-dynamic';
 
-
-
-
-

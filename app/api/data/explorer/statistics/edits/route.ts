@@ -52,7 +52,3 @@ export const GET = rbacRoute(getEditStatisticsHandler, {
 
 export const dynamic = 'force-dynamic';
 
-
-
-
-
