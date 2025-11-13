@@ -13,7 +13,7 @@ import {
   explorerColumnMetadata,
 } from '@/lib/db/schema';
 import type { UserContext } from '@/lib/types/rbac';
-import { eq, and, desc, sql } from 'drizzle-orm';
+import { eq, desc, sql } from 'drizzle-orm';
 import { log } from '@/lib/logger';
 import type { ImprovementSuggestion, QueryFeedback } from '@/lib/types/data-explorer';
 import type { FeedbackAnalysisResult, SuggestedFix } from './feedback-analyzer';

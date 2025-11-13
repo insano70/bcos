@@ -89,7 +89,7 @@ export async function analyzeFeedback(
         sqlDiff,
         diffSummary,
       };
-    } catch (parseError) {
+    } catch (_parseError) {
       // Fallback if AI doesn't return valid JSON
       analysisResult = {
         detectedIssue: aiResponse.substring(0, 500),

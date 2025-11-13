@@ -7,7 +7,7 @@ import { BaseRBACService } from '@/lib/rbac/base-service';
 import { db } from '@/lib/db';
 import { explorerQueryFeedback, explorerQueryHistory, explorerImprovementSuggestions } from '@/lib/db/schema';
 import type { UserContext } from '@/lib/types/rbac';
-import { sql, and, gte, lte, eq, desc } from 'drizzle-orm';
+import { sql, and, gte, lte, desc } from 'drizzle-orm';
 import { log } from '@/lib/logger';
 
 export interface FeedbackAnalytics {
@@ -383,7 +383,7 @@ export class FeedbackAnalyticsService extends BaseRBACService {
   /**
    * Get impact metrics
    */
-  private async getImpactMetrics(dateRange?: { start: Date; end: Date }): Promise<ImpactMetrics> {
+  private async getImpactMetrics(_dateRange?: { start: Date; end: Date }): Promise<ImpactMetrics> {
     if (!this.dbContext) throw new Error('Database context not initialized');
 
     // Get suggestion statistics

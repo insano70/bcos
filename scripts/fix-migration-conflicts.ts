@@ -51,7 +51,7 @@ function fixMigrationConflicts(): void {
   const migrationMap = new Map<number, Array<{ file: string; entry?: JournalEntry }>>();
 
   files.forEach(file => {
-    const migrationNum = parseInt(file.split('_')[0] || '0');
+    const migrationNum = parseInt(file.split('_')[0] || '0', 10);
     const tag = file.replace('.sql', '');
     const entry = journal.entries.find(e => e.tag === tag);
 
@@ -60,7 +60,7 @@ function fixMigrationConflicts(): void {
     }
 
     // Only include entry if it exists (exactOptionalPropertyTypes strictness)
-    migrationMap.get(migrationNum)!.push(entry ? { file, entry } : { file });
+    migrationMap.get(migrationNum)?.push(entry ? { file, entry } : { file });
   });
 
   // Find duplicates
@@ -181,7 +181,7 @@ function fixMigrationConflicts(): void {
   });
 
   // Write updated journal
-  fs.writeFileSync(JOURNAL_PATH, JSON.stringify(journal, null, 2) + '\n');
+  fs.writeFileSync(JOURNAL_PATH, `${JSON.stringify(journal, null, 2)}\n`);
   console.log(`\n✅ Updated ${JOURNAL_PATH}\n`);
 
   console.log('✅ Migration conflicts resolved!\n');

@@ -141,27 +141,43 @@ CREATE TABLE IF NOT EXISTS "explorer_table_relationships" (
 );
 --> statement-breakpoint
 DO $$ BEGIN
- ALTER TABLE "explorer_column_metadata" ADD CONSTRAINT "explorer_column_metadata_table_id_explorer_table_metadata_table_metadata_id_fk" FOREIGN KEY ("table_id") REFERENCES "public"."explorer_table_metadata"("table_metadata_id") ON DELETE cascade ON UPDATE no action;
-EXCEPTION
- WHEN duplicate_object THEN null;
+ IF NOT EXISTS (
+   SELECT 1 FROM information_schema.table_constraints
+   WHERE constraint_name = 'explorer_column_metadata_table_id_explorer_table_metadata_table'
+   AND table_name = 'explorer_column_metadata'
+ ) THEN
+   ALTER TABLE "explorer_column_metadata" ADD CONSTRAINT "explorer_column_metadata_table_id_explorer_table_metadata_table_metadata_id_fk" FOREIGN KEY ("table_id") REFERENCES "public"."explorer_table_metadata"("table_metadata_id") ON DELETE cascade ON UPDATE no action;
+ END IF;
 END $$;
 --> statement-breakpoint
 DO $$ BEGIN
- ALTER TABLE "explorer_saved_queries" ADD CONSTRAINT "explorer_saved_queries_query_history_id_explorer_query_history_query_history_id_fk" FOREIGN KEY ("query_history_id") REFERENCES "public"."explorer_query_history"("query_history_id") ON DELETE no action ON UPDATE no action;
-EXCEPTION
- WHEN duplicate_object THEN null;
+ IF NOT EXISTS (
+   SELECT 1 FROM information_schema.table_constraints
+   WHERE constraint_name = 'explorer_saved_queries_query_history_id_explorer_query_history_'
+   AND table_name = 'explorer_saved_queries'
+ ) THEN
+   ALTER TABLE "explorer_saved_queries" ADD CONSTRAINT "explorer_saved_queries_query_history_id_explorer_query_history_query_history_id_fk" FOREIGN KEY ("query_history_id") REFERENCES "public"."explorer_query_history"("query_history_id") ON DELETE no action ON UPDATE no action;
+ END IF;
 END $$;
 --> statement-breakpoint
 DO $$ BEGIN
- ALTER TABLE "explorer_table_relationships" ADD CONSTRAINT "explorer_table_relationships_from_table_id_explorer_table_metadata_table_metadata_id_fk" FOREIGN KEY ("from_table_id") REFERENCES "public"."explorer_table_metadata"("table_metadata_id") ON DELETE no action ON UPDATE no action;
-EXCEPTION
- WHEN duplicate_object THEN null;
+ IF NOT EXISTS (
+   SELECT 1 FROM information_schema.table_constraints
+   WHERE constraint_name = 'explorer_table_relationships_from_table_id_explorer_table_metad'
+   AND table_name = 'explorer_table_relationships'
+ ) THEN
+   ALTER TABLE "explorer_table_relationships" ADD CONSTRAINT "explorer_table_relationships_from_table_id_explorer_table_metadata_table_metadata_id_fk" FOREIGN KEY ("from_table_id") REFERENCES "public"."explorer_table_metadata"("table_metadata_id") ON DELETE no action ON UPDATE no action;
+ END IF;
 END $$;
 --> statement-breakpoint
 DO $$ BEGIN
- ALTER TABLE "explorer_table_relationships" ADD CONSTRAINT "explorer_table_relationships_to_table_id_explorer_table_metadata_table_metadata_id_fk" FOREIGN KEY ("to_table_id") REFERENCES "public"."explorer_table_metadata"("table_metadata_id") ON DELETE no action ON UPDATE no action;
-EXCEPTION
- WHEN duplicate_object THEN null;
+ IF NOT EXISTS (
+   SELECT 1 FROM information_schema.table_constraints
+   WHERE constraint_name = 'explorer_table_relationships_to_table_id_explorer_table_metadat'
+   AND table_name = 'explorer_table_relationships'
+ ) THEN
+   ALTER TABLE "explorer_table_relationships" ADD CONSTRAINT "explorer_table_relationships_to_table_id_explorer_table_metadata_table_metadata_id_fk" FOREIGN KEY ("to_table_id") REFERENCES "public"."explorer_table_metadata"("table_metadata_id") ON DELETE no action ON UPDATE no action;
+ END IF;
 END $$;
 --> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "idx_explorer_column_metadata_table" ON "explorer_column_metadata" USING btree ("table_id");--> statement-breakpoint

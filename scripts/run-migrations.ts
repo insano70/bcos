@@ -65,7 +65,7 @@ async function getAppliedMigrations(client: postgres.Sql): Promise<AppliedMigrat
       console.log(`   Latest applied: migration #${result[result.length - 1]?.id || 'unknown'}`);
     }
     return result;
-  } catch (error) {
+  } catch (_error) {
     // Table doesn't exist yet - first migration run
     console.log('   No migration history found (first run)');
     return [];
@@ -84,7 +84,7 @@ function getMigrationFiles(migrationsDir: string): MigrationFile[] {
       return {
         name,
         path: path.join(migrationsDir, name),
-        index: indexMatch ? parseInt(indexMatch[1] ?? '0') : 0,
+        index: indexMatch ? parseInt(indexMatch[1] ?? '0', 10) : 0,
       };
     });
 
@@ -168,7 +168,7 @@ async function runMigrationsWithLogging(): Promise<void> {
       console.log(`\n🔄 Proceeding to apply ${pendingCount} pending migration(s)...`);
     }
 
-    console.log('\n' + '─'.repeat(80));
+    console.log(`\n${'─'.repeat(80)}`);
     console.log('▶️  EXECUTING MIGRATIONS');
     console.log('─'.repeat(80));
 
@@ -202,7 +202,7 @@ async function runMigrationsWithLogging(): Promise<void> {
 
     // Summary
     const totalDuration = Date.now() - startTime;
-    console.log('\n' + '═'.repeat(80));
+    console.log(`\n${'═'.repeat(80)}`);
     console.log('✅ MIGRATION RUNNER COMPLETED SUCCESSFULLY');
     console.log('═'.repeat(80));
     console.log(`⏱️  Total duration: ${totalDuration}ms`);
@@ -218,7 +218,7 @@ async function runMigrationsWithLogging(): Promise<void> {
   } catch (error) {
     const totalDuration = Date.now() - startTime;
 
-    console.log('\n' + '═'.repeat(80));
+    console.log(`\n${'═'.repeat(80)}`);
     console.error('❌ MIGRATION RUNNER FAILED');
     console.log('═'.repeat(80));
 
@@ -287,7 +287,7 @@ async function runMigrationsWithLogging(): Promise<void> {
     console.error(`   Timestamp: ${new Date().toISOString()}`);
     console.error(`   Environment: ${process.env.NODE_ENV || 'development'}`);
 
-    console.log('\n' + '═'.repeat(80));
+    console.log(`\n${'═'.repeat(80)}`);
     console.error('💡 Troubleshooting Tips:');
     console.error('   1. Check if the database is accessible and credentials are correct');
     console.error('   2. Verify no other migration process is running (check for locks)');

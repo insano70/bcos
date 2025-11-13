@@ -1,4 +1,4 @@
-import { type NextRequest } from 'next/server';
+import type { NextRequest } from 'next/server';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { validateQuery } from '@/lib/api/middleware/validation';
 import { createPaginatedResponse } from '@/lib/api/responses/success';
