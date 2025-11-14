@@ -76,30 +76,36 @@ export default function ReviewCarousel({
   clinectReviews,
   nonce,
 }: ReviewCarouselProps) {
-  // If Clinect is enabled and we have a slug, use Clinect widget
+  // If Clinect is enabled (practice has opted into Clinect)
   if (ratingsEnabled && practiceSlug) {
-    return (
-      <section className="py-20 bg-slate-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="font-playfair-display text-4xl md:text-5xl font-bold text-slate-900 mb-4">
-              What Our Patients Say
-            </h2>
-            <div className="w-24 h-1 mx-auto bg-practice-primary rounded-full" />
-          </div>
+    // Only show widget if we actually got data from Clinect
+    if (clinectRatings) {
+      return (
+        <section className="py-20 bg-slate-50">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-12">
+              <h2 className="font-playfair-display text-4xl md:text-5xl font-bold text-slate-900 mb-4">
+                What Our Patients Say
+              </h2>
+              <div className="w-24 h-1 mx-auto bg-practice-primary rounded-full" />
+            </div>
 
-          <ClinectRatingsWidget
-            practiceSlug={practiceSlug}
-            size="medium"
-            showReviews={true}
-            reviewLimit={5}
-            animate={true}
-            initialRatings={clinectRatings}
-            initialReviews={clinectReviews}
-          />
-        </div>
-      </section>
-    );
+            <ClinectRatingsWidget
+              practiceSlug={practiceSlug}
+              size="medium"
+              showReviews={true}
+              reviewLimit={20}
+              animate={true}
+              initialRatings={clinectRatings}
+              initialReviews={clinectReviews}
+            />
+          </div>
+        </section>
+      );
+    }
+    
+    // Clinect is enabled but API failed - hide entire section
+    return null;
   }
 
   // Existing local review carousel logic

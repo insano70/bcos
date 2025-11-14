@@ -182,7 +182,7 @@ export default async function PracticeWebsite({ params }: { params: Promise<{ do
           new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000)),
         ]),
         Promise.race([
-          clinectService.getReviews(attributes.practice_slug, 5),
+          clinectService.getReviews(attributes.practice_slug, 20),
           new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000)),
         ]),
       ]);

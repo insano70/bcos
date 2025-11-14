@@ -18,7 +18,7 @@ export default function ClinectRatingsWidget({
   practiceSlug,
   size = 'small',
   showReviews = true,
-  reviewLimit = 5,
+  reviewLimit = 20,
   animate = true,
   initialRatings = null,
   initialReviews = null,
@@ -83,6 +83,15 @@ export default function ClinectRatingsWidget({
 
     return () => clearInterval(interval);
   }, [showReviews, reviews.length]);
+
+  // Navigation handlers
+  const handlePrevious = () => {
+    setCurrentReviewIndex((prev) => (prev === 0 ? reviews.length - 1 : prev - 1));
+  };
+
+  const handleNext = () => {
+    setCurrentReviewIndex((prev) => (prev + 1) % reviews.length);
+  };
 
   if (loading) {
     return (
@@ -156,7 +165,7 @@ export default function ClinectRatingsWidget({
       {/* Review Carousel */}
       {showReviews && reviews.length > 0 && currentReview && (
         <div className="max-w-4xl mx-auto">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 md:p-12 text-center min-h-[280px] flex flex-col justify-center">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 md:p-12 text-center min-h-[280px] flex flex-col justify-center relative">
             {/* Review Stars */}
             <div className="flex justify-center gap-1 mb-4">
               {[...Array(5)].map((_, i) => (
@@ -189,26 +198,56 @@ export default function ClinectRatingsWidget({
                 {currentReview.approved_at_formatted}
               </p>
             </div>
-          </div>
 
-          {/* Carousel Indicators */}
-          {reviews.length > 1 && (
-            <div className="flex justify-center mt-8 space-x-2">
-              {reviews.map((review, index) => (
+            {/* Navigation Buttons - Half in, half out of card edges */}
+            {reviews.length > 1 && (
+              <>
+                {/* Previous Button */}
                 <button
-                  key={review.survey_response_id}
                   type="button"
-                  onClick={() => setCurrentReviewIndex(index)}
-                  className={`w-3 h-3 rounded-full transition-all duration-300 ${
-                    index === currentReviewIndex
-                      ? 'w-8 bg-practice-primary'
-                      : 'bg-slate-300 opacity-50 hover:opacity-75 dark:bg-slate-600'
-                  }`}
-                  aria-label={`Go to review ${index + 1}`}
-                />
-              ))}
-            </div>
-          )}
+                  onClick={handlePrevious}
+                  className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 bg-white hover:bg-white dark:bg-gray-700 dark:hover:bg-gray-600 p-3 rounded-full shadow-xl transition-all hover:scale-110 border border-gray-200 dark:border-gray-600"
+                  aria-label="Previous review"
+                >
+                  <svg
+                    className="w-6 h-6 text-gray-700 dark:text-gray-300"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15 19l-7-7 7-7"
+                    />
+                  </svg>
+                </button>
+
+                {/* Next Button */}
+                <button
+                  type="button"
+                  onClick={handleNext}
+                  className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 bg-white hover:bg-white dark:bg-gray-700 dark:hover:bg-gray-600 p-3 rounded-full shadow-xl transition-all hover:scale-110 border border-gray-200 dark:border-gray-600"
+                  aria-label="Next review"
+                >
+                  <svg
+                    className="w-6 h-6 text-gray-700 dark:text-gray-300"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 5l7 7-7 7"
+                    />
+                  </svg>
+                </button>
+              </>
+            )}
+          </div>
         </div>
       )}
     </div>

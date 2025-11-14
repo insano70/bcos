@@ -91,7 +91,7 @@ export default async function TemplatePreview({
           new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000)),
         ]),
         Promise.race([
-          clinectService.getReviews(attributes.practice_slug, 5),
+          clinectService.getReviews(attributes.practice_slug, 20),
           new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000)),
         ]),
       ]);
