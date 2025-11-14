@@ -256,6 +256,21 @@ export const practiceConfigSchema = z.object({
     .string()
     .regex(/^#[0-9A-Fa-f]{6}$/, 'Invalid hex color format (use #RRGGBB)')
     .default('#44C0AE'),
+
+  // ========================================
+  // Clinect Ratings Integration
+  // ========================================
+  practice_slug: z
+    .string()
+    .max(255, 'Practice slug must not exceed 255 characters')
+    .regex(
+      /^[a-z0-9-]+$/,
+      'Practice slug must contain only lowercase letters, numbers, and hyphens'
+    )
+    .optional()
+    .or(z.literal('')),
+
+  ratings_feed_enabled: z.boolean().default(false),
 });
 
 /**

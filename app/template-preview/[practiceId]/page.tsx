@@ -9,6 +9,7 @@ import {
   transformStaffMember,
 } from '@/lib/types/transformers';
 import TemplateSwitcher from './template-switcher';
+import { log } from '@/lib/logger';
 
 async function getPracticeData(practiceId: string) {
   // Get practice
@@ -74,6 +75,46 @@ export default async function TemplatePreview({
 
   const { practice, template, attributes, staff } = data;
 
+  // Fetch Clinect ratings data if enabled (same as practice website)
+  let clinectRatings: import('@/lib/types/practice').ClinectRating | null = null;
+  let clinectReviews: import('@/lib/types/practice').ClinectReview[] | null = null;
+
+  if (attributes.ratings_feed_enabled && attributes.practice_slug) {
+    try {
+      const { createClinectService } = await import('@/lib/services/clinect-service');
+      const clinectService = createClinectService();
+
+      // Fetch ratings and reviews in parallel
+      const [ratingsData, reviewsData] = await Promise.allSettled([
+        Promise.race([
+          clinectService.getRatings(attributes.practice_slug),
+          new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000)),
+        ]),
+        Promise.race([
+          clinectService.getReviews(attributes.practice_slug, 5),
+          new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000)),
+        ]),
+      ]);
+
+      // Handle ratings result
+      if (ratingsData.status === 'fulfilled' && ratingsData.value) {
+        clinectRatings = ratingsData.value;
+      }
+
+      // Handle reviews result
+      if (reviewsData.status === 'fulfilled' && reviewsData.value) {
+        clinectReviews = reviewsData.value.data;
+      }
+    } catch (error) {
+      log.error('Failed to fetch Clinect data for template preview', error, {
+        operation: 'fetch_clinect_data_preview',
+        practiceId: practice.practice_id,
+        practiceSlug: attributes.practice_slug,
+        component: 'server',
+      });
+    }
+  }
+
   return (
     <div className="min-h-screen">
       {/* Server-rendered toolbar - client component will enhance it */}
@@ -85,6 +126,8 @@ export default async function TemplatePreview({
         attributes={attributes}
         staff={staff}
         comments={[]} // Empty comments for preview mode
+        clinectRatings={clinectRatings}
+        clinectReviews={clinectReviews}
         initialTemplate={template.slug}
       />
     </div>

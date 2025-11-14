@@ -1,11 +1,17 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import type { PracticeComment } from '@/lib/types/practice';
+import type { PracticeComment, ClinectRating, ClinectReview } from '@/lib/types/practice';
+import ClinectRatingsWidget from '@/components/clinect-ratings-widget';
 
 interface ReviewCarouselProps {
-  colorStyles?: any;
+  colorStyles?: unknown;
   comments: PracticeComment[];
+  ratingsEnabled?: boolean | undefined;
+  practiceSlug?: string | undefined;
+  clinectRatings?: ClinectRating | null | undefined;
+  clinectReviews?: ClinectReview[] | null | undefined;
+  nonce?: string | undefined;
 }
 
 // Fallback sample comments if no real data exists
@@ -62,7 +68,51 @@ const FALLBACK_COMMENTS = [
     }
 ];
 
-export default function ReviewCarousel({ colorStyles, comments }: ReviewCarouselProps) {
+export default function ReviewCarousel({
+  colorStyles,
+  comments,
+  ratingsEnabled,
+  practiceSlug,
+  clinectRatings,
+  clinectReviews,
+  nonce,
+}: ReviewCarouselProps) {
+  // DEBUG: Log what we're receiving
+  console.log('ReviewCarousel DEBUG:', {
+    ratingsEnabled,
+    practiceSlug,
+    hasRatings: !!clinectRatings,
+    hasReviews: !!clinectReviews,
+    willShowClinect: !!(ratingsEnabled && practiceSlug)
+  });
+
+  // If Clinect is enabled and we have a slug, use Clinect widget
+  if (ratingsEnabled && practiceSlug) {
+    return (
+      <section className="py-16 bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+              What Our Patients Say
+            </h2>
+            <div className="w-24 h-1 mx-auto bg-practice-primary" />
+          </div>
+
+          <ClinectRatingsWidget
+            practiceSlug={practiceSlug}
+            size="medium"
+            showReviews={true}
+            reviewLimit={5}
+            animate={true}
+            initialRatings={clinectRatings}
+            initialReviews={clinectReviews}
+          />
+        </div>
+      </section>
+    );
+  }
+
+  // Existing local review carousel logic
   const [currentIndex, setCurrentIndex] = useState(0);
 
   // Use real comments if available, otherwise use fallback

@@ -16,6 +16,8 @@ interface TemplateSwitcherProps {
   attributes: PracticeAttributes;
   staff: StaffMember[];
   comments: PracticeComment[];
+  clinectRatings?: import('@/lib/types/practice').ClinectRating | null | undefined;
+  clinectReviews?: import('@/lib/types/practice').ClinectReview[] | null | undefined;
   initialTemplate: string;
 }
 
@@ -24,6 +26,8 @@ export default function TemplateSwitcher({
   attributes,
   staff,
   comments,
+  clinectRatings,
+  clinectReviews,
   initialTemplate,
 }: TemplateSwitcherProps) {
   const [currentTemplate, setCurrentTemplate] = useState(initialTemplate);
@@ -153,6 +157,8 @@ export default function TemplateSwitcher({
         attributes={attributes}
         staff={staff}
         comments={comments}
+        clinectRatings={clinectRatings}
+        clinectReviews={clinectReviews}
       />
     </div>
   );

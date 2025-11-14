@@ -17,6 +17,8 @@ export default function ClassicProfessionalTemplate({
   attributes,
   staff,
   comments = [],
+  clinectRatings = null,
+  clinectReviews = null,
   nonce
 }: TemplateProps) {
   // Get colors for this practice or use template defaults
@@ -40,7 +42,14 @@ export default function ClassicProfessionalTemplate({
         <Hero practice={practice} attributes={attributes} />
 
         {/* Review Carousel section */}
-        <ReviewCarousel comments={comments} />
+        <ReviewCarousel
+          comments={comments}
+          ratingsEnabled={attributes.ratings_feed_enabled}
+          practiceSlug={attributes.practice_slug}
+          clinectRatings={clinectRatings}
+          clinectReviews={clinectReviews}
+          nonce={nonce}
+        />
 
         {/* About section */}
         <About practice={practice} attributes={attributes} />

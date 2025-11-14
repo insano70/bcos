@@ -159,6 +159,8 @@ export function getEnhancedContentSecurityPolicy(nonces?: CSPNonces): string {
       // External services (add as needed)
       ...(process.env.RESEND_API_URL ? [process.env.RESEND_API_URL] : []),
       ...(process.env.STRIPE_API_URL ? [process.env.STRIPE_API_URL] : []),
+      // Clinect API for practice ratings and reviews
+      'https://api2.clinectsurvey.com',
     ],
     'frame-src': ["'none'"], // Prevent embedding in frames
     'object-src': ["'none'"], // Prevent Flash and other plugins

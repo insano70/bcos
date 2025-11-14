@@ -229,10 +229,15 @@ export const practice_attributes = pgTable(
     // Hero Overlay
     hero_overlay_opacity: real('hero_overlay_opacity').default(0.1), // 0.0 to 1.0
 
+    // Clinect Ratings Integration
+    practice_slug: text('practice_slug'),
+    ratings_feed_enabled: boolean('ratings_feed_enabled').default(false),
+
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow(),
   },
   (table) => ({
     practiceIdx: index('idx_practice_attributes_practice_id').on(table.practice_id),
+    practiceSlugIdx: index('idx_practice_attributes_slug').on(table.practice_slug),
   })
 );
 

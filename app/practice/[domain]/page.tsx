@@ -166,6 +166,46 @@ export default async function PracticeWebsite({ params }: { params: Promise<{ do
     comments = [];
   }
 
+  // Fetch Clinect ratings data if enabled (server-side for SEO)
+  let clinectRatings: import('@/lib/types/practice').ClinectRating | null = null;
+  let clinectReviews: import('@/lib/types/practice').ClinectReview[] | null = null;
+
+  if (attributes.ratings_feed_enabled && attributes.practice_slug) {
+    try {
+      const { createClinectService } = await import('@/lib/services/clinect-service');
+      const clinectService = createClinectService();
+
+      // Fetch ratings and reviews in parallel for better performance
+      const [ratingsData, reviewsData] = await Promise.allSettled([
+        Promise.race([
+          clinectService.getRatings(attributes.practice_slug),
+          new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000)),
+        ]),
+        Promise.race([
+          clinectService.getReviews(attributes.practice_slug, 5),
+          new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000)),
+        ]),
+      ]);
+
+      // Handle ratings result
+      if (ratingsData.status === 'fulfilled' && ratingsData.value) {
+        clinectRatings = ratingsData.value;
+      }
+
+      // Handle reviews result
+      if (reviewsData.status === 'fulfilled' && reviewsData.value) {
+        clinectReviews = reviewsData.value.data;
+      }
+    } catch (error) {
+      log.error('Failed to fetch Clinect data for practice website', error, {
+        operation: 'fetch_clinect_data_ssr',
+        practiceId: practice.practice_id,
+        practiceSlug: attributes.practice_slug,
+        component: 'server',
+      });
+    }
+  }
+
   // Attributes and staff are already transformed/parsed by the transformers
   const parsedAttributes = attributes;
   const parsedStaff = staff;
@@ -179,6 +219,8 @@ export default async function PracticeWebsite({ params }: { params: Promise<{ do
       attributes={parsedAttributes}
       staff={parsedStaff}
       comments={comments}
+      clinectRatings={clinectRatings}
+      clinectReviews={clinectReviews}
       nonce={nonce}
     />
   );

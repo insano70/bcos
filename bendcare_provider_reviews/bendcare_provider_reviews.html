@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Clinect - Stars jQuery Plugin</title>
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js" integrity="sha256-ZosEbRLbNQzLpnKIkEdrPv7lOy9C27hHQ+Xp8a4MxAQ=" crossorigin="anonymous"></script>
+    <script src="js/clinect_stars_05.js"></script>
+
+    <link rel="stylesheet" media="all" href="css/clinect-ratings.css" />
+</head>
+<body style="font-family: sans-serif;">
+<div>
+    <p>An example of a provider page of reviews. Just replace the slug in the URL with the slug for the provider. We can switch that to be a provider ID as well. There are reviews for Michelle Wands.</p>
+</div>
+<hr />
+<h2>Michelle Wands</h2>
+<div id="review-stars" style="width: 200px; margin:.5rem 0 2rem 0;"></div>
+<div id="comment-area" style="margin: 1em;"></div>
+</body>
+
+
+<script type="application/javascript">
+    $('#review-stars').clinectStars({
+        groupId: "bendcare",
+        //clinectSurveyServicesURL: null,
+        itemId: 'michelle-wands',
+        itemIdType: 'id_slug',
+        scoreType: 'provider',
+        size: "tiny",   // tiny, small, medium
+        animate: true,  // true will make them paint from left to right
+        halfStars: false,   // Will show 0, .5, 1, 1,5 stars in half-star increments
+        scoreValue: 88,     // Only if you know the value, otherwise it will be pulled by the plugin automatically
+        responseCount: 155, // Only if you know the value, otherwise it will be pulled by the plugin automatically
+        responseCountFloor: 1,    // Display only when there are more than this. Default is 1
+        responseScoreFloor: 50,      // Threshold for scoring based on the 0-100 score value. Default is 65
+        linkUrl: {
+            href: '#reviews',     // If the stars are clicked, this is the anchor for the redirect
+            target: '_self'
+        }
+    });
+
+    $.ajax({
+        method: "GET",
+        url: 'https://api2.clinectsurvey.com/stats/bendcare/curated-response/slug/michelle-wands?type=provider&limit=10'
+    }).done(function( msg ) {
+        // This will show what the return array looks like
+        //console.log(msg);
+        var comment_list = JSON.parse(msg);
+        comment_list.data.forEach(function(comment, index){
+            var score_stars = starsFromScore("tiny",5,false,comment.survey_response_id,comment.score_value);
+            //console.log(comment.approved_comment);
+            $("#comment-area").append('<div class="commentarea" style="margin: 1em 0;">' + score_stars + 'Rating: ' + Number(comment.score_value_pure_5).toFixed(1) + '<br />' + comment.approved_comment + '<br/><i>' + comment.patient_name + '</i> - ' + comment.approved_at_formatted + '</div>');
+        });
+    });
+</script>
+</html>

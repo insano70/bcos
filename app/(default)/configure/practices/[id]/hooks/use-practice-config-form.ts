@@ -82,6 +82,10 @@ function mapAttributesToFormData(
     primary_color: attributes.primary_color || '#00AEEF',
     secondary_color: attributes.secondary_color || '#FFFFFF',
     accent_color: attributes.accent_color || '#44C0AE',
+
+    // Clinect Ratings Integration
+    practice_slug: attributes.practice_slug || '',
+    ratings_feed_enabled: attributes.ratings_feed_enabled || false,
   };
 }
 

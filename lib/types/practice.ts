@@ -51,6 +51,10 @@ export interface PracticeAttributes {
   secondary_color?: string;
   accent_color?: string;
 
+  // Clinect Ratings Integration
+  practice_slug?: string;
+  ratings_feed_enabled?: boolean;
+
   updated_at: string;
 }
 
@@ -145,12 +149,37 @@ export interface PracticeComment {
   created_at: Date;
 }
 
+// Clinect Ratings Integration interfaces
+export interface ClinectRating {
+  provider_id: string;
+  id_slug: string;
+  response_count: number;
+  curated_response_count: number;
+  score_value: number; // 0-100
+  score_value_stars: number; // 0-5
+}
+
+export interface ClinectReview {
+  survey_response_id: string;
+  score_value: number; // 0-100
+  score_value_pure_5: number; // 0-5
+  approved_comment: string;
+  patient_name: string | null;
+  approved_at_formatted: string;
+}
+
+export interface ClinectReviews {
+  data: ClinectReview[];
+}
+
 // Template props interface - what all templates receive
 export interface TemplateProps {
   practice: Practice;
   attributes: PracticeAttributes;
   staff: StaffMember[];
   comments?: PracticeComment[]; // Optional customer reviews for carousel
+  clinectRatings?: ClinectRating | null | undefined; // Clinect aggregate ratings (SSR data)
+  clinectReviews?: ClinectReview[] | null | undefined; // Clinect reviews (SSR data)
   /** @deprecated - Use CSS custom properties instead. This prop will be removed in a future version. */
   colorStyles?: ColorStyles; // Dynamic color styles for the template (DEPRECATED)
   nonce?: string; // CSP nonce for inline scripts and styles

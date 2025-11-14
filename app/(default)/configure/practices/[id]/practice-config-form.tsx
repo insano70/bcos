@@ -17,6 +17,7 @@ import { ContentSection } from './sections/content-section';
 import { ServicesConditionsSection } from './sections/services-conditions-section';
 import { BusinessHoursSection } from './sections/business-hours-section';
 import { BrandingSection } from './sections/branding-section';
+import { RatingsIntegrationSection } from './sections/ratings-integration-section';
 import { StaffSection } from './sections/staff-section';
 import { SEOSection } from './sections/seo-section';
 import type { PracticeFormData } from './types';
@@ -151,6 +152,15 @@ export default function PracticeConfigForm({
           setValue={setValue}
           queryClient={queryClient}
           register={register}
+        />
+
+        {/* Ratings Integration Section */}
+        <RatingsIntegrationSection
+          register={register}
+          errors={errors}
+          watch={watch}
+          setValue={setValue}
+          uid={uid}
         />
 
         {/* Contact Info Section */}

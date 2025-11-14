@@ -1,11 +1,17 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import type { PracticeComment, ColorStyles } from '@/lib/types/practice';
+import type { PracticeComment, ColorStyles, ClinectRating, ClinectReview } from '@/lib/types/practice';
+import ClinectRatingsWidget from '@/components/clinect-ratings-widget';
 
 interface ReviewCarouselProps {
   colorStyles?: ColorStyles;
   comments: PracticeComment[];
+  ratingsEnabled?: boolean | undefined;
+  practiceSlug?: string | undefined;
+  clinectRatings?: ClinectRating | null | undefined;
+  clinectReviews?: ClinectReview[] | null | undefined;
+  nonce?: string | undefined;
 }
 
 const FALLBACK_COMMENTS = [
@@ -61,7 +67,42 @@ const FALLBACK_COMMENTS = [
   }
 ];
 
-export default function ReviewCarousel({ colorStyles, comments }: ReviewCarouselProps) {
+export default function ReviewCarousel({
+  colorStyles,
+  comments,
+  ratingsEnabled,
+  practiceSlug,
+  clinectRatings,
+  clinectReviews,
+  nonce,
+}: ReviewCarouselProps) {
+  // If Clinect is enabled and we have a slug, use Clinect widget
+  if (ratingsEnabled && practiceSlug) {
+    return (
+      <section className="py-20 bg-slate-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <h2 className="font-playfair-display text-4xl md:text-5xl font-bold text-slate-900 mb-4">
+              What Our Patients Say
+            </h2>
+            <div className="w-24 h-1 mx-auto bg-practice-primary rounded-full" />
+          </div>
+
+          <ClinectRatingsWidget
+            practiceSlug={practiceSlug}
+            size="medium"
+            showReviews={true}
+            reviewLimit={5}
+            animate={true}
+            initialRatings={clinectRatings}
+            initialReviews={clinectReviews}
+          />
+        </div>
+      </section>
+    );
+  }
+
+  // Existing local review carousel logic
   const [currentIndex, setCurrentIndex] = useState(0);
 
   const displayComments = comments && comments.length > 0 ? comments : FALLBACK_COMMENTS;

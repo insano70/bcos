@@ -116,6 +116,12 @@ export function transformPracticeAttributes(
   if (dbAttributes.secondary_color) result.secondary_color = dbAttributes.secondary_color;
   if (dbAttributes.accent_color) result.accent_color = dbAttributes.accent_color;
 
+  // Clinect Ratings Integration
+  if (dbAttributes.practice_slug) result.practice_slug = dbAttributes.practice_slug;
+  if (dbAttributes.ratings_feed_enabled !== null && dbAttributes.ratings_feed_enabled !== undefined) {
+    result.ratings_feed_enabled = dbAttributes.ratings_feed_enabled;
+  }
+
   return result;
 }
 

@@ -133,6 +133,17 @@ export const practiceAttributesUpdateSchema = z.object({
     .string()
     .regex(/^#[0-9A-Fa-f]{6}$/, 'Invalid hex color format')
     .optional(),
+
+  // Clinect Ratings Integration
+  practice_slug: z
+    .string()
+    .max(255, 'Practice slug must not exceed 255 characters')
+    .regex(
+      /^[a-z0-9-]+$/,
+      'Practice slug must contain only lowercase letters, numbers, and hyphens'
+    )
+    .optional(),
+  ratings_feed_enabled: z.boolean().optional(),
 });
 
 // Route parameter schemas

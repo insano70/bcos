@@ -18,6 +18,8 @@ export default function TidyProfessionalTemplate({
   attributes,
   staff,
   comments = [],
+  clinectRatings = null,
+  clinectReviews = null,
   nonce
 }: TemplateProps) {
   // Get colors for this practice or use template defaults
@@ -72,6 +74,11 @@ export default function TidyProfessionalTemplate({
 
           <ReviewCarousel
             comments={comments}
+            ratingsEnabled={attributes.ratings_feed_enabled}
+            practiceSlug={attributes.practice_slug}
+            clinectRatings={clinectRatings}
+            clinectReviews={clinectReviews}
+            nonce={nonce}
           />
 
           <About
