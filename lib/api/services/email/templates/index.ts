@@ -16,6 +16,12 @@ export { getPracticeSetupTemplate } from './practice-templates';
 // Public form templates
 export { getAppointmentRequestTemplate, getContactFormTemplate } from './public-form-templates';
 
+// Practice-branded templates
+export {
+  getPracticeBrandedContactFormTemplate,
+  getPracticeBrandedAppointmentRequestTemplate,
+} from './practice-branded-templates';
+
 // Admin templates
 export { getSystemNotificationTemplate } from './admin-templates';
 

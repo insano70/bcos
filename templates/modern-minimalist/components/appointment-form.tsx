@@ -1,8 +1,14 @@
 'use client';
 
 import { useState } from 'react';
+import type { Practice, PracticeAttributes } from '@/lib/types/practice';
 
-export default function AppointmentForm() {
+interface AppointmentFormProps {
+  practice: Practice;
+  attributes: PracticeAttributes;
+}
+
+export default function AppointmentForm({ practice, attributes }: AppointmentFormProps) {
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -38,7 +44,7 @@ export default function AppointmentForm() {
           preferredTime: formData.preferredTime,
           reason: formData.reason,
           message: formData.message,
-          practiceEmail: 'appointments@practice.com' // This should be configurable per practice
+          practiceDomain: practice.domain,
         }),
       });
 

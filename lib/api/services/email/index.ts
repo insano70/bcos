@@ -30,6 +30,9 @@ export type {
   ContactFormData,
 } from './types';
 
+// Practice-branded template types
+export type { PracticeBrandingData } from './templates/practice-branded-templates';
+
 // Template generators (for modern usage)
 export {
   // Auth templates
@@ -41,6 +44,9 @@ export {
   // Public form templates
   getAppointmentRequestTemplate,
   getContactFormTemplate,
+  // Practice-branded templates
+  getPracticeBrandedContactFormTemplate,
+  getPracticeBrandedAppointmentRequestTemplate,
   // Admin templates
   getSystemNotificationTemplate,
   // Work item templates

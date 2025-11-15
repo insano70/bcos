@@ -90,7 +90,7 @@ export default function WarmWelcomingTemplate({
                 We're here to help you feel better. Let's start your journey to wellness together.
               </p>
             </div>
-            <AppointmentForm />
+            <AppointmentForm practice={practice} attributes={attributes} />
           </div>
         </section>
 

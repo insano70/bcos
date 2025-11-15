@@ -2,6 +2,7 @@
 
 import { useForm } from 'react-hook-form';
 import { useState } from 'react';
+import type { Practice, PracticeAttributes } from '@/lib/types/practice';
 
 interface AppointmentFormData {
   first_name: string;
@@ -14,7 +15,13 @@ interface AppointmentFormData {
   message: string;
 }
 
-export default function AppointmentForm({ colorStyles }: { colorStyles?: any }) {
+interface AppointmentFormProps {
+  practice: Practice;
+  attributes: PracticeAttributes;
+  colorStyles?: any;
+}
+
+export default function AppointmentForm({ practice, attributes, colorStyles }: AppointmentFormProps) {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -45,7 +52,7 @@ export default function AppointmentForm({ colorStyles }: { colorStyles?: any }) 
           preferredTime: data.preferred_time,
           reason: data.reason,
           message: data.message,
-          practiceEmail: 'appointments@practice.com' // This should be configurable per practice
+          practiceDomain: practice.domain,
         }),
       });
 

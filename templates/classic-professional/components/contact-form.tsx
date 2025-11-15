@@ -3,6 +3,8 @@
 import { useForm } from 'react-hook-form';
 import { useState } from 'react';
 
+import type { Practice, PracticeAttributes } from '@/lib/types/practice';
+
 interface ContactFormData {
   name: string;
   email: string;
@@ -12,11 +14,12 @@ interface ContactFormData {
 }
 
 interface ContactFormProps {
+  practice: Practice;
+  attributes: PracticeAttributes;
   colorStyles?: any;
-  practiceEmail?: string;
 }
 
-export default function ContactForm({ colorStyles, practiceEmail = 'contact@practice.com' }: ContactFormProps) {
+export default function ContactForm({ practice, attributes, colorStyles }: ContactFormProps) {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -44,7 +47,7 @@ export default function ContactForm({ colorStyles, practiceEmail = 'contact@prac
           phone: data.phone,
           subject: data.subject,
           message: data.message,
-          practiceEmail: practiceEmail
+          practiceDomain: practice.domain,
         }),
       });
 

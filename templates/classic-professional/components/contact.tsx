@@ -149,7 +149,7 @@ export default function Contact({ practice, attributes, colorStyles }: ContactPr
 
           {/* Contact Form */}
           <div className="lg:col-span-2 xl:col-span-1">
-            <ContactForm colorStyles={colorStyles} practiceEmail={attributes.email || 'contact@practice.com'} />
+            <ContactForm practice={practice} attributes={attributes} colorStyles={colorStyles} />
           </div>
         </div>
       </div>

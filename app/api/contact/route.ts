@@ -5,7 +5,8 @@ import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { publicRoute } from '@/lib/api/route-handlers';
 import { emailService } from '@/lib/api/services/email';
-import { log } from '@/lib/logger';
+import { log, SLOW_THRESHOLDS } from '@/lib/logger';
+import { getPracticeByDomain } from '@/lib/services/public-practice-service';
 
 const ContactFormSchema = z.object({
   name: z.string().min(1, 'Name is required').max(100, 'Name too long'),
@@ -13,42 +14,129 @@ const ContactFormSchema = z.object({
   phone: z.string().optional(),
   subject: z.string().min(1, 'Subject is required').max(200, 'Subject too long'),
   message: z.string().min(1, 'Message is required').max(2000, 'Message too long'),
-  practiceEmail: z.string().email('Valid practice email required'),
+  practiceDomain: z
+    .string()
+    .min(1, 'Practice domain is required')
+    .max(255, 'Domain too long')
+    .regex(
+      /^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?)*$/,
+      'Invalid domain format'
+    ),
 });
 
 const handler = async (request: NextRequest) => {
+  const startTime = Date.now();
+
   try {
-    // Use standard validation helper
+    // Validate request data
     const validatedData = await validateRequest(request, ContactFormSchema);
 
-    log.info('Contact form submission received', {
-      name: validatedData.name,
-      email: validatedData.email,
-      subject: validatedData.subject,
-      practiceEmail: validatedData.practiceEmail,
-      operation: 'contact-form-submission',
-    });
+    // Fetch practice and attributes by domain
+    const { practice, attributes } = await getPracticeByDomain(validatedData.practiceDomain);
 
-    // Send email notification to practice
-    await emailService.sendContactForm(validatedData.practiceEmail, {
-      name: validatedData.name,
-      email: validatedData.email,
-      ...(validatedData.phone && { phone: validatedData.phone }),
-      subject: validatedData.subject,
-      message: validatedData.message,
-    });
+    // Check if practice has email configured
+    const practiceEmail = attributes.email;
 
-    log.info('Contact form processed successfully', {
-      name: validatedData.name,
-      email: validatedData.email,
-      practiceEmail: validatedData.practiceEmail,
-      operation: 'contact-form-success',
+    if (!practiceEmail) {
+      // Fallback: Send error notification to thrive@bendcare.com
+      log.error('practice email not configured - sending error notification', null, {
+        operation: 'contact_form_submission',
+        practiceId: practice.practice_id,
+        practiceName: practice.name,
+        domain: practice.domain,
+        contactName: validatedData.name,
+        contactEmail: validatedData.email.replace(/(.{2}).*@/, '$1***@'),
+        component: 'contact-form',
+        isPublic: true,
+      });
+
+      // Use branded template even for error emails (with ERROR prefix in subject)
+      await emailService.sendPracticeBrandedContactForm(
+        'thrive@bendcare.com',
+        {
+          name: validatedData.name,
+          email: validatedData.email,
+          ...(validatedData.phone && { phone: validatedData.phone }),
+          subject: `ERROR - ${validatedData.subject}`,
+          message: `[ERROR: Practice email not configured for ${practice.domain}]\n\nPractice: ${practice.name}\n\n${validatedData.message}`,
+        },
+        {
+          practiceName: practice.name,
+          domain: practice.domain,
+          colors: {
+            primary: attributes.primary_color || '#00AEEF',
+            secondary: attributes.secondary_color || '#FFFFFF',
+            accent: attributes.accent_color || '#44C0AE',
+          },
+        }
+      );
+
+      const duration = Date.now() - startTime;
+      log.info('contact form processed with error fallback', {
+        operation: 'contact_form_submission',
+        practiceId: practice.practice_id,
+        domain: practice.domain,
+        fallbackEmail: 'thrive@bendcare.com',
+        contactEmail: validatedData.email.replace(/(.{2}).*@/, '$1***@'),
+        duration,
+        slow: duration > SLOW_THRESHOLDS.API_OPERATION,
+        component: 'contact-form',
+        isPublic: true,
+      });
+
+      return createSuccessResponse(
+        { submitted: true },
+        'Contact form submitted successfully'
+      );
+    }
+
+    // Send branded email notification to practice
+    await emailService.sendPracticeBrandedContactForm(
+      practiceEmail,
+      {
+        name: validatedData.name,
+        email: validatedData.email,
+        ...(validatedData.phone && { phone: validatedData.phone }),
+        subject: validatedData.subject,
+        message: validatedData.message,
+      },
+      {
+        practiceName: practice.name,
+        domain: practice.domain,
+        colors: {
+          primary: attributes.primary_color || '#00AEEF',
+          secondary: attributes.secondary_color || '#FFFFFF',
+          accent: attributes.accent_color || '#44C0AE',
+        },
+      }
+    );
+
+    const duration = Date.now() - startTime;
+
+    log.info('contact form processed successfully', {
+      operation: 'contact_form_submission',
+      practiceId: practice.practice_id,
+      practiceName: practice.name,
+      domain: practice.domain,
+      practiceEmail: practiceEmail.replace(/(.{2}).*@/, '$1***@'),
+      contactName: validatedData.name,
+      contactEmail: validatedData.email.replace(/(.{2}).*@/, '$1***@'),
+      hasPhone: !!validatedData.phone,
+      subjectCategory: validatedData.subject,
+      messageLength: validatedData.message.length,
+      duration,
+      slow: duration > SLOW_THRESHOLDS.API_OPERATION,
+      component: 'contact-form',
+      isPublic: true,
     });
 
     return createSuccessResponse({ submitted: true }, 'Contact form submitted successfully');
   } catch (error) {
-    log.error('Contact form submission failed', error, {
-      operation: 'contact-form-error',
+    log.error('contact form submission failed', error, {
+      operation: 'contact_form_submission',
+      duration: Date.now() - startTime,
+      component: 'contact-form',
+      isPublic: true,
     });
 
     return createErrorResponse(

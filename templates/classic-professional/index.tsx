@@ -74,7 +74,7 @@ export default function ClassicProfessionalTemplate({
                 Ready to take the first step toward better health? Request an appointment today.
               </p>
             </div>
-            <AppointmentForm />
+            <AppointmentForm practice={practice} attributes={attributes} />
           </div>
         </section>
 

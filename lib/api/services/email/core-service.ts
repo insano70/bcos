@@ -11,6 +11,11 @@ import {
   getAppointmentRequestTemplate,
   getContactFormTemplate,
 } from './templates/public-form-templates';
+import {
+  getPracticeBrandedAppointmentRequestTemplate,
+  getPracticeBrandedContactFormTemplate,
+  type PracticeBrandingData,
+} from './templates/practice-branded-templates';
 import { getSystemNotificationTemplate } from './templates/admin-templates';
 import { sanitizeEmailHeader, parseEmailList } from './utils/security';
 
@@ -26,16 +31,26 @@ export class EmailService {
   /**
    * Core email sending method
    * Low-level transport - use sendTemplatedEmail for template-based emails
+   *
+   * @param options - Email options
+   * @param overrideFrom - Optional override for from address (for practice emails)
    */
-  private async send(options: EmailOptions): Promise<void> {
+  private async send(
+    options: EmailOptions,
+    overrideFrom?: { email: string; name: string }
+  ): Promise<void> {
     try {
       const config = getEmailConfig();
 
       // Sanitize email subject to prevent header injection
       const sanitizedSubject = sanitizeEmailHeader(options.subject);
 
+      // Use override from address if provided, otherwise use default config
+      const fromEmail = overrideFrom?.email || config.from.email;
+      const fromName = overrideFrom?.name || config.from.name;
+
       const mailOptions: nodemailer.SendMailOptions = {
-        from: `${config.from.name} <${config.from.email}>`,
+        from: `${fromName} <${fromEmail}>`,
         to: Array.isArray(options.to) ? options.to : [options.to],
         replyTo: config.replyTo,
         subject: sanitizedSubject,
@@ -179,6 +194,96 @@ export class EmailService {
       subject,
       html,
       text,
+    });
+  }
+
+  /**
+   * ============================================================
+   * PRACTICE-BRANDED EMAIL METHODS
+   * These methods send branded emails with practice colors
+   * Used by: contact forms and appointment requests from practice websites
+   * ============================================================
+   */
+
+  /**
+   * Send practice-branded contact form notification
+   * Uses practice color palette for email styling
+   * Sends from thrive@bendcare.com with "Bendcare Thrive" as sender name
+   *
+   * @param practiceEmail - Practice email address (to)
+   * @param formData - Contact form submission data
+   * @param branding - Practice branding information (name, domain, colors)
+   */
+  async sendPracticeBrandedContactForm(
+    practiceEmail: string,
+    formData: ContactFormData,
+    branding: PracticeBrandingData
+  ): Promise<void> {
+    const template = getPracticeBrandedContactFormTemplate(formData, branding);
+
+    // Override from address to use thrive@bendcare.com
+    await this.send(
+      {
+        to: practiceEmail,
+        subject: template.subject,
+        html: template.html,
+        ...(template.text && { text: template.text }),
+      },
+      {
+        email: 'thrive@bendcare.com',
+        name: 'Bendcare Thrive',
+      }
+    );
+
+    log.info('Practice-branded contact form email sent', {
+      practiceEmail,
+      practiceName: branding.practiceName,
+      domain: branding.domain,
+      contactEmail: formData.email,
+      contactName: formData.name,
+      operation: 'sendPracticeBrandedContactForm',
+      component: 'email-service',
+    });
+  }
+
+  /**
+   * Send practice-branded appointment request notification
+   * Uses practice color palette for email styling
+   * Sends from thrive@bendcare.com with "Bendcare Thrive" as sender name
+   *
+   * @param practiceEmail - Practice email address (to)
+   * @param formData - Appointment request form data
+   * @param branding - Practice branding information (name, domain, colors)
+   */
+  async sendPracticeBrandedAppointmentRequest(
+    practiceEmail: string,
+    formData: AppointmentRequestFormData,
+    branding: PracticeBrandingData
+  ): Promise<void> {
+    const template = getPracticeBrandedAppointmentRequestTemplate(formData, branding);
+
+    // Override from address to use thrive@bendcare.com
+    await this.send(
+      {
+        to: practiceEmail,
+        subject: template.subject,
+        html: template.html,
+        ...(template.text && { text: template.text }),
+      },
+      {
+        email: 'thrive@bendcare.com',
+        name: 'Bendcare Thrive',
+      }
+    );
+
+    log.info('Practice-branded appointment request email sent', {
+      practiceEmail,
+      practiceName: branding.practiceName,
+      domain: branding.domain,
+      patientEmail: formData.email,
+      patientName: `${formData.firstName} ${formData.lastName}`,
+      operation: 'sendPracticeBrandedAppointmentRequest',
+      component: 'email-service',
     });
   }
 }

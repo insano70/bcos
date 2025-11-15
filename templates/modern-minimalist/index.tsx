@@ -90,7 +90,7 @@ export default function ModernMinimalistTemplate({
                 Experience modern, personalized rheumatology care.
               </p>
             </div>
-            <AppointmentForm />
+            <AppointmentForm practice={practice} attributes={attributes} />
           </div>
         </section>
 

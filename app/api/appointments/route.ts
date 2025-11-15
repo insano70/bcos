@@ -5,7 +5,8 @@ import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { publicRoute } from '@/lib/api/route-handlers';
 import { emailService } from '@/lib/api/services/email';
-import { log } from '@/lib/logger';
+import { log, SLOW_THRESHOLDS } from '@/lib/logger';
+import { getPracticeByDomain } from '@/lib/services/public-practice-service';
 
 const AppointmentRequestSchema = z.object({
   firstName: z.string().min(1, 'First name is required').max(50, 'First name too long'),
@@ -16,38 +17,128 @@ const AppointmentRequestSchema = z.object({
   preferredTime: z.string().optional(),
   reason: z.string().optional(),
   message: z.string().optional(),
-  practiceEmail: z.string().email('Valid practice email required'),
+  practiceDomain: z
+    .string()
+    .min(1, 'Practice domain is required')
+    .max(255, 'Domain too long')
+    .regex(
+      /^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?)*$/,
+      'Invalid domain format'
+    ),
 });
 
 const handler = async (request: NextRequest) => {
   const startTime = Date.now();
 
   try {
-    // Use standard validation helper
+    // Validate request data
     const validatedData = await validateRequest(request, AppointmentRequestSchema);
 
-    // Send email notification to practice
+    // Fetch practice and attributes by domain
+    const { practice, attributes} = await getPracticeByDomain(validatedData.practiceDomain);
+
+    // Check if practice has email configured
+    const practiceEmail = attributes.email;
+
+    if (!practiceEmail) {
+      // Fallback: Send error notification to thrive@bendcare.com
+      log.error('practice email not configured - sending error notification', null, {
+        operation: 'create_appointment_request',
+        practiceId: practice.practice_id,
+        practiceName: practice.name,
+        domain: practice.domain,
+        patientName: `${validatedData.firstName} ${validatedData.lastName}`,
+        patientEmail: validatedData.email.replace(/(.{2}).*@/, '$1***@'),
+        component: 'appointments',
+        isPublic: true,
+      });
+
+      // Use branded template even for error emails
+      await emailService.sendPracticeBrandedAppointmentRequest(
+        'thrive@bendcare.com',
+        {
+          firstName: validatedData.firstName,
+          lastName: validatedData.lastName,
+          email: validatedData.email,
+          phone: validatedData.phone,
+          ...(validatedData.preferredDate && { preferredDate: validatedData.preferredDate }),
+          ...(validatedData.preferredTime && { preferredTime: validatedData.preferredTime }),
+          ...(validatedData.reason && {
+            reason: validatedData.reason,
+          }),
+          ...(validatedData.message && {
+            message: `[ERROR: Practice email not configured for ${practice.domain}]\n\nPractice: ${practice.name}\n\n${validatedData.message}`,
+          }),
+        },
+        {
+          practiceName: practice.name,
+          domain: practice.domain,
+          colors: {
+            primary: attributes.primary_color || '#00AEEF',
+            secondary: attributes.secondary_color || '#FFFFFF',
+            accent: attributes.accent_color || '#44C0AE',
+          },
+        }
+      );
+
+      const duration = Date.now() - startTime;
+      log.info('appointment request processed with error fallback', {
+        operation: 'create_appointment_request',
+        practiceId: practice.practice_id,
+        domain: practice.domain,
+        fallbackEmail: 'thrive@bendcare.com',
+        patientEmail: validatedData.email.replace(/(.{2}).*@/, '$1***@'),
+        duration,
+        slow: duration > SLOW_THRESHOLDS.API_OPERATION,
+        component: 'appointments',
+        isPublic: true,
+      });
+
+      return createSuccessResponse(
+        { submitted: true },
+        'Appointment request submitted successfully'
+      );
+    }
+
+    // Send branded email notification to practice
     const emailStart = Date.now();
-    await emailService.sendAppointmentRequest(validatedData.practiceEmail, {
-      firstName: validatedData.firstName,
-      lastName: validatedData.lastName,
-      email: validatedData.email,
-      phone: validatedData.phone,
-      ...(validatedData.preferredDate && { preferredDate: validatedData.preferredDate }),
-      ...(validatedData.preferredTime && { preferredTime: validatedData.preferredTime }),
-      ...(validatedData.reason && { reason: validatedData.reason }),
-      ...(validatedData.message && { message: validatedData.message }),
-    });
+    await emailService.sendPracticeBrandedAppointmentRequest(
+      practiceEmail,
+      {
+        firstName: validatedData.firstName,
+        lastName: validatedData.lastName,
+        email: validatedData.email,
+        phone: validatedData.phone,
+        ...(validatedData.preferredDate && { preferredDate: validatedData.preferredDate }),
+        ...(validatedData.preferredTime && { preferredTime: validatedData.preferredTime }),
+        ...(validatedData.reason && { reason: validatedData.reason }),
+        ...(validatedData.message && { message: validatedData.message }),
+      },
+      {
+        practiceName: practice.name,
+        domain: practice.domain,
+        colors: {
+          primary: attributes.primary_color || '#00AEEF',
+          secondary: attributes.secondary_color || '#FFFFFF',
+          accent: attributes.accent_color || '#44C0AE',
+        },
+      }
+    );
     const emailDuration = Date.now() - emailStart;
+
+    const duration = Date.now() - startTime;
 
     // Enriched appointment request log with patient and scheduling context
     log.info('appointment request submitted and email sent', {
       operation: 'create_appointment_request',
       resourceType: 'appointment_request',
+      practiceId: practice.practice_id,
+      practiceName: practice.name,
+      domain: practice.domain,
+      practiceEmail: practiceEmail.replace(/(.{2}).*@/, '$1***@'),
       patientName: `${validatedData.firstName} ${validatedData.lastName}`,
       patientEmail: validatedData.email.replace(/(.{2}).*@/, '$1***@'),
       patientPhone: validatedData.phone.replace(/(\d{3})\d+(\d{2})/, '$1***$2'),
-      practiceEmail: validatedData.practiceEmail.replace(/(.{2}).*@/, '$1***@'),
       scheduling: {
         hasPreferredDate: !!validatedData.preferredDate,
         hasPreferredTime: !!validatedData.preferredTime,
@@ -65,15 +156,15 @@ const handler = async (request: NextRequest) => {
         duration: emailDuration,
         slow: emailDuration > 2000,
       },
-      duration: Date.now() - startTime,
-      slow: Date.now() - startTime > 3000,
+      duration,
+      slow: duration > SLOW_THRESHOLDS.API_OPERATION,
       component: 'appointments',
       isPublic: true,
     });
 
     return createSuccessResponse({ submitted: true }, 'Appointment request submitted successfully');
   } catch (error) {
-    log.error('Appointment request failed', error, {
+    log.error('appointment request failed', error, {
       operation: 'create_appointment_request',
       duration: Date.now() - startTime,
       component: 'appointments',
