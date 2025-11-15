@@ -133,6 +133,18 @@ function sanitizeString(value: string, path: string, errors: string[]): string {
     return value; // Hex colors are safe, skip all injection checks
   }
 
+  // Skip SQL injection checks for valid URLs (CDN links, external resources)
+  const isUrl = /^https?:\/\/[^\s]+$/.test(value);
+  if (isUrl) {
+    // Validate URL format but skip SQL pattern checks (URLs can contain -- in filenames)
+    try {
+      new URL(value); // Throws if invalid URL
+      return value; // Valid URL, skip injection checks
+    } catch {
+      // Invalid URL format, continue with injection checks
+    }
+  }
+
   // Check for SQL injection
   for (const pattern of SQL_INJECTION_PATTERNS) {
     if (pattern.test(value)) {
