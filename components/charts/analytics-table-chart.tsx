@@ -25,8 +25,8 @@ interface FormattedCell {
 }
 
 interface AnalyticsTableChartProps {
-  data: Record<string, unknown>[]; // Legacy: raw data (for backward compatibility)
-  formattedData?: Array<Record<string, FormattedCell>>; // Phase 3.2: Server-formatted data
+  data: Record<string, unknown>[]; // Fallback: raw data (safety net if formatting fails)
+  formattedData?: Array<Record<string, FormattedCell>>; // Phase 7: Server-formatted data (always present via universal endpoint)
   columns: TableColumn[];
   colorPalette?: string;
   title?: string;
@@ -41,7 +41,7 @@ export default function AnalyticsTableChart({
   title,
   height = 400,
 }: AnalyticsTableChartProps) {
-  // Phase 3.2: Use server-formatted data if available, otherwise fall back to raw data
+  // Phase 7: Use server-formatted data (always present via universal endpoint), with safety fallback to raw data
   const useFormattedData = formattedData && formattedData.length > 0;
   const displayData = useFormattedData ? formattedData : data;
   const [mounted, setMounted] = useState(false);
@@ -152,7 +152,7 @@ export default function AnalyticsTableChart({
 
   /**
    * Get cell value from either formatted or raw data
-   * Phase 3.2: Prioritize server-formatted data, fallback to client formatting
+   * Phase 7: Server-formatted data is always provided via universal endpoint, with safety fallback to client formatting
    */
   const getCellValue = (
     row: Record<string, unknown> | Record<string, FormattedCell>,
@@ -164,7 +164,7 @@ export default function AnalyticsTableChart({
   } => {
     const cellData = row[columnName];
 
-    // Phase 3.2: Check if this is formatted data from server
+    // Check if this is formatted data from server (always present via universal endpoint)
     if (cellData && typeof cellData === 'object' && 'formatted' in cellData) {
       const formattedCell = cellData as FormattedCell;
       const result: {
@@ -181,7 +181,7 @@ export default function AnalyticsTableChart({
       return result;
     }
 
-    // Legacy: Client-side formatting for backward compatibility
+    // Safety fallback: Client-side formatting (should rarely be used now that all tables use universal endpoint)
     return {
       displayValue: formatValueLegacy(cellData, columns.find((c) => c.columnName === columnName)!),
       rawValue: cellData,
@@ -209,8 +209,11 @@ export default function AnalyticsTableChart({
   };
 
   /**
-   * Legacy client-side formatting (kept for backward compatibility)
-   * Will be removed once all table charts use universal endpoint
+   * Client-side formatting fallback (safety net)
+   *
+   * Phase 7 Complete: All table charts now use universal endpoint with server-side formatting.
+   * This function is kept as a safety fallback for edge cases where server formatting might fail
+   * or for direct component usage in tests. Should rarely be called in production.
    */
   const formatValueLegacy = (value: unknown, column: TableColumn): string => {
     if (value === null || value === undefined) return '-';
@@ -425,7 +428,7 @@ export default function AnalyticsTableChart({
                       const { displayValue, rawValue, icon } = getCellValue(row, column.columnName);
                       const showIcon = column.displayIcon && colIndex === 0;
 
-                      // Phase 3.2: Use server-provided icon if available, otherwise fall back to client generation
+                      // Phase 7: Use server-provided icon (always present via universal endpoint), with fallback to client generation
                       const iconColor = icon?.color || getIconColor(rawValue, column);
                       const iconContent = icon?.name || getIconContent(rawValue, column);
 
