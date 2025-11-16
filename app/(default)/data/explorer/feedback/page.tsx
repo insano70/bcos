@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useId } from 'react';
 import { usePendingFeedback, useResolveFeedback } from '@/lib/hooks/use-data-explorer';
 import ProtectedComponent from '@/components/rbac/protected-component';
 import type { QueryFeedback, ResolveFeedbackParams } from '@/lib/types/data-explorer';
@@ -11,6 +11,9 @@ export default function FeedbackDashboardPage() {
   const [expandedFeedback, setExpandedFeedback] = useState<string | null>(null);
   const [resolvingId, setResolvingId] = useState<string | null>(null);
   const [resolutionStatus, setResolutionStatus] = useState<ResolveFeedbackParams['resolution_status']>('resolved');
+
+  const statusFilterId = useId();
+  const severityFilterId = useId();
 
   const { data: feedback, isLoading, refetch } = usePendingFeedback({
     status: selectedStatus === 'all' ? undefined : selectedStatus,
@@ -84,11 +87,11 @@ export default function FeedbackDashboardPage() {
         <div className="bg-white dark:bg-gray-800 shadow-sm rounded-lg p-4 mb-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label htmlFor="status-filter" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label htmlFor={statusFilterId} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Status
               </label>
               <select
-                id="status-filter"
+                id={statusFilterId}
                 value={selectedStatus}
                 onChange={(e) => setSelectedStatus(e.target.value as typeof selectedStatus)}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-violet-500 focus:border-violet-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
@@ -104,11 +107,11 @@ export default function FeedbackDashboardPage() {
             </div>
 
             <div>
-              <label htmlFor="severity-filter" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label htmlFor={severityFilterId} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Severity
               </label>
               <select
-                id="severity-filter"
+                id={severityFilterId}
                 value={selectedSeverity}
                 onChange={(e) => setSelectedSeverity(e.target.value as typeof selectedSeverity)}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-violet-500 focus:border-violet-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"

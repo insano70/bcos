@@ -31,6 +31,8 @@ export {
   chart_display_configurations,
   color_palettes,
 } from './chart-config-schema';
+// Import Provider Color Assignments
+export { chart_provider_colors } from './provider-color-schema';
 // Import CSRF monitoring tables
 export { csrf_failure_events } from './csrf-schema';
 // Import OIDC tables

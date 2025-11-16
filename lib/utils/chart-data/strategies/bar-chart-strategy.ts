@@ -132,7 +132,13 @@ export class BarChartStrategy extends BaseChartTransformStrategy {
     let colorIndex = 0;
     const datasets = Array.from(groupedData.entries()).map(([groupKey, dateMap]) => {
       const data = datesWithData.map((dateIndex) => dateMap.get(dateIndex) || 0);
-      const color = colors[colorIndex % colors.length] || '#00AEEF';
+
+      // NEW: Check if measures in this group have custom series_color
+      const groupMeasures = measures.filter((m) => this.getGroupKey(m, groupBy, config) === groupKey);
+      const customColor = groupMeasures[0]?.series_color as string | undefined;
+
+      // Use custom color if available, otherwise sequential palette
+      const color = customColor || colors[colorIndex % colors.length] || '#00AEEF';
 
       colorIndex++;
 

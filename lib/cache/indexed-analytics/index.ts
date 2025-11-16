@@ -150,10 +150,14 @@ export class IndexedAnalyticsCache {
    * Get cache statistics for a datasource
    *
    * @param datasourceId - Data source ID
+   * @param dataSourceType - Data source type (optional, for table-based sources)
    * @returns Cache statistics
    */
-  async getCacheStats(datasourceId: number): Promise<CacheStats> {
-    return this.statsCollector.getCacheStats(datasourceId);
+  async getCacheStats(
+    datasourceId: number,
+    dataSourceType?: 'measure-based' | 'table-based'
+  ): Promise<CacheStats> {
+    return this.statsCollector.getCacheStats(datasourceId, dataSourceType);
   }
 }
 

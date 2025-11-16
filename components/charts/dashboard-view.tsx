@@ -236,6 +236,29 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
     [dashboard, dashboardCharts, availableCharts]
   );
 
+  // Auto-clear invalid organization filter from sticky filters if access denied
+  // This happens when a user switches accounts/organizations but localStorage persists old filters
+  useEffect(() => {
+    if (batchError?.includes('Access denied') && batchError.includes('organization')) {
+      // Organization access error - clear invalid org filter from sticky filters
+      if (universalFilters.organizationId) {
+        console.warn('[DashboardView] Clearing invalid organization filter from sticky filters', {
+          invalidOrgId: universalFilters.organizationId,
+          error: batchError,
+        });
+
+        // Clear the invalid organization from sticky filters
+        removeFilter('organizationId');
+
+        // Update state to remove org filter and trigger refetch
+        const cleanedFilters = { ...universalFilters };
+        delete cleanedFilters.organizationId;
+        setUniversalFilters(cleanedFilters);
+        updateUrlParams(cleanedFilters);
+      }
+    }
+  }, [batchError, universalFilters, removeFilter, updateUrlParams]);
+
   // Combined loading state (chart definitions + batch data)
   const isLoading = isLoadingCharts || isBatchLoading;
 

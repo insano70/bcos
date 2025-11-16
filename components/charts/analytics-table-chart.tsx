@@ -189,6 +189,26 @@ export default function AnalyticsTableChart({
   };
 
   /**
+   * Get unique row key for React reconciliation
+   * Handles both formatted and raw data, extracting raw ID value from FormattedCell
+   */
+  const getRowKey = (
+    row: Record<string, unknown> | Record<string, FormattedCell>,
+    rowIndex: number
+  ): string => {
+    const idField = row.id;
+
+    // If id is a FormattedCell object, extract the raw value
+    if (idField && typeof idField === 'object' && 'raw' in idField) {
+      const rawId = (idField as FormattedCell).raw;
+      return String(rawId ?? rowIndex);
+    }
+
+    // Otherwise use id directly or fallback to rowIndex
+    return String(idField ?? rowIndex);
+  };
+
+  /**
    * Legacy client-side formatting (kept for backward compatibility)
    * Will be removed once all table charts use universal endpoint
    */
@@ -400,7 +420,7 @@ export default function AnalyticsTableChart({
             <tbody className="text-sm divide-y divide-gray-100 dark:divide-gray-700/60">
               {displayData.map((row, rowIndex) => {
                 return (
-                  <tr key={String(row.id ?? rowIndex)}>
+                  <tr key={getRowKey(row, rowIndex)}>
                     {columns.map((column, colIndex) => {
                       const { displayValue, rawValue, icon } = getCellValue(row, column.columnName);
                       const showIcon = column.displayIcon && colIndex === 0;

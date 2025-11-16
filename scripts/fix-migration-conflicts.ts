@@ -102,7 +102,7 @@ function fixMigrationConflicts(): void {
     entry?: JournalEntry;
   }> = [];
 
-  duplicates.forEach(({ migrationNum, files }) => {
+  duplicates.forEach(({ files }) => {
     // Sort by journal idx (undefined idx goes last)
     const sorted = files.sort((a, b) => {
       if (!a.entry) return 1;

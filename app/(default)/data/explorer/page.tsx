@@ -303,7 +303,7 @@ export default function DataExplorerPage() {
               </thead>
               <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                 {executeQuery.data.rows.slice(0, 100).map((row, idx) => (
-                  <tr key={`row-${idx}`}>
+                  <tr key={`${JSON.stringify(row)}-${idx}`}>
                     {executeQuery.data.columns.map((col) => (
                       <td key={col.name} className="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">
                         {String((row as Record<string, unknown>)[col.name] ?? '')}

@@ -50,7 +50,8 @@ const analyticsCacheStatsHandler = async (request: NextRequest) => {
     const metricsPromises = dataSources.map(async (ds) => {
       try {
         // Get cache stats from indexed cache (now includes unique counts)
-        const cacheStats = await indexedAnalyticsCache.getCacheStats(ds.id);
+        // Pass data source type so table-based sources are handled correctly
+        const cacheStats = await indexedAnalyticsCache.getCacheStats(ds.id, ds.dataSourceType);
 
         // TODO: In future, fetch actual performance metrics from monitoring/analytics
         // For now, use estimated values based on cache state

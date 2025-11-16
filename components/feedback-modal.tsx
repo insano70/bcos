@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useId } from 'react';
 import { useSubmitFeedback } from '@/lib/hooks/use-data-explorer';
 import type { SubmitFeedbackParams } from '@/lib/types/data-explorer';
 
@@ -24,6 +24,13 @@ export default function FeedbackModal({
   const [severity, setSeverity] = useState<SubmitFeedbackParams['severity']>('medium');
   const [correctedSql, setCorrectedSql] = useState('');
   const [explanation, setExplanation] = useState('');
+
+  const modalTitleId = useId();
+  const feedbackTypeId = useId();
+  const feedbackCategoryId = useId();
+  const severityId = useId();
+  const correctedSqlId = useId();
+  const explanationId = useId();
 
   const submitFeedback = useSubmitFeedback();
 
@@ -70,7 +77,7 @@ export default function FeedbackModal({
             <div className="bg-white dark:bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
               <div className="sm:flex sm:items-start">
                 <div className="mt-3 text-center sm:mt-0 sm:text-left w-full">
-                  <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-gray-100" id="modal-title">
+                  <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-gray-100" id={modalTitleId}>
                     Report Query Issue
                   </h3>
                   <div className="mt-4 space-y-4">
@@ -86,11 +93,11 @@ export default function FeedbackModal({
 
                     {/* Feedback Type */}
                     <div>
-                      <label htmlFor="feedback-type" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <label htmlFor={feedbackTypeId} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                         What went wrong? <span className="text-red-500">*</span>
                       </label>
                       <select
-                        id="feedback-type"
+                        id={feedbackTypeId}
                         value={feedbackType}
                         onChange={(e) => setFeedbackType(e.target.value as SubmitFeedbackParams['feedback_type'])}
                         className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-violet-500 focus:border-violet-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
@@ -109,11 +116,11 @@ export default function FeedbackModal({
 
                     {/* Feedback Category */}
                     <div>
-                      <label htmlFor="feedback-category" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <label htmlFor={feedbackCategoryId} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                         Root cause <span className="text-red-500">*</span>
                       </label>
                       <select
-                        id="feedback-category"
+                        id={feedbackCategoryId}
                         value={feedbackCategory}
                         onChange={(e) => setFeedbackCategory(e.target.value as SubmitFeedbackParams['feedback_category'])}
                         className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-violet-500 focus:border-violet-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
@@ -129,11 +136,11 @@ export default function FeedbackModal({
 
                     {/* Severity */}
                     <div>
-                      <label htmlFor="severity" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <label htmlFor={severityId} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                         Severity <span className="text-red-500">*</span>
                       </label>
                       <select
-                        id="severity"
+                        id={severityId}
                         value={severity}
                         onChange={(e) => setSeverity(e.target.value as SubmitFeedbackParams['severity'])}
                         className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-violet-500 focus:border-violet-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
@@ -148,11 +155,11 @@ export default function FeedbackModal({
 
                     {/* Corrected SQL (Optional) */}
                     <div>
-                      <label htmlFor="corrected-sql" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <label htmlFor={correctedSqlId} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                         Corrected SQL (optional)
                       </label>
                       <textarea
-                        id="corrected-sql"
+                        id={correctedSqlId}
                         value={correctedSql}
                         onChange={(e) => setCorrectedSql(e.target.value)}
                         rows={6}
@@ -163,11 +170,11 @@ export default function FeedbackModal({
 
                     {/* Explanation */}
                     <div>
-                      <label htmlFor="explanation" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <label htmlFor={explanationId} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                         Additional details (optional)
                       </label>
                       <textarea
-                        id="explanation"
+                        id={explanationId}
                         value={explanation}
                         onChange={(e) => setExplanation(e.target.value)}
                         rows={4}

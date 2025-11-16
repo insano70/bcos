@@ -28,6 +28,30 @@ interface AppliedMigration {
   created_at: Date;
 }
 
+interface PostgresError extends Error {
+  code?: string;
+  severity?: string;
+  detail?: string;
+  hint?: string;
+  position?: string;
+  where?: string;
+  schema_name?: string;
+  table_name?: string;
+  column_name?: string;
+  constraint_name?: string;
+  file?: string;
+  line?: string;
+  routine?: string;
+}
+
+function isPostgresError(error: unknown): error is PostgresError {
+  return (
+    error instanceof Error &&
+    'code' in error &&
+    typeof (error as Record<string, unknown>).code === 'string'
+  );
+}
+
 function maskDatabaseUrl(url: string): string {
   try {
     const parsed = new URL(url);
@@ -73,7 +97,7 @@ async function getAppliedMigrations(client: postgres.Sql): Promise<AppliedMigrat
     console.error('Query failed - unable to read migration history', {
       errorType: error?.constructor?.name,
       errorMessage: (error as Error)?.message,
-      errorCode: (error as any)?.code,
+      errorCode: isPostgresError(error) ? error.code : undefined,
       errorStack: (error as Error)?.stack,
     });
     console.log('Assuming first run - returning empty migration list');
@@ -262,42 +286,43 @@ async function runMigrationsWithLogging(): Promise<void> {
       console.error(`   Message: ${error.message}`);
 
       // Check for PostgreSQL-specific error properties
-      const pgError = error as any;
-      if (pgError.code) {
-        console.error(`\n🔴 PostgreSQL Error Code: ${pgError.code}`);
-      }
-      if (pgError.severity) {
-        console.error(`   Severity: ${pgError.severity}`);
-      }
-      if (pgError.detail) {
-        console.error(`   Detail: ${pgError.detail}`);
-      }
-      if (pgError.hint) {
-        console.error(`   Hint: ${pgError.hint}`);
-      }
-      if (pgError.position) {
-        console.error(`   Position: ${pgError.position}`);
-      }
-      if (pgError.where) {
-        console.error(`   Where: ${pgError.where}`);
-      }
-      if (pgError.schema_name) {
-        console.error(`   Schema: ${pgError.schema_name}`);
-      }
-      if (pgError.table_name) {
-        console.error(`   Table: ${pgError.table_name}`);
-      }
-      if (pgError.column_name) {
-        console.error(`   Column: ${pgError.column_name}`);
-      }
-      if (pgError.constraint_name) {
-        console.error(`   Constraint: ${pgError.constraint_name}`);
-      }
-      if (pgError.file) {
-        console.error(`   Source file: ${pgError.file}:${pgError.line}`);
-      }
-      if (pgError.routine) {
-        console.error(`   Routine: ${pgError.routine}`);
+      if (isPostgresError(error)) {
+        if (error.code) {
+          console.error(`\n🔴 PostgreSQL Error Code: ${error.code}`);
+        }
+        if (error.severity) {
+          console.error(`   Severity: ${error.severity}`);
+        }
+        if (error.detail) {
+          console.error(`   Detail: ${error.detail}`);
+        }
+        if (error.hint) {
+          console.error(`   Hint: ${error.hint}`);
+        }
+        if (error.position) {
+          console.error(`   Position: ${error.position}`);
+        }
+        if (error.where) {
+          console.error(`   Where: ${error.where}`);
+        }
+        if (error.schema_name) {
+          console.error(`   Schema: ${error.schema_name}`);
+        }
+        if (error.table_name) {
+          console.error(`   Table: ${error.table_name}`);
+        }
+        if (error.column_name) {
+          console.error(`   Column: ${error.column_name}`);
+        }
+        if (error.constraint_name) {
+          console.error(`   Constraint: ${error.constraint_name}`);
+        }
+        if (error.file) {
+          console.error(`   Source file: ${error.file}:${error.line}`);
+        }
+        if (error.routine) {
+          console.error(`   Routine: ${error.routine}`);
+        }
       }
 
       console.error('Stack Trace', { stack: error.stack || 'No stack trace available' });

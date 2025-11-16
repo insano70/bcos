@@ -203,8 +203,8 @@ export default function LearningMetricsPage() {
                   </p>
                 </div>
                 <div className="space-y-2 max-h-64 overflow-y-auto">
-                  {metrics.editRateTrend.slice(-12).map((item, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-900/50 rounded">
+                  {metrics.editRateTrend.slice(-12).map((item) => (
+                    <div key={item.period} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-900/50 rounded">
                       <span className="text-sm text-gray-700 dark:text-gray-300">
                         {new Date(item.period).toLocaleDateString()}
                       </span>
@@ -227,8 +227,8 @@ export default function LearningMetricsPage() {
                   </p>
                 </div>
                 <div className="space-y-2 max-h-64 overflow-y-auto">
-                  {metrics.feedbackVolumeTrend.slice(-12).map((item, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-900/50 rounded">
+                  {metrics.feedbackVolumeTrend.slice(-12).map((item) => (
+                    <div key={item.period} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-900/50 rounded">
                       <span className="text-sm text-gray-700 dark:text-gray-300">
                         {new Date(item.period).toLocaleDateString()}
                       </span>

@@ -214,8 +214,8 @@ export default function TestCasesPage() {
                               Differences Found:
                             </h4>
                             <ul className="list-disc list-inside text-sm text-red-600 dark:text-red-400 space-y-1">
-                              {result.differences.map((diff, idx) => (
-                                <li key={idx}>{diff}</li>
+                              {result.differences.map((diff) => (
+                                <li key={diff}>{diff}</li>
                               ))}
                             </ul>
                           </div>

@@ -20,6 +20,7 @@ import { log } from '@/lib/logger';
 import { getRedisClient } from '@/lib/redis';
 import { chartConfigService } from '@/lib/services/chart-config-service';
 import { indexedAnalyticsCache } from '../indexed-analytics-cache';
+import { cacheClient } from '../indexed-analytics/cache-client';
 import { db } from '@/lib/db';
 import { chart_data_sources } from '@/lib/db/chart-config-schema';
 import { eq } from 'drizzle-orm';
@@ -51,87 +52,85 @@ export interface WarmAllResult {
  * Orchestrates cache warming with locking and rate limiting
  */
 export class CacheWarmingService {
-  private readonly RATE_LIMIT_SECONDS = 4 * 60 * 60; // 4 hours
-  private readonly LOCK_TIMEOUT_SECONDS = 300; // 5 minutes
+  private readonly RATE_LIMIT_SECONDS = 6 * 60; // 6 minutes (10 triggers/hour per datasource)
   private readonly MAX_TABLE_ROWS = 100000; // 100K rows max for table-based warming
   private readonly ALLOWED_SCHEMAS = ['ih', 'public']; // Whitelist of allowed schemas
 
   /**
    * Trigger cache warming if needed (non-blocking)
-   * Called automatically when cold cache is detected
-   * Rate limited to max once per 4 hours per datasource
+   * Called automatically when stale cache is detected (>4 hours old)
+   * Rate limited per-datasource: max 10 triggers/hour (once every 6 minutes)
    *
-   * @param datasourceId - Data source ID to warm
+   * BEHAVIOR: When ANY datasource detects stale cache, warms ALL datasources
+   * RATE LIMITING: Each datasource can only trigger warming once per 6 minutes
+   *
+   * @param datasourceId - Data source ID that detected stale cache (used for rate limiting)
    */
   triggerAutoWarmingIfNeeded(datasourceId: number): void {
     // Fire and forget (don't block user request)
-    this.warmDataSourceBackground(datasourceId).catch((error) => {
+    this.warmAllDataSourcesBackground(datasourceId).catch((error) => {
       log.warn('Background cache warming failed (non-blocking)', {
         error: error instanceof Error ? error.message : String(error),
-        datasourceId,
+        triggeredBy: datasourceId,
+        operation: 'warm_all',
       });
     });
   }
 
   /**
-   * Warm data source in background with rate limiting and distributed locking
-   * SELF-HEALING: Automatically triggered when cold cache is detected
+   * Warm ALL data sources in background with rate limiting
+   * SELF-HEALING: Automatically triggered when any datasource detects stale cache
    *
-   * RATE LIMITING: Max once per 4 hours per datasource
-   * DISTRIBUTED LOCKING: Prevents concurrent warming attempts
+   * RATE LIMITING: Each datasource can trigger at most once per 6 minutes
+   * AGGRESSIVE: When one datasource is stale, refresh ALL datasources
    *
-   * @param datasourceId - Data source ID to warm
+   * @param triggeredByDatasourceId - Data source ID that detected stale cache (for rate limiting)
    */
-  private async warmDataSourceBackground(datasourceId: number): Promise<void> {
+  private async warmAllDataSourcesBackground(triggeredByDatasourceId: number): Promise<void> {
     const client = getRedisClient();
     if (!client) {
-      log.debug('Redis not available, skipping auto-warming', { datasourceId });
+      log.debug('Redis not available, skipping auto-warming', {
+        triggeredBy: triggeredByDatasourceId,
+        operation: 'warm_all',
+      });
       return;
     }
 
-    // === RATE LIMITING CHECK ===
-    // Check if warmed in last 4 hours to prevent too-frequent refreshes
-    const rateLimitKey = `cache:auto-warm:last:${datasourceId}`;
+    // === RATE LIMITING CHECK (per datasource) ===
+    // Check if THIS datasource triggered warming in last 6 minutes
+    const rateLimitKey = `cache:auto-warm:last:${triggeredByDatasourceId}`;
     const lastWarmed = await client.get(rateLimitKey);
 
     if (lastWarmed) {
-      // Key exists = recently warmed (within last 4 hours)
+      // Key exists = recently triggered by this datasource
       const ttlRemaining = await client.ttl(rateLimitKey);
 
-      log.debug('Auto-warming skipped - recently warmed', {
-        datasourceId,
-        lastWarmed,
+      log.debug('Auto-warming skipped - datasource recently triggered', {
+        triggeredBy: triggeredByDatasourceId,
+        lastTriggered: lastWarmed,
         cooldownRemaining: ttlRemaining,
-        cooldownRemainingHours: Math.round(ttlRemaining / 3600),
+        cooldownRemainingMinutes: Math.round((ttlRemaining / 60) * 10) / 10,
+        operation: 'warm_all',
       });
       return; // Skip warming - rate limited
     }
 
-    // === DISTRIBUTED LOCKING ===
-    // Prevent concurrent warming from multiple instances
-    const lockKey = `lock:cache:warm:${datasourceId}`;
-    const acquired = await client.set(lockKey, '1', 'EX', this.LOCK_TIMEOUT_SECONDS, 'NX');
+    log.info('Auto-triggered cache warming for ALL datasources', {
+      triggeredBy: triggeredByDatasourceId,
+      reason: 'stale_cache_detected',
+      trigger: 'automatic',
+      operation: 'warm_all',
+    });
 
-    if (!acquired) {
-      log.info('Cache warming already in progress, skipping', { datasourceId });
-      return;
-    }
+    const startTime = Date.now();
 
     try {
-      log.info('Auto-triggered cache warming', {
-        datasourceId,
-        reason: 'cold_cache_detected',
-        trigger: 'automatic',
-      });
-
-      const startTime = Date.now();
-
-      // Perform warming (delegates to indexed cache)
-      const result = await indexedAnalyticsCache.warmCache(datasourceId);
+      // Warm ALL datasources (each has its own distributed lock)
+      const result = await this.warmAllDataSources();
 
       const duration = Date.now() - startTime;
 
-      // === SET RATE LIMIT (4-hour cooldown) ===
+      // === SET RATE LIMIT for triggering datasource (6-minute cooldown) ===
       // Only set if warming succeeded
       const now = new Date();
       await client.setex(
@@ -140,25 +139,25 @@ export class CacheWarmingService {
         now.toISOString() // Store timestamp for logging
       );
 
-      const nextAllowedWarm = new Date(now.getTime() + this.RATE_LIMIT_SECONDS * 1000);
+      const nextAllowedTrigger = new Date(now.getTime() + this.RATE_LIMIT_SECONDS * 1000);
 
-      log.info('Auto cache warming completed', {
-        datasourceId,
-        entriesCached: result.entriesCached,
+      log.info('Auto cache warming completed for ALL datasources', {
+        triggeredBy: triggeredByDatasourceId,
+        dataSourcesWarmed: result.dataSourcesWarmed,
+        totalEntriesCached: result.totalEntriesCached,
         totalRows: result.totalRows,
         duration,
         rateLimitSet: true,
-        nextAllowedWarm: nextAllowedWarm.toISOString(),
+        nextAllowedTrigger: nextAllowedTrigger.toISOString(),
+        operation: 'warm_all',
       });
     } catch (error) {
-      log.error('Auto cache warming failed', error, {
-        datasourceId,
-        note: 'Rate limit NOT set on failure, allowing retry after lock expires',
+      log.error('Auto cache warming failed for ALL datasources', error, {
+        triggeredBy: triggeredByDatasourceId,
+        operation: 'warm_all',
+        note: 'Rate limit NOT set on failure, allowing retry after cooldown expires',
       });
-      // Note: Rate limit NOT set on failure, allowing retry after lock expires (5 min)
-    } finally {
-      // Always release lock
-      await client.del(lockKey);
+      // Note: Rate limit NOT set on failure, allowing retry
     }
   }
 
@@ -240,18 +239,20 @@ export class CacheWarmingService {
 
     // IMPORTANT: Set metadata so cache is marked as warm
     // Table-based sources don't create indexes, so we must set metadata manually
-    const client = getRedisClient();
-    if (client) {
-      const metadataKey = `cache:meta:{ds:${dataSourceId}}:last_warm`;
-      const timestamp = new Date().toISOString();
-      await client.set(metadataKey, timestamp);
+    // STANDARDIZED FORMAT: Use IndexedCacheClient just like measure-based sources
+    // This ensures consistent format, TTL (48 hours), and serialization
+    const metadataKey = `cache:meta:{ds:${dataSourceId}}:last_warm`;
+    const timestamp = new Date().toISOString();
 
-      log.info('Table-based cache metadata set', {
-        dataSourceId,
-        metadataKey,
-        timestamp,
-      });
-    }
+    // Store in standardized format: [{ timestamp: "ISO" }]
+    // Use cacheClient to ensure same behavior as measure-based sources
+    await cacheClient.setCached(metadataKey, [{ timestamp }]);
+
+    log.info('Table-based cache metadata set', {
+      dataSourceId,
+      metadataKey,
+      timestamp,
+    });
 
     const duration = Date.now() - startTime;
 

@@ -50,16 +50,43 @@ export class CacheStatsCollector {
    * Get cache statistics for a datasource
    *
    * @param datasourceId - Data source ID
+   * @param dataSourceType - Data source type (optional, for table-based sources)
    * @returns Cache statistics
    */
-  async getCacheStats(datasourceId: number): Promise<CacheStats> {
-    const masterIndex = KeyGenerator.getMasterIndexKey(datasourceId);
-    const totalKeys = await this.client.scard(masterIndex);
+  async getCacheStats(
+    datasourceId: number,
+    dataSourceType?: 'measure-based' | 'table-based'
+  ): Promise<CacheStats> {
     const metadataKey = KeyGenerator.getMetadataKey(datasourceId);
     const metadata = await this.client.getCached(metadataKey);
 
     // Extract last warmed timestamp from metadata
     const lastWarmed = metadata?.[0] ? (metadata[0].timestamp as string) : null;
+
+    // Handle table-based sources differently (they don't use indexes)
+    if (dataSourceType === 'table-based') {
+      // For table-based sources, check if the cache key exists
+      // Key format: datasource:{id}:table:p:*:prov:*
+      const cacheKey = `datasource:${datasourceId}:table:p:*:prov:*`;
+      const cacheExists = await this.client.getCached(cacheKey);
+
+      return {
+        datasourceId,
+        totalEntries: cacheExists ? 1 : 0, // Table-based has 1 entry (entire table) or 0
+        indexCount: 0, // Table-based sources don't use indexes
+        estimatedMemoryMB: 0, // Memory estimation disabled
+        lastWarmed: lastWarmed || null,
+        isWarm: lastWarmed !== null,
+        uniqueMeasures: 0, // Table-based doesn't have measures
+        uniquePractices: 0, // Count not available without parsing entire table
+        uniqueProviders: 0, // Count not available without parsing entire table
+        uniqueFrequencies: [], // Table-based doesn't have frequencies
+      };
+    }
+
+    // For measure-based sources, use index-based counting
+    const masterIndex = KeyGenerator.getMasterIndexKey(datasourceId);
+    const totalKeys = await this.client.scard(masterIndex);
 
     // Sample memory usage
     const estimatedMemoryMB = await this.estimateMemory(masterIndex, totalKeys);

@@ -21,6 +21,7 @@ import { indexedAnalyticsCache } from '../indexed-analytics-cache';
 import type { CacheQueryFilters } from '../indexed-analytics-cache';
 import type { CacheKeyComponents } from './cache-key-builder';
 import { cacheKeyBuilder } from './cache-key-builder';
+import { cacheWarmingService } from './cache-warming';
 
 /**
  * Cached data entry structure
@@ -149,6 +150,11 @@ export class CacheOperations {
             warmingNeeded: shouldWarm,
           });
 
+          // FIRE-AND-FORGET: Trigger warming of ALL datasources if cache is stale
+          if (shouldWarm) {
+            cacheWarmingService.triggerAutoWarmingIfNeeded(datasourceId);
+          }
+
           return {
             rows,
             cacheKey: `ds:${datasourceId}:m:${components.measure}`,
@@ -175,7 +181,13 @@ export class CacheOperations {
               rowCount: parsed.rowCount,
               cacheAgeHours: cacheAgeHours ? Math.round(cacheAgeHours * 10) / 10 : null,
               staleness,
+              warmingNeeded: shouldWarm,
             });
+
+            // FIRE-AND-FORGET: Trigger warming of ALL datasources if cache is stale
+            if (shouldWarm) {
+              cacheWarmingService.triggerAutoWarmingIfNeeded(datasourceId);
+            }
 
             return {
               rows: parsed.rows,
@@ -197,6 +209,12 @@ export class CacheOperations {
       staleness,
       warmingNeeded: shouldWarm,
     });
+
+    // FIRE-AND-FORGET: Trigger warming of ALL datasources if needed
+    // This handles both cold cache (never warmed) and cache miss scenarios
+    if (shouldWarm) {
+      cacheWarmingService.triggerAutoWarmingIfNeeded(datasourceId);
+    }
 
     return null;
   }

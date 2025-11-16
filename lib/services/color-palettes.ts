@@ -207,6 +207,36 @@ export const COLOR_PALETTES = {
     category: 'sequential' as const,
     recommendedFor: ['stacked-bar', 'area', 'line'],
   },
+  tableau20: {
+    id: 'tableau20',
+    name: 'Tableau 20',
+    description:
+      'Industry-standard 20-color palette optimized for data visualization with maximum distinguishability',
+    colors: [
+      '#1f77b4', // Blue
+      '#aec7e8', // Light Blue
+      '#2ca02c', // Green
+      '#98df8a', // Light Green
+      '#d62728', // Red
+      '#ff9896', // Light Red
+      '#9467bd', // Purple
+      '#c5b0d5', // Light Purple
+      '#8c564b', // Brown
+      '#c49c94', // Light Brown
+      '#e377c2', // Pink
+      '#f7b6d2', // Light Pink
+      '#7f7f7f', // Gray
+      '#c7c7c7', // Light Gray
+      '#ff7f0e', // Orange
+      '#ffbb78', // Light Orange
+      '#bcbd22', // Yellow-Green
+      '#dbdb8d', // Light Yellow-Green
+      '#17becf', // Cyan
+      '#9edae5', // Light Cyan
+    ],
+    category: 'categorical' as const,
+    recommendedFor: ['bar', 'horizontal-bar', 'pie', 'doughnut', 'stacked-bar', 'scatter', 'line'],
+  },
 } as const;
 
 /**
@@ -225,6 +255,7 @@ export function getColorPalette(paletteId: string = 'default'): ColorPalette {
     'gray',
     'teal',
     'rose',
+    'tableau20',
   ] as const;
   const id = validIds.includes(paletteId as (typeof validIds)[number]) ? paletteId : 'default';
   return COLOR_PALETTES[id as keyof typeof COLOR_PALETTES];

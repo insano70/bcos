@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useId } from 'react';
 import { useFeedbackAnalytics } from '@/lib/hooks/use-data-explorer';
 import ProtectedComponent from '@/components/rbac/protected-component';
 // TODO: Integrate with project's existing chart components (AnalyticsChart, etc.)
@@ -9,6 +9,11 @@ import ProtectedComponent from '@/components/rbac/protected-component';
 export default function AnalyticsDashboardPage() {
   const [dateRange, setDateRange] = useState<{ start: string; end: string } | undefined>(undefined);
   const [showDatePicker, setShowDatePicker] = useState(false);
+
+  const startDateRef = useRef<HTMLInputElement>(null);
+  const endDateRef = useRef<HTMLInputElement>(null);
+  const startDateId = useId();
+  const endDateId = useId();
 
   const { data: analytics, isLoading, error } = useFeedbackAnalytics(dateRange);
 
@@ -52,22 +57,24 @@ export default function AnalyticsDashboardPage() {
               <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg p-4 z-10">
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <label htmlFor={startDateId} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Start Date
                     </label>
                     <input
+                      ref={startDateRef}
                       type="date"
-                      id="start-date"
+                      id={startDateId}
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <label htmlFor={endDateId} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       End Date
                     </label>
                     <input
+                      ref={endDateRef}
                       type="date"
-                      id="end-date"
+                      id={endDateId}
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                     />
                   </div>
@@ -75,8 +82,8 @@ export default function AnalyticsDashboardPage() {
                     <button
                       type="button"
                       onClick={() => {
-                        const start = (document.getElementById('start-date') as HTMLInputElement)?.value;
-                        const end = (document.getElementById('end-date') as HTMLInputElement)?.value;
+                        const start = startDateRef.current?.value;
+                        const end = endDateRef.current?.value;
                         if (start && end) handleDateRangeChange(start, end);
                       }}
                       className="flex-1 px-3 py-2 bg-violet-600 text-white rounded-md hover:bg-violet-700"
@@ -262,8 +269,8 @@ export default function AnalyticsDashboardPage() {
                 Top Issues
               </h2>
               <div className="space-y-3">
-                {analytics.topIssues.slice(0, 5).map((issue, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
+                {analytics.topIssues.slice(0, 5).map((issue) => (
+                  <div key={issue.issue} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
                     <div className="flex-1">
                       <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
                         {issue.issue}

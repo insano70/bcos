@@ -55,14 +55,26 @@ export class HorizontalBarStrategy extends BaseChartTransformStrategy {
 
     const colors = getColorPalette(paletteId);
 
+    // NEW: Build color array that respects series_color
+    const backgroundColors = sortedEntries.map(([label], index) => {
+      // Find a measure with this groupBy value
+      const measureWithLabel = measures.find(
+        (m) => this.getGroupKey(m, groupBy, config) === label
+      );
+      const customColor = measureWithLabel?.series_color as string | undefined;
+
+      // Use custom color if available, otherwise palette color
+      return customColor || colors[index % colors.length] || '#00AEEF';
+    });
+
     const chartData: ChartData = {
       labels: sortedEntries.map(([label]) => label),
       datasets: [
         {
           label: (measures[0]?.measure ?? 'Value') as string,
           data: sortedEntries.map(([, value]) => value),
-          backgroundColor: Array.from(colors),
-          hoverBackgroundColor: Array.from(colors).map((color) => adjustColorOpacity(color, 0.8)),
+          backgroundColor: backgroundColors,
+          hoverBackgroundColor: backgroundColors.map((color) => adjustColorOpacity(color, 0.8)),
           borderRadius: 4,
           barPercentage: 0.7,
           categoryPercentage: 0.9,

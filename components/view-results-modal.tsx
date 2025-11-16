@@ -108,7 +108,7 @@ export default function ViewResultsModal({
                     </thead>
                     <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                       {results.map((row, idx) => (
-                        <tr key={`result-row-${idx}`}>
+                        <tr key={`${JSON.stringify(row)}-${idx}`}>
                           {columns.map((col) => (
                             <td
                               key={col}

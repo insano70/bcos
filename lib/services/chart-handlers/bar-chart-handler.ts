@@ -1,6 +1,7 @@
 import { log } from '@/lib/logger';
 import type { AggAppMeasure, ChartData } from '@/lib/types/analytics';
 import { SimplifiedChartTransformer } from '@/lib/utils/simplified-chart-transformer';
+import { providerColorService } from '@/lib/services/provider-color-service';
 import { BaseChartHandler } from './base-handler';
 
 /**
@@ -33,7 +34,10 @@ export class BarChartHandler extends BaseChartHandler {
   /**
    * Transform raw data into Chart.js format for bar charts
    */
-  transform(data: Record<string, unknown>[], config: Record<string, unknown>): ChartData {
+  async transform(
+    data: Record<string, unknown>[],
+    config: Record<string, unknown>
+  ): Promise<ChartData> {
     const startTime = Date.now();
 
     try {
@@ -48,6 +52,11 @@ export class BarChartHandler extends BaseChartHandler {
         colorPalette,
         stackingMode: config.stackingMode,
       });
+
+      // NEW: Inject provider colors if grouping by provider
+      if (groupBy === 'provider_name' || groupBy === 'provider_uid') {
+        await this.injectProviderColors(data as AggAppMeasure[], config);
+      }
 
       // Create transformer
       const transformer = new SimplifiedChartTransformer();
@@ -146,5 +155,79 @@ export class BarChartHandler extends BaseChartHandler {
     }
 
     return errors;
+  }
+
+  /**
+   * Inject provider colors into data rows
+   * Sets series_color field for each row based on provider_uid
+   *
+   * @param data - Chart data (mutated in-place)
+   * @param config - Chart configuration (for organizationId)
+   */
+  private async injectProviderColors(
+    data: AggAppMeasure[],
+    config: Record<string, unknown>
+  ): Promise<void> {
+    if (data.length === 0) {
+      return;
+    }
+
+    // Extract unique providers from data
+    const providers = this.extractUniqueProviders(data);
+
+    if (providers.length === 0) {
+      return;
+    }
+
+    // Get organization ID from config (if available)
+    const organizationId = config.organizationId as string | undefined;
+
+    // Bulk fetch colors
+    const colorMap = await providerColorService.getBulkProviderColors(providers, organizationId);
+
+    // Inject colors into data rows (mutate in-place)
+    for (const row of data) {
+      const providerUid = row.provider_uid as number | undefined;
+      if (providerUid !== undefined && colorMap.has(providerUid)) {
+        const color = colorMap.get(providerUid);
+        if (color !== undefined) {
+          row.series_color = color;
+        }
+      }
+    }
+
+    log.info('Provider colors injected into chart data', {
+      providerCount: providers.length,
+      rowCount: data.length,
+      organizationId,
+      operation: 'injectProviderColors',
+      component: 'bar-chart-handler',
+    });
+  }
+
+  /**
+   * Extract unique providers from dataset
+   *
+   * @param data - Chart data
+   * @returns Array of {provider_uid, provider_name}
+   */
+  private extractUniqueProviders(
+    data: AggAppMeasure[]
+  ): Array<{ provider_uid: number; provider_name: string }> {
+    const providerMap = new Map<number, string>();
+
+    for (const row of data) {
+      const uid = row.provider_uid as number | undefined;
+      const name = row.provider_name as string | undefined;
+
+      if (uid !== undefined && name !== undefined) {
+        providerMap.set(uid, name);
+      }
+    }
+
+    return Array.from(providerMap.entries()).map(([provider_uid, provider_name]) => ({
+      provider_uid,
+      provider_name,
+    }));
   }
 }
