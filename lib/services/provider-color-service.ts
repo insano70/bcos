@@ -82,22 +82,18 @@ export class ProviderColorService {
         return systemAssignment.assigned_color;
       }
 
-      // 3. Auto-assign using deterministic hash
+      // 3. No assignment exists - return deterministic hash without saving
+      // NOTE: Only the prepopulate script or admin UI should insert into this table
       const color = this.hashProviderToColor(providerUid);
 
-      // 4. Store system-wide default (async, don't block on failure)
-      await this.saveAssignment(providerUid, providerName, color, false, undefined).catch(
-        (err) => {
-          log.error('Failed to save provider color assignment', err, {
-            providerUid,
-            providerName,
-            color,
-            organizationId,
-            operation: 'getProviderColor',
-            component: 'provider-color-service',
-          });
-        }
-      );
+      log.debug('Provider color not found in database, using hash-based color', {
+        providerUid,
+        providerName,
+        color,
+        organizationId,
+        operation: 'getProviderColor',
+        component: 'provider-color-service',
+      });
 
       return color;
     } catch (error) {
@@ -182,46 +178,29 @@ export class ProviderColorService {
         }
       }
 
-      // 4. Identify missing providers (no assignment at all)
+      // 4. For missing providers, use deterministic hash without saving
+      // NOTE: Only the prepopulate script or admin UI should insert into this table
       const missingProviders = providers.filter((p) => !colorMap.has(p.provider_uid));
-
-      // 5. Auto-assign colors for missing providers
-      const newAssignments: typeof chart_provider_colors.$inferInsert[] = [];
 
       for (const provider of missingProviders) {
         const color = this.hashProviderToColor(provider.provider_uid);
         colorMap.set(provider.provider_uid, color);
-
-        // Store as system default (organization_id = NULL)
-        newAssignments.push({
-          provider_uid: provider.provider_uid,
-          provider_name: provider.provider_name,
-          assigned_color: color,
-          color_palette_id: PROVIDER_PALETTE_ID,
-          is_custom: false,
-          organization_id: null,
-        });
       }
 
-      // 6. Bulk insert new assignments (async, don't block rendering)
-      if (newAssignments.length > 0) {
-        db.insert(chart_provider_colors)
-          .values(newAssignments)
-          .onConflictDoNothing()
-          .catch((err) => {
-            log.error('Failed to bulk save provider colors', err, {
-              count: newAssignments.length,
-              organizationId,
-              operation: 'getBulkProviderColors',
-              component: 'provider-color-service',
-            });
-          });
+      if (missingProviders.length > 0) {
+        log.debug('Providers not found in database, using hash-based colors', {
+          missingCount: missingProviders.length,
+          totalProviders: providers.length,
+          organizationId,
+          operation: 'getBulkProviderColors',
+          component: 'provider-color-service',
+        });
       }
 
       log.info('Bulk provider colors fetched', {
         totalProviders: providers.length,
         existingCount: existingColors.length,
-        newCount: newAssignments.length,
+        missingCount: missingProviders.length,
         organizationId,
         operation: 'getBulkProviderColors',
         component: 'provider-color-service',
@@ -404,35 +383,6 @@ export class ProviderColorService {
   private hashProviderToColor(providerUid: number): string {
     const index = providerUid % PROVIDER_PALETTE.length;
     return PROVIDER_PALETTE[index] || '#1f77b4'; // Fallback to first Tableau color (blue)
-  }
-
-  /**
-   * Save color assignment to database
-   *
-   * @param providerUid - Provider UID
-   * @param providerName - Provider name
-   * @param color - Hex color code
-   * @param isCustom - Whether this is a manual assignment
-   * @param organizationId - Optional organization ID
-   */
-  private async saveAssignment(
-    providerUid: number,
-    providerName: string,
-    color: string,
-    isCustom: boolean,
-    organizationId: string | undefined
-  ): Promise<void> {
-    await db
-      .insert(chart_provider_colors)
-      .values({
-        provider_uid: providerUid,
-        provider_name: providerName,
-        assigned_color: color,
-        color_palette_id: PROVIDER_PALETTE_ID,
-        is_custom: isCustom,
-        organization_id: organizationId || null,
-      })
-      .onConflictDoNothing();
   }
 }
 
