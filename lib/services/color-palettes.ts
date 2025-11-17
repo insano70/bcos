@@ -209,9 +209,9 @@ export const COLOR_PALETTES = {
   },
   tableau20: {
     id: 'tableau20',
-    name: 'Tableau 20',
+    name: 'Tableau 30',
     description:
-      'Industry-standard 20-color palette optimized for data visualization with maximum distinguishability',
+      'Extended 30-color palette optimized for data visualization with maximum distinguishability. Based on Tableau 20 with 10 additional perceptually distinct colors.',
     colors: [
       '#1f77b4', // Blue
       '#aec7e8', // Light Blue
@@ -233,6 +233,16 @@ export const COLOR_PALETTES = {
       '#dbdb8d', // Light Yellow-Green
       '#17becf', // Cyan
       '#9edae5', // Light Cyan
+      '#008080', // Teal
+      '#7fc5c5', // Light Teal
+      '#4b0082', // Indigo
+      '#9f7fb8', // Light Indigo
+      '#ff6b6b', // Coral
+      '#ffa8a8', // Light Coral
+      '#c71585', // Magenta
+      '#e66bb8', // Light Magenta
+      '#6b7c00', // Olive
+      '#a4b350', // Light Olive
     ],
     category: 'categorical' as const,
     recommendedFor: ['bar', 'horizontal-bar', 'pie', 'doughnut', 'stacked-bar', 'scatter', 'line'],

@@ -22,17 +22,20 @@ import * as dotenv from 'dotenv';
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
-import { chart_provider_colors, data_sources, organizations } from '@/lib/db/schema';
+import * as schema from '@/lib/db/schema';
+import { chart_data_sources } from '@/lib/db/chart-config-schema';
 
 // Load environment variables from .env.local BEFORE creating connections
 dotenv.config({ path: '.env.local' });
 
 // Create database connections directly (avoid importing @/lib/db which loads env.ts)
 const queryClient = postgres(process.env.DATABASE_URL!);
-const db = drizzle(queryClient);
+const db = drizzle(queryClient, { schema: { ...schema, chart_data_sources } });
 
-// Analytics database connection
-const analyticsClient = postgres(process.env.ANALYTICS_DATABASE_URL || process.env.DATABASE_URL!);
+// Analytics database connection (AWS RDS requires SSL)
+const analyticsClient = postgres(process.env.ANALYTICS_DATABASE_URL || process.env.DATABASE_URL!, {
+  ssl: 'require', // AWS RDS requires SSL
+});
 const analyticsDb = drizzle(analyticsClient);
 
 // Simple console logger (avoid importing @/lib/logger which loads env.ts)
@@ -54,6 +57,8 @@ const log = {
 // HARDCODED VALUES
 const DATA_SOURCE_ID = 3;
 const MEASURE_NAME = 'Charges';
+const ANALYTICS_SCHEMA = 'ih';
+const ANALYTICS_TABLE = 'agg_chart_data';
 
 // Tableau 20 palette (from color-palettes.ts)
 const TABLEAU_20_COLORS = [
@@ -109,54 +114,43 @@ function parseArgs() {
 }
 
 /**
- * Get data source metadata
+ * Get data source metadata (hardcoded for data source ID 3)
  */
 async function getDataSource(): Promise<{
   schema_name: string;
   table_name: string;
   data_source_name: string;
 }> {
-  const [dataSource] = await db
-    .select({
-      schema_name: data_sources.schema_name,
-      table_name: data_sources.table_name,
-      data_source_name: data_sources.data_source_name,
-    })
-    .from(data_sources)
-    .where(eq(data_sources.data_source_id, DATA_SOURCE_ID))
-    .limit(1);
-
-  if (!dataSource) {
-    throw new Error(`Data source with ID ${DATA_SOURCE_ID} not found`);
-  }
-
-  log.info('Data source loaded', {
+  log.info('Using hardcoded data source configuration', {
     dataSourceId: DATA_SOURCE_ID,
-    schema: dataSource.schema_name,
-    table: dataSource.table_name,
-    name: dataSource.data_source_name,
+    schema: ANALYTICS_SCHEMA,
+    table: ANALYTICS_TABLE,
   });
 
-  return dataSource;
+  return {
+    schema_name: ANALYTICS_SCHEMA,
+    table_name: ANALYTICS_TABLE,
+    data_source_name: `Data Source ${DATA_SOURCE_ID}`,
+  };
 }
 
 /**
  * Load active organizations (optionally filtered by ID)
  */
 async function loadOrganizations(specificOrgId?: string) {
-  const whereConditions = [eq(organizations.is_active, true)];
+  const whereConditions = [eq(schema.organizations.is_active, true)];
 
   if (specificOrgId) {
-    whereConditions.push(eq(organizations.organization_id, specificOrgId));
+    whereConditions.push(eq(schema.organizations.organization_id, specificOrgId));
   }
 
   const orgs = await db
     .select({
-      organization_id: organizations.organization_id,
-      organization_name: organizations.name,
-      practice_uids: organizations.practice_uids,
+      organization_id: schema.organizations.organization_id,
+      organization_name: schema.organizations.name,
+      practice_uids: schema.organizations.practice_uids,
     })
-    .from(organizations)
+    .from(schema.organizations)
     .where(and(...whereConditions));
 
   if (orgs.length === 0) {
@@ -183,12 +177,13 @@ async function queryProviderCharges(
   table: string
 ): Promise<ProviderRevenue[]> {
   // Build query to aggregate charges by provider
+  // Note: ih.agg_chart_data uses numeric_value column
   const query = `
     SELECT
       provider_uid,
       MAX(provider_name) as provider_name,
       practice_uid,
-      SUM(CAST(measure_value AS DECIMAL)) as total_charges
+      SUM(CAST(numeric_value AS DECIMAL)) as total_charges
     FROM ${schema}.${table}
     WHERE measure = '${MEASURE_NAME}'
       AND provider_uid IS NOT NULL
@@ -389,7 +384,7 @@ async function insertProviderColors(
   // Clear existing assignments if requested
   if (clearExisting) {
     log.info('Clearing existing provider color assignments');
-    await db.delete(chart_provider_colors);
+    await db.delete(schema.chart_provider_colors);
     log.info('Existing assignments cleared');
   }
 
@@ -400,7 +395,7 @@ async function insertProviderColors(
   for (let i = 0; i < assignments.length; i += batchSize) {
     const batch = assignments.slice(i, i + batchSize);
 
-    await db.insert(chart_provider_colors).values(
+    await db.insert(schema.chart_provider_colors).values(
       batch.map((a) => ({
         organization_id: a.organization_id,
         provider_uid: a.provider_uid,

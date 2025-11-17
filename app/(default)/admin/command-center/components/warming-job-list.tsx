@@ -7,7 +7,7 @@
 'use client';
 
 import { formatDistanceToNow } from 'date-fns';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiClient } from '@/lib/api/client';
 
 interface WarmingJob {
@@ -50,23 +50,24 @@ export default function WarmingJobList({
   onJobComplete,
 }: WarmingJobListProps) {
   const [status, setStatus] = useState<WarmingStatusResponse | null>(null);
-  const [previousActiveCount, setPreviousActiveCount] = useState<number>(0);
+  // Use ref instead of state to avoid stale closure in useCallback
+  const previousActiveCountRef = useRef<number>(0);
 
   const fetchStatus = useCallback(async () => {
     try {
       const response = await apiClient.get('/api/admin/analytics/cache/warming/status');
       setStatus(response as WarmingStatusResponse);
 
-      // Detect job completion
+      // Detect job completion using ref (avoids stale closure)
       const newActiveCount = (response as WarmingStatusResponse).activeJobs.length;
-      if (previousActiveCount > 0 && newActiveCount === 0 && onJobComplete) {
+      if (previousActiveCountRef.current > 0 && newActiveCount === 0 && onJobComplete) {
         onJobComplete();
       }
-      setPreviousActiveCount(newActiveCount);
+      previousActiveCountRef.current = newActiveCount;
     } catch (err) {
       console.error('Failed to fetch warming status:', err);
     }
-  }, [previousActiveCount, onJobComplete]);
+  }, [onJobComplete]); // Stable dependencies only
 
   // Initial fetch
   useEffect(() => {

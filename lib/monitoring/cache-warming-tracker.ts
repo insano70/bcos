@@ -26,6 +26,15 @@ class CacheWarmingTracker {
   private activeJobs: Map<string, WarmingJob> = new Map();
   private recentJobs: WarmingJob[] = [];
   private readonly MAX_RECENT_JOBS = 50;
+  private readonly MAX_JOB_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
+  private readonly instanceId = `tracker-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+  constructor() {
+    log.info('CacheWarmingTracker instance created', {
+      instanceId: this.instanceId,
+      component: 'cache-warming-tracker',
+    });
+  }
 
   /**
    * Create a new warming job
@@ -103,7 +112,14 @@ class CacheWarmingTracker {
    */
   completeJob(jobId: string, entriesCached: number): void {
     const job = this.activeJobs.get(jobId);
-    if (!job) return;
+    if (!job) {
+      log.warn('Attempted to complete non-existent job', {
+        jobId,
+        instanceId: this.instanceId,
+        component: 'cache-warming-tracker',
+      });
+      return;
+    }
 
     const duration = Date.now() - new Date(job.startedAt).getTime();
 
@@ -122,11 +138,14 @@ class CacheWarmingTracker {
       this.recentJobs = this.recentJobs.slice(0, this.MAX_RECENT_JOBS);
     }
 
-    log.info('Warming job completed', {
+    log.info('Warming job completed and added to recent jobs', {
       jobId,
+      instanceId: this.instanceId,
       datasourceId: job.datasourceId,
+      datasourceName: job.datasourceName,
       entriesCached,
       duration,
+      totalRecentJobs: this.recentJobs.length,
       component: 'cache-warming-tracker',
     });
   }
@@ -178,9 +197,30 @@ class CacheWarmingTracker {
 
   /**
    * Get recent jobs history
+   * Returns jobs filtered by age (< 24 hours) without mutating the array
    */
   getRecentJobs(limit: number = 10): WarmingJob[] {
-    return this.recentJobs.slice(0, limit);
+    const now = Date.now();
+
+    // Filter out jobs older than MAX_JOB_AGE_MS (24 hours)
+    // IMPORTANT: Don't mutate the array - return a filtered copy
+    const recentJobsFiltered = this.recentJobs.filter((job) => {
+      if (!job.completedAt) return true; // Keep jobs without completion time
+
+      const completedTime = new Date(job.completedAt).getTime();
+      const age = now - completedTime;
+      return age < this.MAX_JOB_AGE_MS;
+    });
+
+    log.debug('getRecentJobs called', {
+      instanceId: this.instanceId,
+      totalJobs: this.recentJobs.length,
+      filteredJobs: recentJobsFiltered.length,
+      requestedLimit: limit,
+      component: 'cache-warming-tracker',
+    });
+
+    return recentJobsFiltered.slice(0, limit);
   }
 
   /**
@@ -246,5 +286,19 @@ class CacheWarmingTracker {
   }
 }
 
-// Export singleton instance
-export const cacheWarmingTracker = new CacheWarmingTracker();
+// Extend globalThis to include cache warming tracker
+declare global {
+  // eslint-disable-next-line no-var
+  var __cacheWarmingTracker: CacheWarmingTracker | undefined;
+}
+
+// Use globalThis to ensure single instance across hot reloads in development
+// In production, this works the same as a regular singleton
+const cacheWarmingTracker = globalThis.__cacheWarmingTracker ?? new CacheWarmingTracker();
+
+// Store on globalThis in development to prevent multiple instances during hot reload
+if (process.env.NODE_ENV !== 'production') {
+  globalThis.__cacheWarmingTracker = cacheWarmingTracker;
+}
+
+export { cacheWarmingTracker };
