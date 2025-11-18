@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import AddDataSourceModal from '@/components/add-data-source-modal';
+import DataSourceModal from '@/components/data-source-modal';
 import { useAuth } from '@/components/auth/rbac-auth-provider';
 import DataSourceConnectionTestModal from '@/components/data-source-connection-test-modal';
 import DataTable, {
@@ -12,7 +12,6 @@ import DateSelect, { type DateRange } from '@/components/date-select';
 import DeleteButton from '@/components/delete-button';
 import DeleteDataSourceModal from '@/components/delete-data-source-modal';
 import FilterButton, { type ActiveFilter, type FilterGroup } from '@/components/dropdown-filter';
-import EditDataSourceModal from '@/components/edit-data-source-modal';
 import { ProtectedComponent } from '@/components/rbac/protected-component';
 import Toast from '@/components/toast';
 import { type DataSource, useDataSources } from '@/lib/hooks/use-data-sources';
@@ -428,7 +427,8 @@ export default function DataSourcesContent() {
       />
 
       {/* Add Data Source Modal */}
-      <AddDataSourceModal
+      <DataSourceModal
+        mode="create"
         isOpen={isAddDataSourceModalOpen}
         onClose={() => setIsAddDataSourceModalOpen(false)}
         onSuccess={() => {
@@ -438,7 +438,8 @@ export default function DataSourcesContent() {
       />
 
       {/* Edit Data Source Modal */}
-      <EditDataSourceModal
+      <DataSourceModal
+        mode="edit"
         isOpen={isEditDataSourceModalOpen}
         onClose={() => setIsEditDataSourceModalOpen(false)}
         onSuccess={() => {
