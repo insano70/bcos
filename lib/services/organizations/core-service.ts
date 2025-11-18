@@ -110,6 +110,7 @@ class OrganizationCoreService extends BaseOrganizationsService {
           name: organizations.name,
           slug: organizations.slug,
           parent_organization_id: organizations.parent_organization_id,
+          practice_uids: organizations.practice_uids,
           is_active: organizations.is_active,
           created_at: organizations.created_at,
           updated_at: organizations.updated_at,
@@ -166,6 +167,7 @@ class OrganizationCoreService extends BaseOrganizationsService {
           name: row.name,
           slug: row.slug,
           parent_organization_id: row.parent_organization_id || undefined,
+          practice_uids: row.practice_uids || [],
           is_active: row.is_active ?? true,
           created_at: row.created_at ?? new Date(),
           updated_at: row.updated_at ?? new Date(),
@@ -263,6 +265,7 @@ class OrganizationCoreService extends BaseOrganizationsService {
           name: organizations.name,
           slug: organizations.slug,
           parent_organization_id: organizations.parent_organization_id,
+          practice_uids: organizations.practice_uids,
           is_active: organizations.is_active,
           created_at: organizations.created_at,
           updated_at: organizations.updated_at,
@@ -327,6 +330,7 @@ class OrganizationCoreService extends BaseOrganizationsService {
         name: result.name,
         slug: result.slug,
         parent_organization_id: result.parent_organization_id || undefined,
+        practice_uids: result.practice_uids || [],
         is_active: result.is_active ?? true,
         created_at: result.created_at ?? new Date(),
         updated_at: result.updated_at ?? new Date(),
@@ -544,13 +548,26 @@ class OrganizationCoreService extends BaseOrganizationsService {
         'practice_uids',
       ]);
 
+      // Build update object explicitly to ensure null values are handled correctly
+      const dbUpdateData: Partial<typeof organizations.$inferInsert> = {
+        updated_at: new Date(),
+      };
+
+      // Only include fields that are actually being updated
+      if (updateData.name !== undefined) dbUpdateData.name = updateData.name;
+      if (updateData.slug !== undefined) dbUpdateData.slug = updateData.slug;
+      if (updateData.is_active !== undefined) dbUpdateData.is_active = updateData.is_active;
+      if (updateData.practice_uids !== undefined) dbUpdateData.practice_uids = updateData.practice_uids;
+
+      // Explicitly handle parent_organization_id including null values
+      if (updateData.parent_organization_id !== undefined) {
+        dbUpdateData.parent_organization_id = updateData.parent_organization_id;
+      }
+
       // Update organization
       const [updatedOrg] = await db
         .update(organizations)
-        .set({
-          ...updateData,
-          updated_at: new Date(),
-        })
+        .set(dbUpdateData)
         .where(eq(organizations.organization_id, organizationId))
         .returning();
 

@@ -123,6 +123,7 @@ export default function UserModal({ mode, isOpen, onClose, onSuccess, user }: Us
   const transformedEntity = user
     ? {
         ...user,
+        organization_id: user.organization_id || '',
         provider_uid_input: user.provider_uid?.toString() || '',
         role_ids: user.roles?.map((role) => role.id) || [],
       }
@@ -151,14 +152,14 @@ export default function UserModal({ mode, isOpen, onClose, onSuccess, user }: Us
       label: 'Email Address',
       placeholder: 'Enter email address',
       required: true,
-      column: mode === 'create' ? 'full' : 'left',
+      column: 'left',
     },
     {
       type: 'custom',
       name: 'organization_id' as never,
       label: 'Organization',
       required: true,
-      column: mode === 'create' ? 'full' : 'right',
+      column: 'right',
       component: OrganizationSelectAdapter,
       props: {},
     },

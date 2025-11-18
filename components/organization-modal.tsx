@@ -131,17 +131,22 @@ export default function OrganizationModal({
       await createOrganization.mutateAsync({
         name: data.name,
         slug: data.slug,
-        parent_organization_id: data.parent_organization_id ?? undefined,
+        parent_organization_id: data.parent_organization_id || undefined,
         practice_uids,
         is_active: data.is_active ?? true,
       });
     } else if (organization) {
+      // Explicitly handle parent_organization_id to ensure it's always sent
+      // If it's undefined, null, or empty string, send null to clear the parent
+      // If it has a value (UUID), send that value
+      const parentOrgId = data.parent_organization_id || null;
+
       await updateOrganization.mutateAsync({
         id: organization.id,
         data: {
           name: data.name,
           slug: data.slug,
-          parent_organization_id: data.parent_organization_id ?? null,
+          parent_organization_id: parentOrgId,
           practice_uids,
           is_active: data.is_active ?? true,
         },
@@ -168,7 +173,7 @@ export default function OrganizationModal({
       } as never}
       fields={fields}
       onSubmit={handleSubmit}
-      size="md"
+      size="4xl"
       successMessage={
         mode === 'create'
           ? 'Organization created successfully!'

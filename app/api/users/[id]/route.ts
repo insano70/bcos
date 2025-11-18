@@ -65,6 +65,7 @@ const getUserHandler = async (
       provider_uid: user.provider_uid || null, // Analytics security field
       created_at: user.created_at,
       updated_at: user.updated_at,
+      organization_id: user.organizations[0]?.organization_id || null, // Primary organization for form
       organizations: user.organizations,
       roles,
     });

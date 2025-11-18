@@ -77,6 +77,7 @@ const getUsersHandler = async (request: NextRequest, userContext: UserContext) =
         email_verified: user.email_verified,
         is_active: user.is_active,
         created_at: user.created_at,
+        organization_id: user.organizations[0]?.organization_id || null, // Primary organization for form
         organizations: user.organizations,
         roles: rolesMap.get(user.user_id) || [],
         mfa_enabled: mfaStatus?.mfa_enabled || false,

@@ -73,7 +73,7 @@ export default function EditWorkItemModal({
       setValue('subject', workItem.subject);
       setValue('description', workItem.description || '');
       setValue('priority', workItem.priority as 'critical' | 'high' | 'medium' | 'low');
-      setValue('assigned_to', workItem.assigned_to || '');
+      setValue('assigned_to', workItem.assigned_to || undefined);
 
       // Format due_date for date input (YYYY-MM-DD)
       if (workItem.due_date) {

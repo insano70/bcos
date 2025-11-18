@@ -16,7 +16,7 @@ export type CrudMode = 'create' | 'edit';
 /**
  * Modal size options
  */
-export type ModalSize = 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '4xl';
+export type ModalSize = 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl' | '6xl' | '7xl';
 
 /**
  * Column layout for two-column forms

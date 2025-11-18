@@ -4,7 +4,6 @@ import { z } from 'zod';
 import {
   type DataSourceColumn,
   useCreateDataSourceColumn,
-  useUpdateDataSourceColumn,
 } from '@/lib/hooks/use-data-sources';
 import CrudModal from './crud-modal';
 import type { FieldConfig } from './crud-modal/types';
@@ -80,7 +79,6 @@ export default function DataSourceColumnModal({
   column,
 }: DataSourceColumnModalProps) {
   const createColumnMutation = useCreateDataSourceColumn(dataSourceId);
-  const updateColumnMutation = useUpdateDataSourceColumn(dataSourceId, column?.column_id || 0);
 
   // Transform entity for edit mode
   const transformedEntity = column
@@ -192,7 +190,7 @@ export default function DataSourceColumnModal({
       type: 'checkbox',
       name: 'display_icon' as never,
       label: 'Display Icon - Show colored icon in first column of table charts',
-      column: 'full',
+      column: 'right',
       visible: (_formData) => mode === 'edit',
     },
     {
@@ -226,7 +224,7 @@ export default function DataSourceColumnModal({
       label: 'Fixed Icon Color (if using Fixed mode)',
       placeholder: 'e.g., #8b5cf6, #ef4444, #22c55e',
       helpText: 'HTML hex color codes: #8b5cf6 (violet), #0ea5e9 (sky), #22c55e (green), #ef4444 (red), etc.',
-      column: 'full',
+      column: 'left',
       visible: (_formData) => mode === 'edit',
     },
     {
@@ -235,7 +233,7 @@ export default function DataSourceColumnModal({
       label: 'Sort Order',
       placeholder: '0',
       helpText: 'Lower numbers appear first in the column list',
-      column: 'full',
+      column: 'right',
       visible: (_formData) => mode === 'edit',
     },
   ];
@@ -247,9 +245,24 @@ export default function DataSourceColumnModal({
         ...createData,
         data_source_id: dataSourceId,
       } as never);
-    } else if (column) {
+    } else if (column?.column_id) {
       const editData = data as EditDataSourceColumnFormData;
-      await updateColumnMutation.mutateAsync(editData as never);
+      // Use the API client directly with the correct column_id from the current column
+      const response = await fetch(`/api/admin/data-sources/${dataSourceId}/columns/${column.column_id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(editData),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to update column');
+      }
+
+      // Return the response data to match the mutation pattern
+      return await response.json();
     }
   };
 
@@ -293,7 +306,7 @@ export default function DataSourceColumnModal({
       }
       fields={fields}
       onSubmit={handleSubmit}
-      size="2xl"
+      size="5xl"
       successMessage={
         mode === 'create' ? 'Column added successfully!' : 'Column updated successfully!'
       }

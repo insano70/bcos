@@ -2,7 +2,7 @@
 
 import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { FieldValues } from 'react-hook-form';
 import { useForm } from 'react-hook-form';
 import Toast from '../toast';
@@ -10,12 +10,16 @@ import FieldRenderer from './field-renderer';
 import type { CrudModalProps } from './types';
 
 const sizeClasses = {
-  sm: 'max-w-sm',
-  md: 'max-w-md',
-  lg: 'max-w-lg',
-  xl: 'max-w-xl',
-  '2xl': 'max-w-2xl',
-  '4xl': 'max-w-4xl',
+  sm: 'max-w-sm',     // 384px
+  md: 'max-w-md',     // 448px
+  lg: 'max-w-lg',     // 512px
+  xl: 'max-w-xl',     // 576px
+  '2xl': 'max-w-2xl', // 672px
+  '3xl': 'max-w-3xl', // 768px
+  '4xl': 'max-w-4xl', // 896px
+  '5xl': 'max-w-5xl', // 1024px
+  '6xl': 'max-w-6xl', // 1152px
+  '7xl': 'max-w-7xl', // 1280px
 };
 
 export default function CrudModal<TFormData extends FieldValues = FieldValues, TEntity = unknown>({
@@ -41,6 +45,12 @@ export default function CrudModal<TFormData extends FieldValues = FieldValues, T
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showToast, setShowToast] = useState(false);
 
+  // Store defaultValues in a ref to avoid triggering effects on every render
+  const defaultValuesRef = useRef(defaultValues);
+  useEffect(() => {
+    defaultValuesRef.current = defaultValues;
+  }, [defaultValues]);
+
   const {
     register,
     handleSubmit,
@@ -56,15 +66,13 @@ export default function CrudModal<TFormData extends FieldValues = FieldValues, T
   // Populate form when entity data changes (edit mode)
   useEffect(() => {
     if (mode === 'edit' && entity && isOpen) {
-      // Populate form with entity data
-      Object.keys(entity as Record<string, unknown>).forEach((key) => {
-        const value = (entity as Record<string, unknown>)[key];
-        if (value !== undefined) {
-          setValue(key as never, value as never);
-        }
-      });
+      // Reset form with entity data to ensure clean state
+      reset(entity as never);
+    } else if (mode === 'create' && isOpen) {
+      // Reset to default values when opening in create mode
+      reset(defaultValuesRef.current as never);
     }
-  }, [entity, isOpen, mode, setValue]);
+  }, [entity, isOpen, mode, reset]);
 
   const handleFormSubmit = async (data: TFormData) => {
     setIsSubmitting(true);
@@ -106,12 +114,22 @@ export default function CrudModal<TFormData extends FieldValues = FieldValues, T
     }
   };
 
-  // Group fields by column
-  const fullWidthFields = fields.filter((f) => !f.column || f.column === 'full');
-  const leftColumnFields = fields.filter((f) => f.column === 'left');
-  const rightColumnFields = fields.filter((f) => f.column === 'right');
+  // Get current form values for visibility checks
+  const formValues = watch();
 
-  // Determine if we have a two-column layout
+  // Filter fields by visibility first
+  const visibleFields = fields.filter((field) => {
+    if (field.visible === undefined) return true;
+    if (typeof field.visible === 'function') {
+      return field.visible(formValues as never);
+    }
+    return field.visible;
+  });
+
+  // Separate full-width from left/right column fields
+  const fullWidthFields = visibleFields.filter((f) => !f.column || f.column === 'full');
+  const leftColumnFields = visibleFields.filter((f) => f.column === 'left');
+  const rightColumnFields = visibleFields.filter((f) => f.column === 'right');
   const hasTwoColumnLayout = leftColumnFields.length > 0 || rightColumnFields.length > 0;
 
   // Default submit button text
@@ -194,7 +212,7 @@ export default function CrudModal<TFormData extends FieldValues = FieldValues, T
 
                   {/* Render two-column layout if we have left/right fields */}
                   {hasTwoColumnLayout && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-2 gap-6">
                       {/* Left column */}
                       <div className="space-y-6">
                         {leftColumnFields.map((field) => (
