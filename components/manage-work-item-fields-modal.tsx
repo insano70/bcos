@@ -1,9 +1,8 @@
 'use client';
 
 import { useCallback, useMemo, useState } from 'react';
-import AddWorkItemFieldModal from '@/components/add-work-item-field-modal';
 import DeleteConfirmationModal from '@/components/delete-confirmation-modal';
-import EditWorkItemFieldModal from '@/components/edit-work-item-field-modal';
+import WorkItemFieldModal from '@/components/work-item-field-modal';
 import ModalBlank from '@/components/modal-blank';
 import { useDeleteWorkItemField, useWorkItemFields } from '@/lib/hooks/use-work-item-fields';
 import type { WorkItemField } from '@/lib/types/work-item-fields';
@@ -268,7 +267,8 @@ export default function ManageWorkItemFieldsModal({
       </ModalBlank>
 
       {/* Add Field Modal */}
-      <AddWorkItemFieldModal
+      <WorkItemFieldModal
+        mode="create"
         isOpen={isAddFieldOpen}
         onClose={() => setIsAddFieldOpen(false)}
         onSuccess={() => {
@@ -280,13 +280,15 @@ export default function ManageWorkItemFieldsModal({
 
       {/* Edit Field Modal */}
       {editingField && (
-        <EditWorkItemFieldModal
+        <WorkItemFieldModal
+          mode="edit"
           isOpen={true}
           onClose={() => setEditingField(null)}
           onSuccess={() => {
             setEditingField(null);
             refetch();
           }}
+          workItemTypeId={workItemTypeId}
           field={editingField}
           allFields={sortedFields}
         />

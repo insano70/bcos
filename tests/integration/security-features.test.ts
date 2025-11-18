@@ -10,7 +10,7 @@ import { createSafeTextSchema, sanitizeText } from '@/lib/validations/sanitizati
 import { createTestUser } from '@/tests/factories/user-factory';
 
 describe('Security Features Integration', () => {
-  let _testUser: any;
+  let _testUser: Awaited<ReturnType<typeof createTestUser>>;
 
   beforeEach(async () => {
     _testUser = await createTestUser({

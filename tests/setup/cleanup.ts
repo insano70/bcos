@@ -1,5 +1,7 @@
 // Import db-helper conditionally to avoid compilation issues
-let getTestDb: any;
+import type { drizzle } from 'drizzle-orm/postgres-js';
+
+let getTestDb: () => ReturnType<typeof drizzle>;
 try {
   getTestDb = require('@/tests/helpers/db-helper').getTestDb;
 } catch (_error) {

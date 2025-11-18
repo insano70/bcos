@@ -52,7 +52,7 @@ describe('formatDate', () => {
     });
 
     it('should return dash for undefined input', () => {
-      const result = formatDate(undefined as any);
+      const result = formatDate(undefined as unknown as Date);
       expect(result).toBe('-');
     });
 

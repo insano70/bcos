@@ -113,8 +113,9 @@ vi.mock('@/lib/api/services/audit', () => ({
 }));
 
 describe('TokenManager', () => {
-  let mockDb: any;
-  let _mockGetCachedUserContextSafe: any;
+  // Let TypeScript infer the complex mocked types from vitest
+  let mockDb: ReturnType<typeof vi.mocked<typeof import('@/lib/db').db>>;
+  let _mockGetCachedUserContextSafe: ReturnType<typeof vi.mocked<typeof import('@/lib/rbac/cached-user-context').getCachedUserContextSafe>>;
 
   beforeEach(async () => {
     vi.clearAllMocks();
@@ -136,7 +137,7 @@ describe('TokenManager', () => {
       vi.mocked(jwtVerify).mockResolvedValue({
         payload: mockPayload,
         protectedHeader: { alg: 'HS256' },
-      } as any);
+      } as unknown as Awaited<ReturnType<typeof jwtVerify>>);
 
       // Mock database - no blacklisted token
       const { db } = await import('@/lib/db');
@@ -146,7 +147,7 @@ describe('TokenManager', () => {
             limit: vi.fn(() => []),
           })),
         })),
-      } as any);
+      } as unknown as ReturnType<typeof db.select>);
 
       const result = await validateAccessToken(mockToken);
 
@@ -161,7 +162,7 @@ describe('TokenManager', () => {
       vi.mocked(jwtVerify).mockResolvedValue({
         payload: mockPayload,
         protectedHeader: { alg: 'HS256' },
-      } as any);
+      } as unknown as Awaited<ReturnType<typeof jwtVerify>>);
 
       // Mock database - token is blacklisted
       mockDb.select.mockReturnValue({
@@ -170,7 +171,7 @@ describe('TokenManager', () => {
             limit: vi.fn(() => [{ jti: 'jti-123' }]),
           })),
         })),
-      });
+      } as unknown as ReturnType<typeof mockDb.select>);
 
       const result = await validateAccessToken(mockToken);
 
@@ -210,7 +211,7 @@ describe('TokenManager', () => {
         from: vi.fn(() => ({
           where: vi.fn(() => mockActiveTokens),
         })),
-      });
+      } as unknown as ReturnType<typeof mockDb.select>);
 
       const result = await revokeAllUserTokens(userId, 'security');
 
@@ -221,14 +222,14 @@ describe('TokenManager', () => {
 
     it('should handle no active tokens', async () => {
       const userId = 'user-123';
-      const mockActiveTokens: any[] = [];
+      const mockActiveTokens: unknown[] = [];
 
       // Mock getting active tokens - empty array
       mockDb.select.mockReturnValueOnce({
         from: vi.fn(() => ({
           where: vi.fn(() => mockActiveTokens),
         })),
-      });
+      } as unknown as ReturnType<typeof mockDb.select>);
 
       const result = await revokeAllUserTokens(userId, 'security');
 

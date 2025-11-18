@@ -97,14 +97,13 @@ interface ChartRendererProps {
  * 1. Import the component above
  * 2. Add an entry to this map
  *
- * Note: Using `React.ComponentType` here because each chart component has different
+ * Note: Type assertion is necessary here because each chart component has different
  * prop interfaces (LineChart01Props, AnalyticsBarChartProps, etc.) and TypeScript
  * doesn't support heterogeneous component maps without a union type of all props.
- * The actual props are validated through TypeScript at the call site in the render logic.
- * eslint-disable-next-line is used to suppress the any type warning for this valid use case.
+ * Type safety is maintained through the specific component calls in the render logic below
+ * where each chart type receives properly typed props.
  */
-// biome-ignore lint/suspicious/noExplicitAny: Dynamic component dispatch with heterogeneous prop types
-const CHART_COMPONENTS: Record<string, React.ComponentType<any>> = {
+const CHART_COMPONENTS = {
   line: AnalyticsLineChart,
   bar: AnalyticsBarChart,
   'stacked-bar': AnalyticsStackedBarChart,
@@ -116,7 +115,7 @@ const CHART_COMPONENTS: Record<string, React.ComponentType<any>> = {
   doughnut: DoughnutChart,
   pie: DoughnutChart, // Doughnut component handles both pie and doughnut
   area: AreaChart,
-};
+} as unknown as Record<string, React.ComponentType<Record<string, unknown>>>;
 
 /**
  * ChartRenderer

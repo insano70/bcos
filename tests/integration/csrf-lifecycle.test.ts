@@ -92,7 +92,7 @@ function createMockRequest(
         value: options.cookies?.[name] || null,
       }),
     },
-  } as any;
+  } as unknown as NextRequest;
 }
 
 describe('CSRF Token Lifecycle Integration Tests', () => {

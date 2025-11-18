@@ -41,9 +41,10 @@ vi.mock('@/lib/db', () => {
 });
 
 describe('session authentication logic', () => {
-  let mockValidateAccessToken: any;
-  let _mockDb: any;
-  let mockSelectResult: any;
+  // Let TypeScript infer the complex mocked types from vitest
+  let mockValidateAccessToken: ReturnType<typeof vi.mocked<typeof import('@/lib/auth/tokens').validateAccessToken>>;
+  let _mockDb: ReturnType<typeof vi.mocked<typeof import('@/lib/db').db>>;
+  let mockSelectResult: ReturnType<typeof vi.fn>;
 
   beforeEach(async () => {
     vi.clearAllMocks();
@@ -54,7 +55,7 @@ describe('session authentication logic', () => {
 
     const dbModule = await import('@/lib/db');
     _mockDb = vi.mocked(dbModule.db);
-    mockSelectResult = (dbModule as any)._mockSelectResult;
+    mockSelectResult = (dbModule as Record<string, unknown>)._mockSelectResult as ReturnType<typeof vi.fn>;
   });
 
   describe('getCurrentUserFromToken', () => {

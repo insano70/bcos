@@ -129,7 +129,9 @@ export async function rollbackMainTransaction(): Promise<void> {
  * Execute a function within a test transaction
  * Automatically handles rollback on completion or error
  */
-export async function withTestTransaction<T>(fn: (tx: any) => Promise<T>): Promise<T> {
+export async function withTestTransaction<T>(
+  fn: (tx: ReturnType<typeof drizzle>) => Promise<T>
+): Promise<T> {
   const tx = await getTestTransaction();
   try {
     const result = await fn(tx);

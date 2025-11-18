@@ -1,12 +1,11 @@
 'use client';
 
 import { useCallback, useMemo, useState } from 'react';
-import AddWorkItemFieldModal from '@/components/add-work-item-field-modal';
 import DataTable, {
   type DataTableColumn,
   type DataTableDropdownAction,
 } from '@/components/data-table-standard';
-import EditWorkItemFieldModal from '@/components/edit-work-item-field-modal';
+import WorkItemFieldModal from '@/components/work-item-field-modal';
 import { useDeleteWorkItemField, useWorkItemFields } from '@/lib/hooks/use-work-item-fields';
 import type { WorkItemField } from '@/lib/types/work-item-fields';
 
@@ -241,20 +240,23 @@ export default function WorkItemFieldConfig({
       />
 
       {/* Modals */}
-      <AddWorkItemFieldModal
+      <WorkItemFieldModal
+        mode="create"
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
         onSuccess={refetch}
         workItemTypeId={workItemTypeId}
       />
 
-      <EditWorkItemFieldModal
+      <WorkItemFieldModal
+        mode="edit"
         isOpen={isEditModalOpen}
         onClose={() => {
           setIsEditModalOpen(false);
           setSelectedField(null);
         }}
         onSuccess={refetch}
+        workItemTypeId={workItemTypeId}
         field={selectedField}
         allFields={fields || []}
       />

@@ -1,8 +1,7 @@
 'use client';
 
 import { useCallback, useMemo, useState } from 'react';
-import AddRelationshipModal from '@/components/add-relationship-modal';
-import EditRelationshipModal from '@/components/edit-relationship-modal';
+import RelationshipModal from '@/components/relationship-modal';
 import ModalBlank from '@/components/modal-blank';
 import {
   useDeleteTypeRelationship,
@@ -238,7 +237,8 @@ export default function ManageRelationshipsModal({
       </ModalBlank>
 
       {/* Add Relationship Modal */}
-      <AddRelationshipModal
+      <RelationshipModal
+        mode="create"
         isOpen={isAddRelationshipOpen}
         onClose={() => setIsAddRelationshipOpen(false)}
         onSuccess={() => {
@@ -250,13 +250,15 @@ export default function ManageRelationshipsModal({
 
       {/* Edit Relationship Modal */}
       {editingRelationship && (
-        <EditRelationshipModal
+        <RelationshipModal
+          mode="edit"
           isOpen={true}
           onClose={() => setEditingRelationship(null)}
           onSuccess={() => {
             setEditingRelationship(null);
             refetch();
           }}
+          parentTypeId={workItemTypeId}
           relationship={editingRelationship}
         />
       )}

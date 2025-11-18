@@ -2,16 +2,15 @@
 
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
-import AddDataSourceColumnModal from '@/components/add-data-source-column-modal';
 import { useAuth } from '@/components/auth/rbac-auth-provider';
 import DataTable, {
   type DataTableColumn,
   type DataTableDropdownAction,
 } from '@/components/data-table-standard';
+import DataSourceColumnModal from '@/components/data-source-column-modal';
 import DeleteButton from '@/components/delete-button';
 import DeleteDataSourceColumnModal from '@/components/delete-data-source-column-modal';
 import FilterButton, { type ActiveFilter, type FilterGroup } from '@/components/dropdown-filter';
-import EditDataSourceColumnModal from '@/components/edit-data-source-column-modal';
 import IntrospectDataSourceModal from '@/components/introspect-data-source-modal';
 import { ProtectedComponent } from '@/components/rbac/protected-component';
 import Toast from '@/components/toast';
@@ -553,7 +552,8 @@ export default function DataSourceColumnsContent({ dataSourceId }: DataSourceCol
       />
 
       {/* Add Column Modal */}
-      <AddDataSourceColumnModal
+      <DataSourceColumnModal
+        mode="create"
         isOpen={isAddColumnModalOpen}
         onClose={() => setIsAddColumnModalOpen(false)}
         onSuccess={() => {
@@ -564,7 +564,8 @@ export default function DataSourceColumnsContent({ dataSourceId }: DataSourceCol
       />
 
       {/* Edit Column Modal */}
-      <EditDataSourceColumnModal
+      <DataSourceColumnModal
+        mode="edit"
         isOpen={isEditColumnModalOpen}
         onClose={() => setIsEditColumnModalOpen(false)}
         onSuccess={() => {

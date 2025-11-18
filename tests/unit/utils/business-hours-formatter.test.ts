@@ -106,7 +106,7 @@ describe('business-hours-formatter', () => {
     it('should handle undefined times', () => {
       const schedule = {
         closed: false,
-        open: undefined as any,
+        open: undefined as unknown as string,
         close: '17:00',
       };
 

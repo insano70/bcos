@@ -20,7 +20,7 @@ describe('password authentication logic', () => {
       const password = 'TestPassword123!';
       const mockHash = '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewfBPjJcZQKXGJ2O';
 
-      (bcrypt.hash as any).mockResolvedValueOnce(mockHash);
+      (bcrypt.hash as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockHash);
 
       const result = await hashPassword(password);
 
@@ -40,7 +40,7 @@ describe('password authentication logic', () => {
       const password = '';
       const mockHash = '$2b$12$empty.hash.value';
 
-      (bcrypt.hash as any).mockResolvedValueOnce(mockHash);
+      (bcrypt.hash as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockHash);
 
       const result = await hashPassword(password);
 
@@ -51,7 +51,7 @@ describe('password authentication logic', () => {
       const password = 'P@ssw0rd!#$%^&*()';
       const mockHash = '$2b$12$special.hash.value';
 
-      (bcrypt.hash as any).mockResolvedValueOnce(mockHash);
+      (bcrypt.hash as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockHash);
 
       const result = await hashPassword(password);
 
@@ -64,7 +64,7 @@ describe('password authentication logic', () => {
       const password = 'TestPassword123!';
       const hash = '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewfBPjJcZQKXGJ2O';
 
-      (bcrypt.compare as any).mockResolvedValueOnce(true);
+      (bcrypt.compare as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(true);
 
       const result = await verifyPassword(password, hash);
 
@@ -75,7 +75,7 @@ describe('password authentication logic', () => {
       const password = 'WrongPassword123!';
       const hash = '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewfBPjJcZQKXGJ2O';
 
-      (bcrypt.compare as any).mockResolvedValueOnce(false);
+      (bcrypt.compare as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(false);
 
       const result = await verifyPassword(password, hash);
 
@@ -104,7 +104,7 @@ describe('password authentication logic', () => {
       const password = '';
       const hash = '$2b$12$empty.hash';
 
-      (bcrypt.compare as any).mockResolvedValueOnce(false);
+      (bcrypt.compare as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(false);
 
       const result = await verifyPassword(password, hash);
 
@@ -116,7 +116,7 @@ describe('password authentication logic', () => {
       const password = 'TestPassword123!';
       const hash = '';
 
-      (bcrypt.compare as any).mockResolvedValueOnce(false);
+      (bcrypt.compare as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(false);
 
       const result = await verifyPassword(password, hash);
 

@@ -26,7 +26,7 @@ import {
   mapDatabaseRoleToRole,
 } from '@/tests/helpers/rbac-helper';
 
-function createRBACDataSourcesService(userContext: any): RBACDataSourcesService {
+function createRBACDataSourcesService(userContext: ConstructorParameters<typeof RBACDataSourcesService>[0]): RBACDataSourcesService {
   return new RBACDataSourcesService(userContext);
 }
 

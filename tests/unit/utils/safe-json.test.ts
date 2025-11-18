@@ -68,7 +68,7 @@ describe('safe-json', () => {
     });
 
     it('should return null for non-string input', () => {
-      const result = safeJsonParse(123 as any);
+      const result = safeJsonParse(123 as unknown as string);
       expect(result).toBeNull();
     });
 

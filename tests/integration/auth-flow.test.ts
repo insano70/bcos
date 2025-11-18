@@ -16,9 +16,9 @@ import { createTestRole } from '@/tests/factories/role-factory';
 import { createTestUser } from '@/tests/factories/user-factory';
 
 describe('Authentication Flow Integration', () => {
-  let testUser: any;
-  let testOrg: any;
-  let _testRole: any;
+  let testUser: Awaited<ReturnType<typeof createTestUser>>;
+  let testOrg: Awaited<ReturnType<typeof createTestOrganization>>;
+  let _testRole: Awaited<ReturnType<typeof createTestRole>>;
 
   beforeEach(async () => {
     // Create test data for auth flow

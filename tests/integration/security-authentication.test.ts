@@ -16,7 +16,7 @@ import {
 import { createTestUser } from '@/tests/factories/user-factory';
 
 describe('Security Authentication Integration', () => {
-  let testUser: any;
+  let testUser: Awaited<ReturnType<typeof createTestUser>>;
 
   beforeEach(async () => {
     testUser = await createTestUser({

@@ -65,18 +65,18 @@ vi.mock('@/lib/db', () => {
 });
 
 describe('security authentication logic', () => {
-  let mockSelectResult: any;
-  let _mockUpdateResult: any;
-  let _mockInsertResult: any;
+  let mockSelectResult: ReturnType<typeof vi.fn>;
+  let _mockUpdateResult: ReturnType<typeof vi.fn>;
+  let _mockInsertResult: ReturnType<typeof vi.fn>;
 
   beforeEach(async () => {
     vi.clearAllMocks();
 
     // Get references to the standardized mock helpers
     const dbModule = await import('@/lib/db');
-    mockSelectResult = (dbModule as any)._mockSelectResult;
-    _mockUpdateResult = (dbModule as any)._mockUpdateResult;
-    _mockInsertResult = (dbModule as any)._mockInsertResult;
+    mockSelectResult = (dbModule as Record<string, unknown>)._mockSelectResult as ReturnType<typeof vi.fn>;
+    _mockUpdateResult = (dbModule as Record<string, unknown>)._mockUpdateResult as ReturnType<typeof vi.fn>;
+    _mockInsertResult = (dbModule as Record<string, unknown>)._mockInsertResult as ReturnType<typeof vi.fn>;
   });
 
   describe('PasswordService', () => {
@@ -85,7 +85,7 @@ describe('security authentication logic', () => {
         const password = 'TestPassword123!';
         const mockHash = '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewfBPjJcZQKXGJ2O';
 
-        (bcrypt.hash as any).mockResolvedValueOnce(mockHash);
+        (bcrypt.hash as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(mockHash);
 
         const result = await hashPassword(password);
 
@@ -96,7 +96,7 @@ describe('security authentication logic', () => {
         const password = 'TestPassword123!';
         const error = new Error('Hashing failed');
 
-        (bcrypt.hash as any).mockRejectedValueOnce(error);
+        (bcrypt.hash as unknown as ReturnType<typeof vi.fn>).mockRejectedValueOnce(error);
 
         await expect(hashPassword(password)).rejects.toThrow('Hashing failed');
       });
@@ -107,7 +107,7 @@ describe('security authentication logic', () => {
         const password = 'TestPassword123!';
         const hash = '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewfBPjJcZQKXGJ2O';
 
-        (bcrypt.compare as any).mockResolvedValueOnce(true);
+        (bcrypt.compare as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(true);
 
         const result = await verifyPassword(password, hash);
 
@@ -118,7 +118,7 @@ describe('security authentication logic', () => {
         const password = 'WrongPassword123!';
         const hash = '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewfBPjJcZQKXGJ2O';
 
-        (bcrypt.compare as any).mockResolvedValueOnce(false);
+        (bcrypt.compare as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(false);
 
         const result = await verifyPassword(password, hash);
 
@@ -129,7 +129,7 @@ describe('security authentication logic', () => {
         const password = 'TestPassword123!';
         const hash = 'invalid-hash';
 
-        (bcrypt.compare as any).mockRejectedValueOnce(new Error('Invalid hash'));
+        (bcrypt.compare as unknown as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('Invalid hash'));
 
         const result = await verifyPassword(password, hash);
 
@@ -216,12 +216,12 @@ describe('security authentication logic', () => {
       // Mock no existing record, then successful insert
       mockSelectResult.mockResolvedValueOnce([]); // No existing record
 
-      const mockInsert = vi.fn().mockReturnValue({
+      const mockInsertChain = {
         values: vi.fn().mockReturnValue({
           returning: vi.fn().mockResolvedValue([newRecord]),
         }),
-      });
-      (db.insert as any).mockReturnValue(mockInsert());
+      };
+      (db.insert as unknown as ReturnType<typeof vi.fn>).mockReturnValue(mockInsertChain);
 
       const result = await ensureSecurityRecord(userId);
 

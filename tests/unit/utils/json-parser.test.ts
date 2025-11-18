@@ -110,7 +110,7 @@ describe('json-parser utilities', () => {
 
     it('should handle array parsing', () => {
       const jsonString = '[1, 2, 3, "four"]';
-      const fallback: any[] = [];
+      const fallback: unknown[] = [];
 
       const result = safeJsonParse(jsonString, fallback);
 
