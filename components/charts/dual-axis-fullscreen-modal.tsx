@@ -114,21 +114,19 @@ export default function DualAxisFullscreenModal({
     setDimensionLoading(true);
 
     try {
-      // Build baseFilters ensuring all security filters are included
-      const baseFilters: Record<string, unknown> = {};
+      // Build baseFilters ensuring ALL runtime filters are included
+      console.log('[DUAL-AXIS] currentFilters received:', currentFilters);
       
-      // CRITICAL: Must include all filters to maintain data security
-      if (currentFilters) {
-        if (currentFilters.startDate) baseFilters.startDate = currentFilters.startDate;
-        if (currentFilters.endDate) baseFilters.endDate = currentFilters.endDate;
-        if (currentFilters.organizationId) baseFilters.organizationId = currentFilters.organizationId;
-        if (currentFilters.practiceUids && currentFilters.practiceUids.length > 0) {
-          baseFilters.practiceUids = currentFilters.practiceUids;
-        }
-        if (currentFilters.providerName) baseFilters.providerName = currentFilters.providerName;
-      }
+      const baseFilters: Record<string, unknown> = {
+        // Copy all filters from currentFilters (dashboard universal filters)
+        ...currentFilters,
+      };
+      
+      // Include frequency for dual-axis charts (required for measure-based data sources)  
+      // Dual-axis charts typically use Monthly frequency
+      baseFilters.frequency = 'Monthly';
 
-      console.log('Dimension expansion baseFilters:', baseFilters);
+      console.log('[DUAL-AXIS] baseFilters being sent to API:', baseFilters);
 
       const response = await apiClient.post<DimensionExpandedChartData>(
         `/api/admin/analytics/charts/${chartDefinitionId}/expand`,
@@ -195,9 +193,9 @@ export default function DualAxisFullscreenModal({
     }
   }, [isOpen, onClose]);
 
-  // Initialize chart
+  // Initialize chart (reinitialize when collapsing from dimension expansion)
   useEffect(() => {
-    if (!isOpen || !canvasRef.current || !chartData) return;
+    if (!isOpen || !canvasRef.current || !chartData || expandedData) return;
 
     const ctx = canvasRef.current;
 
@@ -436,7 +434,7 @@ export default function DualAxisFullscreenModal({
     return () => {
       newChart.destroy();
     };
-  }, [isOpen, mounted, chartData, primaryAxisLabel, secondaryAxisLabel, darkMode]);
+  }, [isOpen, mounted, chartData, primaryAxisLabel, secondaryAxisLabel, darkMode, expandedData]);
 
   const handleResetZoom = () => {
     if (chart) {
@@ -547,7 +545,6 @@ export default function DualAxisFullscreenModal({
                 ...(chartConfig && { chart_config: chartConfig }),
               }}
               dimensionCharts={expandedData.charts}
-              onCollapse={handleCollapseDimension}
               position={{ x: 0, y: 0, w: 12, h: 6 }}
             />
           )}

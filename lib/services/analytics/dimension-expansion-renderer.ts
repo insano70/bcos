@@ -77,13 +77,8 @@ export class DimensionExpansionRenderer {
       // Extract chart's data_source config (contains measure, frequency, etc.)
       const chartDataSource = chartDef.data_source as Record<string, unknown>;
       
-      // Extract filters from data_source to get measure and frequency
-      const filters = (chartDataSource.filters as Array<{ field: string; value: unknown }>) || [];
-      const measureFilter = filters.find((f) => f.field === 'measure');
-      const frequencyFilter = filters.find((f) => f.field === 'frequency');
-      
       // Extract and normalize chart_config for visual settings (colors, stacking, etc.)
-      // IMPORTANT: Flatten series.groupBy and series.colorPalette to top-level (matching batch executor pattern)
+      // IMPORTANT: Do this FIRST so we can check seriesConfigs when extracting filters
       const chartConfigRaw = chartDef.chart_config as {
         series?: { groupBy?: string; colorPalette?: string };
         groupBy?: string;
@@ -91,8 +86,25 @@ export class DimensionExpansionRenderer {
         stackingMode?: string;
         dataSourceId?: number;
         seriesConfigs?: unknown[];
+        dualAxisConfig?: unknown;
+        frequency?: string;
         [key: string]: unknown;
       };
+      
+      // Extract filters from data_source to get measure and frequency
+      // NOTE: Multi-series and dual-axis charts store frequency in chart_config, not data_source.filters
+      const filters = (chartDataSource.filters as Array<{ field: string; value: unknown }>) || [];
+      
+      // For single-measure charts: measure/frequency in data_source.filters
+      // For multi-series/dual-axis: frequency in chart_config, measures in seriesConfigs/dualAxisConfig
+      const isSingleMeasureChart = chartDef.chart_type !== 'dual-axis' && !chartConfigRaw.seriesConfigs?.length;
+      
+      const measureFilter = isSingleMeasureChart 
+        ? filters.find((f) => f.field === 'measure')
+        : undefined;
+      const frequencyFilter = isSingleMeasureChart
+        ? filters.find((f) => f.field === 'frequency')
+        : undefined;
       
       const chartConfig: Record<string, unknown> = {
         ...(typeof chartDef.chart_config === 'object' && chartDef.chart_config !== null
@@ -110,13 +122,33 @@ export class DimensionExpansionRenderer {
         chartConfig.colorPalette = chartConfigRaw.series.colorPalette;
       }
       
+      // Preserve dual-axis config (CRITICAL for dual-axis charts)
+      if (chartDef.chart_type === 'dual-axis' && chartConfigRaw.dualAxisConfig) {
+        chartConfig.dualAxisConfig = chartConfigRaw.dualAxisConfig;
+      }
+      
+      // Multi-series support (seriesConfigs → multipleSeries) - CRITICAL for multi-series charts
+      if (chartConfigRaw.seriesConfigs && Array.isArray(chartConfigRaw.seriesConfigs) && chartConfigRaw.seriesConfigs.length > 0) {
+        chartConfig.multipleSeries = chartConfigRaw.seriesConfigs;
+      }
+      
+      // Frequency for multi-series/dual-axis charts is in chart_config, not data_source.filters
+      const configFrequency = chartConfigRaw.frequency as string | undefined;
+      
       log.info('Chart definition loaded for dimension expansion', {
         chartDefinitionId,
         dataSourceId,
+        chartType: chartDef.chart_type,
         hasDataSource: !!chartDataSource,
         dataSourceKeys: chartDataSource ? Object.keys(chartDataSource) : [],
         measureValue: measureFilter?.value,
-        frequencyValue: frequencyFilter?.value,
+        frequencyValue: frequencyFilter?.value || configFrequency,
+        isMultiSeries: !!chartConfigRaw.seriesConfigs?.length,
+        isDualAxis: chartDef.chart_type === 'dual-axis',
+        hasDualAxisConfig: !!chartConfigRaw.dualAxisConfig,
+        chartConfigKeys: Object.keys(chartConfig),
+        hasFrequencyInChartConfig: !!chartConfig.frequency,
+        configFrequency,
         component: 'dimension-expansion',
       });
 
@@ -219,10 +251,10 @@ export class DimensionExpansionRenderer {
             ...chartConfig,  // ← All visual config (colorPalette, stackingMode, groupBy, etc.)
           };
 
-          const runtimeFilters = {
-            ...resolvedFilters,      // ← Current filters (dates, practiceUids)
-            measure: measureFilter?.value as string | undefined,
-            frequency: frequencyFilter?.value as string | undefined,
+          // Build runtime filters, being careful not to override handler-specific logic
+          const runtimeFilters: Record<string, unknown> = {
+            ...resolvedFilters,      // ← Current filters (dates, practiceUids, frequency from baseFilters)
+            frequency: (frequencyFilter?.value as string | undefined) || configFrequency || (resolvedFilters.frequency as string | undefined),
             // Add dimension filter
             advancedFilters: [
               ...(Array.isArray(resolvedFilters.advancedFilters) ? resolvedFilters.advancedFilters : []),
@@ -232,7 +264,27 @@ export class DimensionExpansionRenderer {
                 value: dimensionValue.value,
               },
             ],
-          } as Record<string, unknown>;
+          };
+          
+          // IMPORTANT: Only set measure for single-measure charts
+          // Multi-series gets measures from multipleSeries array (in chartConfig)
+          // Dual-axis gets measures from dualAxisConfig (in chartConfig)
+          if (measureFilter?.value) {
+            runtimeFilters.measure = measureFilter.value as string;
+          }
+
+          // Log runtime filters to debug date range issues
+          log.debug('Dimension expansion runtime filters', {
+            chartDefinitionId,
+            dimensionValue: dimensionValue.value,
+            hasStartDate: !!runtimeFilters.startDate,
+            hasEndDate: !!runtimeFilters.endDate,
+            startDate: runtimeFilters.startDate,
+            endDate: runtimeFilters.endDate,
+            hasFrequency: !!runtimeFilters.frequency,
+            frequency: runtimeFilters.frequency,
+            component: 'dimension-expansion',
+          });
 
           // Execute chart query using orchestrator (matching batch executor pattern)
           const result = await chartDataOrchestrator.orchestrate(

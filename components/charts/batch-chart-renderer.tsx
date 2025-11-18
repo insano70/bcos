@@ -144,6 +144,11 @@ interface BatchChartRendererProps {
    */
   chartDefinitionId?: string;
   currentFilters?: Record<string, unknown>;
+  
+  /**
+   * Hide chart header (for dimension expansion where outer container has header)
+   */
+  hideHeader?: boolean;
 }
 
 /**
@@ -177,6 +182,7 @@ export default function BatchChartRenderer({
   onExport,
   chartDefinitionId,
   currentFilters,
+  hideHeader = false,
 }: BatchChartRendererProps) {
   // Hooks must be called before any conditional returns
   // Chart ref for export functionality (like AnalyticsChart)
@@ -262,30 +268,32 @@ export default function BatchChartRenderer({
 
   return (
     <GlassCard className={`flex flex-col ${className}`}>
-      {/* Chart Header */}
-      <ChartHeader
-        title={
-          <>
-            {chartDefinition.chart_name}
-            {process.env.NODE_ENV === 'development' && chartData.metadata.cacheHit && (
-              <span className="text-[0.65rem] ml-1 opacity-40">⚡</span>
-            )}
-          </>
-        }
-        onExport={handleExport}
-        onRefresh={onRetry || (() => {})}
-        {...((chartDefinition.chart_type === 'bar' ||
-          chartDefinition.chart_type === 'stacked-bar' ||
-          chartDefinition.chart_type === 'horizontal-bar') && {
-          onFullscreen: () => setIsFullscreen(true),
-        })}
-        {...(chartDefinition.chart_type === 'dual-axis' && {
-          onFullscreen: () => setIsDualAxisFullscreen(true),
-        })}
-      />
+      {/* Chart Header - Hidden for dimension expansion (outer container has header) */}
+      {!hideHeader && (
+        <ChartHeader
+          title={
+            <>
+              {chartDefinition.chart_name}
+              {process.env.NODE_ENV === 'development' && chartData.metadata.cacheHit && (
+                <span className="text-[0.65rem] ml-1 opacity-40">⚡</span>
+              )}
+            </>
+          }
+          onExport={handleExport}
+          onRefresh={onRetry || (() => {})}
+          {...((chartDefinition.chart_type === 'bar' ||
+            chartDefinition.chart_type === 'stacked-bar' ||
+            chartDefinition.chart_type === 'horizontal-bar') && {
+            onFullscreen: () => setIsFullscreen(true),
+          })}
+          {...(chartDefinition.chart_type === 'dual-axis' && {
+            onFullscreen: () => setIsDualAxisFullscreen(true),
+          })}
+        />
+      )}
 
       {/* Chart Content - Match AnalyticsChart structure exactly */}
-      <div className="flex-1 p-2">
+      <div className={`flex-1 ${hideHeader ? 'p-1' : 'p-2'}`}>
         {responsive ? (
           <ResponsiveChartContainer
             minHeight={minHeight}

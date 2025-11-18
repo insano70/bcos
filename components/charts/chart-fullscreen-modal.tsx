@@ -121,18 +121,15 @@ export default function ChartFullscreenModal({
     setDimensionLoading(true);
 
     try {
-      // Build baseFilters ensuring all security filters are included
-      const baseFilters: Record<string, unknown> = {};
+      // Build baseFilters ensuring ALL runtime filters are included
+      const baseFilters: Record<string, unknown> = {
+        // Copy all filters from currentFilters (dashboard universal filters)
+        ...currentFilters,
+      };
       
-      // CRITICAL: Must include all filters to maintain data security
-      if (currentFilters) {
-        if (currentFilters.startDate) baseFilters.startDate = currentFilters.startDate;
-        if (currentFilters.endDate) baseFilters.endDate = currentFilters.endDate;
-        if (currentFilters.organizationId) baseFilters.organizationId = currentFilters.organizationId;
-        if (currentFilters.practiceUids && currentFilters.practiceUids.length > 0) {
-          baseFilters.practiceUids = currentFilters.practiceUids;
-        }
-        if (currentFilters.providerName) baseFilters.providerName = currentFilters.providerName;
+      // Include frequency for multi-series/dual-axis charts (required for measure-based data sources)
+      if (frequency) {
+        baseFilters.frequency = frequency;
       }
 
       console.log('Dimension expansion baseFilters:', baseFilters);
@@ -242,9 +239,9 @@ export default function ChartFullscreenModal({
     }
   };
 
-  // Initialize chart
+  // Initialize chart (reinitialize when collapsing from dimension expansion)
   useEffect(() => {
-    if (!isOpen || !canvasRef.current || !chartData) return;
+    if (!isOpen || !canvasRef.current || !chartData || expandedData) return;
 
     const ctx = canvasRef.current;
     const _timeConfig = getTimeConfig();
@@ -532,7 +529,7 @@ export default function ChartFullscreenModal({
     return () => {
       newChart.destroy();
     };
-  }, [isOpen, mounted, chartData, chartType, frequency, stackingMode, darkMode]);
+  }, [isOpen, mounted, chartData, chartType, frequency, stackingMode, darkMode, expandedData]);
 
   const handleResetZoom = () => {
     if (chart) {
@@ -643,7 +640,6 @@ export default function ChartFullscreenModal({
                 ...(chartConfig && { chart_config: chartConfig }),
               }}
               dimensionCharts={expandedData.charts}
-              onCollapse={handleCollapseDimension}
               position={{ x: 0, y: 0, w: 12, h: 6 }}
             />
           )}
