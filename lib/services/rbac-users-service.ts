@@ -87,6 +87,7 @@ export interface CreateUserData {
   organization_id: string;
   email_verified?: boolean;
   is_active?: boolean;
+  provider_uid?: number | null | undefined;
 }
 
 export interface UpdateUserData {
@@ -378,6 +379,8 @@ class RBACUsersService implements UsersServiceInterface {
           last_name: userData.last_name,
           email_verified: userData.email_verified ?? false,
           is_active: userData.is_active ?? true,
+          ...(userData.provider_uid !== null &&
+            userData.provider_uid !== undefined && { provider_uid: userData.provider_uid }),
         })
         .returning();
 

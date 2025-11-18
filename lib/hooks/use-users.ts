@@ -28,6 +28,7 @@ export interface CreateUserData {
   role_ids: string[];
   email_verified?: boolean;
   is_active?: boolean;
+  provider_uid?: number | null;
 }
 
 export interface UpdateUserData {

@@ -173,6 +173,7 @@ const createUserHandler = async (request: NextRequest, userContext: UserContext)
       email_verified,
       is_active,
       role_ids,
+      provider_uid,
     } = validatedData;
 
     // Create services
@@ -188,6 +189,7 @@ const createUserHandler = async (request: NextRequest, userContext: UserContext)
       organization_id,
       email_verified: email_verified || false,
       is_active: is_active || true,
+      ...(provider_uid !== null && provider_uid !== undefined && { provider_uid }),
     });
 
     // Assign roles to the user if provided

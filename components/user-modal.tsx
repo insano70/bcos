@@ -64,6 +64,7 @@ const createUserSchema = z
     role_ids: z.array(z.string()).min(1, 'Please select at least one role'),
     email_verified: z.boolean().optional(),
     is_active: z.boolean().optional(),
+    provider_uid_input: z.string().optional(),
   })
   .refine((data) => data.password === data.confirm_password, {
     message: "Passwords don't match",
@@ -195,7 +196,6 @@ export default function UserModal({ mode, isOpen, onClose, onSuccess, user }: Us
       placeholder: 'Enter provider_uid (e.g., 42)',
       helpText: 'For Analytics Data Filtering',
       column: 'right',
-      visible: (_formData) => mode === 'edit',
     },
     {
       type: 'checkbox',
@@ -214,6 +214,16 @@ export default function UserModal({ mode, isOpen, onClose, onSuccess, user }: Us
   const handleSubmit = async (data: UserFormData) => {
     if (mode === 'create') {
       const createData = data as CreateUserFormData;
+
+      // Parse provider_uid from string input
+      let provider_uid: number | null = null;
+      if (createData.provider_uid_input?.trim()) {
+        const parsed = parseInt(createData.provider_uid_input.trim(), 10);
+        if (!Number.isNaN(parsed) && parsed > 0) {
+          provider_uid = parsed;
+        }
+      }
+
       await createUser.mutateAsync({
         email: createData.email,
         password: createData.password,
@@ -223,6 +233,7 @@ export default function UserModal({ mode, isOpen, onClose, onSuccess, user }: Us
         email_verified: createData.email_verified || false,
         is_active: createData.is_active !== false,
         role_ids: createData.role_ids,
+        ...(provider_uid !== null && { provider_uid }),
       } as never);
     } else if (user) {
       const editData = data as EditUserFormData;

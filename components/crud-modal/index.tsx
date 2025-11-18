@@ -84,19 +84,21 @@ export default function CrudModal<TFormData extends FieldValues = FieldValues, T
       // Call the provided submit handler
       await onSubmit(submittedData);
 
-      // Show success toast
+      // Show success toast (will remain visible after modal closes)
       if (showSuccessToast) {
         setShowToast(true);
+        // Auto-hide toast after 3 seconds
+        setTimeout(() => setShowToast(false), 3000);
       }
 
-      // Reset form and close modal after a brief delay to show toast
-      setTimeout(() => {
-        reset();
-        onClose();
-        onSuccess?.();
-        afterSuccess?.();
-        setShowToast(false);
-      }, 2000);
+      // Close modal immediately for snappy UX
+      reset();
+      onClose();
+
+      // Trigger callbacks (like refetch) immediately
+      // These will update the page in the background
+      onSuccess?.();
+      afterSuccess?.();
     } catch (error) {
       // Error handling is done by the mutation/onSubmit handler
       if (process.env.NODE_ENV === 'development') {
@@ -281,7 +283,7 @@ export default function CrudModal<TFormData extends FieldValues = FieldValues, T
           type="success"
           open={showToast}
           setOpen={setShowToast}
-          className="fixed bottom-4 right-4 z-50"
+          className="fixed bottom-4 right-4 z-[60]"
         >
           {finalSuccessMessage}
         </Toast>
