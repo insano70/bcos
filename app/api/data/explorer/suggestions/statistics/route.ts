@@ -51,3 +51,4 @@ export const GET = rbacRoute(getSuggestionStatisticsHandler, {
 
 export const dynamic = 'force-dynamic';
 
+

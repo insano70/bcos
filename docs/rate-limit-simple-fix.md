@@ -6,6 +6,14 @@
 
 ---
 
+## Request Identifier Strategy
+
+- **Issue**: The prior limiter trusted `x-forwarded-for`, allowing any client to spoof their IP and bypass limits. We also had to maintain allow-lists of proxy IPs as they rotated.
+- **Fix**: The limiter now keys off `NextRequest.ip`, which Next.js derives from the actual connection (ALB/Edge). If the runtime is unavailable, we fall back to infrastructure-populated headers (`x-real-ip`, `cf-connecting-ip`, etc.) before defaulting to `anonymous`.
+- **Benefit**: No proxy maintenance, no spoofing via user-controlled headers, and the change is contained to `getRateLimitKey()` so every caller benefits automatically.
+
+---
+
 ## Analysis: What's Being Double-Counted?
 
 ### Issue 1: Login Flow (10-15 requests)

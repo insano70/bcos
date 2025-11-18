@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useMemo, useState } from 'react';
-import AddOrganizationModal from '@/components/add-organization-modal';
+import OrganizationModal from '@/components/organization-modal';
 import DataTable, {
   type DataTableBulkAction,
   type DataTableColumn,
@@ -9,7 +9,6 @@ import DataTable, {
 } from '@/components/data-table-standard';
 import DateSelect, { type DateRange } from '@/components/date-select';
 import FilterButton, { type ActiveFilter, type FilterGroup } from '@/components/dropdown-filter';
-import EditOrganizationModal from '@/components/edit-organization-modal';
 import OrganizationUsersModal from '@/components/organization-users-modal';
 import { ProtectedComponent } from '@/components/rbac/protected-component';
 import { apiClient } from '@/lib/api/client';
@@ -384,13 +383,15 @@ export default function OrganizationsContent() {
         stickyHeader={true}
       />
 
-      <AddOrganizationModal
+      <OrganizationModal
+        mode="create"
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
         onSuccess={refetch}
       />
 
-      <EditOrganizationModal
+      <OrganizationModal
+        mode="edit"
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
         onSuccess={refetch}

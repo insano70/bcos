@@ -12,11 +12,15 @@ export const env = createEnv({
     ANALYTICS_DATABASE_URL: z.string().url('Invalid ANALYTICS_DATABASE_URL format').optional(),
 
     // Authentication & Security
-    JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters for security'),
+    // SECURITY: 64-character minimum enforced for all environments (development, test, production)
+    JWT_SECRET: z.string().min(64, 'JWT_SECRET must be at least 64 characters for security'),
     JWT_REFRESH_SECRET: z
       .string()
-      .min(32, 'JWT_REFRESH_SECRET must be at least 32 characters for security'),
-    CSRF_SECRET: z.string().min(32, 'CSRF_SECRET must be at least 32 characters for security'),
+      .min(64, 'JWT_REFRESH_SECRET must be at least 64 characters for security'),
+    CSRF_SECRET: z.string().min(64, 'CSRF_SECRET must be at least 64 characters for security'),
+    MFA_TEMP_TOKEN_SECRET: z
+      .string()
+      .min(64, 'MFA_TEMP_TOKEN_SECRET must be at least 64 characters for security'),
 
     // Email Service - AWS SES Configuration
     SMTP_USERNAME: z.string().optional(),
@@ -40,7 +44,7 @@ export const env = createEnv({
     OIDC_REDIRECT_URI: z.string().url('OIDC_REDIRECT_URI must be a valid URL').optional(),
     OIDC_SESSION_SECRET: z
       .string()
-      .min(32, 'OIDC_SESSION_SECRET must be at least 32 characters for security')
+      .min(64, 'OIDC_SESSION_SECRET must be at least 64 characters for security')
       .optional(),
     OIDC_SCOPES: z.string().optional(), // Space or comma-separated list
     OIDC_ALLOWED_DOMAINS: z.string().optional(), // Comma-separated list
@@ -112,6 +116,7 @@ export const env = createEnv({
     JWT_SECRET: process.env.JWT_SECRET,
     JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET,
     CSRF_SECRET: process.env.CSRF_SECRET,
+    MFA_TEMP_TOKEN_SECRET: process.env.MFA_TEMP_TOKEN_SECRET,
     SMTP_USERNAME: process.env.SMTP_USERNAME,
     SMTP_PASSWORD: process.env.SMTP_PASSWORD,
     SMTP_FROM_EMAIL: process.env.SMTP_FROM_EMAIL,
@@ -184,19 +189,6 @@ if (typeof window === 'undefined') {
     env.NODE_ENV === 'production' && process.env.VERCEL_ENV === 'production';
 
   if (isActualProduction) {
-    // Ensure JWT secrets are strong enough for production
-    if (env.JWT_SECRET.length < 64) {
-      throw new Error('JWT_SECRET must be at least 64 characters in production');
-    }
-
-    if (env.JWT_REFRESH_SECRET.length < 64) {
-      throw new Error('JWT_REFRESH_SECRET must be at least 64 characters in production');
-    }
-
-    if (env.CSRF_SECRET.length < 64) {
-      throw new Error('CSRF_SECRET must be at least 64 characters in production');
-    }
-
     // Ensure JWT secrets are different for better security isolation
     if (env.JWT_SECRET === env.JWT_REFRESH_SECRET) {
       throw new Error(
@@ -210,10 +202,44 @@ if (typeof window === 'undefined') {
     }
 
     // Email service configuration - using EMAIL_FROM if available
-
     if (!env.ADMIN_NOTIFICATION_EMAILS) {
       console.warn('⚠️ ADMIN_NOTIFICATION_EMAILS not configured - security alerts will not be sent');
     }
+  }
+
+  // Enforce secret uniqueness in all environments (development, test, production)
+  const secrets: Record<string, string> = {
+    JWT_SECRET: env.JWT_SECRET,
+    JWT_REFRESH_SECRET: env.JWT_REFRESH_SECRET,
+    CSRF_SECRET: env.CSRF_SECRET,
+    MFA_TEMP_TOKEN_SECRET: env.MFA_TEMP_TOKEN_SECRET,
+  };
+
+  // Add optional OIDC secret if configured
+  if (env.OIDC_SESSION_SECRET) {
+    secrets.OIDC_SESSION_SECRET = env.OIDC_SESSION_SECRET;
+  }
+
+  // Check for duplicate secrets
+  const secretValues = Object.values(secrets);
+  const uniqueSecrets = new Set(secretValues);
+
+  if (uniqueSecrets.size !== secretValues.length) {
+    // Find which secrets are duplicates
+    const duplicates: string[] = [];
+    const secretEntries = Object.entries(secrets);
+    
+    for (let i = 0; i < secretEntries.length; i++) {
+      for (let j = i + 1; j < secretEntries.length; j++) {
+        if (secretEntries[i]?.[1] === secretEntries[j]?.[1]) {
+          duplicates.push(`${secretEntries[i]?.[0]} and ${secretEntries[j]?.[0]}`);
+        }
+      }
+    }
+
+    throw new Error(
+      `All authentication secrets must be unique for security isolation. Duplicate secrets found: ${duplicates.join(', ')}`
+    );
   }
 }
 

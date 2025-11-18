@@ -5,10 +5,9 @@ import DataTable, {
   type DataTableColumn,
   type DataTableDropdownAction,
 } from '@/components/data-table-standard';
-import EditTableMetadataModal from '@/components/edit-table-metadata-modal';
+import TableMetadataModal from '@/components/table-metadata-modal';
 import ViewColumnsModal from '@/components/view-columns-modal';
 import DiscoveryProgressModal from '@/components/discovery-progress-modal';
-import CreateTableMetadataModal from '@/components/create-table-metadata-modal';
 import { ProtectedComponent } from '@/components/rbac/protected-component';
 import { apiClient } from '@/lib/api/client';
 import { useTableMetadata, useAnalyzeTableColumns, useAnalyzeSchema } from '@/lib/hooks/use-data-explorer';
@@ -243,8 +242,17 @@ export default function MetadataManagementContent() {
         exportable={false}
       />
 
+      {/* Create Table Modal */}
+      <TableMetadataModal
+        mode="create"
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSuccess={() => refetch()}
+      />
+
       {/* Edit Modal */}
-      <EditTableMetadataModal
+      <TableMetadataModal
+        mode="edit"
         isOpen={isEditModalOpen}
         onClose={() => {
           setIsEditModalOpen(false);
@@ -278,13 +286,6 @@ export default function MetadataManagementContent() {
         isDiscovering={isDiscovering}
         result={discoveryResult}
         error={discoveryError}
-      />
-
-      {/* Create Table Modal */}
-      <CreateTableMetadataModal
-        isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
-        onSuccess={() => refetch()}
       />
 
       {/* Statistics Analysis Modal */}

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useMemo, useState } from 'react';
-import AddWorkItemTypeModal from '@/components/add-work-item-type-modal';
+import WorkItemTypeModal from '@/components/work-item-type-modal';
 import DataTable, {
   type DataTableBulkAction,
   type DataTableColumn,
@@ -9,7 +9,6 @@ import DataTable, {
 } from '@/components/data-table-standard';
 import DateSelect, { type DateRange } from '@/components/date-select';
 import FilterButton, { type ActiveFilter, type FilterGroup } from '@/components/dropdown-filter';
-import EditWorkItemTypeModal from '@/components/edit-work-item-type-modal';
 import ManageRelationshipsModal from '@/components/manage-relationships-modal';
 import ManageStatusesModal from '@/components/manage-statuses-modal';
 import ManageWorkItemFieldsModal from '@/components/manage-work-item-fields-modal';
@@ -454,7 +453,8 @@ export default function WorkItemTypesContent() {
       />
 
       {/* Add Modal */}
-      <AddWorkItemTypeModal
+      <WorkItemTypeModal
+        mode="create"
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
         onSuccess={() => {
@@ -464,21 +464,20 @@ export default function WorkItemTypesContent() {
       />
 
       {/* Edit Modal */}
-      {selectedWorkItemType && (
-        <EditWorkItemTypeModal
-          isOpen={isEditModalOpen}
-          onClose={() => {
-            setIsEditModalOpen(false);
-            setSelectedWorkItemType(null);
-          }}
-          onSuccess={() => {
-            setIsEditModalOpen(false);
-            setSelectedWorkItemType(null);
-            refetch();
-          }}
-          workItemType={selectedWorkItemType}
-        />
-      )}
+      <WorkItemTypeModal
+        mode="edit"
+        isOpen={isEditModalOpen}
+        onClose={() => {
+          setIsEditModalOpen(false);
+          setSelectedWorkItemType(null);
+        }}
+        onSuccess={() => {
+          setIsEditModalOpen(false);
+          setSelectedWorkItemType(null);
+          refetch();
+        }}
+        workItemType={selectedWorkItemType}
+      />
 
       {/* Manage Custom Fields Modal */}
       {selectedWorkItemType && (

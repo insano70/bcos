@@ -1,6 +1,6 @@
 import bcrypt from 'bcrypt';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { hashPassword, verifyPassword } from '@/lib/auth/password';
+import { hashPassword, verifyPassword } from '@/lib/auth/security';
 
 // Mock bcrypt functions
 vi.mock('bcrypt', () => ({

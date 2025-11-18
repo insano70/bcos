@@ -1,5 +1,5 @@
 import type { InferSelectModel } from 'drizzle-orm';
-import { hashPassword } from '@/lib/auth/password';
+import { hashPassword } from '@/lib/auth/security';
 import { users } from '@/lib/db/schema';
 import { getCurrentTransaction } from '@/tests/helpers/db-helper';
 import { generateUniqueEmail, generateUniqueUsername } from '@/tests/helpers/unique-generator';

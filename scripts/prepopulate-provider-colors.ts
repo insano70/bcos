@@ -19,7 +19,7 @@
  */
 
 import * as dotenv from 'dotenv';
-import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import * as schema from '@/lib/db/schema';
@@ -28,12 +28,18 @@ import { chart_data_sources } from '@/lib/db/chart-config-schema';
 // Load environment variables from .env.local BEFORE creating connections
 dotenv.config({ path: '.env.local' });
 
+// Validate required environment variables
+if (!process.env.DATABASE_URL) {
+  console.error('❌ DATABASE_URL environment variable is required');
+  process.exit(1);
+}
+
 // Create database connections directly (avoid importing @/lib/db which loads env.ts)
-const queryClient = postgres(process.env.DATABASE_URL!);
+const queryClient = postgres(process.env.DATABASE_URL);
 const db = drizzle(queryClient, { schema: { ...schema, chart_data_sources } });
 
 // Analytics database connection (AWS RDS requires SSL)
-const analyticsClient = postgres(process.env.ANALYTICS_DATABASE_URL || process.env.DATABASE_URL!, {
+const analyticsClient = postgres(process.env.ANALYTICS_DATABASE_URL || process.env.DATABASE_URL, {
   ssl: 'require', // AWS RDS requires SSL
 });
 const analyticsDb = drizzle(analyticsClient);

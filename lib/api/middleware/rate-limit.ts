@@ -81,14 +81,26 @@ function redactIpForLogging(ip: string): string {
 }
 
 /**
- * Extract IP address from request
- * Checks x-forwarded-for and x-real-ip headers first
+ * Extract a stable identifier for rate limiting.
+ * Prefers Next.js' connection-level IP (non-spoofable) and falls back to
+ * infrastructurally populated headers when running outside the NextRequest context.
  */
+type RequestWithIp = Request & { ip?: string | null };
+
 export function getRateLimitKey(request: Request, prefix = ''): string {
-  const forwardedFor = request.headers.get('x-forwarded-for');
-  const firstIp = forwardedFor ? forwardedFor.split(',')[0] : null;
-  const trimmedIp = firstIp ? firstIp.trim() : null;
-  const ip = trimmedIp || request.headers.get('x-real-ip') || 'anonymous';
+  const requestWithIp = request as RequestWithIp;
+  const ipFromRuntime =
+    typeof requestWithIp.ip === 'string' && requestWithIp.ip.length > 0
+      ? requestWithIp.ip
+      : null;
+
+  const fallbackIp =
+    request.headers.get('x-real-ip') ||
+    request.headers.get('cf-connecting-ip') ||
+    request.headers.get('true-client-ip') ||
+    request.headers.get('x-client-ip');
+
+  const ip = ipFromRuntime || fallbackIp || 'anonymous';
   return prefix ? `${prefix}:${ip}` : ip;
 }
 

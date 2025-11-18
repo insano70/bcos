@@ -10,6 +10,7 @@
  */
 
 import { jwtVerify, SignJWT } from 'jose';
+import { env } from '@/lib/env';
 import { log } from '@/lib/logger';
 import type { MFATempTokenPayload } from '@/lib/types/webauthn';
 
@@ -19,28 +20,10 @@ import type { MFATempTokenPayload } from '@/lib/types/webauthn';
 const TEMP_TOKEN_DURATION_MS = 5 * 60 * 1000;
 
 /**
- * Validate and encode MFA temp token secret at module load time
- * SECURITY: Fail fast if environment variable is missing or invalid
+ * Module-scoped secret - validated by env.ts at load time
+ * SECURITY: env.ts ensures 64-character minimum and fails fast on startup if missing/invalid
  */
-function validateAndEncodeTempTokenSecret(): Uint8Array {
-  const secret = process.env.MFA_TEMP_TOKEN_SECRET;
-
-  if (!secret) {
-    throw new Error('MFA_TEMP_TOKEN_SECRET environment variable is required');
-  }
-
-  if (secret.length < 32) {
-    throw new Error('MFA_TEMP_TOKEN_SECRET must be at least 32 characters');
-  }
-
-  return new TextEncoder().encode(secret);
-}
-
-/**
- * Module-scoped secret - validated at load time
- * SECURITY: Fail fast on startup if secret is missing/invalid
- */
-const MFA_TEMP_TOKEN_SECRET = validateAndEncodeTempTokenSecret();
+const MFA_TEMP_TOKEN_SECRET = new TextEncoder().encode(env.MFA_TEMP_TOKEN_SECRET);
 
 /**
  * Create temporary MFA token for authentication flow

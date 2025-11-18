@@ -7,6 +7,7 @@ export interface User {
   email: string;
   email_verified: boolean | null;
   is_active: boolean | null;
+  organization_id?: string | null;
   provider_uid?: number | null;
   created_at: string;
   deleted_at: string | null;
@@ -34,6 +35,7 @@ export interface UpdateUserData {
   last_name?: string | undefined;
   email?: string | undefined;
   password?: string | undefined;
+  organization_id?: string | undefined;
   role_ids?: string[] | undefined;
   email_verified?: boolean | undefined;
   is_active?: boolean | undefined;

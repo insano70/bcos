@@ -1,6 +1,6 @@
 import { and, eq } from 'drizzle-orm';
 import { log } from '@/lib/logger';
-import { hashPassword } from '../auth/password';
+import { hashPassword } from '../auth/security';
 import { db, practice_attributes, practices, staff_members, templates, users } from './index';
 import { organizations, roles, user_organizations, user_roles } from './rbac-schema';
 

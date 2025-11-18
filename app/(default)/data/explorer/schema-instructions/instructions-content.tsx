@@ -6,8 +6,7 @@ import DataTable, {
   type DataTableDropdownAction,
 } from '@/components/data-table-standard';
 import { ProtectedComponent } from '@/components/rbac/protected-component';
-import CreateSchemaInstructionModal from '@/components/create-schema-instruction-modal';
-import EditSchemaInstructionModal from '@/components/edit-schema-instruction-modal';
+import SchemaInstructionModal from '@/components/schema-instruction-modal';
 import { apiClient } from '@/lib/api/client';
 import { useSchemaInstructions } from '@/lib/hooks/use-data-explorer';
 import type { SchemaInstruction } from '@/lib/types/data-explorer';
@@ -155,14 +154,16 @@ export default function SchemaInstructionsContent() {
       />
 
       {/* Create Modal */}
-      <CreateSchemaInstructionModal
+      <SchemaInstructionModal
+        mode="create"
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onSuccess={() => refetch()}
       />
 
       {/* Edit Modal */}
-      <EditSchemaInstructionModal
+      <SchemaInstructionModal
+        mode="edit"
         isOpen={isEditModalOpen}
         onClose={() => {
           setIsEditModalOpen(false);

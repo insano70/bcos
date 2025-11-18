@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import AddUserModal from '@/components/add-user-modal';
+import UserModal from '@/components/user-modal';
 import { useAuth } from '@/components/auth/rbac-auth-provider';
 import DataTable, {
   type DataTableColumn,
@@ -10,7 +10,6 @@ import DataTable, {
 import DateSelect, { type DateRange } from '@/components/date-select';
 import DeleteButton from '@/components/delete-button';
 import FilterButton, { type ActiveFilter, type FilterGroup } from '@/components/dropdown-filter';
-import EditUserModal from '@/components/edit-user-modal';
 import { ProtectedComponent } from '@/components/rbac/protected-component';
 import { apiClient } from '@/lib/api/client';
 import { type User, useUsers } from '@/lib/hooks/use-users';
@@ -470,7 +469,8 @@ export default function UsersContent() {
       />
 
       {/* Add User Modal */}
-      <AddUserModal
+      <UserModal
+        mode="create"
         isOpen={isAddUserModalOpen}
         onClose={() => setIsAddUserModalOpen(false)}
         onSuccess={() => {
@@ -479,7 +479,8 @@ export default function UsersContent() {
       />
 
       {/* Edit User Modal */}
-      <EditUserModal
+      <UserModal
+        mode="edit"
         isOpen={isEditUserModalOpen}
         onClose={() => {
           setIsEditUserModalOpen(false);

@@ -14,7 +14,7 @@
 
 import type { InferSelectModel } from 'drizzle-orm';
 import { inArray } from 'drizzle-orm';
-import { hashPassword } from '@/lib/auth/password';
+import { hashPassword } from '@/lib/auth/security';
 import { users } from '@/lib/db/schema';
 import { generateUniqueEmail } from '@/tests/helpers/unique-generator';
 import {

@@ -53,3 +53,4 @@ export const GET = rbacRoute(getDailyDigestHandler, {
 
 export const dynamic = 'force-dynamic';
 
+
