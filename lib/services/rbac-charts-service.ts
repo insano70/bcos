@@ -45,6 +45,7 @@ export interface ChartWithMetadata {
   chart_description: string | undefined;
   chart_type: string;
   data_source: string | Record<string, unknown>;
+  data_source_id?: number | null | undefined;
   chart_config: Record<string, unknown>;
   chart_category_id: number | undefined;
   created_by: string;
@@ -220,6 +221,7 @@ export class RBACChartsService extends BaseRBACService {
       chart_description: chartDef.chart_description || undefined,
       chart_type: chartDef.chart_type,
       data_source: chartDef.data_source as string | Record<string, unknown>,
+      data_source_id: chartDef.data_source_id || undefined,
       chart_config: chartDef.chart_config as Record<string, unknown>,
       chart_category_id: chartDef.chart_category_id || undefined,
       created_by: chartDef.created_by,

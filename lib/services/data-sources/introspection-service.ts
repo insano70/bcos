@@ -202,6 +202,7 @@ export class DataSourceIntrospectionService {
           is_dimension: characteristics.isDimension,
           is_date_field: characteristics.isDateField,
           is_measure_type: characteristics.isMeasureType,
+          is_expansion_dimension: false,
           is_time_period: characteristics.isTimePeriod,
           sort_order: index,
           display_icon: false,

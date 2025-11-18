@@ -20,10 +20,11 @@ import type {
   Dashboard,
   DashboardChart,
 } from '@/lib/types/analytics';
-import BatchChartRenderer, { type BatchChartData } from './batch-chart-renderer';
+import type { BatchChartData } from './batch-chart-renderer';
 import ChartErrorBoundary from './chart-error-boundary';
 import DashboardFilterDropdown from './dashboard-filter-dropdown';
 import DashboardFilterPills from './dashboard-filter-pills';
+import ExpandableChartContainer from './expandable-chart-container';
 
 interface DashboardViewProps {
   dashboard: Dashboard;
@@ -464,9 +465,10 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
                 overflow: 'hidden',
               }}
             >
-              {/* Batch-only rendering - wrap with error boundary to prevent dashboard crashes */}
+              {/* Expandable chart with dimension support - wrap with error boundary */}
               <ChartErrorBoundary chartName={chartDef.chart_name}>
-                <BatchChartRenderer
+                <ExpandableChartContainer
+                  chartDefinitionId={chartDef.chart_definition_id}
                   chartData={batchChartData as BatchChartData}
                   chartDefinition={{
                     chart_definition_id: chartDef.chart_definition_id,
@@ -475,10 +477,17 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
                     chart_config: chartConfig,
                   }}
                   position={dashboardChart.position}
+                  currentFilters={universalFilters}
                   className="w-full h-full flex-1"
                   responsive={true}
                   minHeight={DASHBOARD_LAYOUT.CHART.MIN_HEIGHT_WITH_PADDING}
                   maxHeight={containerHeight - DASHBOARD_LAYOUT.CHART.HEIGHT_PADDING}
+                  {...((chartDef.chart_type === 'bar' ||
+                    chartDef.chart_type === 'stacked-bar' ||
+                    chartDef.chart_type === 'horizontal-bar' ||
+                    chartDef.chart_type === 'dual-axis') && {
+                    onFullscreen: () => {}, // Will be handled by BatchChartRenderer internally
+                  })}
                 />
               </ChartErrorBoundary>
             </div>

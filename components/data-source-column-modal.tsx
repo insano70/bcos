@@ -5,6 +5,7 @@ import {
   type DataSourceColumn,
   useCreateDataSourceColumn,
 } from '@/lib/hooks/use-data-sources';
+import { apiClient } from '@/lib/api/client';
 import CrudModal from './crud-modal';
 import type { FieldConfig } from './crud-modal/types';
 
@@ -29,6 +30,8 @@ const createDataSourceColumnSchema = z.object({
   is_date_field: z.boolean().optional(),
   is_measure_type: z.boolean().optional(),
   is_time_period: z.boolean().optional(),
+  is_expansion_dimension: z.boolean().optional(),
+  expansion_display_name: z.string().optional(),
   is_sensitive: z.boolean().optional(),
   is_active: z.boolean().optional(),
 });
@@ -36,8 +39,8 @@ const createDataSourceColumnSchema = z.object({
 // Edit schema with icon-related fields, no column_name or data_type
 const editDataSourceColumnSchema = z.object({
   display_name: z.string().min(1, 'Display name is required'),
-  column_description: z.string().optional(),
-  sort_order: z.number().optional(),
+  column_description: z.union([z.string(), z.null()]).optional(),
+  sort_order: z.union([z.number(), z.null()]).optional(),
   is_filterable: z.boolean().optional(),
   is_groupable: z.boolean().optional(),
   is_measure: z.boolean().optional(),
@@ -45,16 +48,24 @@ const editDataSourceColumnSchema = z.object({
   is_date_field: z.boolean().optional(),
   is_measure_type: z.boolean().optional(),
   is_time_period: z.boolean().optional(),
-  format_type: z.string().optional(),
-  default_aggregation: z.string().optional(),
+  is_expansion_dimension: z.boolean().optional(),
+  expansion_display_name: z.union([z.string(), z.null()]).optional(),
+  format_type: z.union([z.string(), z.null()]).optional(),
+  default_aggregation: z.union([z.string(), z.null()]).optional(),
   is_sensitive: z.boolean().optional(),
-  access_level: z.string().optional(),
-  example_value: z.string().optional(),
+  access_level: z.union([z.string(), z.null()]).optional(),
+  example_value: z.union([z.string(), z.null()]).optional(),
   is_active: z.boolean().optional(),
   display_icon: z.boolean().optional(),
-  icon_type: z.enum(['initials', 'first_letter', 'emoji']).optional(),
-  icon_color_mode: z.enum(['auto', 'fixed', 'mapped']).optional(),
-  icon_color: z.string().optional(),
+  icon_type: z.union([
+    z.enum(['initials', 'first_letter', 'emoji', '']),
+    z.null()
+  ]).optional(),
+  icon_color_mode: z.union([
+    z.enum(['auto', 'fixed', 'mapped', '']),
+    z.null()
+  ]).optional(),
+  icon_color: z.union([z.string().max(50), z.null()]).optional(),
 });
 
 type CreateDataSourceColumnFormData = z.infer<typeof createDataSourceColumnSchema>;
@@ -176,9 +187,23 @@ export default function DataSourceColumnModal({
     },
     {
       type: 'checkbox',
+      name: 'is_expansion_dimension' as never,
+      label: 'Expansion Dimension - Available for chart dimension expansion (e.g., Location, Line of Business)',
+      column: 'right',
+    },
+    {
+      type: 'text',
+      name: 'expansion_display_name' as never,
+      label: 'Expansion Display Name (optional)',
+      placeholder: 'e.g., "Location" or "Line of Business"',
+      column: 'full',
+      visible: (formData) => !!(formData as DataSourceColumnFormData).is_expansion_dimension,
+    },
+    {
+      type: 'checkbox',
       name: 'is_sensitive' as never,
       label: 'Sensitive Data - Requires additional permissions',
-      column: 'right',
+      column: 'left',
     },
     {
       type: 'checkbox',
@@ -247,22 +272,12 @@ export default function DataSourceColumnModal({
       } as never);
     } else if (column?.column_id) {
       const editData = data as EditDataSourceColumnFormData;
-      // Use the API client directly with the correct column_id from the current column
-      const response = await fetch(`/api/admin/data-sources/${dataSourceId}/columns/${column.column_id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(editData),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to update column');
-      }
-
-      // Return the response data to match the mutation pattern
-      return await response.json();
+      
+      // Use apiClient which handles CSRF tokens
+      await apiClient.put(
+        `/api/admin/data-sources/${dataSourceId}/columns/${column.column_id}`,
+        editData
+      );
     }
   };
 
@@ -296,6 +311,8 @@ export default function DataSourceColumnModal({
           is_date_field: false,
           is_measure_type: false,
           is_time_period: false,
+          is_expansion_dimension: false,
+          expansion_display_name: '',
           is_sensitive: false,
           is_active: true,
           display_icon: false,

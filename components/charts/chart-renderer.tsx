@@ -161,6 +161,14 @@ export default function ChartRenderer({
 
   // Handle unsupported chart types
   if (!Component) {
+    console.error('ChartRenderer: Unsupported chart type', {
+      chartType,
+      typeofChartType: typeof chartType,
+      availableTypes: Object.keys(CHART_COMPONENTS),
+      data,
+      otherProps,
+    });
+    
     return (
       <div className="flex items-center justify-center h-64 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
         <div className="text-center">

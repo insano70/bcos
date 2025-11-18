@@ -241,6 +241,7 @@ export default function DataSourceColumnsContent({ dataSourceId }: DataSourceCol
     if (_column.is_measure) types.push('Measure');
     if (_column.is_dimension) types.push('Dimension');
     if (_column.is_date_field) types.push('Date');
+    if (_column.is_expansion_dimension) types.push('Expansion Dimension');
 
     if (types.length === 0) return null;
 
@@ -250,7 +251,9 @@ export default function DataSourceColumnsContent({ dataSourceId }: DataSourceCol
           <span
             key={type}
             className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-              type === 'Measure'
+              type === 'Expansion Dimension'
+                ? 'bg-violet-100 text-violet-800 dark:bg-violet-900 dark:text-violet-200'
+                : type === 'Measure'
                 ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
                 : type === 'Dimension'
                   ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'

@@ -138,6 +138,12 @@ interface BatchChartRendererProps {
    * Export functionality
    */
   onExport?: (format: 'png' | 'pdf' | 'csv') => void;
+
+  /**
+   * Dimension expansion support (passed to fullscreen modals)
+   */
+  chartDefinitionId?: string;
+  currentFilters?: Record<string, unknown>;
 }
 
 /**
@@ -169,6 +175,8 @@ export default function BatchChartRenderer({
   error = null,
   onRetry,
   onExport,
+  chartDefinitionId,
+  currentFilters,
 }: BatchChartRendererProps) {
   // Hooks must be called before any conditional returns
   // Chart ref for export functionality (like AnalyticsChart)
@@ -199,6 +207,22 @@ export default function BatchChartRenderer({
   // Extract chart configuration from definition
   const chartConfig = chartDefinition.chart_config || {};
   const configRecord = chartConfig as Record<string, unknown>;
+  
+  console.log('BatchChartRenderer config extraction', {
+    chartType: chartDefinition.chart_type,
+    hasChartConfig: !!chartDefinition.chart_config,
+    configKeys: Object.keys(configRecord),
+    colorPalette: configRecord.colorPalette,
+    stackingMode: configRecord.stackingMode,
+    metadata: chartData.metadata,
+    chartDataStructure: {
+      hasLabels: !!chartData.chartData.labels,
+      labelCount: chartData.chartData.labels?.length,
+      datasetCount: chartData.chartData.datasets?.length,
+      firstDataset: chartData.chartData.datasets?.[0],
+    },
+  });
+  
   const colorPalette = configRecord.colorPalette as string | undefined;
   const stackingMode = configRecord.stackingMode as string | undefined;
   const dualAxisConfig = configRecord.dualAxisConfig as
@@ -335,6 +359,9 @@ export default function BatchChartRenderer({
             chartType={chartDefinition.chart_type as 'bar' | 'stacked-bar' | 'horizontal-bar'}
             frequency={chartData.metadata.frequency || 'Monthly'}
             {...(stackingMode && { stackingMode: stackingMode as 'normal' | 'percentage' })}
+            {...(chartDefinitionId && { chartDefinitionId })}
+            {...(currentFilters && { currentFilters })}
+            {...(chartDefinition.chart_config && { chartConfig: chartDefinition.chart_config })}
           />
         )}
 
@@ -350,6 +377,9 @@ export default function BatchChartRenderer({
             chartData={chartData.chartData}
             primaryAxisLabel={dualAxisConfig.primary.axisLabel}
             secondaryAxisLabel={dualAxisConfig.secondary.axisLabel}
+            {...(chartDefinitionId && { chartDefinitionId })}
+            {...(currentFilters && { currentFilters })}
+            {...(chartDefinition.chart_config && { chartConfig: chartDefinition.chart_config })}
           />
         )}
     </GlassCard>

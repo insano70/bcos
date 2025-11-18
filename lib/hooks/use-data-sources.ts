@@ -67,6 +67,8 @@ export interface DataSourceColumn {
   is_date_field: boolean | null;
   is_measure_type: boolean | null;
   is_time_period: boolean | null;
+  is_expansion_dimension: boolean | null;
+  expansion_display_name: string | null;
 
   // Display and formatting
   format_type: string | null;

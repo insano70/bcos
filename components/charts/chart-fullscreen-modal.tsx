@@ -16,7 +16,7 @@ import {
   Tooltip,
 } from 'chart.js';
 import { useTheme } from 'next-themes';
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import type { ChartData } from '@/lib/types/analytics';
 import 'chartjs-adapter-moment';
@@ -26,6 +26,10 @@ import { chartColors } from '@/components/charts/chartjs-config';
 import { formatValue, formatValueCompact } from '@/lib/utils/chart-data/formatters/value-formatter';
 import { createPeriodComparisonHtmlLegend } from '@/lib/utils/period-comparison-legend';
 import { createPeriodComparisonTooltipCallbacks } from '@/lib/utils/period-comparison-tooltips';
+import { apiClient } from '@/lib/api/client';
+import type { AvailableDimensionsResponse, DimensionExpandedChartData, ExpansionDimension } from '@/lib/types/dimensions';
+import DimensionSelector from './dimension-selector';
+import DimensionComparisonView from './dimension-comparison-view';
 
 // Register zoom plugin (moved inside component to avoid affecting global Chart.js state at module load time)
 let pluginsRegistered = false;
@@ -38,6 +42,15 @@ interface ChartFullscreenModalProps {
   chartType: 'line' | 'bar' | 'stacked-bar' | 'horizontal-bar';
   frequency?: string;
   stackingMode?: 'normal' | 'percentage';
+  chartDefinitionId?: string;
+  currentFilters?: {
+    startDate?: string | null;
+    endDate?: string | null;
+    organizationId?: string | null;
+    practiceUids?: number[];
+    providerName?: string | null;
+  };
+  chartConfig?: Record<string, unknown>;
 }
 
 export default function ChartFullscreenModal({
@@ -48,6 +61,9 @@ export default function ChartFullscreenModal({
   chartType,
   frequency = 'Monthly',
   stackingMode = 'normal',
+  chartDefinitionId,
+  currentFilters = {},
+  chartConfig,
 }: ChartFullscreenModalProps) {
   const [chart, setChart] = useState<ChartType | null>(null);
   const [mounted, setMounted] = useState(false);
@@ -58,11 +74,89 @@ export default function ChartFullscreenModal({
   const darkMode = theme === 'dark';
 
   const chartTitleId = useId();
+  
+  // Dimension expansion state
+  const [showDimensionSelector, setShowDimensionSelector] = useState(false);
+  const [availableDimensions, setAvailableDimensions] = useState<ExpansionDimension[]>([]);
+  const [expandedData, setExpandedData] = useState<DimensionExpandedChartData | null>(null);
+  const [dimensionLoading, setDimensionLoading] = useState(false);
 
   // Callback ref to ensure canvas is mounted
   const setCanvasRef = (element: HTMLCanvasElement | null) => {
     canvasRef.current = element;
   };
+
+  // Fetch available dimensions when modal opens
+  useEffect(() => {
+    if (isOpen && chartDefinitionId && !expandedData) {
+      fetchAvailableDimensions();
+    }
+  }, [isOpen, chartDefinitionId]);
+
+  const fetchAvailableDimensions = useCallback(async () => {
+    if (!chartDefinitionId) return;
+    
+    try {
+      const response = await apiClient.get<AvailableDimensionsResponse>(
+        `/api/admin/analytics/charts/${chartDefinitionId}/dimensions`
+      );
+      setAvailableDimensions(response.dimensions || []);
+    } catch (_error) {
+      // Silently fail - dimensions are optional feature
+      setAvailableDimensions([]);
+    }
+  }, [chartDefinitionId]);
+
+  const handleExpandByDimension = useCallback(() => {
+    if (availableDimensions.length === 1) {
+      // Auto-expand if only one dimension
+      handleDimensionSelect(availableDimensions[0]!);
+    } else {
+      setShowDimensionSelector(true);
+    }
+  }, [availableDimensions]);
+
+  const handleDimensionSelect = useCallback(async (dimension: ExpansionDimension) => {
+    setShowDimensionSelector(false);
+    setDimensionLoading(true);
+
+    try {
+      // Build baseFilters ensuring all security filters are included
+      const baseFilters: Record<string, unknown> = {};
+      
+      // CRITICAL: Must include all filters to maintain data security
+      if (currentFilters) {
+        if (currentFilters.startDate) baseFilters.startDate = currentFilters.startDate;
+        if (currentFilters.endDate) baseFilters.endDate = currentFilters.endDate;
+        if (currentFilters.organizationId) baseFilters.organizationId = currentFilters.organizationId;
+        if (currentFilters.practiceUids && currentFilters.practiceUids.length > 0) {
+          baseFilters.practiceUids = currentFilters.practiceUids;
+        }
+        if (currentFilters.providerName) baseFilters.providerName = currentFilters.providerName;
+      }
+
+      console.log('Dimension expansion baseFilters:', baseFilters);
+
+      const response = await apiClient.post<DimensionExpandedChartData>(
+        `/api/admin/analytics/charts/${chartDefinitionId}/expand`,
+        {
+          dimensionColumn: dimension.columnName,
+          baseFilters,
+          limit: 20,
+        }
+      );
+      setExpandedData(response);
+    } catch (error) {
+      console.error('Failed to expand by dimension:', error);
+    } finally {
+      setDimensionLoading(false);
+    }
+  }, [chartDefinitionId, currentFilters]);
+
+  const handleCollapseDimension = useCallback(() => {
+    setExpandedData(null);
+    setShowDimensionSelector(false);
+  }, []);
 
   // Handle client-side mounting for portal and register plugins
   useEffect(() => {
@@ -478,12 +572,37 @@ export default function ChartFullscreenModal({
             {chartTitle}
           </h2>
           <div className="flex items-center gap-2">
-            <button type="button" onClick={handleResetZoom}
-              className="px-3 py-1.5 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-md transition-colors"
-              aria-label="Reset zoom level"
-            >
-              Reset Zoom
-            </button>
+            {/* Expand by Dimension button - only show if dimensions available */}
+            {!expandedData && availableDimensions.length > 0 && chartDefinitionId && (
+              <button 
+                type="button" 
+                onClick={handleExpandByDimension}
+                disabled={dimensionLoading}
+                className="px-3 py-1.5 text-sm bg-violet-100 dark:bg-violet-900 hover:bg-violet-200 dark:hover:bg-violet-800 text-violet-700 dark:text-violet-200 rounded-md transition-colors disabled:opacity-50"
+                aria-label="Expand by dimension"
+              >
+                {dimensionLoading ? 'Loading...' : 'Expand by Dimension'}
+              </button>
+            )}
+            {/* Collapse button when viewing dimension expansion */}
+            {expandedData && (
+              <button 
+                type="button" 
+                onClick={handleCollapseDimension}
+                className="px-3 py-1.5 text-sm bg-violet-100 dark:bg-violet-900 hover:bg-violet-200 dark:hover:bg-violet-800 text-violet-700 dark:text-violet-200 rounded-md transition-colors"
+                aria-label="Collapse to single chart"
+              >
+                Collapse
+              </button>
+            )}
+            {!expandedData && (
+              <button type="button" onClick={handleResetZoom}
+                className="px-3 py-1.5 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-md transition-colors"
+                aria-label="Reset zoom level"
+              >
+                Reset Zoom
+              </button>
+            )}
             <button type="button" onClick={onClose}
               className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
               aria-label="Close fullscreen view"
@@ -502,9 +621,39 @@ export default function ChartFullscreenModal({
 
         {/* Chart Content */}
         <div className="flex-1 p-6 overflow-auto">
-          <div className="w-full h-[calc(90vh-200px)] min-h-[400px]">
-            <canvas ref={setCanvasRef} />
-          </div>
+          {/* Show dimension selector if active */}
+          {showDimensionSelector && availableDimensions.length > 0 && (
+            <div className="max-w-2xl mx-auto">
+              <DimensionSelector
+                availableDimensions={availableDimensions}
+                onSelect={handleDimensionSelect}
+                onCancel={() => setShowDimensionSelector(false)}
+              />
+            </div>
+          )}
+
+          {/* Show dimension comparison view if expanded */}
+          {expandedData && !showDimensionSelector && (
+            <DimensionComparisonView
+              dimension={expandedData.dimension}
+              chartDefinition={{
+                chart_definition_id: chartDefinitionId || '',
+                chart_name: chartTitle,
+                chart_type: chartType,
+                ...(chartConfig && { chart_config: chartConfig }),
+              }}
+              dimensionCharts={expandedData.charts}
+              onCollapse={handleCollapseDimension}
+              position={{ x: 0, y: 0, w: 12, h: 6 }}
+            />
+          )}
+
+          {/* Show normal chart if not in dimension mode */}
+          {!showDimensionSelector && !expandedData && (
+            <div className="w-full h-[calc(90vh-200px)] min-h-[400px]">
+              <canvas ref={setCanvasRef} />
+            </div>
+          )}
 
           {/* Legend */}
           <div className="mt-4">

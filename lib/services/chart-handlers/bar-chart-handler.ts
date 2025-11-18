@@ -51,6 +51,9 @@ export class BarChartHandler extends BaseChartHandler {
         groupBy,
         colorPalette,
         stackingMode: config.stackingMode,
+        configKeys: Object.keys(config),
+        hasGroupBy: !!config.groupBy,
+        hasColorPalette: !!config.colorPalette,
       });
 
       // NEW: Inject provider colors if grouping by provider

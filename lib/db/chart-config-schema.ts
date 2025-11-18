@@ -70,6 +70,8 @@ export const chart_data_source_columns = pgTable(
     is_date_field: boolean('is_date_field').default(false),
     is_measure_type: boolean('is_measure_type').default(false),
     is_time_period: boolean('is_time_period').default(false),
+    is_expansion_dimension: boolean('is_expansion_dimension').default(false),
+    expansion_display_name: varchar('expansion_display_name', { length: 100 }),
 
     // Display and formatting
     format_type: varchar('format_type', { length: 50 }),

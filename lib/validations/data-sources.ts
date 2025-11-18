@@ -189,6 +189,8 @@ export const dataSourceColumnCreateSchema = z.object({
   is_date_field: z.boolean().optional().default(false),
   is_measure_type: z.boolean().optional().default(false),
   is_time_period: z.boolean().optional().default(false),
+  is_expansion_dimension: z.boolean().optional().default(false),
+  expansion_display_name: createSafeTextSchema(0, 100, 'Expansion display name').optional(),
 
   // Display and formatting
   format_type: createSafeTextSchema(0, 50, 'Format type').optional(),
@@ -197,14 +199,13 @@ export const dataSourceColumnCreateSchema = z.object({
 
   // Icon display options
   display_icon: z.boolean().optional().default(false),
-  icon_type: z.enum(['initials', 'first_letter', 'emoji']).nullable().optional().or(z.literal('')),
+  icon_type: z.enum(['initials', 'first_letter', 'emoji', '']).nullable().optional(),
   icon_color_mode: z
-    .enum(['auto', 'fixed', 'mapped'])
+    .enum(['auto', 'fixed', 'mapped', ''])
     .nullable()
     .optional()
-    .or(z.literal(''))
     .default('auto'),
-  icon_color: createSafeTextSchema(0, 50, 'Icon color').nullable().optional(),
+  icon_color: z.string().max(50).nullable().optional(),
   icon_mapping: z.record(z.string(), z.unknown()).nullable().optional(),
 
   // Security and validation
@@ -229,7 +230,7 @@ export const dataSourceColumnCreateSchema = z.object({
 
 export const dataSourceColumnUpdateSchema = z.object({
   display_name: createSafeTextSchema(1, 100, 'Display name').optional(),
-  column_description: createSafeTextSchema(0, 1000, 'Description').optional(),
+  column_description: z.union([z.string().max(1000), z.null()]).optional(),
 
   // Chart functionality flags
   is_filterable: z.boolean().optional(),
@@ -239,35 +240,38 @@ export const dataSourceColumnUpdateSchema = z.object({
   is_date_field: z.boolean().optional(),
   is_measure_type: z.boolean().optional(),
   is_time_period: z.boolean().optional(),
+  is_expansion_dimension: z.boolean().optional(),
+  expansion_display_name: z.union([z.string().max(100), z.null()]).optional(),
 
   // Display and formatting
-  format_type: createSafeTextSchema(0, 50, 'Format type').optional(),
-  sort_order: z.number().int().optional(),
-  default_aggregation: createSafeTextSchema(0, 20, 'Default aggregation').optional(),
+  format_type: z.union([z.string().max(50), z.null()]).optional(),
+  sort_order: z.union([z.number().int(), z.null()]).optional(),
+  default_aggregation: z.union([z.string().max(20), z.null()]).optional(),
 
   // Icon display options
   display_icon: z.boolean().optional(),
-  icon_type: z.enum(['initials', 'first_letter', 'emoji']).nullable().optional().or(z.literal('')),
-  icon_color_mode: z.enum(['auto', 'fixed', 'mapped']).nullable().optional().or(z.literal('')),
-  icon_color: createSafeTextSchema(0, 50, 'Icon color').nullable().optional(),
-  icon_mapping: z.record(z.string(), z.unknown()).nullable().optional(),
+  icon_type: z.union([z.enum(['initials', 'first_letter', 'emoji', '']), z.null()]).optional(),
+  icon_color_mode: z.union([z.enum(['auto', 'fixed', 'mapped', '']), z.null()]).optional(),
+  icon_color: z.union([z.string().max(50), z.null()]).optional(),
+  icon_mapping: z.union([z.record(z.string(), z.unknown()), z.null()]).optional(),
 
   // Security and validation
   is_sensitive: z.boolean().optional(),
-  access_level: z
-    .string()
-    .max(20, 'Access level must not exceed 20 characters')
-    .regex(
-      /^[a-zA-Z][a-zA-Z0-9_]*$/,
-      'Access level must contain only letters, numbers, and underscores'
-    )
-    .trim()
-    .optional(),
-  allowed_values: z.record(z.string(), z.unknown()).optional(),
-  validation_rules: z.record(z.string(), z.unknown()).optional(),
+  access_level: z.union([
+    z.string()
+      .max(20, 'Access level must not exceed 20 characters')
+      .regex(
+        /^[a-zA-Z][a-zA-Z0-9_]*$/,
+        'Access level must contain only letters, numbers, and underscores'
+      )
+      .trim(),
+    z.null()
+  ]).optional(),
+  allowed_values: z.union([z.record(z.string(), z.unknown()), z.null()]).optional(),
+  validation_rules: z.union([z.record(z.string(), z.unknown()), z.null()]).optional(),
 
   // Metadata
-  example_value: createSafeTextSchema(0, 500, 'Example value').optional(),
+  example_value: z.union([z.string().max(500), z.null()]).optional(),
   is_active: z.boolean().optional(),
 });
 
