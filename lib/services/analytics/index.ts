@@ -3,13 +3,13 @@
  *
  * Modular analytics query system with cache integration and security-first design.
  *
- * DUAL-PATH ARCHITECTURE:
- * - Cache Path: UserContext + data_source_id → Redis cache with in-memory RBAC
- * - Legacy Path: ChartRenderContext OR missing data_source_id → Direct SQL with RBAC in WHERE
+ * UNIFIED CACHE ARCHITECTURE:
+ * - All queries use Redis cache with in-memory RBAC filtering
+ * - Supports nocache flag for previews (bypasses cache but uses same path)
+ * - All charts must have data_source_id
  *
  * MODULES:
- * - QueryOrchestrator: Main entry point, routes between cache and legacy paths
- * - QueryExecutor: Legacy path execution (direct database queries)
+ * - QueryOrchestrator: Main entry point, handles all queries via cache path
  * - QueryValidator: Security validation (table/field/operator validation)
  * - QuerySanitizer: Value sanitization (SQL injection prevention)
  * - QueryBuilder: SQL query construction (WHERE clause building)
@@ -19,23 +19,22 @@
  * ```typescript
  * import { analyticsQueryBuilder } from '@/lib/services/analytics';
  *
- * // Query with cache (UserContext + data_source_id)
+ * // Standard query (uses cache)
  * const result = await analyticsQueryBuilder.queryMeasures(params, userContext);
  *
- * // Query without cache (ChartRenderContext)
- * const result = await analyticsQueryBuilder.queryMeasures(params, chartContext);
+ * // Preview query (nocache=true)
+ * const result = await analyticsQueryBuilder.queryMeasures({ ...params, nocache: true }, userContext);
  * ```
  *
  * BACKWARD COMPATIBILITY:
  * - Exports `analyticsQueryBuilder` singleton for existing code
  * - Preserves queryMeasures() API signature
- * - Works with both UserContext and ChartRenderContext
+ * - NOW REQUIRES UserContext (ChartRenderContext no longer supported)
  */
 
 // ===== Module Exports =====
 
 export { QueryBuilder } from './query-builder';
-export { QueryExecutor } from './query-executor';
 export { QueryOrchestrator } from './query-orchestrator';
 export { QuerySanitizer } from './query-sanitizer';
 export { QueryValidator } from './query-validator';
@@ -48,13 +47,12 @@ export { ALLOWED_OPERATORS } from './query-types';
 // ===== Singleton Exports (for backward compatibility) =====
 
 import { queryBuilder } from './query-builder';
-import { queryExecutor } from './query-executor';
 import { queryOrchestrator } from './query-orchestrator';
 import { querySanitizer } from './query-sanitizer';
 import { queryValidator } from './query-validator';
 
 // Export individual singletons
-export { queryValidator, querySanitizer, queryBuilder, queryExecutor, queryOrchestrator };
+export { queryValidator, querySanitizer, queryBuilder, queryOrchestrator };
 
 /**
  * Main analytics query builder singleton

@@ -1,31 +1,26 @@
 /**
  * Query Orchestrator Module
  *
- * Main entry point for analytics queries. Routes between cache and legacy paths.
- * Preserves existing queryMeasures() API while delegating to specialized handlers.
+ * Main entry point for analytics queries. All queries now use the cache path.
+ * Preserves existing queryMeasures() API while simplifying to single path architecture.
  *
- * DUAL-PATH ARCHITECTURE:
- * 1. Cache Path: UserContext + data_source_id → DataSourceCacheService
- *    - RBAC filtering in-memory (maximum cache reuse)
- *    - O(1) index lookups
- *    - 4-hour TTL with warming
- *
- * 2. Legacy Path: ChartRenderContext OR missing data_source_id → QueryExecutor
- *    - RBAC filtering in SQL (fail-closed security)
- *    - Direct database queries
- *    - Backward compatibility
+ * UNIFIED CACHE ARCHITECTURE:
+ * - All queries use DataSourceCacheService
+ * - RBAC filtering in-memory (maximum cache reuse)
+ * - O(1) index lookups
+ * - 48-hour TTL with warming
+ * - Supports nocache flag for previews
  *
  * ROUTING LOGIC:
- * - Multiple series? → Delegate to QueryExecutor.executeMultipleSeries()
- * - Period comparison? → Delegate to QueryExecutor.executePeriodComparison()
- * - UserContext + data_source_id? → Cache path
- * - Otherwise? → Legacy path
+ * - Multiple series? → Execute each series in parallel (hits cache per measure)
+ * - Period comparison? → Execute current + comparison period in parallel
+ * - Standard query? → Cache path with optional nocache flag
  *
  * KEY METHODS:
- * - queryMeasures(): Main entry point (public API)
+ * - queryMeasures(): Main entry point (public API) - NOW REQUIRES UserContext + data_source_id
  * - executeCachePath(): Cache path logic
- * - executeLegacyPath(): Legacy path logic (delegates to QueryExecutor)
- * - executeBaseQuery(): Used by period comparison to avoid infinite recursion
+ * - executeMultipleSeries(): Handle multi-series charts (inline)
+ * - executePeriodComparison(): Handle period comparison (inline)
  */
 
 import { type CacheQueryParams, dataSourceCache } from '@/lib/cache';
@@ -35,14 +30,12 @@ import type {
   AggAppMeasure,
   AnalyticsQueryParams,
   AnalyticsQueryResult,
-  ChartRenderContext,
 } from '@/lib/types/analytics';
 import type { UserContext } from '@/lib/types/rbac';
-import { queryExecutor } from './query-executor';
 import { queryValidator } from './query-validator';
 
 /**
- * Query orchestrator - routes between cache and legacy paths
+ * Query orchestrator - simplified to use only cache path
  * Main entry point for all analytics queries
  */
 export class QueryOrchestrator {
@@ -73,11 +66,11 @@ export class QueryOrchestrator {
   }
 
   /**
-   * Calculate total count from filtered rows using MeasureAccessor
-   * Delegates to QueryExecutor
+   * Calculate total count from filtered rows
+   * For analytics data, total count is simply the number of rows returned
    */
-  private async calculateTotal(rows: AggAppMeasure[], dataSourceId: number): Promise<number> {
-    return await queryExecutor.calculateTotal(rows, dataSourceId);
+  private calculateTotal(rows: AggAppMeasure[]): number {
+    return rows.length;
   }
 
   /**
@@ -121,15 +114,12 @@ export class QueryOrchestrator {
     // Fetch with caching (passing UserContext - ChartRenderContext built internally)
     const fetchResult = await dataSourceCache.fetchDataSource(
       cacheParams,
-      userContext, // Pass UserContext (fetchDataSource builds ChartRenderContext internally)
+      userContext,
       params.nocache || false
     );
 
-    // Calculate total using MeasureAccessor for dynamic column access
-    const totalCount = await this.calculateTotal(
-      fetchResult.rows as AggAppMeasure[],
-      params.data_source_id
-    );
+    // Calculate total count from filtered rows
+    const totalCount = this.calculateTotal(fetchResult.rows as AggAppMeasure[]);
 
     const duration = Date.now() - startTime;
 
@@ -155,160 +145,263 @@ export class QueryOrchestrator {
   }
 
   /**
-   * Execute legacy path (ChartRenderContext or missing data_source_id)
-   * Uses QueryExecutor with RBAC in SQL
+   * Execute multiple series query
+   * Fetches each series separately (can hit cache per measure) and combines results
    */
-  private async executeLegacyPath(
+  private async executeMultipleSeries(
     params: AnalyticsQueryParams,
-    context: ChartRenderContext
+    userContext: UserContext
   ): Promise<AnalyticsQueryResult> {
-    return await queryExecutor.executeLegacyQuery(params, context);
+    const startTime = Date.now();
+
+    if (!params.multiple_series || params.multiple_series.length === 0) {
+      throw new Error('Multiple series configuration is required');
+    }
+
+    log.info('Building multiple series query with caching', {
+      seriesCount: params.multiple_series.length,
+      measures: params.multiple_series.map((s) => s.measure),
+      userId: userContext.user_id,
+    });
+
+    // Fetch each series separately (can hit cache per measure)
+    const seriesPromises = params.multiple_series.map(async (series) => {
+      const seriesParams: AnalyticsQueryParams = {
+        ...params,
+        measure: series.measure,
+        multiple_series: undefined, // Clear to avoid recursion
+      };
+
+      // Recursive call - will hit cache per measure
+      const result = await this.queryMeasures(seriesParams, userContext);
+
+      // Tag with series metadata
+      return result.data.map((item) => ({
+        ...item,
+        series_id: series.id,
+        series_label: series.label,
+        series_aggregation: series.aggregation,
+        ...(series.color && { series_color: series.color }),
+      }));
+    });
+
+    const allSeriesData = await Promise.all(seriesPromises);
+    const combinedData = allSeriesData.flat();
+
+    const duration = Date.now() - startTime;
+
+    const result: AnalyticsQueryResult = {
+      data: combinedData,
+      total_count: combinedData.length,
+      query_time_ms: duration,
+      cache_hit: true, // Each series fetched from cache (potentially)
+    };
+
+    log.info('Multiple series query completed (with caching)', {
+      seriesCount: params.multiple_series.length,
+      totalRecords: combinedData.length,
+      queryTime: duration,
+      userId: userContext.user_id,
+    });
+
+    return result;
   }
 
   /**
-   * Execute base query without period comparison or multiple series logic
-   * Used internally by period comparison to avoid infinite recursion
+   * Execute period comparison query
+   * Executes current period + comparison period in parallel
    */
-  async executeBaseQuery(
+  private async executePeriodComparison(
     params: AnalyticsQueryParams,
-    contextOrUserContext: ChartRenderContext | UserContext
+    userContext: UserContext
   ): Promise<AnalyticsQueryResult> {
-    const isUserContext = 'email' in contextOrUserContext;
-    const context = isUserContext ? undefined : (contextOrUserContext as ChartRenderContext);
-    const userContext = isUserContext ? (contextOrUserContext as UserContext) : undefined;
+    const startTime = Date.now();
 
-    // Validate and get data source config
-    let dataSourceConfig = null;
-    let tableName = 'agg_app_measures';
-    let schemaName = 'ih';
-
-    if (params.data_source_id) {
-      dataSourceConfig = await chartConfigService.getDataSourceConfigById(params.data_source_id);
-
-      if (dataSourceConfig) {
-        tableName = dataSourceConfig.tableName;
-        schemaName = dataSourceConfig.schemaName;
-      }
+    if (!params.period_comparison?.enabled) {
+      throw new Error('Period comparison configuration is required');
     }
 
-    await queryValidator.validateTable(tableName, schemaName, dataSourceConfig);
-
-    // If UserContext + data_source_id: use cache path
-    if (isUserContext && userContext && params.data_source_id) {
-      return await this.executeCachePath(params, userContext, tableName, schemaName, Date.now());
+    if (!params.frequency || !params.start_date || !params.end_date) {
+      throw new Error('Frequency, start_date, and end_date are required for period comparison');
     }
 
-    // Otherwise: use legacy path
-    // If we have UserContext but no data_source_id, build ChartRenderContext
-    let legacyContext = context;
-    if (isUserContext && userContext && !context) {
-      const { buildChartRenderContext } = await import('@/lib/utils/chart-context');
-      legacyContext = await buildChartRenderContext(userContext);
-      log.info('Built ChartRenderContext for legacy path', {
-        userId: userContext.user_id,
-        permissionScope: legacyContext.permission_scope,
-        reason: 'missing_data_source_id',
+    // Validate period comparison configuration
+    if (!params.period_comparison.comparisonType) {
+      throw new Error('Comparison type is required for period comparison');
+    }
+
+    if (
+      params.period_comparison.comparisonType === 'custom_period' &&
+      (!params.period_comparison.customPeriodOffset ||
+        params.period_comparison.customPeriodOffset < 1)
+    ) {
+      throw new Error('Custom period offset must be at least 1');
+    }
+
+    log.info('Building period comparison analytics query', {
+      comparisonType: params.period_comparison.comparisonType,
+      frequency: params.frequency,
+      currentRange: { start: params.start_date, end: params.end_date },
+      userId: userContext.user_id,
+    });
+
+    // Import period comparison utilities
+    const { calculateComparisonDateRange, generateComparisonLabel } = await import(
+      '@/lib/utils/period-comparison'
+    );
+
+    // Calculate comparison date range
+    let comparisonRange: { start: string; end: string };
+    try {
+      comparisonRange = calculateComparisonDateRange(
+        params.start_date,
+        params.end_date,
+        params.frequency,
+        params.period_comparison
+      );
+    } catch (error) {
+      log.error('Failed to calculate comparison date range', error, {
+        comparisonType: params.period_comparison.comparisonType,
+        frequency: params.frequency,
+        startDate: params.start_date,
+        endDate: params.end_date,
       });
+      throw new Error(
+        `Failed to calculate comparison date range: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
 
-    return await this.executeLegacyPath(params, legacyContext as ChartRenderContext);
+    // Create comparison query parameters (remove period_comparison to avoid recursion)
+    const { period_comparison: _removed, ...baseParams } = params;
+
+    const currentPeriodParams: AnalyticsQueryParams = {
+      ...baseParams,
+      start_date: params.start_date,
+      end_date: params.end_date,
+    };
+
+    const comparisonPeriodParams: AnalyticsQueryParams = {
+      ...baseParams,
+      start_date: comparisonRange.start,
+      end_date: comparisonRange.end,
+    };
+
+    log.info('Executing period comparison queries in parallel', {
+      currentPeriod: { start: params.start_date, end: params.end_date },
+      comparisonPeriod: comparisonRange,
+      userId: userContext.user_id,
+    });
+
+    // Execute both queries in parallel
+    const [currentResult, comparisonResult] = await Promise.all([
+      this.queryMeasures(currentPeriodParams, userContext),
+      this.queryMeasures(comparisonPeriodParams, userContext),
+    ]);
+
+    // Generate comparison label
+    const comparisonLabel = generateComparisonLabel(
+      params.frequency,
+      params.period_comparison
+    );
+
+    // Tag data with period labels
+    const currentData = currentResult.data.map((item) => ({
+      ...item,
+      period_label: 'Current Period',
+      period_type: 'current',
+    }));
+
+    const comparisonData = comparisonResult.data.map((item) => ({
+      ...item,
+      period_label: comparisonLabel,
+      period_type: 'comparison',
+    }));
+
+    const combinedData = [...currentData, ...comparisonData];
+
+    const duration = Date.now() - startTime;
+
+    const result: AnalyticsQueryResult = {
+      data: combinedData,
+      total_count: combinedData.length,
+      query_time_ms: duration,
+      cache_hit: Boolean(currentResult.cache_hit && comparisonResult.cache_hit),
+    };
+
+    log.info('Period comparison query completed', {
+      comparisonType: params.period_comparison.comparisonType,
+      currentRecords: currentData.length,
+      comparisonRecords: comparisonData.length,
+      totalRecords: combinedData.length,
+      queryTime: duration,
+      userId: userContext.user_id,
+    });
+
+    return result;
   }
 
   /**
-   * Main query method - routes between cache and legacy paths
-   * Preserves existing API signature
+   * Main analytics query entry point
+   * All queries now use the cache path with RBAC filtering in-memory
    *
    * ROUTING LOGIC:
-   * 1. Multiple series? → QueryExecutor.executeMultipleSeries()
-   * 2. Period comparison? → QueryExecutor.executePeriodComparison()
-   * 3. UserContext + data_source_id? → Cache path
-   * 4. Otherwise? → Legacy path
+   * 1. Multiple series? → Execute each series in parallel (hits cache per measure)
+   * 2. Period comparison? → Execute current + comparison period in parallel
+   * 3. Standard query? → Cache path with optional nocache flag
    *
-   * @param params - Query parameters
-   * @param contextOrUserContext - Chart render context or user context
+   * @param params - Query parameters (data_source_id REQUIRED)
+   * @param userContext - User context for RBAC
    * @returns Query result with data and metadata
    */
   async queryMeasures(
     params: AnalyticsQueryParams,
-    contextOrUserContext: ChartRenderContext | UserContext
+    userContext: UserContext
   ): Promise<AnalyticsQueryResult> {
     const startTime = Date.now();
 
-    // Determine if we received UserContext or ChartRenderContext
-    const isUserContext = 'email' in contextOrUserContext;
-    const userContext = isUserContext ? (contextOrUserContext as UserContext) : undefined;
-    const context = isUserContext ? undefined : (contextOrUserContext as ChartRenderContext);
-    const userId = isUserContext ? userContext?.user_id : context?.user_id;
-
     try {
+      // SECURITY: data_source_id is required (all charts have it)
+      if (!params.data_source_id) {
+        throw new Error('data_source_id is required - all charts must have a data source');
+      }
+
       // If multiple series are requested, handle them separately
       if (params.multiple_series && params.multiple_series.length > 0) {
-        return await queryExecutor.executeMultipleSeries(
-          params,
-          contextOrUserContext,
-          // Delegate back to this.queryMeasures for each series
-          this.queryMeasures.bind(this)
-        );
+        return await this.executeMultipleSeries(params, userContext);
       }
 
       // If period comparison is requested, handle it separately
       if (params.period_comparison?.enabled) {
-        return await queryExecutor.executePeriodComparison(
-          params,
-          contextOrUserContext,
-          // Delegate to executeBaseQuery to avoid infinite recursion
-          this.executeBaseQuery.bind(this)
-        );
+        return await this.executePeriodComparison(params, userContext);
       }
 
       log.info('Building analytics query with caching', {
         params: { ...params, limit: params.limit || 1000 },
-        userId,
+        userId: userContext.user_id,
       });
 
-      // Get data source configuration if data_source_id is provided
-      let dataSourceConfig = null;
-      let tableName = 'agg_app_measures'; // Default fallback for backwards compatibility
-      let schemaName = 'ih';
+      // Get data source configuration
+      const dataSourceConfig = await chartConfigService.getDataSourceConfigById(
+        params.data_source_id
+      );
 
-      if (params.data_source_id) {
-        // Use data_source_id directly to get config from cache
-        dataSourceConfig = await chartConfigService.getDataSourceConfigById(params.data_source_id);
-
-        if (dataSourceConfig) {
-          tableName = dataSourceConfig.tableName;
-          schemaName = dataSourceConfig.schemaName;
-        }
+      if (!dataSourceConfig) {
+        throw new Error(`Data source not found: ${params.data_source_id}`);
       }
 
-      // Validate table access - pass config to avoid redundant lookup
+      const tableName = dataSourceConfig.tableName;
+      const schemaName = dataSourceConfig.schemaName;
+
+      // Validate table access
       await queryValidator.validateTable(tableName, schemaName, dataSourceConfig);
 
-      // ===== CACHE PATH: UserContext + data_source_id =====
-      if (isUserContext && userContext && params.data_source_id) {
-        return await this.executeCachePath(params, userContext, tableName, schemaName, startTime);
-      }
-
-      // ===== LEGACY PATH: ChartRenderContext OR missing data_source_id =====
-
-      // If we have UserContext but no data_source_id, build ChartRenderContext for legacy path
-      let legacyContext = context;
-      if (isUserContext && userContext && !context) {
-        const { buildChartRenderContext } = await import('@/lib/utils/chart-context');
-        legacyContext = await buildChartRenderContext(userContext);
-        log.info('Built ChartRenderContext for legacy path', {
-          userId: userContext.user_id,
-          permissionScope: legacyContext.permission_scope,
-          reason: 'missing_data_source_id',
-        });
-      }
-
-      return await this.executeLegacyPath(params, legacyContext as ChartRenderContext);
+      // Always use cache path (with nocache support for previews)
+      return await this.executeCachePath(params, userContext, tableName, schemaName, startTime);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       log.error('Analytics query failed', error, {
         params,
-        userId: userId,
+        userId: userContext.user_id,
       });
 
       throw new Error(`Query execution failed: ${errorMessage}`);

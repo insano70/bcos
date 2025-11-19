@@ -2,8 +2,8 @@ import { log } from '@/lib/logger';
 import type {
   AnalyticsQueryResult,
   ChartDefinition,
-  ChartRenderContext,
 } from '@/lib/types/analytics';
+import type { UserContext } from '@/lib/types/rbac';
 import { analyticsQueryBuilder } from './analytics';
 import type { ValidationResult } from './chart-validation';
 import { chartValidator } from './chart-validation';
@@ -30,7 +30,7 @@ export class ChartExecutor {
    */
   async executeChart(
     chartDefinition: ChartDefinition,
-    context: ChartRenderContext,
+    userContext: UserContext,
     additionalFilters: Record<string, unknown> = {}
   ): Promise<AnalyticsQueryResult> {
     // Validate chart definition
@@ -43,7 +43,7 @@ export class ChartExecutor {
       chartId: chartDefinition.chart_definition_id,
       chartName: chartDefinition.chart_name,
       chartType: chartDefinition.chart_type,
-      userId: context.user_id,
+      userId: userContext.user_id,
     });
 
     try {
@@ -51,7 +51,7 @@ export class ChartExecutor {
       const queryParams = this.convertToQueryParams(chartDefinition, additionalFilters);
 
       // Execute the query using the analytics query builder
-      const result = await analyticsQueryBuilder.queryMeasures(queryParams, context);
+      const result = await analyticsQueryBuilder.queryMeasures(queryParams, userContext);
 
       log.info('Chart definition executed successfully', {
         chartId: chartDefinition.chart_definition_id,
@@ -64,7 +64,7 @@ export class ChartExecutor {
       log.error('Chart definition execution failed', {
         chartId: chartDefinition.chart_definition_id,
         error: error instanceof Error ? error.message : 'Unknown error',
-        userId: context.user_id,
+        userId: userContext.user_id,
       });
 
       throw error;
@@ -154,7 +154,7 @@ export class ChartExecutor {
    */
   async validateAndExecute(
     chartDefinition: ChartDefinition,
-    context: ChartRenderContext,
+    userContext: UserContext,
     additionalFilters: Record<string, unknown> = {}
   ): Promise<{ result: AnalyticsQueryResult; validation: ValidationResult }> {
     // Validate first
@@ -173,7 +173,7 @@ export class ChartExecutor {
     }
 
     // Execute if valid
-    const result = await this.executeChart(chartDefinition, context, additionalFilters);
+    const result = await this.executeChart(chartDefinition, userContext, additionalFilters);
 
     return { result, validation };
   }

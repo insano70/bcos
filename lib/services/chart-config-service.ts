@@ -33,11 +33,14 @@ export interface ColumnConfig {
   isDateField: boolean;
   isMeasureType?: boolean;
   isTimePeriod?: boolean;
+  isExpansionDimension?: boolean;
+  expansionDisplayName?: string;
   formatType?: string;
   sortOrder: number;
   defaultAggregation?: string;
   exampleValue?: string;
   allowedValues?: unknown[];
+  dataSourceId?: number;
 }
 
 export interface ChartDisplayConfig {
@@ -139,7 +142,9 @@ export class ChartConfigService {
             isDateField: col.isDateField,
             isMeasureType: col.isMeasureType,
             isTimePeriod: col.isTimePeriod,
+            isExpansionDimension: col.isExpansionDimension,
             sortOrder: col.sortOrder,
+            dataSourceId: col.dataSourceId,
           };
           if (col.description !== undefined) columnConfig.description = col.description;
           if (col.formatType !== undefined) columnConfig.formatType = col.formatType;
@@ -147,6 +152,7 @@ export class ChartConfigService {
             columnConfig.defaultAggregation = col.defaultAggregation;
           if (col.exampleValue !== undefined) columnConfig.exampleValue = col.exampleValue;
           if (col.allowedValues !== undefined) columnConfig.allowedValues = col.allowedValues;
+          if (col.expansionDisplayName !== undefined) columnConfig.expansionDisplayName = col.expansionDisplayName;
           return columnConfig;
         }),
       };

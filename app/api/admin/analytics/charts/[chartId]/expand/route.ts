@@ -22,7 +22,8 @@ const expandChartHandler = async (
   userContext: UserContext,
   ...args: unknown[]
 ) => {
-  const { params } = args[0] as { params: { chartId: string } };
+  const { params: paramsPromise } = args[0] as { params: Promise<{ chartId: string }> };
+  const params = await paramsPromise;
   const startTime = Date.now();
 
   try {

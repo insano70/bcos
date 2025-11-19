@@ -125,9 +125,12 @@ export class DimensionExpansionRenderer {
         component: 'dimension-expansion',
       });
 
-      // Convert baseFilters to ChartFilter array using shared utility
-      // Cast to compatible type for filter conversion
-      const chartFilters = convertBaseFiltersToChartFilters(resolvedFilters as unknown as ResolvedBaseFilters);
+      // Convert runtime filters to ChartFilter array for dimension discovery
+      // Runtime filters include measure/frequency from chart definition + user filters
+      // This ensures dimension discovery has all the same filters as chart rendering
+      const chartFilters = convertBaseFiltersToChartFilters(
+        chartExecutionConfig.runtimeFilters as unknown as ResolvedBaseFilters
+      );
 
     // Get unique dimension values (with filters applied)
       const dimensionValuesResponse = await dimensionDiscoveryService.getDimensionValues(

@@ -311,6 +311,7 @@ export default function DashboardPreview({
                 {...(chartConfig.dualAxisConfig
                   ? { dualAxisConfig: chartConfig.dualAxisConfig }
                   : {})}
+                nocache={true}
                 className="w-full h-full flex-1"
                 responsive={true}
                 minHeight={200}

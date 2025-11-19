@@ -11,10 +11,6 @@
  * - Support current dashboard filters when discovering values
  */
 
-import { and, eq } from 'drizzle-orm';
-import { db } from '@/lib/db';
-import { chart_data_source_columns, chart_data_sources } from '@/lib/db/chart-config-schema';
-import { executeAnalyticsQuery } from '@/lib/services/analytics-db';
 import { log } from '@/lib/logger';
 import type { UserContext } from '@/lib/types/rbac';
 import type { ChartFilter } from '@/lib/types/analytics';
@@ -25,8 +21,6 @@ import type {
   ExpansionDimension,
 } from '@/lib/types/dimensions';
 import { createRBACChartsService } from '@/lib/services/rbac-charts-service';
-import { buildChartRenderContext } from '@/lib/utils/chart-context';
-import { queryBuilder } from './query-builder';
 import { DIMENSION_EXPANSION_LIMITS } from '@/lib/constants/dimension-expansion';
 
 /**
@@ -38,7 +32,7 @@ export class DimensionDiscoveryService {
   /**
    * Get expansion dimensions available for a chart
    *
-   * Queries data source columns marked as expansion dimensions.
+   * Gets expansion dimensions from data source configuration (Redis cache).
    *
    * @param chartDefinitionId - Chart definition ID
    * @param userContext - User context for RBAC
@@ -73,35 +67,39 @@ export class DimensionDiscoveryService {
         };
       }
 
-      // Query expansion dimension columns
-      const columns = await db
-        .select({
-          column_name: chart_data_source_columns.column_name,
-          display_name: chart_data_source_columns.display_name,
-          expansion_display_name: chart_data_source_columns.expansion_display_name,
-          data_type: chart_data_source_columns.data_type,
-          data_source_id: chart_data_source_columns.data_source_id,
-        })
-        .from(chart_data_source_columns)
-        .where(
-          and(
-            eq(chart_data_source_columns.data_source_id, dataSourceId),
-            eq(chart_data_source_columns.is_expansion_dimension, true),
-            eq(chart_data_source_columns.is_active, true)
-          )
-        )
-        .orderBy(chart_data_source_columns.sort_order);
+      // Get data source configuration from Redis cache (includes all column metadata)
+      const { chartConfigService } = await import('@/lib/services/chart-config-service');
+      const dataSourceConfig = await chartConfigService.getDataSourceConfigById(dataSourceId);
+      
+      if (!dataSourceConfig) {
+        throw new Error(`Data source configuration not found: ${dataSourceId}`);
+      }
 
-      const dimensions: ExpansionDimension[] = columns.map((col) => ({
-        columnName: col.column_name,
-        displayName: col.expansion_display_name || col.display_name,
-        dataType: col.data_type as 'string' | 'integer' | 'boolean',
-        dataSourceId: col.data_source_id,
-      }));
+      // Filter expansion dimension columns from config
+      log.debug('Filtering expansion dimensions from config', {
+        chartDefinitionId,
+        dataSourceId,
+        totalColumns: dataSourceConfig.columns.length,
+        columnsWithExpansionFlag: dataSourceConfig.columns.filter((col) => col.isExpansionDimension).length,
+        allColumns: dataSourceConfig.columns.map((col) => ({
+          name: col.columnName,
+          isExpansionDimension: col.isExpansionDimension,
+        })),
+        component: 'dimension-discovery',
+      });
+
+      const dimensions: ExpansionDimension[] = dataSourceConfig.columns
+        .filter((col) => col.isExpansionDimension === true)
+        .map((col) => ({
+          columnName: col.columnName,
+          displayName: col.expansionDisplayName || col.displayName,
+          dataType: col.dataType as 'string' | 'integer' | 'boolean',
+          dataSourceId: dataSourceId, // Use parameter, not column property
+        }));
 
       const duration = Date.now() - startTime;
 
-      log.info('Chart expansion dimensions discovered', {
+      log.info('Chart expansion dimensions discovered from cache', {
         chartDefinitionId,
         dataSourceId,
         dimensionCount: dimensions.length,
@@ -129,8 +127,8 @@ export class DimensionDiscoveryService {
   /**
    * Get unique values for an expansion dimension
    *
-   * Queries analytics data for distinct dimension values,
-   * respecting user RBAC and current filters.
+   * Fetches data from cache and extracts unique dimension values in-memory.
+   * Uses modern cache path with RBAC filtering, consistent with main query flow.
    *
    * @param dataSourceId - Data source ID
    * @param dimensionColumn - Dimension column name
@@ -155,102 +153,194 @@ export class DimensionDiscoveryService {
     );
 
     try {
-      // Get data source configuration
-      const dataSource = await db
-        .select()
-        .from(chart_data_sources)
-        .where(eq(chart_data_sources.data_source_id, dataSourceId))
-        .limit(1)
-        .then((rows) => rows[0]);
+      log.debug('getDimensionValues called', {
+        dataSourceId,
+        dimensionColumn,
+        filterCount: filters.length,
+        filters: filters.map((f) => ({ field: f.field, operator: f.operator, value: f.value })),
+        limit: validatedLimit,
+        component: 'dimension-discovery',
+      });
 
-      if (!dataSource) {
-        throw new Error(`Data source not found: ${dataSourceId}`);
+      // Get data source configuration from Redis cache (single lookup)
+      const { chartConfigService } = await import('@/lib/services/chart-config-service');
+      const dataSourceConfig = await chartConfigService.getDataSourceConfigById(dataSourceId);
+      
+      if (!dataSourceConfig) {
+        throw new Error(`Data source configuration not found: ${dataSourceId}`);
       }
 
-      // Get dimension column metadata
-      const dimensionCol = await db
-        .select()
-        .from(chart_data_source_columns)
-        .where(
-          and(
-            eq(chart_data_source_columns.data_source_id, dataSourceId),
-            eq(chart_data_source_columns.column_name, dimensionColumn),
-            eq(chart_data_source_columns.is_expansion_dimension, true)
-          )
-        )
-        .limit(1)
-        .then((rows) => rows[0]);
+      log.debug('Data source config loaded', {
+        dataSourceId,
+        tableName: dataSourceConfig.tableName,
+        schemaName: dataSourceConfig.schemaName,
+        dataSourceType: dataSourceConfig.dataSourceType,
+        columnCount: dataSourceConfig.columns.length,
+        expansionColumns: dataSourceConfig.columns
+          .filter((col) => col.isExpansionDimension === true)
+          .map((col) => col.columnName),
+        component: 'dimension-discovery',
+      });
+
+      // Validate dimension column exists and is configured for expansion
+      const dimensionCol = dataSourceConfig.columns.find(
+        (col) => col.columnName === dimensionColumn && col.isExpansionDimension === true
+      );
 
       if (!dimensionCol) {
+        log.error('Expansion dimension column not found', {
+          dimensionColumn,
+          dataSourceId,
+          availableExpansionColumns: dataSourceConfig.columns
+            .filter((col) => col.isExpansionDimension === true)
+            .map((col) => col.columnName),
+          allColumns: dataSourceConfig.columns.map((col) => ({
+            name: col.columnName,
+            isExpansionDimension: col.isExpansionDimension,
+          })),
+          component: 'dimension-discovery',
+        });
         throw new Error(
           `Expansion dimension column not found: ${dimensionColumn} in data source ${dataSourceId}`
         );
       }
 
-      // SECURITY: Validate dimension column matches validated metadata
-      // This prevents SQL injection via column name manipulation
-      if (dimensionCol.column_name !== dimensionColumn) {
-        throw new Error(`Column name mismatch: requested ${dimensionColumn}, validated ${dimensionCol.column_name}`);
-      }
+      // Extract filter parameters for cache query
+      const startDateFilter = filters.find((f) => f.field === 'date' && f.operator === 'gte');
+      const endDateFilter = filters.find((f) => f.field === 'date' && f.operator === 'lte');
+      const practiceFilter = filters.find((f) => f.field === 'practice_uid' && f.operator === 'in');
+      
+      // Find measure and frequency from filters or use defaults
+      const measureFilter = filters.find((f) => f.field === 'measure');
+      const frequencyFilter = filters.find((f) => f.field === 'frequency' || f.field === 'time_period');
+      
+      // Build advanced filters (exclude measure, frequency, date, practice_uid - handled separately)
+      const advancedFilters = filters.filter(
+        (f) => !['date', 'practice_uid', 'measure', 'frequency', 'time_period'].includes(f.field)
+      );
 
-      // Build chart context for RBAC filtering
-      const context = await buildChartRenderContext(userContext);
-
-      // Build WHERE clause with RBAC + filters
-      const whereClause = await queryBuilder.buildWhereClause(filters, context);
-
-      // SECURITY: Use validated column name and parameterized limit
-      // Quote identifiers to prevent SQL injection
-      const validatedColumn = dimensionCol.column_name;
-      const query = `
-        SELECT DISTINCT "${validatedColumn}" as value,
-               COUNT(*) OVER () as total_records
-        FROM "${dataSource.schema_name}"."${dataSource.table_name}"
-        ${whereClause.clause}
-        ORDER BY "${validatedColumn}"
-        LIMIT $${whereClause.params.length + 1}
-      `;
-
-      const queryParams = [...whereClause.params, validatedLimit];
-
-      log.debug('Dimension values query', {
+      log.debug('Extracted filter parameters', {
         dataSourceId,
-        dimensionColumn: validatedColumn,
-        query,
-        params: queryParams,
+        hasStartDate: !!startDateFilter,
+        hasEndDate: !!endDateFilter,
+        hasPractice: !!practiceFilter,
+        hasMeasure: !!measureFilter,
+        hasFrequency: !!frequencyFilter,
+        advancedFilterCount: advancedFilters.length,
+        measure: measureFilter?.value,
+        frequency: frequencyFilter?.value,
         component: 'dimension-discovery',
       });
 
-      const rows = await executeAnalyticsQuery<{
-        value: string | number;
-        total_records: string;
-      }>(query, queryParams);
+      // Validate measure/frequency for measure-based sources
+      if (dataSourceConfig.dataSourceType === 'measure-based') {
+        if (!measureFilter || !frequencyFilter) {
+          throw new Error(
+            `Measure-based data source requires measure and frequency filters. ` +
+            `Got measure: ${measureFilter?.value || 'none'}, frequency: ${frequencyFilter?.value || 'none'}`
+          );
+        }
+      }
+
+      // Build cache query params
+      const cacheParams = {
+        dataSourceId,
+        schema: dataSourceConfig.schemaName,
+        table: dataSourceConfig.tableName,
+        dataSourceType: dataSourceConfig.dataSourceType,
+        ...(measureFilter && { measure: measureFilter.value as string }),
+        ...(frequencyFilter && { frequency: frequencyFilter.value as string }),
+        ...(practiceFilter && Array.isArray(practiceFilter.value) && practiceFilter.value.length === 1 && {
+          practiceUid: practiceFilter.value[0] as number,
+        }),
+        ...(startDateFilter && { startDate: startDateFilter.value as string }),
+        ...(endDateFilter && { endDate: endDateFilter.value as string }),
+        ...(advancedFilters.length > 0 && { advancedFilters }),
+      };
+
+      log.debug('Cache query params built', {
+        dataSourceId,
+        cacheParams,
+        component: 'dimension-discovery',
+      });
+
+      // Fetch data from cache (uses existing cache path with RBAC filtering)
+      const { dataSourceCache } = await import('@/lib/cache');
+      const cacheResult = await dataSourceCache.fetchDataSource(
+        cacheParams,
+        userContext,
+        false // Use cache
+      );
+
+      log.debug('Cache fetch completed', {
+        dataSourceId,
+        rowCount: cacheResult.rows.length,
+        cacheHit: cacheResult.cacheHit,
+        component: 'dimension-discovery',
+      });
+
+      // Extract unique dimension values in-memory
+      const uniqueValuesSet = new Set<string | number | null>();
+      
+      log.debug('Extracting unique dimension values', {
+        dataSourceId,
+        dimensionColumn,
+        totalRows: cacheResult.rows.length,
+        sampleRow: cacheResult.rows[0],
+        component: 'dimension-discovery',
+      });
+
+      for (const row of cacheResult.rows) {
+        const value = row[dimensionColumn];
+        uniqueValuesSet.add(value as string | number | null);
+      }
+
+      log.debug('Unique values extracted', {
+        dataSourceId,
+        dimensionColumn,
+        uniqueCount: uniqueValuesSet.size,
+        uniqueValues: Array.from(uniqueValuesSet).slice(0, 10), // Sample first 10
+        component: 'dimension-discovery',
+      });
+
+      // Convert to sorted array
+      const uniqueValues = Array.from(uniqueValuesSet)
+        .filter((v) => v !== undefined) // Filter out undefined
+        .sort((a, b) => {
+          // Sort nulls last
+          if (a === null) return 1;
+          if (b === null) return -1;
+          // Sort strings/numbers naturally
+          if (typeof a === 'string' && typeof b === 'string') {
+            return a.localeCompare(b);
+          }
+          return String(a).localeCompare(String(b));
+        })
+        .slice(0, validatedLimit); // Apply limit after sorting
 
       // Transform to dimension values
-      // NOTE: recordCount is intentionally omitted here because total_records is a window function
-      // that returns the TOTAL count across all rows, not per dimension value.
-      // The actual per-dimension recordCount is set later after filtering in dimension-expansion-renderer.
-      const values: DimensionValue[] = rows.map((row) => ({
-        value: row.value,
-        label: String(row.value),
-        // recordCount omitted - will be populated with actual filtered count in dimension-expansion-renderer
+      const values: DimensionValue[] = uniqueValues.map((value) => ({
+        value: value as string | number,
+        label: String(value === null ? 'null' : value),
+        // recordCount will be populated later in dimension-expansion-renderer
       }));
 
       const duration = Date.now() - startTime;
 
       const dimension: ExpansionDimension = {
-        columnName: dimensionCol.column_name,
-        displayName: dimensionCol.expansion_display_name || dimensionCol.display_name,
-        dataType: dimensionCol.data_type as 'string' | 'integer' | 'boolean',
-        dataSourceId: dimensionCol.data_source_id,
+        columnName: dimensionCol.columnName,
+        displayName: dimensionCol.expansionDisplayName || dimensionCol.displayName,
+        dataType: dimensionCol.dataType as 'string' | 'integer' | 'boolean',
+        dataSourceId: dataSourceId, // Use parameter, not column property
         valueCount: values.length,
       };
 
-      log.info('Dimension values discovered', {
+      log.info('Dimension values discovered via cache', {
         dataSourceId,
         dimensionColumn,
         valueCount: values.length,
-        totalRecords: rows[0]?.total_records || 0,
+        totalRowsScanned: cacheResult.rows.length,
+        cacheHit: cacheResult.cacheHit,
         userId: userContext.user_id,
         duration,
         component: 'dimension-discovery',
@@ -260,7 +350,7 @@ export class DimensionDiscoveryService {
         values,
         dimension,
         totalValues: values.length,
-        filtered: context.permission_scope !== 'all',
+        filtered: true, // Always filtered (by cache RBAC + user filters)
       };
     } catch (error) {
       log.error('Failed to discover dimension values', error as Error, {
@@ -277,35 +367,29 @@ export class DimensionDiscoveryService {
    * Get expansion dimensions for a data source
    *
    * Helper method to get all expansion dimensions configured for a data source.
+   * Uses Redis cache for fast lookups.
    *
    * @param dataSourceId - Data source ID
    * @returns Expansion dimension columns
    */
   async getDataSourceExpansionDimensions(dataSourceId: number): Promise<ExpansionDimension[]> {
-    const columns = await db
-      .select({
-        column_name: chart_data_source_columns.column_name,
-        display_name: chart_data_source_columns.display_name,
-        expansion_display_name: chart_data_source_columns.expansion_display_name,
-        data_type: chart_data_source_columns.data_type,
-        data_source_id: chart_data_source_columns.data_source_id,
-      })
-      .from(chart_data_source_columns)
-      .where(
-        and(
-          eq(chart_data_source_columns.data_source_id, dataSourceId),
-          eq(chart_data_source_columns.is_expansion_dimension, true),
-          eq(chart_data_source_columns.is_active, true)
-        )
-      )
-      .orderBy(chart_data_source_columns.sort_order);
+    // Get data source configuration from Redis cache
+    const { chartConfigService } = await import('@/lib/services/chart-config-service');
+    const dataSourceConfig = await chartConfigService.getDataSourceConfigById(dataSourceId);
+    
+    if (!dataSourceConfig) {
+      throw new Error(`Data source configuration not found: ${dataSourceId}`);
+    }
 
-    return columns.map((col) => ({
-      columnName: col.column_name,
-      displayName: col.expansion_display_name || col.display_name,
-      dataType: col.data_type as 'string' | 'integer' | 'boolean',
-      dataSourceId: col.data_source_id,
-    }));
+    // Filter and map expansion dimension columns from config
+    return dataSourceConfig.columns
+      .filter((col) => col.isExpansionDimension === true)
+      .map((col) => ({
+        columnName: col.columnName,
+        displayName: col.expansionDisplayName || col.displayName,
+        dataType: col.dataType as 'string' | 'integer' | 'boolean',
+        dataSourceId: dataSourceId, // Use parameter, not column property
+      }));
   }
 }
 

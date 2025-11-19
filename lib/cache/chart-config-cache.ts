@@ -65,11 +65,14 @@ export interface CachedColumnConfig {
   isDateField: boolean;
   isMeasureType: boolean;
   isTimePeriod: boolean;
+  isExpansionDimension: boolean;
+  expansionDisplayName?: string;
   formatType?: string;
   sortOrder: number;
   defaultAggregation?: string;
   exampleValue?: string;
   allowedValues?: unknown[];
+  dataSourceId: number;
 }
 
 /**
@@ -408,7 +411,9 @@ class ChartConfigCacheService extends CacheService {
             isDateField: col.is_date_field ?? false,
             isMeasureType: col.is_measure_type ?? false,
             isTimePeriod: col.is_time_period ?? false,
+            isExpansionDimension: col.is_expansion_dimension ?? false,
             sortOrder: col.sort_order ?? 0,
+            dataSourceId: col.data_source_id,
           };
           if (col.column_description !== null) cachedCol.description = col.column_description;
           if (col.format_type !== null) cachedCol.formatType = col.format_type;
@@ -417,6 +422,7 @@ class ChartConfigCacheService extends CacheService {
           if (col.example_value !== null) cachedCol.exampleValue = col.example_value;
           if (col.allowed_values !== null && Array.isArray(col.allowed_values))
             cachedCol.allowedValues = col.allowed_values;
+          if (col.expansion_display_name !== null) cachedCol.expansionDisplayName = col.expansion_display_name;
           return cachedCol;
         }),
         cachedAt: Date.now(),

@@ -86,6 +86,24 @@ export function convertBaseFiltersToChartFilters(
     filters.push(...baseFilters.advancedFilters);
   }
 
+  // Handle measure (required for measure-based data sources)
+  if (baseFilters.measure && typeof baseFilters.measure === 'string') {
+    filters.push({
+      field: 'measure',
+      operator: 'eq',
+      value: baseFilters.measure,
+    });
+  }
+
+  // Handle frequency (required for measure-based data sources)
+  if (baseFilters.frequency && typeof baseFilters.frequency === 'string') {
+    filters.push({
+      field: 'frequency',
+      operator: 'eq',
+      value: baseFilters.frequency,
+    });
+  }
+
   // Handle date range - start date
   if (baseFilters.startDate && typeof baseFilters.startDate === 'string') {
     filters.push({
