@@ -23,7 +23,6 @@
 import dynamic from 'next/dynamic';
 import { useRef, useState } from 'react';
 import { GlassCard } from '@/components/ui/glass-card';
-import type { ChartData } from '@/lib/types/analytics';
 import ChartError from './chart-error';
 import ChartHeader from './chart-header';
 import ChartRenderer from './chart-renderer';
@@ -38,58 +37,16 @@ const DualAxisFullscreenModal = dynamic(() => import('./dual-axis-fullscreen-mod
   ssr: false,
 });
 
-/**
- * Formatted cell structure for table charts (from batch API)
- */
-interface FormattedCell {
-  formatted: string;
-  raw: unknown;
-  icon?: {
-    name: string;
-    color?: string;
-    type?: string;
-  };
-}
-
-/**
- * Column definition for table charts
- */
-interface ColumnDefinition {
-  columnName: string;
-  displayName: string;
-  dataType: string;
-  formatType?: string | null;
-  displayIcon?: boolean | null;
-  iconType?: string | null;
-  iconColorMode?: string | null;
-  iconColor?: string | null;
-  iconMapping?: Record<string, unknown> | null;
-}
+const ProgressBarFullscreenModal = dynamic(() => import('./progress-bar-fullscreen-modal'), {
+  ssr: false,
+});
 
 /**
  * Chart render result from batch API
+ * Re-exported from mappers for consistency across the codebase
  */
-export interface BatchChartData {
-  chartData: ChartData;
-  rawData: Record<string, unknown>[];
-  metadata: {
-    chartType: string;
-    dataSourceId: number;
-    transformedAt: string;
-    queryTimeMs: number;
-    cacheHit: boolean;
-    recordCount: number;
-    transformDuration: number;
-    // FIX #7: Add these for proper rendering
-    measure?: string;
-    frequency?: string;
-    groupBy?: string;
-  };
-
-  // Table-specific data (optional)
-  columns?: ColumnDefinition[];
-  formattedData?: Array<Record<string, FormattedCell>>;
-}
+import type { BatchChartData } from '@/lib/services/dashboard-rendering/mappers';
+export type { BatchChartData };
 
 /**
  * BatchChartRenderer props
@@ -191,6 +148,7 @@ export default function BatchChartRenderer({
   // Fullscreen state (like AnalyticsChart lines 382-383)
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isDualAxisFullscreen, setIsDualAxisFullscreen] = useState(false);
+  const [isProgressBarFullscreen, setIsProgressBarFullscreen] = useState(false);
 
   // Show error state if provided
   if (error) {
@@ -288,6 +246,9 @@ export default function BatchChartRenderer({
           })}
           {...(chartDefinition.chart_type === 'dual-axis' && {
             onFullscreen: () => setIsDualAxisFullscreen(true),
+          })}
+          {...(chartDefinition.chart_type === 'progress-bar' && {
+            onFullscreen: () => setIsProgressBarFullscreen(true),
           })}
         />
       )}
@@ -390,6 +351,27 @@ export default function BatchChartRenderer({
             {...(chartDefinition.chart_config && { chartConfig: chartDefinition.chart_config })}
           />
         )}
+
+      {/* Progress Bar Fullscreen Modal */}
+      {isProgressBarFullscreen && chartDefinition.chart_type === 'progress-bar' && (
+        <ProgressBarFullscreenModal
+          isOpen={isProgressBarFullscreen}
+          onClose={() => setIsProgressBarFullscreen(false)}
+          chartTitle={chartDefinition.chart_name}
+          data={
+            // Extract progress bar data from chartData
+            chartData.chartData.labels.map((label: string | Date, index: number) => ({
+              label: String(label),
+              value: (chartData.chartData.datasets[0]?.rawValues?.[index] ?? 0) as number,
+              percentage: (chartData.chartData.datasets[0]?.data[index] ?? 0) as number,
+            }))
+          }
+          {...(colorPalette && { colorPalette })}
+          {...(chartData.chartData.measureType && { measureType: chartData.chartData.measureType as string })}
+          {...(chartDefinitionId && { chartDefinitionId })}
+          {...(currentFilters && { currentFilters })}
+        />
+      )}
     </GlassCard>
   );
 }

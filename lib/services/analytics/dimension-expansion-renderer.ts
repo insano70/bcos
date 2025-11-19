@@ -14,7 +14,6 @@
 
 import { log } from '@/lib/logger';
 import type { UserContext } from '@/lib/types/rbac';
-import type { ChartFilter } from '@/lib/types/analytics';
 import type {
   DimensionExpandedChart,
   DimensionExpandedChartData,
@@ -23,11 +22,15 @@ import type {
 import { dimensionDiscoveryService } from './dimension-discovery-service';
 import { chartDataOrchestrator } from '@/lib/services/chart-data-orchestrator';
 import { createRBACChartsService } from '@/lib/services/rbac-charts-service';
-import { organizationHierarchyService } from '@/lib/services/organization-hierarchy-service';
 import { 
   DIMENSION_EXPANSION_LIMITS, 
   MAX_PARALLEL_DIMENSION_CHARTS 
 } from '@/lib/constants/dimension-expansion';
+import { convertBaseFiltersToChartFilters, type ResolvedBaseFilters } from '@/lib/utils/filter-converters';
+import { resolveOrganizationFilter } from '@/lib/utils/organization-filter-resolver';
+import { orchestrationResultToBatchChartData } from '@/lib/services/dashboard-rendering/mappers';
+import { ChartConfigBuilderService } from '@/lib/services/dashboard-rendering/chart-config-builder';
+import type { ResolvedFilters } from '@/lib/services/dashboard-rendering/types';
 
 /**
  * Dimension Expansion Renderer
@@ -74,84 +77,6 @@ export class DimensionExpansionRenderer {
         throw new Error(`Chart definition not found or missing data_source_id: ${chartDefinitionId}`);
       }
 
-      // Extract chart's data_source config (contains measure, frequency, etc.)
-      const chartDataSource = chartDef.data_source as Record<string, unknown>;
-      
-      // Extract and normalize chart_config for visual settings (colors, stacking, etc.)
-      // IMPORTANT: Do this FIRST so we can check seriesConfigs when extracting filters
-      const chartConfigRaw = chartDef.chart_config as {
-        series?: { groupBy?: string; colorPalette?: string };
-        groupBy?: string;
-        colorPalette?: string;
-        stackingMode?: string;
-        dataSourceId?: number;
-        seriesConfigs?: unknown[];
-        dualAxisConfig?: unknown;
-        frequency?: string;
-        [key: string]: unknown;
-      };
-      
-      // Extract filters from data_source to get measure and frequency
-      // NOTE: Multi-series and dual-axis charts store frequency in chart_config, not data_source.filters
-      const filters = (chartDataSource.filters as Array<{ field: string; value: unknown }>) || [];
-      
-      // For single-measure charts: measure/frequency in data_source.filters
-      // For multi-series/dual-axis: frequency in chart_config, measures in seriesConfigs/dualAxisConfig
-      const isSingleMeasureChart = chartDef.chart_type !== 'dual-axis' && !chartConfigRaw.seriesConfigs?.length;
-      
-      const measureFilter = isSingleMeasureChart 
-        ? filters.find((f) => f.field === 'measure')
-        : undefined;
-      const frequencyFilter = isSingleMeasureChart
-        ? filters.find((f) => f.field === 'frequency')
-        : undefined;
-      
-      const chartConfig: Record<string, unknown> = {
-        ...(typeof chartDef.chart_config === 'object' && chartDef.chart_config !== null
-          ? (chartDef.chart_config as Record<string, unknown>)
-          : {}),
-      };
-      
-      // Flatten series.groupBy to top-level (except for number charts)
-      if (chartDef.chart_type !== 'number' && chartConfigRaw.series?.groupBy) {
-        chartConfig.groupBy = chartConfigRaw.series.groupBy;
-      }
-      
-      // Flatten series.colorPalette to top-level
-      if (chartConfigRaw.series?.colorPalette) {
-        chartConfig.colorPalette = chartConfigRaw.series.colorPalette;
-      }
-      
-      // Preserve dual-axis config (CRITICAL for dual-axis charts)
-      if (chartDef.chart_type === 'dual-axis' && chartConfigRaw.dualAxisConfig) {
-        chartConfig.dualAxisConfig = chartConfigRaw.dualAxisConfig;
-      }
-      
-      // Multi-series support (seriesConfigs → multipleSeries) - CRITICAL for multi-series charts
-      if (chartConfigRaw.seriesConfigs && Array.isArray(chartConfigRaw.seriesConfigs) && chartConfigRaw.seriesConfigs.length > 0) {
-        chartConfig.multipleSeries = chartConfigRaw.seriesConfigs;
-      }
-      
-      // Frequency for multi-series/dual-axis charts is in chart_config, not data_source.filters
-      const configFrequency = chartConfigRaw.frequency as string | undefined;
-      
-      log.info('Chart definition loaded for dimension expansion', {
-        chartDefinitionId,
-        dataSourceId,
-        chartType: chartDef.chart_type,
-        hasDataSource: !!chartDataSource,
-        dataSourceKeys: chartDataSource ? Object.keys(chartDataSource) : [],
-        measureValue: measureFilter?.value,
-        frequencyValue: frequencyFilter?.value || configFrequency,
-        isMultiSeries: !!chartConfigRaw.seriesConfigs?.length,
-        isDualAxis: chartDef.chart_type === 'dual-axis',
-        hasDualAxisConfig: !!chartConfigRaw.dualAxisConfig,
-        chartConfigKeys: Object.keys(chartConfig),
-        hasFrequencyInChartConfig: !!chartConfig.frequency,
-        configFrequency,
-        component: 'dimension-expansion',
-      });
-
       // Get dimension metadata
       const dimensionCol = await dimensionDiscoveryService.getDataSourceExpansionDimensions(
         dataSourceId
@@ -165,35 +90,46 @@ export class DimensionExpansionRenderer {
       }
 
       // CRITICAL: Resolve organizationId to practiceUids BEFORE querying dimension values
-      let resolvedFilters = { ...baseFilters };
+      // Uses shared utility with proper RBAC validation and security logging
+      const resolvedFilters: ResolvedFilters = {
+        ...baseFilters,
+        practiceUids: (baseFilters.practiceUids as number[] | undefined) || [],
+      };
       
       if (baseFilters.organizationId && typeof baseFilters.organizationId === 'string') {
-        // Resolve organization to practice UIDs (with hierarchy)
-        const allOrganizations = await organizationHierarchyService.getAllOrganizations();
-        const practiceUids = await organizationHierarchyService.getHierarchyPracticeUids(
+        // Resolve organization filter with RBAC validation
+        const resolved = await resolveOrganizationFilter(
           baseFilters.organizationId,
-          allOrganizations
+          userContext,
+          'dimension-expansion'
         );
         
-        // Replace organizationId with resolved practiceUids
-        resolvedFilters = {
-          ...baseFilters,
-          practiceUids,
-        };
+        // Update with resolved practiceUids
+        resolvedFilters.practiceUids = resolved.practiceUids;
         delete resolvedFilters.organizationId;
-
-        log.info('Resolved organization filter for dimension expansion', {
-          chartDefinitionId,
-          organizationId: baseFilters.organizationId,
-          resolvedPracticeUids: practiceUids.length,
-          component: 'dimension-expansion',
-        });
       }
 
-      // Convert baseFilters to ChartFilter array
-      const chartFilters = this.convertBaseFiltersToChartFilters(resolvedFilters);
+      // Use ChartConfigBuilderService to extract and normalize chart configuration
+      // This replaces ~80 lines of manual config extraction
+      const configBuilder = new ChartConfigBuilderService();
+      const chartExecutionConfig = configBuilder.buildSingleChartConfig(chartDef, resolvedFilters);
 
-      // Get unique dimension values (with filters applied)
+      log.info('Chart configuration built for dimension expansion', {
+        chartDefinitionId,
+        dataSourceId,
+        chartType: chartDef.chart_type,
+        hasRuntimeFilters: Object.keys(chartExecutionConfig.runtimeFilters).length > 0,
+        hasMeasure: !!chartExecutionConfig.metadata.measure,
+        hasFrequency: !!chartExecutionConfig.metadata.frequency,
+        hasGroupBy: !!chartExecutionConfig.metadata.groupBy,
+        component: 'dimension-expansion',
+      });
+
+      // Convert baseFilters to ChartFilter array using shared utility
+      // Cast to compatible type for filter conversion
+      const chartFilters = convertBaseFiltersToChartFilters(resolvedFilters as unknown as ResolvedBaseFilters);
+
+    // Get unique dimension values (with filters applied)
       const dimensionValuesResponse = await dimensionDiscoveryService.getDimensionValues(
         dataSourceId,
         dimensionColumn,
@@ -241,23 +177,15 @@ export class DimensionExpansionRenderer {
         const queryStart = Date.now();
 
         try {
-          // CRITICAL: Separate chartConfig from runtimeFilters (like batch executor does)
-          // chartConfig = Visual settings (colorPalette, stackingMode, groupBy)
-          // runtimeFilters = Query parameters (measure, frequency, dates, filters)
-          
-          const finalChartConfig = {
-            chartType: chartDef.chart_type,
-            dataSourceId,
-            ...chartConfig,  // ← All visual config (colorPalette, stackingMode, groupBy, etc.)
-          };
-
-          // Build runtime filters, being careful not to override handler-specific logic
-          const runtimeFilters: Record<string, unknown> = {
-            ...resolvedFilters,      // ← Current filters (dates, practiceUids, frequency from baseFilters)
-            frequency: (frequencyFilter?.value as string | undefined) || configFrequency || (resolvedFilters.frequency as string | undefined),
-            // Add dimension filter
+          // Use the already-built chart configuration from ChartConfigBuilderService
+          // Add dimension-specific filter to the runtime filters
+          const dimensionRuntimeFilters: Record<string, unknown> = {
+            ...chartExecutionConfig.runtimeFilters,
+            // Add dimension filter to existing advancedFilters
             advancedFilters: [
-              ...(Array.isArray(resolvedFilters.advancedFilters) ? resolvedFilters.advancedFilters : []),
+              ...(Array.isArray(chartExecutionConfig.runtimeFilters.advancedFilters) 
+                ? chartExecutionConfig.runtimeFilters.advancedFilters 
+                : []),
               {
                 field: dimensionColumn,
                 operator: 'eq' as const,
@@ -265,62 +193,35 @@ export class DimensionExpansionRenderer {
               },
             ],
           };
-          
-          // IMPORTANT: Only set measure for single-measure charts
-          // Multi-series gets measures from multipleSeries array (in chartConfig)
-          // Dual-axis gets measures from dualAxisConfig (in chartConfig)
-          if (measureFilter?.value) {
-            runtimeFilters.measure = measureFilter.value as string;
-          }
 
-          // Log runtime filters to debug date range issues
           log.debug('Dimension expansion runtime filters', {
             chartDefinitionId,
             dimensionValue: dimensionValue.value,
-            hasStartDate: !!runtimeFilters.startDate,
-            hasEndDate: !!runtimeFilters.endDate,
-            startDate: runtimeFilters.startDate,
-            endDate: runtimeFilters.endDate,
-            hasFrequency: !!runtimeFilters.frequency,
-            frequency: runtimeFilters.frequency,
+            hasStartDate: !!dimensionRuntimeFilters.startDate,
+            hasEndDate: !!dimensionRuntimeFilters.endDate,
+            startDate: dimensionRuntimeFilters.startDate,
+            endDate: dimensionRuntimeFilters.endDate,
+            hasFrequency: !!dimensionRuntimeFilters.frequency,
+            frequency: dimensionRuntimeFilters.frequency,
             component: 'dimension-expansion',
           });
 
           // Execute chart query using orchestrator (matching batch executor pattern)
           const result = await chartDataOrchestrator.orchestrate(
             {
-              chartConfig: finalChartConfig as typeof finalChartConfig & {
+              chartConfig: chartExecutionConfig.finalChartConfig as Record<string, unknown> & {
                 chartType: string;
                 dataSourceId: number;
               },
-              runtimeFilters,
+              runtimeFilters: dimensionRuntimeFilters,
             },
             userContext
           );
 
           const queryTime = Date.now() - queryStart;
 
-          // Map OrchestrationResult to proper BatchChartData structure matching batch executor pattern
-          const batchChartData = {
-            chartData: result.chartData,
-            rawData: result.rawData,
-            metadata: {
-              chartType: result.metadata.chartType,
-              dataSourceId: result.metadata.dataSourceId,
-              transformedAt: new Date().toISOString(),
-              queryTimeMs: result.metadata.queryTimeMs,
-              cacheHit: result.metadata.cacheHit,
-              recordCount: result.metadata.recordCount,
-              transformDuration: 0,
-              // CRITICAL: Include measure, frequency, groupBy for BatchChartRenderer
-              measure: measureFilter?.value as string | undefined,
-              frequency: frequencyFilter?.value as string | undefined,
-              groupBy: (chartConfig.groupBy as string | undefined),
-            },
-            // Include table-specific data if present
-            ...(result.columns && { columns: result.columns }),
-            ...(result.formattedData && { formattedData: result.formattedData }),
-          };
+          // Map OrchestrationResult to BatchChartData using shared mapper
+          const batchChartData = orchestrationResultToBatchChartData(result, chartExecutionConfig.metadata);
 
           // Update dimensionValue.recordCount with actual filtered count
           const actualRecordCount = result.metadata.recordCount;
@@ -331,8 +232,7 @@ export class DimensionExpansionRenderer {
 
           const expandedChart: DimensionExpandedChart = {
             dimensionValue: updatedDimensionValue,
-            // biome-ignore lint/suspicious/noExplicitAny: BatchChartData structure properly mapped from OrchestrationResult
-            chartData: batchChartData as any,
+            chartData: batchChartData,
             metadata: {
               recordCount: actualRecordCount,
               queryTimeMs: queryTime,
@@ -343,50 +243,53 @@ export class DimensionExpansionRenderer {
 
           return expandedChart;
         } catch (error) {
+          const queryTime = Date.now() - queryStart;
+          
           log.error('Failed to render chart for dimension value', error as Error, {
             chartDefinitionId,
             dimensionColumn,
             dimensionValue: dimensionValue.value,
             userId: userContext.user_id,
+            queryTime,
             component: 'dimension-expansion',
           });
 
-          // Return empty chart on error (graceful degradation)
-          return {
+          // Return error state instead of empty chart (proper error handling)
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+          
+          const errorResult: DimensionExpandedChart = {
             dimensionValue,
-            chartData: {
-              chartData: {
-                labels: [],
-                datasets: [],
-              },
-              rawData: [],
-              metadata: {
-                chartType: '',
-                dataSourceId: 0,
-                transformedAt: new Date().toISOString(),
-                queryTimeMs: Date.now() - queryStart,
-                cacheHit: false,
-                recordCount: 0,
-                transformDuration: 0,
-              },
+            chartData: null,
+            error: {
+              message: 'Failed to load chart data',
+              code: 'DIMENSION_CHART_RENDER_FAILED',
+              ...(process.env.NODE_ENV === 'development' && { details: errorMessage }),
             },
             metadata: {
               recordCount: 0,
-              queryTimeMs: Date.now() - queryStart,
+              queryTimeMs: queryTime,
               cacheHit: false,
               transformDuration: 0,
             },
-          } as DimensionExpandedChart;
+          };
+          
+          return errorResult;
         }
       });
 
       // Execute all in parallel
       const allCharts = await Promise.all(chartPromises);
 
-      // Filter out dimension values with zero records and sort by record count (descending)
-      const charts = allCharts
-        .filter((chart) => chart.metadata.recordCount > 0)
-        .sort((a, b) => b.metadata.recordCount - a.metadata.recordCount);
+      // Separate successful charts from errors
+      const successfulCharts = allCharts.filter((chart) => !chart.error && chart.metadata.recordCount > 0);
+      const errorCharts = allCharts.filter((chart) => chart.error);
+      const zeroRecordCharts = allCharts.filter((chart) => !chart.error && chart.metadata.recordCount === 0);
+
+      // Sort successful charts by record count (descending), then append error charts
+      const charts = [
+        ...successfulCharts.sort((a, b) => b.metadata.recordCount - a.metadata.recordCount),
+        ...errorCharts, // Include error charts so UI can display them
+      ];
 
       const totalTime = Date.now() - startTime;
 
@@ -395,8 +298,9 @@ export class DimensionExpansionRenderer {
         dimensionColumn,
         dimensionValues: values.length,
         totalCharts: allCharts.length,
-        chartsWithData: charts.length,
-        zeroRecordChartsFiltered: allCharts.length - charts.length,
+        successfulCharts: successfulCharts.length,
+        errorCharts: errorCharts.length,
+        zeroRecordCharts: zeroRecordCharts.length,
         totalQueryTime: totalTime,
         userId: userContext.user_id,
         component: 'dimension-expansion',
@@ -419,53 +323,6 @@ export class DimensionExpansionRenderer {
       });
       throw error;
     }
-  }
-
-  /**
-   * Convert base filters object to ChartFilter array
-   *
-   * Helper to transform dashboard filter format to chart filter format.
-   *
-   * @param baseFilters - Base filters from dashboard
-   * @returns Array of chart filters
-   */
-  private convertBaseFiltersToChartFilters(
-    baseFilters: Record<string, unknown>
-  ): ChartFilter[] {
-    const filters: ChartFilter[] = [];
-
-    // Handle advanced filters
-    if (Array.isArray(baseFilters.advancedFilters)) {
-      filters.push(...(baseFilters.advancedFilters as ChartFilter[]));
-    }
-
-    // Handle date range
-    if (baseFilters.startDate && typeof baseFilters.startDate === 'string') {
-      filters.push({
-        field: 'date',
-        operator: 'gte',
-        value: baseFilters.startDate,
-      });
-    }
-
-    if (baseFilters.endDate && typeof baseFilters.endDate === 'string') {
-      filters.push({
-        field: 'date',
-        operator: 'lte',
-        value: baseFilters.endDate,
-      });
-    }
-
-    // Handle practice UIDs
-    if (Array.isArray(baseFilters.practiceUids) && baseFilters.practiceUids.length > 0) {
-      filters.push({
-        field: 'practice_uid',
-        operator: 'in',
-        value: baseFilters.practiceUids as number[],
-      });
-    }
-
-    return filters;
   }
 }
 

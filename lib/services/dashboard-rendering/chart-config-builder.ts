@@ -49,11 +49,13 @@ export class ChartConfigBuilderService {
   /**
    * Build execution config for a single chart
    *
+   * Used by both dashboard rendering and dimension expansion systems.
+   *
    * @param chart - Chart definition
    * @param universalFilters - Dashboard-level filters
    * @returns Chart execution config
    */
-  private buildSingleChartConfig(
+  buildSingleChartConfig(
     chart: ChartDefinition,
     universalFilters: ResolvedFilters
   ): ChartExecutionConfig {

@@ -79,7 +79,7 @@ export interface FormattedCell {
 /**
  * Orchestration result
  */
-interface OrchestrationResult {
+export interface OrchestrationResult {
   chartData: ChartData;
   rawData: Record<string, unknown>[];
   columns?: ColumnDefinition[]; // Optional: Only for table charts

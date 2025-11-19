@@ -21,10 +21,10 @@ import type {
   DashboardChart,
 } from '@/lib/types/analytics';
 import type { BatchChartData } from './batch-chart-renderer';
+import BatchChartRenderer from './batch-chart-renderer';
 import ChartErrorBoundary from './chart-error-boundary';
 import DashboardFilterDropdown from './dashboard-filter-dropdown';
 import DashboardFilterPills from './dashboard-filter-pills';
-import ExpandableChartContainer from './expandable-chart-container';
 
 interface DashboardViewProps {
   dashboard: Dashboard;
@@ -465,9 +465,9 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
                 overflow: 'hidden',
               }}
             >
-              {/* Expandable chart with dimension support - wrap with error boundary */}
+              {/* Chart with dimension expansion support (via fullscreen modals) - wrap with error boundary */}
               <ChartErrorBoundary chartName={chartDef.chart_name}>
-                <ExpandableChartContainer
+                <BatchChartRenderer
                   chartDefinitionId={chartDef.chart_definition_id}
                   chartData={batchChartData as BatchChartData}
                   chartDefinition={{
@@ -477,7 +477,7 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
                     chart_config: chartConfig,
                   }}
                   position={dashboardChart.position}
-                  currentFilters={universalFilters}
+                  currentFilters={universalFilters as Record<string, unknown>}
                   className="w-full h-full flex-1"
                   responsive={true}
                   minHeight={DASHBOARD_LAYOUT.CHART.MIN_HEIGHT_WITH_PADDING}

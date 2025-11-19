@@ -52,13 +52,23 @@ export interface DimensionValue {
 }
 
 /**
+ * Error information for failed dimension chart
+ */
+export interface DimensionChartError {
+  message: string; // User-friendly error message
+  code: string; // Error code for logging/debugging
+  details?: string | undefined; // Optional technical details (development only)
+}
+
+/**
  * Chart data for a single dimension value
  */
 export interface DimensionExpandedChart {
   dimensionValue: DimensionValue; // Which dimension value this chart represents
-  chartData: ChartRenderResult; // Transformed chart data ready for rendering
+  chartData: import('@/lib/services/dashboard-rendering/mappers').BatchChartData | null; // Transformed chart data (null if error)
+  error?: DimensionChartError; // Error information if chart failed to render
   metadata: {
-    recordCount: number; // Total records in this dimension
+    recordCount: number; // Total records in this dimension (0 if error)
     queryTimeMs: number; // Query execution time
     cacheHit: boolean; // Whether data came from cache
     transformDuration: number; // Data transformation time
