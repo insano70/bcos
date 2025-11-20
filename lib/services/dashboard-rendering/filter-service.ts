@@ -10,8 +10,7 @@
  */
 
 import { log } from '@/lib/logger';
-import { createOrganizationAccessService } from '@/lib/services/organization-access-service';
-import { organizationHierarchyService } from '@/lib/services/organization-hierarchy-service';
+import { createFilterBuilderService } from '@/lib/services/filters/filter-builder-service';
 import { BaseDashboardRenderingService } from './base-service';
 import type { DashboardUniversalFilters, DashboardWithCharts, ResolvedFilters } from './types';
 
@@ -24,10 +23,7 @@ export class FilterService extends BaseDashboardRenderingService {
   /**
    * Validate and resolve universal filters
    *
-   * Process:
-   * - Validates organization access (RBAC)
-   * - Resolves organizationId → practiceUids (with hierarchy)
-   * - Returns validated + resolved filters
+   * Delegates to FilterBuilderService for organization validation and resolution.
    *
    * @param universalFilters - Dashboard-level filters
    * @param dashboard - Dashboard definition (for logging)
@@ -37,152 +33,41 @@ export class FilterService extends BaseDashboardRenderingService {
     universalFilters: DashboardUniversalFilters,
     dashboard: DashboardWithCharts
   ): Promise<ResolvedFilters> {
-    const filters: ResolvedFilters = {
-      ...universalFilters,
-      practiceUids: [],
-    };
+    const filterBuilder = createFilterBuilderService(this.userContext);
 
-    // If organization filter provided, validate + resolve
+    // If organization filter provided, use FilterBuilderService to validate + resolve
     if (universalFilters.organizationId) {
-      await this.validateOrganizationAccess(universalFilters.organizationId);
-
-      filters.practiceUids = await this.resolveOrganizationPracticeUids(
-        universalFilters.organizationId
+      const executionFilters = await filterBuilder.buildExecutionFilters(
+        universalFilters,
+        { component: 'dashboard-rendering' }
       );
 
       log.info('Dashboard organization filter processed', {
         dashboardId: dashboard.dashboard_id,
         userId: this.userContext.user_id,
         organizationId: universalFilters.organizationId,
-        practiceUidCount: filters.practiceUids.length,
-        practiceUids: filters.practiceUids,
+        practiceUidCount: executionFilters.practiceUids.length,
+        practiceUids: executionFilters.practiceUids,
         component: 'dashboard-rendering',
       });
+
+      return {
+        ...universalFilters,
+        practiceUids: executionFilters.practiceUids,
+      };
     }
 
-    return filters;
+    // No organization filter - return with empty practiceUids
+    return {
+      ...universalFilters,
+      practiceUids: [],
+    };
   }
 
-  /**
-   * Validate user can access the selected organization
-   *
-   * Security Rules:
-   * - Super admins (analytics:read:all) can filter by any organization
-   * - Org users (analytics:read:organization) can only filter by their own organizations
-   * - Provider users (analytics:read:own) cannot use organization filter
-   * - No analytics permission = cannot use org filter
-   *
-   * @param organizationId - Organization ID from dashboard filter
-   * @throws Error if user cannot access this organization
-   */
-  private async validateOrganizationAccess(organizationId: string): Promise<void> {
-    const accessService = createOrganizationAccessService(this.userContext);
-    const accessInfo = await accessService.getAccessiblePracticeUids();
-
-    // Super admins can filter by any organization
-    if (accessInfo.scope === 'all') {
-      log.info('Super admin can filter by any organization', {
-        userId: this.userContext.user_id,
-        requestedOrganizationId: organizationId,
-        permissionScope: 'all',
-        component: 'dashboard-rendering',
-      });
-      return;
-    }
-
-    // Provider users cannot use organization filter
-    if (accessInfo.scope === 'own') {
-      log.security('Provider user attempted to use organization filter - denied', 'high', {
-        userId: this.userContext.user_id,
-        requestedOrganizationId: organizationId,
-        blocked: true,
-        reason: 'provider_cannot_filter_by_org',
-        component: 'dashboard-rendering',
-      });
-
-      throw new Error(
-        'Access denied: Provider-level users cannot filter by organization. You can only see your own provider data.'
-      );
-    }
-
-    // Organization users can only filter by their accessible organizations (includes hierarchy)
-    if (accessInfo.scope === 'organization') {
-      const canAccess = this.userContext.accessible_organizations.some(
-        (org) => org.organization_id === organizationId
-      );
-
-      if (!canAccess) {
-        log.security('Organization filter access denied', 'high', {
-          userId: this.userContext.user_id,
-          requestedOrganizationId: organizationId,
-          accessibleOrganizationIds: this.userContext.accessible_organizations.map(
-            (o) => o.organization_id
-          ),
-          blocked: true,
-          reason: 'user_not_member_of_accessible_orgs',
-          component: 'dashboard-rendering',
-        });
-
-        throw new Error(
-          `Access denied: You do not have permission to filter by organization ${organizationId}. You can only filter by organizations in your hierarchy.`
-        );
-      }
-
-      log.info('Organization filter access granted', {
-        userId: this.userContext.user_id,
-        requestedOrganizationId: organizationId,
-        verified: true,
-        component: 'dashboard-rendering',
-      });
-    }
-
-    // No analytics permission
-    if (accessInfo.scope === 'none') {
-      log.security(
-        'User without analytics permission attempted to use organization filter - denied',
-        'medium',
-        {
-          userId: this.userContext.user_id,
-          requestedOrganizationId: organizationId,
-          blocked: true,
-          reason: 'no_analytics_permission',
-          component: 'dashboard-rendering',
-        }
-      );
-
-      throw new Error('Access denied: You do not have analytics permissions.');
-    }
-  }
-
-  /**
-   * Resolve organizationId to practice_uids (with hierarchy)
-   *
-   * Converts selected organizationId to array of practice_uid values.
-   * Includes practice_uids from child organizations (recursive).
-   *
-   * @param organizationId - Organization ID from dashboard filter
-   * @returns Array of practice_uid values (with hierarchy)
-   */
-  private async resolveOrganizationPracticeUids(organizationId: string): Promise<number[]> {
-    // Get all organizations in hierarchy (org + descendants)
-    const allOrganizations = await organizationHierarchyService.getAllOrganizations();
-
-    const hierarchyPracticeUids = await organizationHierarchyService.getHierarchyPracticeUids(
-      organizationId,
-      allOrganizations
-    );
-
-    log.info('Organization practice_uids resolved for dashboard filter', {
-      userId: this.userContext.user_id,
-      organizationId,
-      practiceUidCount: hierarchyPracticeUids.length,
-      practiceUids: hierarchyPracticeUids,
-      includesHierarchy: hierarchyPracticeUids.length > 0,
-      component: 'dashboard-rendering',
-    });
-
-    return hierarchyPracticeUids;
-  }
+  // Organization validation and resolution now delegated to FilterBuilderService
+  // See: lib/services/filters/filter-builder-service.ts
+  // - resolveOrganizationFilter() handles validation + resolution
+  // - Consolidates duplicate logic from filter-service.ts and organization-filter-resolver.ts
 
   /**
    * Merge universal filters with chart-level config

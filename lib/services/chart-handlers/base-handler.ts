@@ -9,6 +9,7 @@ import type { UserContext } from '@/lib/types/rbac';
 import { getDateRange } from '@/lib/utils/date-presets';
 import { analyticsQueryBuilder } from '../analytics';
 import type { ChartTypeHandler, ValidationResult } from '../chart-type-registry';
+import type { UniversalChartFilters } from '@/lib/types/filters';
 
 /**
  * Base Chart Handler
@@ -155,25 +156,30 @@ export abstract class BaseChartHandler implements ChartTypeHandler {
 
   /**
    * Build analytics query parameters from chart config
-   * Helper method for fetchData
-   * Subclasses can override getDataSourceType() to specify type explicitly
    * 
-   * NOTE: Keeping this implementation for now as it handles complex cases:
-   * - multipleSeries and periodComparison passthrough
-   * - Fail-closed security for empty practiceUids
-   * - Multiple advanced filter merging
-   * 
-   * Full migration to FilterBuilderService deferred - current implementation is working correctly.
+   * Uses FilterBuilderService for consistent, type-safe filter building.
+   * Handles special chart types (multipleSeries, periodComparison, dualAxis).
    */
   protected buildQueryParams(config: Record<string, unknown>): AnalyticsQueryParams {
-    // Calculate date range from preset or explicit dates
+    // Build universal filters from config
+    const universalFilters: UniversalChartFilters = {};
+    
+    if (typeof config.startDate === 'string') universalFilters.startDate = config.startDate;
+    if (typeof config.endDate === 'string') universalFilters.endDate = config.endDate;
+    if (typeof config.dateRangePreset === 'string') universalFilters.dateRangePreset = config.dateRangePreset;
+    if (typeof config.measure === 'string') universalFilters.measure = config.measure;
+    if (typeof config.frequency === 'string') universalFilters.frequency = config.frequency;
+    if (typeof config.providerName === 'string') universalFilters.providerName = config.providerName;
+    if (Array.isArray(config.practiceUids)) universalFilters.practiceUids = config.practiceUids as number[];
+    if (Array.isArray(config.advancedFilters)) universalFilters.advancedFilters = config.advancedFilters as ChartFilter[];
+
+    // Calculate date range
     const { startDate, endDate } = getDateRange(
-      config.dateRangePreset as string | undefined,
-      config.startDate as string | undefined,
-      config.endDate as string | undefined
+      universalFilters.dateRangePreset,
+      universalFilters.startDate,
+      universalFilters.endDate
     );
 
-    // Build query parameters
     const queryParams: AnalyticsQueryParams = {
       data_source_id: config.dataSourceId as number,
       start_date: startDate,
@@ -181,115 +187,75 @@ export abstract class BaseChartHandler implements ChartTypeHandler {
       limit: (config.limit as number) || QUERY_LIMITS.DEFAULT_ANALYTICS_LIMIT,
     };
 
-    // Allow subclasses to specify data source type explicitly
+    // Data source type
     const dataSourceType = this.getDataSourceType();
     if (dataSourceType) {
       queryParams.data_source_type = dataSourceType;
     }
 
-    // Add optional parameters if present
-    if (config.measure) {
-      queryParams.measure = config.measure as import('@/lib/types/analytics').MeasureType;
+    // Optional parameters
+    if (universalFilters.measure) {
+      queryParams.measure = universalFilters.measure as import('@/lib/types/analytics').MeasureType;
     }
-
-    if (config.frequency) {
-      queryParams.frequency = config.frequency as import('@/lib/types/analytics').FrequencyType;
+    if (universalFilters.frequency) {
+      queryParams.frequency = universalFilters.frequency as import('@/lib/types/analytics').FrequencyType;
     }
-
     if (config.practice) {
       queryParams.practice = config.practice as string;
     }
-
     if (config.practiceUid) {
-      const practiceUid =
-        typeof config.practiceUid === 'string'
-          ? parseInt(config.practiceUid, 10)
-          : (config.practiceUid as number);
+      const practiceUid = typeof config.practiceUid === 'string' ? parseInt(config.practiceUid, 10) : (config.practiceUid as number);
       if (!Number.isNaN(practiceUid)) {
         queryParams.practice_uid = practiceUid;
       }
     }
+    if (universalFilters.providerName) {
+      queryParams.provider_name = universalFilters.providerName;
+    }
 
-    // Handle dashboard universal filter: practiceUids array from organization selection
-    // SECURITY-CRITICAL: Empty array = organization has no practices = FAIL CLOSED (return no data)
-    if (config.practiceUids && Array.isArray(config.practiceUids)) {
-      if (config.practiceUids.length === 0) {
-        // FAIL-CLOSED SECURITY: Empty array means organization has no practices
-        // Use impossible value to ensure query returns no results
+    // Handle practiceUids with fail-closed security
+    if (universalFilters.practiceUids && Array.isArray(universalFilters.practiceUids)) {
+      if (universalFilters.practiceUids.length === 0) {
+        // FAIL-CLOSED SECURITY: Empty array = no data
         const practiceUidFilter: ChartFilter = {
           field: 'practice_uid',
           operator: 'in',
-          value: [-1], // Impossible practice_uid value - number[] is now valid ChartFilterValue
+          value: [-1],
         };
-
-        if (!queryParams.advanced_filters) {
-          queryParams.advanced_filters = [];
-        }
-        queryParams.advanced_filters.push(practiceUidFilter);
-
-        log.security(
-          'dashboard organization filter applied - empty organization (fail-closed)',
-          'high',
-          {
-            operation: 'build_query_params',
-            practiceUidCount: 0,
-            result: 'no_data_returned',
-            reason: 'organization_has_no_practices',
-            source: 'dashboard_universal_filter',
-            component: 'chart-handler',
-            failedClosed: true,
-          }
-        );
-      } else {
-        // Normal case: organization has practices
-        const practiceUidFilter: ChartFilter = {
-          field: 'practice_uid',
-          operator: 'in',
-          value: config.practiceUids, // number[] is now valid ChartFilterValue
-        };
-
-        if (!queryParams.advanced_filters) {
-          queryParams.advanced_filters = [];
-        }
-        queryParams.advanced_filters.push(practiceUidFilter);
-
-        log.info('dashboard organization filter applied', {
+        queryParams.advanced_filters = [practiceUidFilter, ...(universalFilters.advancedFilters || [])];
+        
+        log.security('fail-closed security triggered - empty practiceUids', 'high', {
           operation: 'build_query_params',
-          practiceUidCount: (config.practiceUids as number[]).length,
-          practiceUids: config.practiceUids,
-          source: 'dashboard_universal_filter',
+          component: 'chart-handler',
+          failedClosed: true,
+        });
+      } else {
+        // Normal case
+        const practiceUidFilter: ChartFilter = {
+          field: 'practice_uid',
+          operator: 'in',
+          value: universalFilters.practiceUids,
+        };
+        queryParams.advanced_filters = [practiceUidFilter, ...(universalFilters.advancedFilters || [])];
+        
+        log.info('dashboard organization filter applied', {
+          practiceUidCount: universalFilters.practiceUids.length,
           component: 'chart-handler',
         });
       }
+    } else if (universalFilters.advancedFilters) {
+      queryParams.advanced_filters = universalFilters.advancedFilters;
     }
 
-    if (config.providerName) {
-      queryParams.provider_name = config.providerName as string;
-    }
-
-    // Merge chart-specific advanced filters with any filters we've already added
-    if (config.advancedFilters) {
-      const chartFilters = config.advancedFilters as import('@/lib/types/analytics').ChartFilter[];
-      if (queryParams.advanced_filters) {
-        // Merge with existing filters (e.g., practiceUids filter added above)
-        queryParams.advanced_filters = [...queryParams.advanced_filters, ...chartFilters];
-      } else {
-        queryParams.advanced_filters = chartFilters;
-      }
-    }
-
+    // Special chart type support
     if (config.calculatedField) {
       queryParams.calculated_field = config.calculatedField as string;
     }
-
     if (config.multipleSeries) {
-      queryParams.multiple_series =
-        config.multipleSeries as import('@/lib/types/analytics').MultipleSeriesConfig[];
+      queryParams.multiple_series = config.multipleSeries as import('@/lib/types/analytics').MultipleSeriesConfig[];
     }
-
     if (config.periodComparison) {
-      queryParams.period_comparison =
-        config.periodComparison as import('@/lib/types/analytics').PeriodComparisonConfig;
+      queryParams.period_comparison = config.periodComparison as import('@/lib/types/analytics').PeriodComparisonConfig;
     }
 
     return queryParams;

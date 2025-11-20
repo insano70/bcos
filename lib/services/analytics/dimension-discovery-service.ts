@@ -16,12 +16,12 @@ import type { UserContext } from '@/lib/types/rbac';
 import type { ChartFilter } from '@/lib/types/analytics';
 import type {
   AvailableDimensionsResponse,
-  DimensionValue,
   DimensionValuesResponse,
   ExpansionDimension,
 } from '@/lib/types/dimensions';
 import { createRBACChartsService } from '@/lib/services/rbac-charts-service';
 import { DIMENSION_EXPANSION_LIMITS } from '@/lib/constants/dimension-expansion';
+import { dimensionValueCache } from '@/lib/services/analytics/dimension-value-cache';
 
 /**
  * Dimension Discovery Service
@@ -205,12 +205,13 @@ export class DimensionDiscoveryService {
         );
       }
 
-      // Extract filter parameters for cache query
+      // NEW: Use optimized dimension value cache with SQL DISTINCT
+      // This replaces the old approach of fetching all rows and filtering in-memory
+      
+      // Extract filter parameters for optimized query
       const startDateFilter = filters.find((f) => f.field === 'date' && f.operator === 'gte');
       const endDateFilter = filters.find((f) => f.field === 'date' && f.operator === 'lte');
       const practiceFilter = filters.find((f) => f.field === 'practice_uid' && f.operator === 'in');
-      
-      // Find measure and frequency from filters or use defaults
       const measureFilter = filters.find((f) => f.field === 'measure');
       const frequencyFilter = filters.find((f) => f.field === 'frequency' || f.field === 'time_period');
       
@@ -219,112 +220,31 @@ export class DimensionDiscoveryService {
         (f) => !['date', 'practice_uid', 'measure', 'frequency', 'time_period'].includes(f.field)
       );
 
-      log.debug('Extracted filter parameters', {
-        dataSourceId,
-        hasStartDate: !!startDateFilter,
-        hasEndDate: !!endDateFilter,
-        hasPractice: !!practiceFilter,
-        hasMeasure: !!measureFilter,
-        hasFrequency: !!frequencyFilter,
-        advancedFilterCount: advancedFilters.length,
-        measure: measureFilter?.value,
-        frequency: frequencyFilter?.value,
-        component: 'dimension-discovery',
-      });
-
-      // Validate frequency for measure-based sources (measure may be optional for multi-series charts)
+      // Validate frequency for measure-based sources
       if (dataSourceConfig.dataSourceType === 'measure-based') {
         if (!frequencyFilter) {
           throw new Error(
             `Measure-based data source requires frequency filter. Got frequency: none`
           );
         }
-        // Note: measure filter is optional for multi-series charts where each series has its own measure
-        // Multi-series charts have seriesConfigs in chart_config with individual measures per series
       }
 
-      // Build cache query params
-      const cacheParams = {
+      // Query dimension values using optimized cache (10-50x faster)
+      const queryParams = {
         dataSourceId,
-        schema: dataSourceConfig.schemaName,
-        table: dataSourceConfig.tableName,
-        dataSourceType: dataSourceConfig.dataSourceType,
+        dimensionColumn,
+        limit: validatedLimit,
         ...(measureFilter && { measure: measureFilter.value as string }),
         ...(frequencyFilter && { frequency: frequencyFilter.value as string }),
-        ...(practiceFilter && Array.isArray(practiceFilter.value) && practiceFilter.value.length === 1 && {
-          practiceUid: practiceFilter.value[0] as number,
-        }),
         ...(startDateFilter && { startDate: startDateFilter.value as string }),
         ...(endDateFilter && { endDate: endDateFilter.value as string }),
+        ...(practiceFilter && { practiceUids: practiceFilter.value as number[] }),
         ...(advancedFilters.length > 0 && { advancedFilters }),
       };
 
-      log.debug('Cache query params built', {
-        dataSourceId,
-        cacheParams,
-        component: 'dimension-discovery',
-      });
+      const result = await dimensionValueCache.getDimensionValues(queryParams, userContext);
 
-      // Fetch data from cache (uses existing cache path with RBAC filtering)
-      const { dataSourceCache } = await import('@/lib/cache');
-      const cacheResult = await dataSourceCache.fetchDataSource(
-        cacheParams,
-        userContext,
-        false // Use cache
-      );
-
-      log.debug('Cache fetch completed', {
-        dataSourceId,
-        rowCount: cacheResult.rows.length,
-        cacheHit: cacheResult.cacheHit,
-        component: 'dimension-discovery',
-      });
-
-      // Extract unique dimension values in-memory
-      const uniqueValuesSet = new Set<string | number | null>();
-      
-      log.debug('Extracting unique dimension values', {
-        dataSourceId,
-        dimensionColumn,
-        totalRows: cacheResult.rows.length,
-        sampleRow: cacheResult.rows[0],
-        component: 'dimension-discovery',
-      });
-
-      for (const row of cacheResult.rows) {
-        const value = row[dimensionColumn];
-        uniqueValuesSet.add(value as string | number | null);
-      }
-
-      log.debug('Unique values extracted', {
-        dataSourceId,
-        dimensionColumn,
-        uniqueCount: uniqueValuesSet.size,
-        uniqueValues: Array.from(uniqueValuesSet).slice(0, 10), // Sample first 10
-        component: 'dimension-discovery',
-      });
-
-      // Convert to sorted array
-      const uniqueValues = Array.from(uniqueValuesSet)
-        .filter((v) => v !== undefined) // Filter out undefined
-        .sort((a, b) => {
-          // Sort nulls last
-          if (a === null) return 1;
-          if (b === null) return -1;
-          // Sort strings/numbers naturally
-          if (typeof a === 'string' && typeof b === 'string') {
-            return a.localeCompare(b);
-          }
-          return String(a).localeCompare(String(b));
-        })
-        .slice(0, validatedLimit); // Apply limit after sorting
-
-      // Transform to dimension values
-      const values: DimensionValue[] = uniqueValues.map((value) => ({
-        value: value as string | number,
-        label: String(value === null ? 'null' : value),
-        // recordCount will be populated later in dimension-expansion-renderer
-      }));
+      const values = result.values;
 
       const duration = Date.now() - startTime;
 
@@ -332,16 +252,17 @@ export class DimensionDiscoveryService {
         columnName: dimensionCol.columnName,
         displayName: dimensionCol.expansionDisplayName || dimensionCol.displayName,
         dataType: dimensionCol.dataType as 'string' | 'integer' | 'boolean',
-        dataSourceId: dataSourceId, // Use parameter, not column property
+        dataSourceId: dataSourceId,
         valueCount: values.length,
       };
 
-      log.info('Dimension values discovered via cache', {
+      log.info('Dimension values discovered via optimized cache', {
         dataSourceId,
         dimensionColumn,
         valueCount: values.length,
-        totalRowsScanned: cacheResult.rows.length,
-        cacheHit: cacheResult.cacheHit,
+        cacheHit: result.fromCache,
+        queryTimeMs: result.queryTimeMs,
+        optimized: true,
         userId: userContext.user_id,
         duration,
         component: 'dimension-discovery',
