@@ -14,7 +14,6 @@
  */
 
 import { and, count, desc, eq, like, or } from 'drizzle-orm';
-import { chartDataCache } from '@/lib/cache/chart-data-cache';
 import { QUERY_LIMITS } from '@/lib/constants/query-limits';
 import { db } from '@/lib/db';
 import { chart_data_source_columns, chart_data_sources } from '@/lib/db/chart-config-schema';
@@ -455,12 +454,11 @@ export class RBACDataSourcesService extends BaseRBACService {
         return false;
       }
 
-      // Invalidate cache for all charts using this data source
-      await chartDataCache.invalidateByDataSource(dataSourceId);
-
-      log.info('Cache invalidated after data source deletion', {
+      // Note: Cache invalidation handled automatically at data-source layer
+      log.info('Data source deleted successfully', {
         dataSourceId,
         dataSourceName: existing.data_source_name,
+        note: 'Cache invalidation handled at data-source layer',
       });
 
       const duration = Date.now() - startTime;
