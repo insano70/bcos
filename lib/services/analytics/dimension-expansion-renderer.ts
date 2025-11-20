@@ -26,11 +26,11 @@ import {
   DIMENSION_EXPANSION_LIMITS, 
   MAX_PARALLEL_DIMENSION_CHARTS 
 } from '@/lib/constants/dimension-expansion';
-import { convertBaseFiltersToChartFilters, type ResolvedBaseFilters } from '@/lib/utils/filter-converters';
-import { resolveOrganizationFilter } from '@/lib/utils/organization-filter-resolver';
 import { orchestrationResultToBatchChartData } from '@/lib/services/dashboard-rendering/mappers';
 import { ChartConfigBuilderService } from '@/lib/services/dashboard-rendering/chart-config-builder';
 import type { ResolvedFilters } from '@/lib/services/dashboard-rendering/types';
+import { createFilterBuilderService } from '@/lib/services/filters/filter-builder-service';
+import type { UniversalChartFilters } from '@/lib/types/filters';
 
 /**
  * Dimension Expansion Renderer
@@ -90,27 +90,59 @@ export class DimensionExpansionRenderer {
       }
 
       // CRITICAL: Resolve organizationId to practiceUids BEFORE querying dimension values
-      // Uses shared utility with proper RBAC validation and security logging
-      const resolvedFilters: ResolvedFilters = {
-        ...baseFilters,
-        practiceUids: (baseFilters.practiceUids as number[] | undefined) || [],
-      };
+      // Uses new FilterBuilderService for type-safe resolution
+      const filterBuilderService = createFilterBuilderService(userContext);
       
-      if (baseFilters.organizationId && typeof baseFilters.organizationId === 'string') {
-        // Resolve organization filter with RBAC validation
-        const resolved = await resolveOrganizationFilter(
-          baseFilters.organizationId,
-          userContext,
-          'dimension-expansion'
-        );
-        
-        // Update with resolved practiceUids
-        resolvedFilters.practiceUids = resolved.practiceUids;
-        delete resolvedFilters.organizationId;
+      // Build universal filters from baseFilters (only include defined properties)
+      const universalFilters: UniversalChartFilters = {};
+      
+      if (typeof baseFilters.startDate === 'string') {
+        universalFilters.startDate = baseFilters.startDate;
       }
+      if (typeof baseFilters.endDate === 'string') {
+        universalFilters.endDate = baseFilters.endDate;
+      }
+      if (typeof baseFilters.organizationId === 'string') {
+        universalFilters.organizationId = baseFilters.organizationId;
+      }
+      if (Array.isArray(baseFilters.practiceUids)) {
+        universalFilters.practiceUids = baseFilters.practiceUids as number[];
+      }
+      if (typeof baseFilters.dateRangePreset === 'string') {
+        universalFilters.dateRangePreset = baseFilters.dateRangePreset;
+      }
+      if (typeof baseFilters.providerName === 'string') {
+        universalFilters.providerName = baseFilters.providerName;
+      }
+      if (typeof baseFilters.measure === 'string') {
+        universalFilters.measure = baseFilters.measure;
+      }
+      if (typeof baseFilters.frequency === 'string') {
+        universalFilters.frequency = baseFilters.frequency;
+      }
+      if (Array.isArray(baseFilters.advancedFilters)) {
+        universalFilters.advancedFilters = baseFilters.advancedFilters as import('@/lib/types/analytics').ChartFilter[];
+      }
+      
+      // Build execution filters with type-safe organization resolution
+      const executionFilters = await filterBuilderService.buildExecutionFilters(
+        universalFilters,
+        { component: 'dimension-expansion' }
+      );
+      
+      // Convert to ResolvedFilters format for ChartConfigBuilderService
+      // CRITICAL: Include ALL baseFilters properties, then override with execution filters
+      const resolvedFilters: ResolvedFilters = {
+        ...baseFilters, // Preserve all original properties (dateRangePreset, etc.)
+        startDate: executionFilters.dateRange.startDate,
+        endDate: executionFilters.dateRange.endDate,
+        practiceUids: executionFilters.practiceUids,
+        ...(executionFilters.measure && { measure: executionFilters.measure }),
+        ...(executionFilters.frequency && { frequency: executionFilters.frequency }),
+        ...(executionFilters.providerName && { providerName: executionFilters.providerName }),
+      };
 
       // Use ChartConfigBuilderService to extract and normalize chart configuration
-      // This replaces ~80 lines of manual config extraction
       const configBuilder = new ChartConfigBuilderService();
       const chartExecutionConfig = configBuilder.buildSingleChartConfig(chartDef, resolvedFilters);
 
@@ -122,15 +154,27 @@ export class DimensionExpansionRenderer {
         hasMeasure: !!chartExecutionConfig.metadata.measure,
         hasFrequency: !!chartExecutionConfig.metadata.frequency,
         hasGroupBy: !!chartExecutionConfig.metadata.groupBy,
+        practiceUidCount: executionFilters.practiceUids.length,
         component: 'dimension-expansion',
       });
 
-      // Convert runtime filters to ChartFilter array for dimension discovery
-      // Runtime filters include measure/frequency from chart definition + user filters
-      // This ensures dimension discovery has all the same filters as chart rendering
-      const chartFilters = convertBaseFiltersToChartFilters(
-        chartExecutionConfig.runtimeFilters as unknown as ResolvedBaseFilters
-      );
+      // Convert filters to ChartFilter array for dimension discovery
+      // CRITICAL: Must include ALL resolved filters (practiceUids, measure, frequency, dates)
+      // so dimension discovery only finds values that exist for the filtered dataset
+      const filtersForDimensionDiscovery: UniversalChartFilters = {
+        ...universalFilters,
+        // Use RESOLVED practiceUids from executionFilters (after org resolution)
+        practiceUids: executionFilters.practiceUids,
+        // Add date range from executionFilters
+        startDate: executionFilters.dateRange.startDate,
+        endDate: executionFilters.dateRange.endDate,
+        // Add measure/frequency from chart definition metadata
+        ...(chartExecutionConfig.metadata.measure && { measure: chartExecutionConfig.metadata.measure }),
+        ...(chartExecutionConfig.metadata.frequency && { frequency: chartExecutionConfig.metadata.frequency }),
+      };
+      
+      // TYPE-SAFE: No casting, uses proper filter builder service
+      const chartFilters = filterBuilderService.toChartFilterArray(filtersForDimensionDiscovery);
 
     // Get unique dimension values (with filters applied)
       const dimensionValuesResponse = await dimensionDiscoveryService.getDimensionValues(

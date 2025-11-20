@@ -178,18 +178,20 @@ class DataSourceCacheService {
     // Detect data source type if not provided
     const dataSourceType = params.dataSourceType || (await detectDataSourceType(params.dataSourceId));
 
-    // Validate measure/frequency for measure-based sources
+    // Validate frequency for measure-based sources (measure optional for multi-series charts)
     if (dataSourceType === 'measure-based') {
-      if (!params.measure || !params.frequency) {
-        log.warn('Measure-based data source requires measure and frequency', {
+      if (!params.frequency) {
+        log.warn('Measure-based data source requires frequency', {
           dataSourceId: params.dataSourceId,
           dataSourceType,
           measure: params.measure,
           frequency: params.frequency,
           userId: userContext.user_id,
         });
-        throw new Error('Measure-based data sources require measure and frequency parameters');
+        throw new Error('Measure-based data sources require frequency parameter');
       }
+      // Note: measure is optional for multi-series charts and dimension discovery
+      // Multi-series charts have seriesConfigs with individual measures per series
     }
 
     // Build cache key components (only from chart filters, NOT from RBAC)

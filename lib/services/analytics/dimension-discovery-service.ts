@@ -232,14 +232,15 @@ export class DimensionDiscoveryService {
         component: 'dimension-discovery',
       });
 
-      // Validate measure/frequency for measure-based sources
+      // Validate frequency for measure-based sources (measure may be optional for multi-series charts)
       if (dataSourceConfig.dataSourceType === 'measure-based') {
-        if (!measureFilter || !frequencyFilter) {
+        if (!frequencyFilter) {
           throw new Error(
-            `Measure-based data source requires measure and frequency filters. ` +
-            `Got measure: ${measureFilter?.value || 'none'}, frequency: ${frequencyFilter?.value || 'none'}`
+            `Measure-based data source requires frequency filter. Got frequency: none`
           );
         }
+        // Note: measure filter is optional for multi-series charts where each series has its own measure
+        // Multi-series charts have seriesConfigs in chart_config with individual measures per series
       }
 
       // Build cache query params

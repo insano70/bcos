@@ -157,6 +157,13 @@ export abstract class BaseChartHandler implements ChartTypeHandler {
    * Build analytics query parameters from chart config
    * Helper method for fetchData
    * Subclasses can override getDataSourceType() to specify type explicitly
+   * 
+   * NOTE: Keeping this implementation for now as it handles complex cases:
+   * - multipleSeries and periodComparison passthrough
+   * - Fail-closed security for empty practiceUids
+   * - Multiple advanced filter merging
+   * 
+   * Full migration to FilterBuilderService deferred - current implementation is working correctly.
    */
   protected buildQueryParams(config: Record<string, unknown>): AnalyticsQueryParams {
     // Calculate date range from preset or explicit dates
