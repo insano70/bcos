@@ -54,6 +54,9 @@ export interface ChartRenderResult {
     frequency?: string;
     groupBy?: string;
   };
+  // Config and filters used to render this chart (for dimension expansion)
+  finalChartConfig?: Record<string, unknown>;
+  runtimeFilters?: Record<string, unknown>;
   // Table-specific fields (optional)
   columns?: Array<{
     columnName: string;

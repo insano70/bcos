@@ -126,6 +126,9 @@ export interface BatchChartData {
     groupBy?: string;
   };
   columns?: OrchestrationResult['columns'];
+  // Config and filters used to render this chart (for dimension expansion)
+  finalChartConfig?: Record<string, unknown>;
+  runtimeFilters?: Record<string, unknown>;
   formattedData?: OrchestrationResult['formattedData'];
 }
 
@@ -163,6 +166,8 @@ export function orchestrationResultToBatchChartData(
     measure?: string | undefined;
     frequency?: string | undefined;
     groupBy?: string | undefined;
+    finalChartConfig?: Record<string, unknown>;
+    runtimeFilters?: Record<string, unknown>;
     [key: string]: unknown;
   }
 ): BatchChartData {
@@ -185,5 +190,8 @@ export function orchestrationResultToBatchChartData(
     // Include table-specific data if present
     ...(result.columns && { columns: result.columns }),
     ...(result.formattedData && { formattedData: result.formattedData }),
+    // CRITICAL: Include configs for dimension expansion reuse
+    ...(chartConfig?.finalChartConfig && { finalChartConfig: chartConfig.finalChartConfig }),
+    ...(chartConfig?.runtimeFilters && { runtimeFilters: chartConfig.runtimeFilters }),
   };
 }

@@ -90,12 +90,28 @@ export interface DimensionExpandedChartData {
 
 /**
  * Request payload for dimension expansion
+ * 
+ * SIMPLE APPROACH: Reuse the configs from the base chart render
+ * - finalChartConfig: The exact config used to render the base chart (has seriesConfigs, dualAxisConfig, everything!)
+ * - runtimeFilters: The exact filters used to render the base chart (resolved dates, practices, everything!)
+ * - Just add dimension filter and re-render
+ * 
+ * No reconstruction, no fetching, just reuse what works!
  */
 export interface DimensionExpansionRequest {
-  chartDefinitionId: string; // Chart to expand
-  dimensionColumn: string; // Which dimension column to expand by
-  baseFilters: Record<string, unknown>; // Current filters to apply
-  limit?: number; // Optional: limit number of dimension values (default: 20)
+  // SIMPLE: Configs from the base chart render (preferred)
+  finalChartConfig?: Record<string, unknown>;
+  runtimeFilters?: Record<string, unknown>;
+  
+  // FALLBACK: Chart definition ID (triggers full metadata fetch)
+  chartDefinitionId?: string;
+  
+  // Required
+  dimensionColumn: string;
+  
+  // Fallback filters (only if configs not provided)
+  baseFilters?: Record<string, unknown>;
+  limit?: number;
 }
 
 /**

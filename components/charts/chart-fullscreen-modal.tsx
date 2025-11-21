@@ -50,7 +50,9 @@ interface ChartFullscreenModalProps {
     practiceUids?: number[];
     providerName?: string | null;
   };
-  chartConfig?: Record<string, unknown>;
+  // For dimension expansion: configs from batch API (already correct!)
+  finalChartConfig?: Record<string, unknown>;
+  runtimeFilters?: Record<string, unknown>;
 }
 
 export default function ChartFullscreenModal({
@@ -63,7 +65,8 @@ export default function ChartFullscreenModal({
   stackingMode = 'normal',
   chartDefinitionId,
   currentFilters = {},
-  chartConfig,
+  finalChartConfig,
+  runtimeFilters,
 }: ChartFullscreenModalProps) {
   const [chart, setChart] = useState<ChartType | null>(null);
   const [mounted, setMounted] = useState(false);
@@ -121,34 +124,37 @@ export default function ChartFullscreenModal({
     setDimensionLoading(true);
 
     try {
-      // Build baseFilters ensuring ALL runtime filters are included
-      const baseFilters: Record<string, unknown> = {
-        // Copy all filters from currentFilters (dashboard universal filters)
-        ...currentFilters,
-      };
-      
-      // Include frequency for multi-series/dual-axis charts (required for measure-based data sources)
-      if (frequency) {
-        baseFilters.frequency = frequency;
+      // SIMPLE: Just reuse the configs that rendered the base chart!
+      if (finalChartConfig && runtimeFilters) {
+        // No reconstruction - just pass what was used to render the base chart
+        const response = await apiClient.post<DimensionExpandedChartData>(
+          `/api/admin/analytics/charts/${chartDefinitionId}/expand`,
+          {
+            finalChartConfig,      // Already has seriesConfigs, dualAxisConfig, groupBy, colorPalette, EVERYTHING!
+            runtimeFilters,        // Already has resolved dates, practices, all filters!
+            dimensionColumn: dimension.columnName,
+            limit: 20,
+          }
+        );
+        setExpandedData(response);
+      } else {
+        // FALLBACK: Legacy path (fetch metadata)
+        const response = await apiClient.post<DimensionExpandedChartData>(
+          `/api/admin/analytics/charts/${chartDefinitionId}/expand`,
+          {
+            dimensionColumn: dimension.columnName,
+            baseFilters: currentFilters,
+            limit: 20,
+          }
+        );
+        setExpandedData(response);
       }
-
-      console.log('Dimension expansion baseFilters:', baseFilters);
-
-      const response = await apiClient.post<DimensionExpandedChartData>(
-        `/api/admin/analytics/charts/${chartDefinitionId}/expand`,
-        {
-          dimensionColumn: dimension.columnName,
-          baseFilters,
-          limit: 20,
-        }
-      );
-      setExpandedData(response);
     } catch (error) {
       console.error('Failed to expand by dimension:', error);
     } finally {
       setDimensionLoading(false);
     }
-  }, [chartDefinitionId, currentFilters]);
+  }, [chartDefinitionId, finalChartConfig, runtimeFilters, currentFilters]);
 
   const handleCollapseDimension = useCallback(() => {
     setExpandedData(null);
@@ -637,7 +643,7 @@ export default function ChartFullscreenModal({
                 chart_definition_id: chartDefinitionId || '',
                 chart_name: chartTitle,
                 chart_type: chartType,
-                ...(chartConfig && { chart_config: chartConfig }),
+                ...(finalChartConfig && { chart_config: finalChartConfig }),
               }}
               dimensionCharts={expandedData.charts}
               position={{ x: 0, y: 0, w: 12, h: 6 }}

@@ -72,8 +72,11 @@ export class ChartConfigBuilderService {
    * Config cache (Phase 1 enhancement)
    * Maps cache key → built config
    * Cleared when chart definitions change
+   * 
+   * MEMORY MANAGEMENT: Limited to 1000 entries to prevent unbounded growth
    */
   private configCache = new Map<string, ChartExecutionConfig>();
+  private readonly MAX_CACHE_SIZE = 1000;
 
   /**
    * Cache statistics for monitoring
@@ -177,6 +180,22 @@ export class ChartConfigBuilderService {
     // Phase 1 Enhancement: Cache the built config
     this.configCache.set(cacheKey, config);
     this.cacheStats.size = this.configCache.size;
+
+    // MEMORY MANAGEMENT: Clear oldest entries if cache exceeds limit
+    if (this.configCache.size > this.MAX_CACHE_SIZE) {
+      const keysToDelete = Array.from(this.configCache.keys()).slice(0, 100);
+      for (const key of keysToDelete) {
+        this.configCache.delete(key);
+      }
+      this.cacheStats.size = this.configCache.size;
+      
+      log.warn('Config cache exceeded max size, cleared oldest entries', {
+        maxSize: this.MAX_CACHE_SIZE,
+        clearedCount: keysToDelete.length,
+        newSize: this.configCache.size,
+        component: 'dashboard-rendering',
+      });
+    }
 
     log.debug('Chart config built, validated, and cached', {
       chartId: chart.chart_definition_id,

@@ -1,20 +1,21 @@
 /**
  * Dimension Value Cache Service
  *
- * Optimized caching and querying for dimension value discovery.
- * Uses SQL DISTINCT queries instead of fetching all data and filtering in-memory.
+ * Caching layer for dimension value discovery.
+ * Uses dataSourceCache (Redis) to fetch pre-populated analytics data,
+ * then extracts unique dimension values in-memory.
  *
- * Key Performance Improvements:
- * - Database-level DISTINCT + GROUP BY (vs in-memory Set iteration)
- * - Transfers KB instead of MB (dimension values only, not full rows)
+ * ARCHITECTURE (CORRECT):
+ * - Fetches from dataSourceCache (where analytics data actually lives)
+ * - Applies RBAC filtering via cache layer
+ * - Extracts unique values in-memory with record counts
+ * - Caches results separately for faster subsequent queries
+ *
+ * Key Features:
  * - Separate Redis cache entries for dimension values
- * - 10-50x faster for large datasets
- *
- * Architecture:
- * - SQL DISTINCT with COUNT for value discovery
- * - Redis cache per (dataSourceId, dimensionColumn, filtersHash)
  * - Short TTL (1 hour) - dimensions change infrequently
- * - RBAC filtering still applied after fetch
+ * - RBAC filtering handled by dataSourceCache
+ * - Supports all data source types (measure-based, table-based)
  */
 
 import { log } from '@/lib/logger';
@@ -22,10 +23,7 @@ import { getRedisClient } from '@/lib/redis';
 import type { ChartFilter } from '@/lib/types/analytics';
 import type { UserContext } from '@/lib/types/rbac';
 import type { DimensionValue } from '@/lib/types/dimensions';
-import { executeAnalyticsQuery } from '@/lib/services/analytics-db';
 import { chartConfigService } from '@/lib/services/chart-config-service';
-import { queryBuilder } from '@/lib/services/analytics/query-builder';
-import { buildChartRenderContext } from '@/lib/utils/chart-context';
 import { createHash } from 'node:crypto';
 
 /**
@@ -146,10 +144,11 @@ export class DimensionValueCacheService {
   }
 
   /**
-   * Query dimension values from database using SQL DISTINCT
+   * Query dimension values from cache
    *
-   * Uses database-level DISTINCT + GROUP BY + COUNT for optimal performance.
-   * Much faster than fetching all rows and filtering in-memory.
+   * ARCHITECTURE: Uses dataSourceCache (Redis) instead of direct SQL.
+   * The cache contains pre-populated analytics data with proper indexing.
+   * We fetch from cache and extract unique values in-memory.
    *
    * @param params - Query parameters
    * @param userContext - User context for RBAC
@@ -171,129 +170,92 @@ export class DimensionValueCacheService {
       limit = 50,
     } = params;
 
-    // Get data source configuration
+    // Get data source configuration for schema/table names
     const dataSourceConfig = await chartConfigService.getDataSourceConfigById(dataSourceId);
 
     if (!dataSourceConfig) {
       throw new Error(`Data source configuration not found: ${dataSourceId}`);
     }
 
-    const { tableName, schemaName, dataSourceType } = dataSourceConfig;
+    log.info('Fetching dimension values from cache', {
+      dataSourceId,
+      dimensionColumn,
+      measure,
+      frequency,
+      hasStartDate: !!startDate,
+      hasEndDate: !!endDate,
+      hasPracticeUids: !!practiceUids,
+      advancedFilterCount: advancedFilters.length,
+      component: 'dimension-value-cache',
+    });
 
-    // Build ChartRenderContext for RBAC filtering
-    const context = await buildChartRenderContext(userContext);
-
-    // Determine date field column name
-    const dateColumn = dataSourceConfig.columns.find(
-      (col) => col.isDateField && (col.columnName === 'date_value' || col.columnName === 'date_index')
+    // Fetch data from cache (uses existing cache path with RBAC filtering)
+    const { dataSourceCache } = await import('@/lib/cache');
+    const cacheResult = await dataSourceCache.fetchDataSource(
+      {
+        dataSourceId,
+        schema: dataSourceConfig.schemaName,
+        table: dataSourceConfig.tableName,
+        dataSourceType: dataSourceConfig.dataSourceType,
+        ...(measure && { measure }),
+        ...(frequency && { frequency }),
+        ...(practiceUids && practiceUids.length === 1 && { practiceUid: practiceUids[0] }),
+        ...(startDate && { startDate }),
+        ...(endDate && { endDate }),
+        ...(advancedFilters.length > 0 && { advancedFilters }),
+      },
+      userContext,
+      false // Use cache
     );
-    const dateField = dateColumn?.columnName || 'date_value';
 
-    // Determine time period field name
-    const timePeriodColumn = dataSourceConfig.columns.find((col) => col.columnName === 'frequency');
-    const timePeriodField = timePeriodColumn?.columnName || 'frequency';
+    log.info('Cache fetch completed for dimension discovery', {
+      dataSourceId,
+      dimensionColumn,
+      rowCount: cacheResult.rows.length,
+      cacheHit: cacheResult.cacheHit,
+      component: 'dimension-value-cache',
+    });
 
-    // Build WHERE clause conditions
-    const whereClauses: string[] = [];
-    const queryParams: unknown[] = [];
-    let paramIndex = 1;
-
-    // RBAC filtering: accessible practices
-    if (context.accessible_practices.length > 0) {
-      whereClauses.push(`practice_uid = ANY($${paramIndex++})`);
-      queryParams.push(context.accessible_practices);
-    } else {
-      // Fail-closed security: no accessible practices = no results
-      whereClauses.push(`practice_uid = $${paramIndex++}`);
-      queryParams.push(-1); // Impossible value
-    }
-
-    // Measure filter (for measure-based data sources)
-    if (measure && dataSourceType === 'measure-based') {
-      whereClauses.push(`measure = $${paramIndex++}`);
-      queryParams.push(measure);
-    }
-
-    // Frequency filter (for measure-based data sources)
-    if (frequency && dataSourceType === 'measure-based') {
-      whereClauses.push(`${timePeriodField} = $${paramIndex++}`);
-      queryParams.push(frequency);
-    }
-
-    // Date range filters
-    if (startDate) {
-      whereClauses.push(`${dateField} >= $${paramIndex++}`);
-      queryParams.push(startDate);
-    }
-
-    if (endDate) {
-      whereClauses.push(`${dateField} <= $${paramIndex++}`);
-      queryParams.push(endDate);
-    }
-
-    // Practice UIDs filter (explicit filter, not RBAC)
-    if (practiceUids && practiceUids.length > 0) {
-      whereClauses.push(`practice_uid = ANY($${paramIndex++})`);
-      queryParams.push(practiceUids);
-    }
-
-    // Advanced filters
-    if (advancedFilters.length > 0) {
-      const advancedResult = await queryBuilder.buildAdvancedFilterClause(
-        advancedFilters,
-        paramIndex
-      );
-      if (advancedResult.clause) {
-        whereClauses.push(advancedResult.clause);
-        queryParams.push(...advancedResult.params);
-        paramIndex = advancedResult.nextIndex;
+    // Extract unique dimension values in-memory (with record counts)
+    const valueCountMap = new Map<string | number, number>();
+    
+    for (const row of cacheResult.rows) {
+      const value = row[dimensionColumn];
+      if (value !== null && value !== undefined) {
+        const currentCount = valueCountMap.get(value as string | number) || 0;
+        valueCountMap.set(value as string | number, currentCount + 1);
       }
     }
 
-    const whereClause = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
-
-    // SQL query with DISTINCT + COUNT
-    const query = `
-      SELECT 
-        ${dimensionColumn} as value,
-        COUNT(*) as record_count
-      FROM ${schemaName}.${tableName}
-      ${whereClause}
-      GROUP BY ${dimensionColumn}
-      ORDER BY record_count DESC, ${dimensionColumn} ASC
-      LIMIT $${paramIndex}
-    `;
-
-    queryParams.push(limit);
-
-    log.debug('Executing dimension value query', {
+    log.info('Unique dimension values extracted', {
       dataSourceId,
       dimensionColumn,
-      query,
-      paramCount: queryParams.length,
+      totalRows: cacheResult.rows.length,
+      uniqueValues: valueCountMap.size,
       component: 'dimension-value-cache',
     });
 
-    const queryStart = Date.now();
-    const rows = await executeAnalyticsQuery(query, queryParams);
-    const queryDuration = Date.now() - queryStart;
-
-    log.info('Dimension value query completed', {
-      dataSourceId,
-      dimensionColumn,
-      valueCount: rows.length,
-      queryDuration,
-      component: 'dimension-value-cache',
-    });
+    // Convert to sorted array
+    const sortedValues = Array.from(valueCountMap.entries())
+      .sort((a, b) => {
+        // Sort by record count DESC, then by value ASC
+        if (b[1] !== a[1]) {
+          return b[1] - a[1]; // Higher count first
+        }
+        // Sort by value
+        if (typeof a[0] === 'string' && typeof b[0] === 'string') {
+          return a[0].localeCompare(b[0]);
+        }
+        return String(a[0]).localeCompare(String(b[0]));
+      })
+      .slice(0, limit); // Apply limit after sorting
 
     // Transform to DimensionValue format
-    const values: DimensionValue[] = rows
-      .filter((row) => row.value !== null && row.value !== undefined)
-      .map((row) => ({
-        value: row.value as string | number,
-        label: String(row.value),
-        recordCount: Number(row.record_count),
-      }));
+    const values: DimensionValue[] = sortedValues.map(([value, recordCount]) => ({
+      value: value as string | number,
+      label: String(value),
+      recordCount,
+    }));
 
     return values;
   }

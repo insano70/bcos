@@ -44,7 +44,9 @@ interface DualAxisFullscreenModalProps {
     practiceUids?: number[];
     providerName?: string | null;
   };
-  chartConfig?: Record<string, unknown>;
+  // For dimension expansion: configs from batch API (already correct!)
+  finalChartConfig?: Record<string, unknown>;
+  runtimeFilters?: Record<string, unknown>;
 }
 
 export default function DualAxisFullscreenModal({
@@ -56,7 +58,8 @@ export default function DualAxisFullscreenModal({
   secondaryAxisLabel,
   chartDefinitionId,
   currentFilters = {},
-  chartConfig,
+  finalChartConfig,
+  runtimeFilters,
 }: DualAxisFullscreenModalProps) {
   const [chart, setChart] = useState<ChartType | null>(null);
   const [mounted, setMounted] = useState(false);
@@ -114,35 +117,37 @@ export default function DualAxisFullscreenModal({
     setDimensionLoading(true);
 
     try {
-      // Build baseFilters ensuring ALL runtime filters are included
-      console.log('[DUAL-AXIS] currentFilters received:', currentFilters);
-      
-      const baseFilters: Record<string, unknown> = {
-        // Copy all filters from currentFilters (dashboard universal filters)
-        ...currentFilters,
-      };
-      
-      // Include frequency for dual-axis charts (required for measure-based data sources)  
-      // Dual-axis charts typically use Monthly frequency
-      baseFilters.frequency = 'Monthly';
-
-      console.log('[DUAL-AXIS] baseFilters being sent to API:', baseFilters);
-
-      const response = await apiClient.post<DimensionExpandedChartData>(
-        `/api/admin/analytics/charts/${chartDefinitionId}/expand`,
-        {
-          dimensionColumn: dimension.columnName,
-          baseFilters,
-          limit: 20,
-        }
-      );
-      setExpandedData(response);
+      // SIMPLE: Just reuse the configs that rendered the base chart!
+      if (finalChartConfig && runtimeFilters) {
+        // No reconstruction - just pass what was used to render the base chart
+        const response = await apiClient.post<DimensionExpandedChartData>(
+          `/api/admin/analytics/charts/${chartDefinitionId}/expand`,
+          {
+            finalChartConfig,      // Already has seriesConfigs, dualAxisConfig, groupBy, colorPalette, EVERYTHING!
+            runtimeFilters,        // Already has resolved dates, practices, all filters!
+            dimensionColumn: dimension.columnName,
+            limit: 20,
+          }
+        );
+        setExpandedData(response);
+      } else {
+        // FALLBACK: Legacy path (fetch metadata)
+        const response = await apiClient.post<DimensionExpandedChartData>(
+          `/api/admin/analytics/charts/${chartDefinitionId}/expand`,
+          {
+            dimensionColumn: dimension.columnName,
+            baseFilters: currentFilters,
+            limit: 20,
+          }
+        );
+        setExpandedData(response);
+      }
     } catch (error) {
       console.error('Failed to expand by dimension:', error);
     } finally {
       setDimensionLoading(false);
     }
-  }, [chartDefinitionId, currentFilters]);
+  }, [chartDefinitionId, finalChartConfig, runtimeFilters, currentFilters]);
 
   const handleCollapseDimension = useCallback(() => {
     setExpandedData(null);
@@ -542,7 +547,7 @@ export default function DualAxisFullscreenModal({
                 chart_definition_id: chartDefinitionId || '',
                 chart_name: chartTitle,
                 chart_type: 'dual-axis',
-                ...(chartConfig && { chart_config: chartConfig }),
+                ...(finalChartConfig && { chart_config: finalChartConfig }),
               }}
               dimensionCharts={expandedData.charts}
               position={{ x: 0, y: 0, w: 12, h: 6 }}

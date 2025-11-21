@@ -166,6 +166,10 @@ export class BatchExecutorService extends BaseDashboardRenderingService {
           ...(config.metadata.frequency && { frequency: config.metadata.frequency }),
           ...(config.metadata.groupBy && { groupBy: config.metadata.groupBy }),
         },
+        // CRITICAL: Include the config and filters used to render
+        // This allows dimension expansion to just reuse them (no reconstruction!)
+        finalChartConfig: config.finalChartConfig,
+        runtimeFilters: config.runtimeFilters,
       };
 
       // Include columns/formattedData if present (table charts)

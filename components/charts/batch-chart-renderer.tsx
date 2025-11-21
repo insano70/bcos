@@ -330,7 +330,8 @@ export default function BatchChartRenderer({
             {...(stackingMode && { stackingMode: stackingMode as 'normal' | 'percentage' })}
             {...(chartDefinitionId && { chartDefinitionId })}
             {...(currentFilters && { currentFilters })}
-            {...(chartDefinition.chart_config && { chartConfig: chartDefinition.chart_config })}
+            {...(chartData.finalChartConfig && { finalChartConfig: chartData.finalChartConfig })}
+            {...(chartData.runtimeFilters && { runtimeFilters: chartData.runtimeFilters })}
           />
         )}
 
@@ -348,7 +349,8 @@ export default function BatchChartRenderer({
             secondaryAxisLabel={dualAxisConfig.secondary.axisLabel}
             {...(chartDefinitionId && { chartDefinitionId })}
             {...(currentFilters && { currentFilters })}
-            {...(chartDefinition.chart_config && { chartConfig: chartDefinition.chart_config })}
+            {...(chartData.finalChartConfig && { finalChartConfig: chartData.finalChartConfig })}
+            {...(chartData.runtimeFilters && { runtimeFilters: chartData.runtimeFilters })}
           />
         )}
 
@@ -370,6 +372,8 @@ export default function BatchChartRenderer({
           {...(chartData.chartData.measureType && { measureType: chartData.chartData.measureType as string })}
           {...(chartDefinitionId && { chartDefinitionId })}
           {...(currentFilters && { currentFilters })}
+          {...(chartData.finalChartConfig && { finalChartConfig: chartData.finalChartConfig })}
+          {...(chartData.runtimeFilters && { runtimeFilters: chartData.runtimeFilters })}
         />
       )}
     </GlassCard>

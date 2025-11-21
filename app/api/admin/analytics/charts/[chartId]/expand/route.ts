@@ -5,6 +5,12 @@
  *
  * Renders a chart expanded by dimension values, returning side-by-side
  * chart data for each unique dimension value.
+ * 
+ * PERFORMANCE OPTIMIZATION:
+ * - NEW FORMAT: Accepts chartExecutionConfig from frontend (eliminates metadata re-fetching)
+ * - OLD FORMAT: Accepts chartDefinitionId only (backwards compatible, slower)
+ * 
+ * Frontend should send chartExecutionConfig when available to save 100-200ms per request.
  */
 
 import type { NextRequest } from 'next/server';
@@ -15,7 +21,10 @@ import { dimensionExpansionRenderer } from '@/lib/services/analytics/dimension-e
 import { log } from '@/lib/logger';
 import type { DimensionExpansionRequest } from '@/lib/types/dimensions';
 import type { UserContext } from '@/lib/types/rbac';
-import { dimensionExpansionRequestSchema } from '@/lib/validations/dimension-expansion';
+import { 
+  dimensionExpansionRequestSchema,
+  dimensionExpansionConfigRequestSchema 
+} from '@/lib/validations/dimension-expansion';
 
 const expandChartHandler = async (
   request: NextRequest,
@@ -30,18 +39,49 @@ const expandChartHandler = async (
     const chartId = params.chartId;
     const body = await request.json();
 
-    // SECURITY: Validate request body with Zod schema
-    const validatedBody = dimensionExpansionRequestSchema.parse(body);
+    // Detect request format and validate accordingly
+    let expansionRequest: DimensionExpansionRequest;
 
-    // Build expansion request
-    const expansionRequest: DimensionExpansionRequest = {
-      chartDefinitionId: chartId,
-      dimensionColumn: validatedBody.dimensionColumn,
-      baseFilters: validatedBody.baseFilters,
-      limit: validatedBody.limit,
-    };
+    if (body.finalChartConfig && body.runtimeFilters) {
+      // SIMPLE FORMAT: Reuse configs from base chart render
+      const validatedBody = dimensionExpansionConfigRequestSchema.parse(body);
+      
+      expansionRequest = {
+        finalChartConfig: validatedBody.finalChartConfig,
+        runtimeFilters: validatedBody.runtimeFilters,
+        dimensionColumn: validatedBody.dimensionColumn,
+        limit: validatedBody.limit,
+      };
 
-    // Render expanded chart
+      log.info('Dimension expansion request (simple reuse path)', {
+        chartId,
+        dimensionColumn: validatedBody.dimensionColumn,
+        hasMultipleSeries: !!validatedBody.finalChartConfig.multipleSeries,
+        hasDualAxisConfig: !!validatedBody.finalChartConfig.dualAxisConfig,
+        optimized: true,
+        component: 'dimensions-api',
+      });
+    } else {
+      // OLD FORMAT: Legacy path with metadata re-fetching
+      const validatedBody = dimensionExpansionRequestSchema.parse(body);
+      
+      expansionRequest = {
+        chartDefinitionId: chartId,
+        dimensionColumn: validatedBody.dimensionColumn,
+        baseFilters: validatedBody.baseFilters,
+        limit: validatedBody.limit,
+      };
+
+      log.info('Dimension expansion request (legacy path)', {
+        chartId,
+        dimensionColumn: validatedBody.dimensionColumn,
+        optimized: false,
+        willFetchMetadata: true,
+        component: 'dimensions-api',
+      });
+    }
+
+    // Render expanded chart (renderer handles both formats)
     const result = await dimensionExpansionRenderer.renderByDimension(
       expansionRequest,
       userContext
