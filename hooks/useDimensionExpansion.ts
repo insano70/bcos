@@ -19,24 +19,12 @@ import type {
 } from '@/lib/types/dimensions';
 
 /**
- * Current filters for dimension expansion
- */
-interface CurrentFilters {
-  startDate?: string | null;
-  endDate?: string | null;
-  organizationId?: string | null;
-  practiceUids?: number[];
-  providerName?: string | null;
-}
-
-/**
  * Parameters for useDimensionExpansion hook
  */
 interface UseDimensionExpansionParams {
   chartDefinitionId?: string | undefined;
   finalChartConfig?: Record<string, unknown> | undefined;
   runtimeFilters?: Record<string, unknown> | undefined;
-  currentFilters?: CurrentFilters | undefined;
   isOpen: boolean;
 }
 
@@ -62,7 +50,7 @@ export interface DimensionExpansionState {
 export function useDimensionExpansion(
   params: UseDimensionExpansionParams
 ): DimensionExpansionState {
-  const { chartDefinitionId, finalChartConfig, runtimeFilters, currentFilters, isOpen } = params;
+  const { chartDefinitionId, finalChartConfig, runtimeFilters, isOpen } = params;
 
   const [showSelector, setShowSelector] = useState(false);
   const [availableDimensions, setAvailableDimensions] = useState<ExpansionDimension[]>([]);
@@ -122,38 +110,28 @@ export function useDimensionExpansion(
       setLoading(true);
 
       try {
-        // SIMPLE: Just reuse the configs that rendered the base chart!
-        if (finalChartConfig && runtimeFilters) {
-          // No reconstruction - just pass what was used to render the base chart
-          const response = await apiClient.post<DimensionExpandedChartData>(
-            `/api/admin/analytics/charts/${chartDefinitionId}/expand`,
-            {
-              finalChartConfig, // Already has seriesConfigs, dualAxisConfig, groupBy, colorPalette, EVERYTHING!
-              runtimeFilters, // Already has resolved dates, practices, all filters!
-              dimensionColumn: dimension.columnName,
-              limit: 20,
-            }
-          );
-          setExpandedData(response);
-        } else {
-          // FALLBACK: Legacy path (fetch metadata)
-          const response = await apiClient.post<DimensionExpandedChartData>(
-            `/api/admin/analytics/charts/${chartDefinitionId}/expand`,
-            {
-              dimensionColumn: dimension.columnName,
-              baseFilters: currentFilters,
-              limit: 20,
-            }
-          );
-          setExpandedData(response);
+        if (!finalChartConfig || !runtimeFilters) {
+          throw new Error('finalChartConfig and runtimeFilters are required for dimension expansion');
         }
+
+        // Reuse the configs that rendered the base chart
+        const response = await apiClient.post<DimensionExpandedChartData>(
+          `/api/admin/analytics/charts/${chartDefinitionId}/expand`,
+          {
+            finalChartConfig, // Already has seriesConfigs, dualAxisConfig, groupBy, colorPalette, EVERYTHING!
+            runtimeFilters, // Already has resolved dates, practices, all filters!
+            dimensionColumn: dimension.columnName,
+            limit: 20,
+          }
+        );
+        setExpandedData(response);
       } catch (error) {
         console.error('Failed to expand by dimension:', error);
       } finally {
         setLoading(false);
       }
     },
-    [chartDefinitionId, finalChartConfig, runtimeFilters, currentFilters]
+    [chartDefinitionId, finalChartConfig, runtimeFilters]
   );
 
   /**

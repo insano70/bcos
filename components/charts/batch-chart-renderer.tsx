@@ -100,8 +100,7 @@ interface BatchChartRendererProps {
    * Dimension expansion support (passed to fullscreen modals)
    */
   chartDefinitionId?: string;
-  currentFilters?: Record<string, unknown>;
-  
+
   /**
    * Hide chart header (for dimension expansion where outer container has header)
    */
@@ -138,7 +137,6 @@ export default function BatchChartRenderer({
   onRetry,
   onExport,
   chartDefinitionId,
-  currentFilters,
   hideHeader = false,
 }: BatchChartRendererProps) {
   // Hooks must be called before any conditional returns
@@ -329,7 +327,6 @@ export default function BatchChartRenderer({
             frequency={chartData.metadata.frequency || 'Monthly'}
             {...(stackingMode && { stackingMode: stackingMode as 'normal' | 'percentage' })}
             {...(chartDefinitionId && { chartDefinitionId })}
-            {...(currentFilters && { currentFilters })}
             {...(chartData.finalChartConfig && { finalChartConfig: chartData.finalChartConfig })}
             {...(chartData.runtimeFilters && { runtimeFilters: chartData.runtimeFilters })}
           />
@@ -348,7 +345,6 @@ export default function BatchChartRenderer({
             primaryAxisLabel={dualAxisConfig.primary.axisLabel}
             secondaryAxisLabel={dualAxisConfig.secondary.axisLabel}
             {...(chartDefinitionId && { chartDefinitionId })}
-            {...(currentFilters && { currentFilters })}
             {...(chartData.finalChartConfig && { finalChartConfig: chartData.finalChartConfig })}
             {...(chartData.runtimeFilters && { runtimeFilters: chartData.runtimeFilters })}
           />
@@ -371,7 +367,6 @@ export default function BatchChartRenderer({
           {...(colorPalette && { colorPalette })}
           {...(chartData.chartData.measureType && { measureType: chartData.chartData.measureType as string })}
           {...(chartDefinitionId && { chartDefinitionId })}
-          {...(currentFilters && { currentFilters })}
           {...(chartData.finalChartConfig && { finalChartConfig: chartData.finalChartConfig })}
           {...(chartData.runtimeFilters && { runtimeFilters: chartData.runtimeFilters })}
         />

@@ -45,13 +45,6 @@ interface ChartFullscreenModalProps {
   frequency?: string;
   stackingMode?: StackingMode;
   chartDefinitionId?: string;
-  currentFilters?: {
-    startDate?: string | null;
-    endDate?: string | null;
-    organizationId?: string | null;
-    practiceUids?: number[];
-    providerName?: string | null;
-  };
   // For dimension expansion: configs from batch API
   finalChartConfig?: Record<string, unknown>;
   runtimeFilters?: Record<string, unknown>;
@@ -72,7 +65,6 @@ export default function ChartFullscreenModal({
   frequency = 'Monthly',
   stackingMode = 'normal',
   chartDefinitionId,
-  currentFilters = {},
   finalChartConfig,
   runtimeFilters,
 }: ChartFullscreenModalProps) {
@@ -88,7 +80,6 @@ export default function ChartFullscreenModal({
     chartDefinitionId,
     finalChartConfig,
     runtimeFilters,
-    currentFilters,
     isOpen,
   });
 

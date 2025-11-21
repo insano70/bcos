@@ -5,12 +5,9 @@
  *
  * Renders a chart expanded by dimension values, returning side-by-side
  * chart data for each unique dimension value.
- * 
- * PERFORMANCE OPTIMIZATION:
- * - NEW FORMAT: Accepts chartExecutionConfig from frontend (eliminates metadata re-fetching)
- * - OLD FORMAT: Accepts chartDefinitionId only (backwards compatible, slower)
- * 
- * Frontend should send chartExecutionConfig when available to save 100-200ms per request.
+ *
+ * Expects finalChartConfig and runtimeFilters from the frontend to eliminate
+ * metadata re-fetching and ensure consistency with base chart rendering.
  */
 
 import type { NextRequest } from 'next/server';
@@ -21,10 +18,7 @@ import { dimensionExpansionRenderer } from '@/lib/services/analytics/dimension-e
 import { log } from '@/lib/logger';
 import type { DimensionExpansionRequest } from '@/lib/types/dimensions';
 import type { UserContext } from '@/lib/types/rbac';
-import { 
-  dimensionExpansionRequestSchema,
-  dimensionExpansionConfigRequestSchema 
-} from '@/lib/validations/dimension-expansion';
+import { dimensionExpansionConfigRequestSchema } from '@/lib/validations/dimension-expansion';
 
 const expandChartHandler = async (
   request: NextRequest,
@@ -39,49 +33,26 @@ const expandChartHandler = async (
     const chartId = params.chartId;
     const body = await request.json();
 
-    // Detect request format and validate accordingly
-    let expansionRequest: DimensionExpansionRequest;
+    // Validate request body
+    const validatedBody = dimensionExpansionConfigRequestSchema.parse(body);
 
-    if (body.finalChartConfig && body.runtimeFilters) {
-      // SIMPLE FORMAT: Reuse configs from base chart render
-      const validatedBody = dimensionExpansionConfigRequestSchema.parse(body);
-      
-      expansionRequest = {
-        finalChartConfig: validatedBody.finalChartConfig,
-        runtimeFilters: validatedBody.runtimeFilters,
-        dimensionColumn: validatedBody.dimensionColumn,
-        limit: validatedBody.limit,
-      };
+    // Build expansion request
+    const expansionRequest: DimensionExpansionRequest = {
+      finalChartConfig: validatedBody.finalChartConfig,
+      runtimeFilters: validatedBody.runtimeFilters,
+      dimensionColumn: validatedBody.dimensionColumn,
+      limit: validatedBody.limit,
+    };
 
-      log.info('Dimension expansion request (simple reuse path)', {
-        chartId,
-        dimensionColumn: validatedBody.dimensionColumn,
-        hasMultipleSeries: !!validatedBody.finalChartConfig.multipleSeries,
-        hasDualAxisConfig: !!validatedBody.finalChartConfig.dualAxisConfig,
-        optimized: true,
-        component: 'dimensions-api',
-      });
-    } else {
-      // OLD FORMAT: Legacy path with metadata re-fetching
-      const validatedBody = dimensionExpansionRequestSchema.parse(body);
-      
-      expansionRequest = {
-        chartDefinitionId: chartId,
-        dimensionColumn: validatedBody.dimensionColumn,
-        baseFilters: validatedBody.baseFilters,
-        limit: validatedBody.limit,
-      };
+    log.info('Dimension expansion request', {
+      chartId,
+      dimensionColumn: validatedBody.dimensionColumn,
+      hasMultipleSeries: !!validatedBody.finalChartConfig.multipleSeries,
+      hasDualAxisConfig: !!validatedBody.finalChartConfig.dualAxisConfig,
+      component: 'dimensions-api',
+    });
 
-      log.info('Dimension expansion request (legacy path)', {
-        chartId,
-        dimensionColumn: validatedBody.dimensionColumn,
-        optimized: false,
-        willFetchMetadata: true,
-        component: 'dimensions-api',
-      });
-    }
-
-    // Render expanded chart (renderer handles both formats)
+    // Render expanded chart
     const result = await dimensionExpansionRenderer.renderByDimension(
       expansionRequest,
       userContext

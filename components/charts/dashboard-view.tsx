@@ -477,7 +477,6 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
                     chart_config: chartConfig,
                   }}
                   position={dashboardChart.position}
-                  currentFilters={universalFilters as Record<string, unknown>}
                   className="w-full h-full flex-1"
                   responsive={true}
                   minHeight={DASHBOARD_LAYOUT.CHART.MIN_HEIGHT_WITH_PADDING}
