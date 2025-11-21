@@ -36,6 +36,12 @@ export { FilterService } from './filter-service';
 export { ChartConfigBuilderService } from './chart-config-builder';
 export { BatchExecutorService } from './batch-executor';
 
+// Export chart config services (for testing/advanced usage)
+export { ChartConfigCacheService } from './chart-config-cache';
+export { ChartConfigValidator } from './chart-config-validator';
+export { ChartFilterBuilder } from './chart-filter-builder';
+export { ChartConfigNormalizer } from './chart-config-normalizer';
+
 // Export mappers (for testing)
 export {
   mapDashboardRenderResponse,
