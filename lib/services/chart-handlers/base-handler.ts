@@ -157,8 +157,12 @@ export abstract class BaseChartHandler implements ChartTypeHandler {
   /**
    * Build analytics query parameters from chart config
    * 
-   * Uses FilterBuilderService for consistent, type-safe filter building.
-   * Handles special chart types (multipleSeries, periodComparison, dualAxis).
+   * Converts chart configuration to AnalyticsQueryParams for query execution.
+   * Handles date range resolution, filter extraction, and special chart types
+   * (multipleSeries, periodComparison, calculatedField).
+   * 
+   * Note: Config is already normalized by ChartConfigBuilderService, so dates
+   * and organizations are already resolved. This method just builds query params.
    */
   protected buildQueryParams(config: Record<string, unknown>): AnalyticsQueryParams {
     // Build universal filters from config
