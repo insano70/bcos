@@ -29,6 +29,7 @@
  * Single Responsibility: Orchestrate dimension expansion (delegates implementation to services)
  */
 
+import pLimit from 'p-limit';
 import { log } from '@/lib/logger';
 import type { UserContext } from '@/lib/types/rbac';
 import type {
@@ -275,9 +276,12 @@ export class DimensionExpansionRenderer {
   }
 
   /**
-   * Execute charts for all dimension values in parallel
+   * Execute charts for all dimension values with concurrency limiting
    *
-   * Uses same orchestration pattern as BatchExecutorService.
+   * Uses same orchestration pattern as BatchExecutorService with p-limit
+   * for concurrency control to prevent database connection pool exhaustion.
+   *
+   * Max 10 concurrent queries to balance performance and resource usage.
    *
    * @param dimensionConfigs - Dimension-specific chart configs
    * @param dimensionValues - Dimension values (for result mapping)
@@ -291,82 +295,95 @@ export class DimensionExpansionRenderer {
     baseConfig: ChartExecutionConfig,
     userContext: UserContext
   ): Promise<DimensionExpandedChart[]> {
-    const chartPromises = dimensionConfigs.map(async (config, index) => {
-      const dimensionValue = dimensionValues[index];
-      if (!dimensionValue) {
-        throw new Error(`Missing dimension value for index ${index}`);
-      }
+    // PERFORMANCE: Limit concurrent queries to prevent database overload
+    // Max 10 concurrent queries (configurable)
+    const limit = pLimit(10);
 
-      const queryStart = Date.now();
-
-      try {
-        // Execute chart query using orchestrator (same pattern as BatchExecutorService)
-        const result = await chartDataOrchestrator.orchestrate(
-          {
-            chartConfig: config.finalChartConfig as Record<string, unknown> & {
-              chartType: string;
-              dataSourceId: number;
-            },
-            runtimeFilters: config.runtimeFilters,
-          },
-          userContext
-        );
-
-        const queryTime = Date.now() - queryStart;
-
-        // Map to BatchChartData using shared mapper
-        const batchChartData = orchestrationResultToBatchChartData(result, {
-          ...baseConfig.metadata,
-          finalChartConfig: config.finalChartConfig,
-          runtimeFilters: config.runtimeFilters,
-        });
-
-        const expandedChart: DimensionExpandedChart = {
-          dimensionValue: {
-            ...dimensionValue,
-            recordCount: result.metadata.recordCount,
-          },
-          chartData: batchChartData,
-          metadata: {
-            recordCount: result.metadata.recordCount,
-            queryTimeMs: queryTime,
-            cacheHit: result.metadata.cacheHit,
-            transformDuration: 0,
-          },
-        };
-
-        return expandedChart;
-      } catch (error) {
-        const queryTime = Date.now() - queryStart;
-
-        log.error('Failed to render chart for dimension value', error as Error, {
-          dimensionValue: dimensionValue.value,
-          userId: userContext.user_id,
-          queryTime,
-          component: 'dimension-expansion',
-        });
-
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-
-        const errorResult: DimensionExpandedChart = {
-          dimensionValue,
-          chartData: null,
-          error: {
-            message: 'Failed to load chart data',
-            code: 'DIMENSION_CHART_RENDER_FAILED',
-            ...(process.env.NODE_ENV === 'development' && { details: errorMessage }),
-          },
-          metadata: {
-            recordCount: 0,
-            queryTimeMs: queryTime,
-            cacheHit: false,
-            transformDuration: 0,
-          },
-        };
-
-        return errorResult;
-      }
+    log.info('Executing dimension expansion with concurrency control', {
+      totalDimensions: dimensionConfigs.length,
+      maxConcurrent: 10,
+      userId: userContext.user_id,
+      component: 'dimension-expansion',
     });
+
+    const chartPromises = dimensionConfigs.map((config, index) =>
+      limit(async () => {
+        const dimensionValue = dimensionValues[index];
+        if (!dimensionValue) {
+          throw new Error(`Missing dimension value for index ${index}`);
+        }
+
+        const queryStart = Date.now();
+
+        try {
+          // Execute chart query using orchestrator (same pattern as BatchExecutorService)
+          const result = await chartDataOrchestrator.orchestrate(
+            {
+              chartConfig: config.finalChartConfig as Record<string, unknown> & {
+                chartType: string;
+                dataSourceId: number;
+              },
+              runtimeFilters: config.runtimeFilters,
+            },
+            userContext
+          );
+
+          const queryTime = Date.now() - queryStart;
+
+          // Map to BatchChartData using shared mapper
+          const batchChartData = orchestrationResultToBatchChartData(result, {
+            ...baseConfig.metadata,
+            finalChartConfig: config.finalChartConfig,
+            runtimeFilters: config.runtimeFilters,
+          });
+
+          const expandedChart: DimensionExpandedChart = {
+            dimensionValue: {
+              ...dimensionValue,
+              recordCount: result.metadata.recordCount,
+            },
+            chartData: batchChartData,
+            metadata: {
+              recordCount: result.metadata.recordCount,
+              queryTimeMs: queryTime,
+              cacheHit: result.metadata.cacheHit,
+              transformDuration: 0,
+            },
+          };
+
+          return expandedChart;
+        } catch (error) {
+          const queryTime = Date.now() - queryStart;
+
+          log.error('Failed to render chart for dimension value', error as Error, {
+            dimensionValue: dimensionValue.value,
+            userId: userContext.user_id,
+            queryTime,
+            component: 'dimension-expansion',
+          });
+
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+
+          const errorResult: DimensionExpandedChart = {
+            dimensionValue,
+            chartData: null,
+            error: {
+              message: 'Failed to load chart data',
+              code: 'DIMENSION_CHART_RENDER_FAILED',
+              ...(process.env.NODE_ENV === 'development' && { details: errorMessage }),
+            },
+            metadata: {
+              recordCount: 0,
+              queryTimeMs: queryTime,
+              cacheHit: false,
+              transformDuration: 0,
+            },
+          };
+
+          return errorResult;
+        }
+      })
+    );
 
     return Promise.all(chartPromises);
   }

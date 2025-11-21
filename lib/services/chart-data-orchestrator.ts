@@ -9,6 +9,40 @@ import { createRBACDataSourcesService } from './rbac-data-sources-service';
 import './chart-handlers';
 
 /**
+ * Timeout for chart data fetching operations (30 seconds)
+ * Prevents slow analytics queries from hanging indefinitely
+ */
+const CHART_FETCH_TIMEOUT_MS = 30000;
+
+/**
+ * Wrap a promise with a timeout using AbortSignal.timeout()
+ *
+ * Uses Node.js 24+ feature for built-in timeout handling.
+ * If the promise doesn't resolve within the timeout, it rejects with a timeout error.
+ *
+ * @param promise - Promise to wrap
+ * @param timeoutMs - Timeout in milliseconds
+ * @param operation - Description of the operation (for error message)
+ * @returns Promise that rejects if timeout is exceeded
+ */
+async function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  operation: string
+): Promise<T> {
+  const signal = AbortSignal.timeout(timeoutMs);
+
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => {
+      signal.addEventListener('abort', () => {
+        reject(new Error(`Operation timed out after ${timeoutMs}ms: ${operation}`));
+      });
+    }),
+  ]);
+}
+
+/**
  * Chart Data Orchestrator
  *
  * Central service that coordinates chart data fetching and transformation.
@@ -167,10 +201,14 @@ class ChartDataOrchestrator {
         chartType: chartConfig.chartType,
       });
 
-      // 5. Fetch data via handler
+      // 5. Fetch data via handler (with timeout protection)
       const fetchStartTime = Date.now();
 
-      const fetchResult = await handler.fetchData(mergedConfig, userContext);
+      const fetchResult = await withTimeout(
+        handler.fetchData(mergedConfig, userContext),
+        CHART_FETCH_TIMEOUT_MS,
+        `Chart data fetch for type: ${chartConfig.chartType}`
+      );
 
       const fetchDuration = Date.now() - fetchStartTime;
 
@@ -179,6 +217,7 @@ class ChartDataOrchestrator {
         recordCount: fetchResult.data.length,
         fetchDuration,
         cacheHit: fetchResult.cacheHit,
+        timeoutMs: CHART_FETCH_TIMEOUT_MS,
       });
 
       // 6. Transform data via handler (may be async for data source config lookups)

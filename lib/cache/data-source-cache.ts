@@ -84,11 +84,72 @@ export interface DataSourceFetchResult {
  * Cache for data source types (avoid repeated DB queries)
  * Key: dataSourceId, Value: data_source_type
  */
-const dataSourceTypeCache = new Map<number, 'measure-based' | 'table-based'>();
+/**
+ * Simple LRU Cache implementation for data source types
+ *
+ * Prevents memory leak by enforcing a maximum size limit.
+ * When the cache is full, the least recently used entry is evicted.
+ */
+class LRUCache<K, V> {
+  private cache: Map<K, V>;
+  private readonly maxSize: number;
+
+  constructor(maxSize: number) {
+    this.cache = new Map();
+    this.maxSize = maxSize;
+  }
+
+  get(key: K): V | undefined {
+    const value = this.cache.get(key);
+    if (value !== undefined) {
+      // Move to end (most recently used)
+      this.cache.delete(key);
+      this.cache.set(key, value);
+    }
+    return value;
+  }
+
+  set(key: K, value: V): void {
+    // Delete if exists (to update position)
+    if (this.cache.has(key)) {
+      this.cache.delete(key);
+    }
+
+    // Add to end (most recently used)
+    this.cache.set(key, value);
+
+    // Evict oldest if over limit
+    if (this.cache.size > this.maxSize) {
+      const firstKey = this.cache.keys().next().value as K;
+      this.cache.delete(firstKey);
+
+      log.debug('LRU cache evicted oldest entry', {
+        evictedKey: firstKey,
+        cacheSize: this.cache.size,
+        maxSize: this.maxSize,
+        component: 'data-source-type-cache',
+      });
+    }
+  }
+
+  clear(): void {
+    this.cache.clear();
+  }
+
+  size(): number {
+    return this.cache.size;
+  }
+}
+
+/**
+ * LRU cache for data source types (max 100 entries)
+ * Prevents unbounded memory growth in long-running processes
+ */
+const dataSourceTypeCache = new LRUCache<number, 'measure-based' | 'table-based'>(100);
 
 /**
  * Detect data source type from database
- * Uses in-memory cache to avoid repeated queries
+ * Uses LRU cache to avoid repeated queries while preventing memory leaks
  *
  * SECURITY: Validates input and database return values
  *
@@ -136,8 +197,15 @@ async function detectDataSourceType(
     return 'measure-based';
   }
 
-  // Cache the result
+  // Cache the result with LRU eviction
   dataSourceTypeCache.set(dataSourceId, type);
+
+  log.debug('Data source type cached', {
+    dataSourceId,
+    type,
+    cacheSize: dataSourceTypeCache.size(),
+    component: 'data-source-type-cache',
+  });
 
   return type;
 }

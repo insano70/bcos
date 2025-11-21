@@ -1,125 +1,216 @@
-# CLAUDE.md
+# CLAUDE.md - Development Guide & Protocols
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code when working with this repository.
 
-## Tech Stack
+---
 
-**Application**: Next.js 15, Node.js 24, React 19, TypeScript 5.9 (strict mode)
-**Infrastructure**: AWS ECS Fargate, PostgreSQL 17 (RDS), AWS Elasticache (Valkey/Redis)
-**Database**: Drizzle ORM 0.44 with modular schema architecture
-**Linting**: Biome 2.2 (linter + formatter), custom logger lint rule
-**Testing**: Vitest 3.2 with React Testing Library, parallel test execution
-**Package Manager**: pnpm
+# TIER 0: NON-NEGOTIABLE SAFETY PROTOCOLS
 
-## Commands
+## Git Safety Protocol
 
-### Development
+**ABSOLUTE PROHIBITIONS - NO EXCEPTIONS:**
+
+- **NEVER** use `git reset` (hard, soft, or any form) - FORBIDDEN
+- **NEVER** use `git commit --no-verify` or `git commit -n`
+- **NEVER** force push to main/master
+- **NEVER** bypass pre-commit hooks under any circumstances
+- **NEVER** skip hooks (`--no-verify`, `--no-gpg-sign`) unless explicitly requested
+- **DO NOT** interact with git unless explicitly instructed
+- **DO NOT** commit work without being told to do so
+- **Violation = Critical Safety Failure**
+
+**Hook Failure Response (MANDATORY):**
+
+1. Read error messages thoroughly
+2. Fix all reported issues (linting, formatting, types)
+3. Stage fixes: `git add <fixed-files>`
+4. Commit again (hooks run automatically)
+5. **NEVER use `--no-verify`** - non-compliance is unacceptable
+
+**Commit Format** (only when explicitly requested):
 ```bash
-pnpm dev              # Start dev server on port 4001
-pnpm dev:turbo        # Start dev with Turbopack (faster)
-pnpm dev:warm         # Start dev with cache warming
+git commit -m "$(cat <<'EOF'
+Commit message here - focus on "why" not "what"
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+EOF
+)"
 ```
 
-### Type Checking & Linting
-```bash
-pnpm tsc              # Type check entire codebase
-pnpm lint             # Run Biome + custom logger lint
-pnpm lint:biome       # Run Biome only
-pnpm lint:logger      # Check for server logger in client files
-pnpm lint:fix         # Auto-fix Biome issues
-pnpm format           # Format code with Biome
-pnpm check            # Lint + format (auto-fix)
+---
+
+## No Deviation Protocol
+
+**ABSOLUTE PROHIBITIONS - NO EXCEPTIONS:**
+
+- **NEVER** switch to alternative solutions when encountering issues
+- **NEVER** take "the easy way out" by choosing different technologies/approaches
+- **NEVER** substitute requested components without explicit user approval
+- **MUST** fix the EXACT issue encountered, not work around it
+- **Violation = Critical Task Failure**
+
+**When Encountering Issues (MANDATORY):**
+
+1. **STOP** - Do not proceed with alternatives
+2. **DIAGNOSE** - Read error messages thoroughly, identify root cause
+3. **FIX** - Resolve the specific issue with the requested technology/approach
+4. **VERIFY** - Confirm the original request now works
+5. **NEVER** suggest alternatives unless fixing is genuinely impossible
+
+**Examples of PROHIBITED behavior:**
+- ❌ "Let me use a different library instead of fixing this one"
+- ❌ "Let me switch to REST instead of fixing the RBAC wrapper"
+- ❌ "Let me use console.log instead of fixing the logger import"
+
+**Required behavior:**
+- ✅ "RBAC wrapper error: [X]. Fixing by [Y]"
+- ✅ "Logger import issue: [X]. Resolving with [Y]"
+- ✅ "TypeScript error: [X]. Debugging and fixing [Y]"
+
+---
+
+# TIER 1: CRITICAL PROTOCOLS (ALWAYS REQUIRED)
+
+## Protocol 1: Root Cause Analysis
+
+**BEFORE implementing ANY fix:**
+
+- **MUST** apply "5 Whys" methodology - trace to root cause, not symptoms
+- **MUST** search entire codebase for similar patterns using Grep/Glob tools
+- **MUST** fix ALL affected locations, not just discovery point
+- **MUST** document: "Root cause: [X], affects: [Y], fixing: [Z]"
+
+**NEVER:**
+- Fix symptoms without understanding root cause
+- Declare "Fixed!" without codebase-wide search
+- Use try-catch to mask errors without fixing underlying problem
+
+---
+
+## Protocol 2: Scope Completeness
+
+**BEFORE any batch operation:**
+
+- **MUST** use Glob tool with comprehensive patterns to find ALL matching items
+- **MUST** list all items explicitly: "Found N items: [list]"
+- **MUST** check multiple locations (root, subdirectories, nested paths)
+- **MUST** verify completeness: "Processed N/N items"
+
+**NEVER:**
+- Process only obvious items
+- Assume first search captured everything
+- Declare complete without explicit count verification
+
+---
+
+## Protocol 3: Verification Loop
+
+**MANDATORY validation after ANY code changes:**
+
+```
+1. Make change
+2. Run `pnpm tsc` IMMEDIATELY (fix TypeScript errors)
+3. Run `pnpm lint` IMMEDIATELY (fix linting errors)
+4. Analyze failures
+5. IF failures exist: fix and GOTO step 1
+6. ONLY declare complete when ALL checks pass
 ```
 
-**REQUIRED**: After any code changes, run `pnpm tsc` AND `pnpm lint`. Fix all errors before proceeding, even unrelated ones.
+**Completion criteria (ALL must be true):**
+- ✅ `pnpm tsc` passes with no errors
+- ✅ `pnpm lint` passes with no errors
+- ✅ All relevant tests passing
+- ✅ Verified in running environment (if applicable)
 
-### Testing
-```bash
-# Run tests
-pnpm test                    # All tests (parallel)
-pnpm test:run                # Run once and exit
-pnpm test:watch              # Watch mode
-pnpm test:ui                 # Vitest UI
+**ABSOLUTE PROHIBITIONS:**
 
-# Specific suites
-pnpm test:unit               # Unit tests only
-pnpm test:integration        # Integration tests
-pnpm test:api                # API route tests
-pnpm test:rbac               # RBAC permission tests
-pnpm test:saml               # SAML authentication tests
-pnpm test:e2e                # End-to-end tests
+- **NEVER** dismiss test failures as "pre-existing issues unrelated to changes"
+- **NEVER** dismiss linting errors as "pre-existing issues unrelated to changes"
+- **NEVER** ignore ANY failing test or linting issue, regardless of origin
+- **MUST** fix ALL failures before declaring complete, even if they existed before your changes
+- **NEVER** skip running `pnpm tsc` and `pnpm lint` after changes
+- **Rationale**: Code quality is a collective responsibility. All failures block completion.
 
-# Coverage
-pnpm test:coverage           # Generate coverage report
-pnpm test:coverage:ui        # Coverage with UI
+---
 
-# Performance
-pnpm test:parallel           # Parallel execution
-pnpm test:parallel:max       # Max parallelism (8 workers)
-pnpm test:sequential         # Sequential (debugging)
+# TIER 2: IMPORTANT PROTOCOLS
 
-# Single test file
-vitest run path/to/test.ts
+## Protocol 4: Design Consistency
+
+**BEFORE implementing any UI:**
+
+- **MUST** study 3-5 existing similar pages/components using Read tool
+- **MUST** extract patterns: colors, typography, components, layouts
+- **MUST** reuse existing components (create new ONLY if no alternative)
+- **MUST** compare against mockups if provided
+- **MUST** document: "Based on [pages], using pattern: [X]"
+
+**NEVER:**
+- Use generic defaults or placeholder colors
+- Deviate from mockups without explicit approval
+- Create new components without checking existing ones first
+
+---
+
+## Protocol 5: Requirements Completeness
+
+**For EVERY feature, verify ALL layers:**
+
+```
+UI Fields → API Endpoint → Validation → Business Logic → Database Schema
 ```
 
-### Database
-```bash
-pnpm db:migrate              # Run pending migrations
-pnpm db:generate             # Generate new migration from schema
-pnpm db:validate             # Validate migration integrity
-pnpm db:push                 # Push schema directly (dev only)
-pnpm db:seed                 # Seed database with test data
-pnpm db:psql                 # Connect to PostgreSQL
-pnpm db:check                # Test database connection
-```
+**BEFORE declaring complete:**
 
-### Build & Deploy
-```bash
-pnpm build                   # Production build (validates env first)
-pnpm start                   # Start production server
-```
+- **MUST** verify each UI field has corresponding:
+  - API parameter
+  - Validation rule
+  - Business logic handler
+  - Database column (correct type)
+- **MUST** test end-to-end with realistic data
 
-## Architecture
+**NEVER:**
+- Implement UI without checking backend support
+- Change data model without database migration
+- Skip any layer in the stack
 
-### Modular Database Schema
+---
 
-Database schema uses a **modular architecture** via re-exports in `lib/db/schema.ts`. Each domain has its own schema file:
+## Protocol 6: API Route Security
 
-- `rbac-schema.ts` - Users, roles, permissions, organizations
-- `refresh-token-schema.ts` - Sessions, tokens, login attempts, account security
-- `webauthn-schema.ts` - WebAuthn credentials and challenges
-- `oidc-schema.ts` - OIDC states and nonces
-- `work-item-schema.ts` - Work items core tables
-- `work-item-fields-schema.ts` - Custom field definitions and values
-- `analytics-schema.ts` - Charts, dashboards, data sources
-- `chart-config-schema.ts` - Chart display configurations
-- `audit-schema.ts` - Audit trail
-- `csrf-schema.ts` - CSRF failure monitoring
+**CRITICAL**: All API routes MUST use security wrapper functions. Direct route exports are FORBIDDEN.
 
-**Import pattern**: Always import from `@/lib/db/schema` (never from individual schema files):
+**Three wrappers (from `@/lib/api/route-handlers`):**
+
+1. **`rbacRoute`** - Permission-based (default for business logic)
+   - Use for all business operations requiring specific permissions
+   - Format: `permission: 'resource:action:scope'`
+   - Example: `'users:read:all'`, `'analytics:create:organization'`
+
+2. **`authRoute`** - Authentication without RBAC
+   - Use for auth system routes (MFA, profile, sessions)
+   - Provides session context without permission checks
+
+3. **`publicRoute`** - No authentication
+   - Use for public endpoints only (health checks, CSRF tokens, login)
+
+**BEFORE creating/modifying any API route:**
+- **MUST** determine which wrapper to use
+- **MUST** include appropriate `rateLimit` option: `'auth'`, `'api'`, or `'upload'`
+- **NEVER** export route handlers directly without wrappers
+- **Exception**: Only `/api/auth/refresh` and `/api/auth/logout` may skip wrappers
+
+**Rate Limit Options**:
+- `auth`: 10 req/min (authentication endpoints)
+- `api`: 100 req/min (standard operations)
+- `upload`: 20 req/min (file uploads)
+
+**Implementation Examples**:
 
 ```typescript
-import { users, roles, permissions } from '@/lib/db/schema';
-```
-
-### Drizzle Best Practices
-
-1. **Never manually delete migrations** - Use `drizzle-kit drop` or proper migration rollback
-2. **Always commit migration journal changes** with the corresponding SQL files
-3. **Run `drizzle-kit check`** before and after schema changes
-4. **Keep snapshots in sync** - regenerate if missing
-
-### API Route Security Wrappers
-
-**CRITICAL**: All API routes MUST use one of three security wrapper functions. Direct route exports are FORBIDDEN.
-
-**Location**: `@/lib/api/route-handlers`
-
-#### 1. `rbacRoute` - RBAC Permission-Based (Default for Business Logic)
-
-Use for all business logic requiring specific permissions:
-
-```typescript
+// 1. rbacRoute - Permission-based (most common)
 import { rbacRoute } from '@/lib/api/route-handlers';
 import type { UserContext } from '@/lib/types/rbac';
 
@@ -146,18 +237,8 @@ export const PUT = rbacRoute(handler, {
   requireAllPermissions: true,
   rateLimit: 'api',
 });
-```
 
-**Permission Format**: `resource:action:scope`
-- **Resources**: `users`, `practices`, `analytics`, `work_items`, `roles`
-- **Actions**: `read`, `create`, `update`, `delete`, `manage`
-- **Scopes**: `all`, `organization`, `own`
-
-#### 2. `authRoute` - Authentication Without RBAC
-
-Use for auth system routes (MFA, profile, sessions):
-
-```typescript
+// 2. authRoute - Authentication without RBAC
 import { authRoute } from '@/lib/api/route-handlers';
 import type { AuthSession } from '@/lib/api/route-handlers';
 
@@ -170,13 +251,8 @@ const handler = async (request: NextRequest, session?: AuthSession) => {
 };
 
 export const GET = authRoute(handler, { rateLimit: 'api' });
-```
 
-#### 3. `publicRoute` - No Authentication
-
-Use for public endpoints only (health checks, CSRF tokens, login):
-
-```typescript
+// 3. publicRoute - No authentication
 import { publicRoute } from '@/lib/api/route-handlers';
 
 const handler = async (request: NextRequest) => {
@@ -185,24 +261,38 @@ const handler = async (request: NextRequest) => {
 
 export const GET = publicRoute(
   handler,
-  'Health check endpoint for monitoring tools and load balancers',
+  'Health check endpoint for monitoring tools',
   { rateLimit: 'api' }
 );
 ```
 
-**Rate Limit Options**:
-- `auth`: 10 req/min (authentication endpoints)
-- `api`: 100 req/min (standard operations)
-- `upload`: 20 req/min (file uploads)
+---
 
-**Exception**: Only `/api/auth/refresh` and `/api/auth/logout` may skip wrappers (custom auth flows with internal validation).
+# TIER 3: STANDARD PROTOCOLS
 
-### Logging System
+## Protocol 7: TypeScript Strictness
+
+**ABSOLUTE RULES:**
+
+- **FORBIDDEN**: The `any` type under all circumstances
+- **REQUIRED**: Strict mode compliance (`strictNullChecks`, `noUncheckedIndexedAccess`)
+- **MUST** report any `any` types found in existing code to user
+- **MUST** fix type issues properly, never use type assertions as shortcuts
+
+---
+
+## Protocol 8: Logging System
 
 **CRITICAL**: Custom logging wrapper at `lib/logger/index.ts` - server-side only.
 
-**FORBIDDEN**: Client-side imports of `@/lib/logger` (enforced by custom lint rule).
+**RULES:**
 
+- **MUST** use `import { log } from '@/lib/logger'` in server code
+- **FORBIDDEN**: Client-side imports of `@/lib/logger` (enforced by custom lint rule)
+- **FORBIDDEN**: `console.*` statements (use logging wrapper instead)
+- **NEVER**: Use external logging libraries (Pino, Winston)
+
+**Basic Logging Patterns:**
 ```typescript
 import { log, correlation } from '@/lib/logger';
 
@@ -230,8 +320,7 @@ log.security('rate_limit_exceeded', 'high', { blocked: true });
 log.db('SELECT', 'users', duration, { recordCount });
 ```
 
-**Enriched Logging Patterns**:
-
+**Enriched Logging Patterns:**
 ```typescript
 import { log, SLOW_THRESHOLDS, logTemplates, calculateChanges } from '@/lib/logger';
 
@@ -265,64 +354,113 @@ const template = logTemplates.crud.update('user', {
 log.info(template.message, template.context);
 ```
 
-**Slow Thresholds**:
+**Slow Thresholds:**
 - `DB_QUERY`: 500ms (detect missing indexes)
 - `API_OPERATION`: 1000ms (user experience threshold)
 - `AUTH_OPERATION`: 2000ms (password hashing, MFA)
 
-**What NOT to Log**:
+**What NOT to Log:**
 - ❌ Verbose intermediate logs (rate limit check, validation, etc.)
 - ❌ Debug console.log statements
 - ✅ One comprehensive final log per operation
 
-**Features**:
+**Features:**
 - Automatic context capture (file, line, function)
 - Correlation ID tracking across requests
 - PII sanitization (emails, SSNs, credit cards, UUIDs)
 - Production sampling (INFO: 10%, DEBUG: 1%)
 - CloudWatch Logs integration
 
-**NEVER**: Use external logging libraries (Pino, Winston). Never use `console.*` directly.
+---
 
-### RBAC System
+## Protocol 9: Testing Quality
 
-**Permission Hierarchy**: Super Admin > Organization Admin > Manager > Staff
+**Test Quality Standards:**
 
-**Caching**: User context cached in Redis with automatic invalidation on permission changes.
+- **MUST** test real code and add value, not "testing theater"
+- **MUST** analyze test failures: is code wrong, test wrong, or requirement changed?
+- **DO NOT** blindly modify tests to make them pass
+- **NEVER** create stub/mock tests except for: slow external APIs, databases
+- **NEVER** create tests solely to meet coverage metrics
+- **Priority**: Quality code over 100% pass rate
 
-**Server-side permission checks**: `lib/rbac/server-permission-service.ts`
+---
 
-```typescript
-import { ServerPermissionService } from '@/lib/rbac/server-permission-service';
+# PROJECT-SPECIFIC TECHNICAL REFERENCE
 
-const hasPermission = await ServerPermissionService.hasPermission(
-  userId,
-  'users:update:all'
-);
+## Tech Stack
+
+- **Application**: Next.js 15, Node.js 24, React 19, TypeScript 5.9 (strict mode)
+- **Infrastructure**: AWS ECS Fargate, PostgreSQL 17 (RDS), AWS Elasticache (Valkey/Redis)
+- **Database**: Drizzle ORM 0.44 with modular schema architecture
+- **Linting**: Biome 2.2 (linter + formatter), custom logger lint rule
+- **Testing**: Vitest 3.2 with React Testing Library
+- **Package Manager**: pnpm
+
+## Essential Commands
+
+```bash
+# Development
+pnpm dev              # Start dev server (port 4001)
+pnpm dev:turbo        # Start with Turbopack (faster)
+
+# Validation (REQUIRED after changes)
+pnpm tsc              # Type check (MUST pass)
+pnpm lint             # Lint check (MUST pass)
+pnpm lint:fix         # Auto-fix linting issues
+
+# Testing
+pnpm test             # Run all tests
+pnpm test:run         # Run once and exit
+pnpm test:watch       # Watch mode
+
+# Database
+pnpm db:migrate       # Run pending migrations
+pnpm db:generate      # Generate migration from schema
+pnpm db:push          # Push schema (dev only)
+
+# Build
+pnpm build            # Production build
 ```
 
-### Environment Variables
+## Critical Architecture Patterns
+
+### 1. Database Schema (Modular)
+
+**Location**: `lib/db/schema.ts` (re-exports from modular schema files)
+
+**Import pattern** (REQUIRED):
+```typescript
+import { users, roles, permissions } from '@/lib/db/schema';
+// NEVER import from individual schema files directly
+```
+
+**Key schema files**: `rbac-schema.ts`, `analytics-schema.ts`, `work-item-schema.ts`, etc.
+
+### 2. Environment Variables
 
 **Validation**: T3 Env + Zod schema in `lib/env.ts`
 
-**Required variables** (`.env.local`):
-- `DATABASE_URL` - PostgreSQL connection string
-- `JWT_SECRET` - Min 32 chars for JWT access tokens
-- `JWT_REFRESH_SECRET` - Min 32 chars for refresh tokens
-- `CSRF_SECRET` - Min 32 chars for CSRF protection
-- `APP_URL` - Application URL (e.g., http://localhost:4001)
-- `NEXT_PUBLIC_APP_URL` - Client-side app URL
+**Required variables**:
+- `DATABASE_URL` - PostgreSQL connection
+- `JWT_SECRET`, `JWT_REFRESH_SECRET` - Min 32 chars
+- `CSRF_SECRET` - Min 32 chars
+- `APP_URL`, `NEXT_PUBLIC_APP_URL` - Application URLs
 
-**Optional** (authentication):
-- `ENTRA_TENANT_ID`, `ENTRA_APP_ID`, `ENTRA_CLIENT_SECRET` - Microsoft Entra ID
-- `OIDC_*` - OpenID Connect configuration
-- `SMTP_*` - AWS SES email configuration
+**Optional**: S3 storage (`S3_PUBLIC_*`, `S3_PRIVATE_*`), Auth providers (`ENTRA_*`, `OIDC_*`)
 
-**Optional** (S3 file storage):
-- `S3_PUBLIC_*` - Public assets (logos, avatars) via CloudFront CDN
-- `S3_PRIVATE_*` - Private assets (attachments, documents) with presigned URLs
+### 3. RBAC System
 
-### S3 File Storage
+**Permission format**: `resource:action:scope`
+- Resources: `users`, `practices`, `analytics`, `work_items`, `roles`
+- Actions: `read`, `create`, `update`, `delete`, `manage`
+- Scopes: `all`, `organization`, `own`
+
+**Caching**: User context cached in Redis with automatic invalidation.
+
+**Server-side checks**: `lib/rbac/server-permission-service.ts`
+
+### 4. S3 File Storage
 
 **Architecture**: Two separate S3 systems with shared utilities for consistency.
 
@@ -338,11 +476,11 @@ const hasPermission = await ServerPermissionService.hasPermission(
 **Pattern**: Two-step upload with presigned URLs (client uploads directly to S3, bypassing server).
 
 ```typescript
-import { 
-  generateS3Key, 
-  generateUploadUrl, 
-  generateDownloadUrl, 
-  deleteFile 
+import {
+  generateS3Key,
+  generateUploadUrl,
+  generateDownloadUrl,
+  deleteFile
 } from '@/lib/s3/private-assets';
 
 // 1. Generate S3 key with consistent pattern
@@ -384,25 +522,17 @@ const { downloadUrl } = await generateDownloadUrl(s3Key, {
 ['invoices', orgId, '2024', 'january']
 // => 'invoices/org-456/2024/january/invoice_xyz.pdf'
 
-// Reports with timestamp versioning
-generateS3Key(['reports', orgId, 'analytics'], 'report.xlsx', { 
-  addTimestamp: true 
-})
-// => 'reports/org-789/analytics/report_1704067200000_xyz.xlsx'
-
 // User documents (nested structure)
 ['users', userId, 'documents', 'licenses']
 // => 'users/user-456/documents/licenses/license_xyz.jpg'
 ```
 
 **Security**:
-- ✅ Separate IAM credentials (`S3_PRIVATE_*` env vars)
 - ✅ Short-lived presigned URLs (15 min download, 1 hour upload)
 - ✅ Server-side RBAC checks required before URL generation
 - ✅ Path traversal prevention via sanitization
 - ✅ MIME type whitelist (blocks executables, scripts)
 - ✅ File size limits by type (50MB images/documents, 100MB archives/default)
-- ✅ Comprehensive audit logging with metadata
 
 **File Upload Constraints**:
 ```typescript
@@ -419,26 +549,6 @@ ALLOWED_MIME_TYPES.has('application/pdf')        // ✅ true
 ALLOWED_MIME_TYPES.has('image/jpeg')             // ✅ true
 ALLOWED_MIME_TYPES.has('application/x-msdownload') // ❌ false (executables blocked)
 ```
-
-**Image Thumbnails** (automatic for images):
-```typescript
-import { isImage, generateThumbnail, getThumbnailKey } from '@/lib/s3/private-assets';
-
-// Check if file is an image
-if (isImage('image/jpeg')) {
-  // Generate thumbnail (max 300x300px, JPEG, 80% quality)
-  const thumbnailBuffer = await generateThumbnail(imageBuffer, 'image/jpeg');
-  
-  // Thumbnail key automatically generated
-  const thumbnailKey = getThumbnailKey('work-items/abc/photo.jpg');
-  // => 'work-items/abc/thumbnails/photo_thumb.jpg'
-}
-```
-
-**Key generation options**:
-- `addUniqueId: true` (default) - Adds collision-resistant nanoid
-- `addTimestamp: false` (default) - Adds Unix timestamp for versioning
-- `preserveName: false` (default) - Lowercase sanitization vs minimal sanitization
 
 #### Public Assets (CDN Files)
 
@@ -462,8 +572,6 @@ const { fileUrl, size } = await uploadToS3(buffer, s3Key, {
 // Returns: { fileUrl: 'https://cdn.bendcare.com/practices/123/logo/logo_xyz.jpg' }
 ```
 
-**Consistency**: Both systems use identical `generateS3Key()` API for developer experience.
-
 **Configuration**:
 ```bash
 # Private Assets (required for attachments)
@@ -471,8 +579,6 @@ S3_PRIVATE_REGION=us-east-1
 S3_PRIVATE_ACCESS_KEY_ID=AKIA...
 S3_PRIVATE_SECRET_ACCESS_KEY=secret...
 S3_PRIVATE_BUCKET=bcos-private-assets
-S3_PRIVATE_UPLOAD_EXPIRATION=3600    # Optional: 1 hour default
-S3_PRIVATE_DOWNLOAD_EXPIRATION=900   # Optional: 15 min default
 
 # Public Assets (required for logos/avatars)
 S3_PUBLIC_REGION=us-east-1
@@ -482,11 +588,13 @@ S3_PUBLIC_BUCKET=bcos-public-assets
 CDN_URL=https://cdn.bendcare.com
 ```
 
-### Confirmation Modals
+### 5. Confirmation Modals
 
-**Component**: Use `DeleteConfirmationModal` for all destructive actions (never use native `window.confirm()`)
+**NEVER** use native `window.confirm()` for destructive actions.
 
-**Usage**:
+**MUST** use `DeleteConfirmationModal` component from `@/components/delete-confirmation-modal`.
+
+**Basic Usage**:
 ```typescript
 import DeleteConfirmationModal from '@/components/delete-confirmation-modal';
 
@@ -531,113 +639,145 @@ const dropdownActions = (item: User) => [
 ];
 ```
 
-## Code Quality Standards
-
-### TypeScript Rules
-
-- **FORBIDDEN**: The `any` type under all circumstances
-- **REQUIRED**: Strict mode with `strictNullChecks`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`
-- If you encounter `any` in existing code, address it and report to user
-
-### Testing Standards
-
-- **Test Quality**: Tests must test real code and add value, not "testing theater"
-- **Test Failures**: Analyze first, determine if code is wrong, test is wrong, or requirement changed
-- **DO NOT**: Blindly modify tests to make them pass
-- **Priority**: Quality code, not 100% pass rate
-
-### File Naming
+## File Naming Standards
 
 - **DO NOT**: Use adjectives or buzzwords ("enhanced", "optimized", "new", "updated")
 - **DO**: Name files plainly and descriptively
 - Focus on what the file does, not marketing language
 
-### Post-Change Validation
+---
 
-**REQUIRED** after any code changes:
-1. `pnpm tsc` - Fix TypeScript errors
-2. `pnpm lint` - Fix linting errors
-3. Fix ALL errors (even unrelated ones) before proceeding
+# CONSOLIDATED VERIFICATION CHECKLIST
 
-### Quality Over Speed
+## Before Starting Any Work
 
-- Do NOT take shortcuts for speed
-- Speed is NOT the priority; high quality code is the priority
-- Always prioritize correctness and maintainability
+- [ ] Searched for existing patterns/components using Glob/Grep?
+- [ ] Listed ALL items in scope with explicit count?
+- [ ] Understood full stack impact (UI → API → DB)?
+- [ ] Identified root cause (not just symptom)?
+- [ ] All assumptions clarified with user?
 
-## Security
+## Before Declaring Complete
 
-### Priority
+- [ ] Ran `pnpm tsc` and it passes with no errors?
+- [ ] Ran `pnpm lint` and it passes with no errors?
+- [ ] All relevant tests passing?
+- [ ] Verified in running environment (if applicable)?
+- [ ] Fixed ALL related issues (searched codebase)?
+- [ ] Updated ALL affected layers (UI → API → DB)?
+- [ ] No `any` types introduced?
+- [ ] Used correct security wrappers for API routes?
+- [ ] Used logger wrapper (not console.*)?
+- [ ] Pre-commit hooks will NOT be bypassed?
 
-Security is paramount. Never make changes that negatively impact security profile.
+## Never Do
 
-### API Route Protection Audit
+- ❌ Use `git reset` or `--no-verify` flags
+- ❌ Switch to alternatives when encountering issues
+- ❌ Fix symptoms without root cause analysis
+- ❌ Declare complete without running `pnpm tsc && pnpm lint`
+- ❌ Dismiss failures as "pre-existing issues"
+- ❌ Use generic designs instead of existing patterns
+- ❌ Skip layers in the stack (UI → API → DB)
+- ❌ Export API routes without security wrappers
+- ❌ Use `any` type or client-side logger imports
+- ❌ Use `console.*` or `window.confirm()`
+- ❌ Defer work without approval
 
-Last audited: 2025-01-17
-- Total Routes: 110
-- Protected with rbacRoute: 84.7%
-- Public Routes: 8.8%
-- Auth Routes: 2.4%
-- Unprotected: 0% (all have internal auth)
 
-### Migration from Legacy Wrappers
+## Always Do
 
-If you encounter these patterns, migrate them:
+- ✅ Search entire codebase for similar issues using Grep/Glob
+- ✅ List ALL items before processing (with count)
+- ✅ Run `pnpm tsc && pnpm lint` after changes, fix ALL errors
+- ✅ Fix the EXACT issue, never switch technologies
+- ✅ Study existing patterns before implementing (Read tool)
+- ✅ Trace through entire stack (UI → API → DB)
+- ✅ Use `rbacRoute`, `authRoute`, or `publicRoute` wrappers
+- ✅ Import from `@/lib/db/schema` (not individual schema files)
+- ✅ Use `log` from `@/lib/logger` (server-side only)
+- ✅ Follow Git Safety Protocol strictly
 
-**Legacy** → **Modern**:
-- `secureRoute()` → `authRoute()`
-- `adminRoute()` → `rbacRoute()` with `permission: 'admin:*:*'`
-- `publicRoute()` from `@/lib/api/route-handler` → `publicRoute()` from `@/lib/api/route-handlers`
+---
 
-## Git Operations
+# META-PATTERN: THE FIVE COMMON MISTAKES
 
-### Strict Prohibitions
+1. **Premature Completion**: Saying "Done!" without running `pnpm tsc && pnpm lint`
+   - **Fix**: Always run validation and include results
 
-- **NEVER**: Use `git reset` (hard, soft, or any form) - FORBIDDEN
-- **NEVER**: Force push to main/master
-- **NEVER**: Skip hooks (`--no-verify`, `--no-gpg-sign`) unless explicitly requested
-- **DO NOT**: Interact with git unless explicitly instructed
-- **DO NOT**: Commit work without being told to do so
+2. **Missing Systematic Inventory**: Processing obvious items, missing edge cases
+   - **Fix**: Use Glob patterns, list ALL items with count
 
-### Commit Message Format
+3. **Insufficient Research**: Implementing without studying existing patterns
+   - **Fix**: Use Read tool on 3-5 examples first, extract patterns
 
-When creating commits (only when explicitly requested):
+4. **Incomplete Stack Analysis**: Fixing one layer, missing others
+   - **Fix**: Trace through UI → API → DB, update ALL layers
 
-```bash
-git commit -m "$(cat <<'EOF'
-Commit message here - focus on "why" not "what"
+5. **Not Following Established Patterns**: Creating new when patterns exist
+   - **Fix**: Search for existing patterns/components first (Grep/Glob)
 
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
+---
 
-Co-Authored-By: Claude <noreply@anthropic.com>
-EOF
-)"
-```
+# WORKFLOW STANDARDS
 
-## Development Workflow
+## Pre-Task Requirements
 
-1. Make code changes
-2. Run `pnpm tsc` to check TypeScript compilation
-3. Run `pnpm lint` to check linting rules
-4. Fix any errors that you created
-5. Only proceed when all checks pass
-6. **DO NOT** create documents unless asked - display findings to user
-7. **DO NOT** defer work unless previously instructed and approved
+- **ALWAYS** ask clarifying questions when requirements ambiguous
+- **ALWAYS** aim for complete clarity before execution
+- **NEVER** assume or fabricate information
 
-## Project Context
+## Communication Style
 
-- **OS**: macOS (darwin 24.6.0)
-- **Shell**: zsh
-- **Package Manager**: pnpm
-- **Workspace**: `/Users/pstewart/bcos`
-- **Tech Stack**: Next.js 15, TypeScript 5.9, React 19
-- **Infrastructure**: AWS CDK for IaC
+- **NEVER** use flattery ("Great idea!", "Excellent!")
+- **ALWAYS** provide honest, objective feedback
+- **NEVER** use emojis unless explicitly requested
+- **Rationale**: Value through truth, not validation
 
-## Key Principles
+## Quality Over Speed
+
+- **DO NOT** take shortcuts for speed
+- **Speed is NOT the priority** - high quality code is the priority
+- **ALWAYS** prioritize correctness and maintainability
+
+---
+
+# PROTOCOL USAGE GUIDE
+
+## When to Reference Specific Protocols
+
+- **ANY task** → Git Safety + No Deviation (Tier 0 - ALWAYS)
+- **Fixing bugs** → Root Cause Analysis (Tier 1)
+- **Batch operations** → Scope Completeness (Tier 1)
+- **After ANY changes** → Verification Loop (Tier 1 - REQUIRED)
+- **UI work** → Design Consistency (Tier 2)
+- **Feature development** → Requirements Completeness (Tier 2)
+- **API routes** → API Route Security (Tier 2)
+- **All code** → TypeScript Strictness (Tier 3)
+- **Server code** → Logging System (Tier 3)
+- **Testing** → Testing Quality (Tier 3)
+
+## Integration Approach
+
+1. **Tier 0 protocols**: ALWAYS enforced, no exceptions
+2. **Tier 1 protocols**: ALWAYS apply before/during/after work
+3. **Tier 2 protocols**: Apply when context matches
+4. **Tier 3 protocols**: Apply as needed for specific scenarios
+
+**Solution Pattern**:
+- **Before starting** → Research & Inventory (Protocols 1, 2, 4)
+- **During work** → Follow established patterns (Protocols 5, 6, 7, 8, 9)
+- **After finishing** → Verify & Iterate (Protocol 3 - MANDATORY)
+
+---
+
+# KEY PRINCIPLES
 
 1. **Security First**: Always prioritize security in all decisions
 2. **Type Safety**: Strict TypeScript, no `any` types
 3. **Quality Over Speed**: Take time to do things correctly
-4. **Test Value**: Tests must provide real value, not just coverage
-5. **Clean Git History**: No destructive git operations
-6. **Explicit Actions**: Only commit or interact with git when explicitly instructed
+4. **Validation Required**: `pnpm tsc && pnpm lint` after ANY changes
+5. **Pattern Reuse**: Study existing code before creating new
+6. **Full Stack Awareness**: Consider UI → API → DB for all features
+7. **Clean Git History**: No destructive operations, no hook bypassing
+8. **Explicit Actions**: Only commit when explicitly instructed

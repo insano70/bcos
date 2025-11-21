@@ -106,43 +106,57 @@ const updateDashboardHandler = async (
       updatedBy: userContext.user_id,
     });
 
-    // Targeted cache invalidation
+    // Targeted cache invalidation with error handling
     // Only invalidate what changed:
     // 1. This specific dashboard (metadata, chart associations)
     // 2. Dashboard list (for sidebar, dashboard list page)
     // 3. Chart definitions - ALWAYS invalidate if chart_ids changed (per requirement)
     // 4. Chart data remains valid (data hasn't changed, only dashboard metadata/layout)
+    //
+    // IMPORTANT: Cache failures should NOT rollback successful database writes.
+    // Stale cache is better than lost data. Caches have TTLs that will eventually expire.
+    try {
+      // Invalidate this specific dashboard
+      await analyticsCache.invalidate('dashboard', dashboardId);
 
-    // Invalidate this specific dashboard
-    await analyticsCache.invalidate('dashboard', dashboardId);
+      // Invalidate dashboard list (affects sidebar, dashboard management page)
+      await analyticsCache.invalidate('dashboard');
 
-    // Invalidate dashboard list (affects sidebar, dashboard management page)
-    await analyticsCache.invalidate('dashboard');
+      // If chart associations changed, invalidate affected chart definitions
+      if (validatedData.chart_ids && validatedData.chart_ids.length > 0) {
+        // Parallelize invalidations for performance with many charts
+        await Promise.all(
+          validatedData.chart_ids.map(chartId =>
+            analyticsCache.invalidate('chart', chartId)
+          )
+        );
+        // Also invalidate chart list cache
+        await analyticsCache.invalidate('chart');
 
-    // If chart associations changed, invalidate affected chart definitions
-    if (validatedData.chart_ids && validatedData.chart_ids.length > 0) {
-      // Parallelize invalidations for performance with many charts
-      await Promise.all(
-        validatedData.chart_ids.map(chartId =>
-          analyticsCache.invalidate('chart', chartId)
-        )
-      );
-      // Also invalidate chart list cache
-      await analyticsCache.invalidate('chart');
+        log.info('Chart definitions invalidated due to dashboard association changes', {
+          dashboardId,
+          chartsInvalidated: validatedData.chart_ids.length,
+        });
+      }
 
-      log.info('Chart definitions invalidated due to dashboard association changes', {
+      log.info('Dashboard cache invalidated successfully', {
         dashboardId,
-        chartsInvalidated: validatedData.chart_ids.length,
+        invalidated: validatedData.chart_ids
+          ? ['dashboard-specific', 'dashboard-list', 'chart-definitions']
+          : ['dashboard-specific', 'dashboard-list'],
+        preserved: ['chart-data'],
       });
+    } catch (cacheError) {
+      // Cache invalidation failure should NOT fail the request
+      // Database update succeeded, cache will expire naturally (TTL)
+      log.error('Cache invalidation failed after dashboard update - continuing with stale cache', cacheError as Error, {
+        dashboardId,
+        operation: 'dashboard_update_cache_invalidation',
+        cacheWillExpire: true,
+        dataIntegrityIntact: true,
+      });
+      // Don't throw - return success because database update succeeded
     }
-
-    log.info('Dashboard cache invalidated', {
-      dashboardId,
-      invalidated: validatedData.chart_ids
-        ? ['dashboard-specific', 'dashboard-list', 'chart-definitions']
-        : ['dashboard-specific', 'dashboard-list'],
-      preserved: ['chart-data'],
-    });
 
     return createSuccessResponse({ dashboard: updatedDashboard }, 'Dashboard updated successfully');
   } catch (error) {

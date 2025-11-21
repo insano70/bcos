@@ -102,8 +102,13 @@ export class ChartConfigService {
 
       return dataSources;
     } catch (error) {
-      log.error('Failed to load data sources', { error });
-      return [];
+      log.error('Failed to load data sources - throwing error', error as Error, {
+        component: 'chart-config-service',
+        operation: 'get_all_data_sources',
+      });
+      // Throw error instead of returning empty array
+      // Callers need to distinguish "no data" from "database failed"
+      throw new Error('Failed to load data sources from database', { cause: error });
     }
   }
 
