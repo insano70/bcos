@@ -530,6 +530,7 @@ export default function DataTable<T extends { id: string | number }>({
                         <tr>
                           {expandable && (
                             <td
+                              key={`expand-${item.id}`}
                               className={`px-2 first:pl-5 last:pr-5 ${getDensityClasses()} whitespace-nowrap w-px`}
                             >
                               <button
