@@ -90,6 +90,12 @@ export class DimensionDiscoveryService {
 
       const dimensions: ExpansionDimension[] = dataSourceConfig.columns
         .filter((col) => col.isExpansionDimension === true)
+        .sort((a, b) => {
+          // Sort by sortOrder (nulls/undefined last)
+          const orderA = a.sortOrder ?? Number.MAX_SAFE_INTEGER;
+          const orderB = b.sortOrder ?? Number.MAX_SAFE_INTEGER;
+          return orderA - orderB;
+        })
         .map((col) => ({
           columnName: col.columnName,
           displayName: col.expansionDisplayName || col.displayName,
@@ -298,7 +304,7 @@ export class DimensionDiscoveryService {
     // Get data source configuration from Redis cache
     const { chartConfigService } = await import('@/lib/services/chart-config-service');
     const dataSourceConfig = await chartConfigService.getDataSourceConfigById(dataSourceId);
-    
+
     if (!dataSourceConfig) {
       throw new Error(`Data source configuration not found: ${dataSourceId}`);
     }
@@ -306,12 +312,119 @@ export class DimensionDiscoveryService {
     // Filter and map expansion dimension columns from config
     return dataSourceConfig.columns
       .filter((col) => col.isExpansionDimension === true)
+      .sort((a, b) => {
+        // Sort by sortOrder (nulls/undefined last)
+        const orderA = a.sortOrder ?? Number.MAX_SAFE_INTEGER;
+        const orderB = b.sortOrder ?? Number.MAX_SAFE_INTEGER;
+        return orderA - orderB;
+      })
       .map((col) => ({
         columnName: col.columnName,
         displayName: col.expansionDisplayName || col.displayName,
         dataType: col.dataType as 'string' | 'integer' | 'boolean',
         dataSourceId: dataSourceId, // Use parameter, not column property
       }));
+  }
+
+  /**
+   * Get expansion dimensions with value counts
+   *
+   * Fetches available expansion dimensions and populates valueCount for each dimension
+   * by querying unique dimension values using the provided filters.
+   *
+   * @param chartDefinitionId - Chart definition ID
+   * @param userContext - User context for RBAC
+   * @param runtimeFilters - Optional runtime filters from current chart state
+   * @returns Available expansion dimensions with value counts
+   */
+  async getChartExpansionDimensionsWithCounts(
+    chartDefinitionId: string,
+    userContext: UserContext,
+    runtimeFilters?: Record<string, unknown>
+  ): Promise<AvailableDimensionsResponse> {
+    const startTime = Date.now();
+
+    try {
+      // Get base dimensions (without counts)
+      const baseResult = await this.getChartExpansionDimensions(chartDefinitionId, userContext);
+
+      // If no dimensions or no filters, return base result
+      if (baseResult.dimensions.length === 0 || !runtimeFilters) {
+        return baseResult;
+      }
+
+      // Convert runtime filters to ChartFilter[]
+      const { createFilterBuilderService } = await import('@/lib/services/filters/filter-builder-service');
+      const filterBuilder = createFilterBuilderService(userContext);
+
+      const universalFilters: import('@/lib/types/filters').UniversalChartFilters = {};
+      if (typeof runtimeFilters.startDate === 'string') universalFilters.startDate = runtimeFilters.startDate;
+      if (typeof runtimeFilters.endDate === 'string') universalFilters.endDate = runtimeFilters.endDate;
+      if (Array.isArray(runtimeFilters.practiceUids)) universalFilters.practiceUids = runtimeFilters.practiceUids as number[];
+      if (typeof runtimeFilters.measure === 'string') universalFilters.measure = runtimeFilters.measure;
+      if (typeof runtimeFilters.frequency === 'string') universalFilters.frequency = runtimeFilters.frequency;
+      if (Array.isArray(runtimeFilters.advancedFilters)) {
+        universalFilters.advancedFilters = runtimeFilters.advancedFilters as import('@/lib/types/analytics').ChartFilter[];
+      }
+
+      const filters = filterBuilder.toChartFilterArray(universalFilters);
+
+      // Fetch value counts for each dimension in parallel
+      const dimensionsWithCounts = await Promise.all(
+        baseResult.dimensions.map(async (dimension) => {
+          try {
+            const valuesResponse = await this.getDimensionValues(
+              dimension.dataSourceId,
+              dimension.columnName,
+              filters,
+              userContext,
+              DIMENSION_EXPANSION_LIMITS.MAXIMUM // Use max limit to get accurate total
+            );
+
+            return {
+              ...dimension,
+              valueCount: valuesResponse.totalValues,
+            };
+          } catch (error) {
+            // If value count fetch fails, log and return dimension without count
+            log.warn('Failed to fetch value count for dimension', {
+              dimensionColumn: dimension.columnName,
+              dataSourceId: dimension.dataSourceId,
+              error: error instanceof Error ? error.message : String(error),
+              component: 'dimension-discovery',
+            });
+            return dimension;
+          }
+        })
+      );
+
+      const duration = Date.now() - startTime;
+
+      log.info('Chart expansion dimensions fetched with value counts', {
+        chartDefinitionId,
+        dataSourceId: baseResult.dataSourceId,
+        dimensionCount: dimensionsWithCounts.length,
+        valueCounts: dimensionsWithCounts.map((d) => ({
+          column: d.columnName,
+          count: d.valueCount,
+        })),
+        userId: userContext.user_id,
+        duration,
+        component: 'dimension-discovery',
+      });
+
+      return {
+        ...baseResult,
+        dimensions: dimensionsWithCounts,
+      };
+    } catch (error) {
+      log.error('Failed to get chart expansion dimensions with counts', error as Error, {
+        chartDefinitionId,
+        userId: userContext.user_id,
+        component: 'dimension-discovery',
+      });
+      throw error;
+    }
   }
 }
 

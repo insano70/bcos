@@ -16,9 +16,12 @@ import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { dimensionExpansionRenderer } from '@/lib/services/analytics/dimension-expansion-renderer';
 import { log } from '@/lib/logger';
-import type { DimensionExpansionRequest } from '@/lib/types/dimensions';
+import type { DimensionExpansionRequest, MultiDimensionExpansionRequest } from '@/lib/types/dimensions';
 import type { UserContext } from '@/lib/types/rbac';
-import { dimensionExpansionConfigRequestSchema } from '@/lib/validations/dimension-expansion';
+import {
+  dimensionExpansionConfigRequestSchema,
+  multiDimensionExpansionRequestSchema,
+} from '@/lib/validations/dimension-expansion';
 
 const expandChartHandler = async (
   request: NextRequest,
@@ -33,44 +36,89 @@ const expandChartHandler = async (
     const chartId = params.chartId;
     const body = await request.json();
 
-    // Validate request body
-    const validatedBody = dimensionExpansionConfigRequestSchema.parse(body);
+    // Detect request type: multi-dimension if dimensionColumns is array, single-dimension if dimensionColumn is string
+    const isMultiDimension = Array.isArray(body.dimensionColumns);
 
-    // Build expansion request
-    const expansionRequest: DimensionExpansionRequest = {
-      finalChartConfig: validatedBody.finalChartConfig,
-      runtimeFilters: validatedBody.runtimeFilters,
-      dimensionColumn: validatedBody.dimensionColumn,
-      limit: validatedBody.limit,
-    };
+    if (isMultiDimension) {
+      // Multi-dimension expansion
+      const validatedBody = multiDimensionExpansionRequestSchema.parse(body);
 
-    log.info('Dimension expansion request', {
-      chartId,
-      dimensionColumn: validatedBody.dimensionColumn,
-      hasMultipleSeries: !!validatedBody.finalChartConfig.multipleSeries,
-      hasDualAxisConfig: !!validatedBody.finalChartConfig.dualAxisConfig,
-      component: 'dimensions-api',
-    });
+      // Build multi-dimension expansion request
+      const expansionRequest: MultiDimensionExpansionRequest = {
+        finalChartConfig: validatedBody.finalChartConfig,
+        runtimeFilters: validatedBody.runtimeFilters,
+        dimensionColumns: validatedBody.dimensionColumns,
+        limit: validatedBody.limit,
+      };
 
-    // Render expanded chart
-    const result = await dimensionExpansionRenderer.renderByDimension(
-      expansionRequest,
-      userContext
-    );
+      log.info('Multi-dimension expansion request', {
+        chartId,
+        dimensionColumns: validatedBody.dimensionColumns,
+        dimensionCount: validatedBody.dimensionColumns.length,
+        hasMultipleSeries: !!validatedBody.finalChartConfig.multipleSeries,
+        hasDualAxisConfig: !!validatedBody.finalChartConfig.dualAxisConfig,
+        component: 'dimensions-api',
+      });
 
-    const duration = Date.now() - startTime;
+      // Render expanded chart
+      const result = await dimensionExpansionRenderer.renderByMultipleDimensions(
+        expansionRequest,
+        userContext
+      );
 
-    log.info('Chart dimension expansion completed', {
-      chartId,
-      dimensionColumn: expansionRequest.dimensionColumn,
-      chartCount: result.charts.length,
-      totalQueryTime: result.metadata.totalQueryTime,
-      userId: userContext.user_id,
-      duration,
-      component: 'dimensions-api',
-    });
+      const duration = Date.now() - startTime;
 
-    return createSuccessResponse(result);
+      log.info('Multi-dimension expansion completed', {
+        chartId,
+        dimensionColumns: expansionRequest.dimensionColumns,
+        chartCount: result.charts.length,
+        totalQueryTime: result.metadata.totalQueryTime,
+        userId: userContext.user_id,
+        duration,
+        component: 'dimensions-api',
+      });
+
+      return createSuccessResponse(result);
+    } else {
+      // Single-dimension expansion (backward compatibility)
+      const validatedBody = dimensionExpansionConfigRequestSchema.parse(body);
+
+      // Build expansion request
+      const expansionRequest: DimensionExpansionRequest = {
+        finalChartConfig: validatedBody.finalChartConfig,
+        runtimeFilters: validatedBody.runtimeFilters,
+        dimensionColumn: validatedBody.dimensionColumn,
+        limit: validatedBody.limit,
+      };
+
+      log.info('Dimension expansion request', {
+        chartId,
+        dimensionColumn: validatedBody.dimensionColumn,
+        hasMultipleSeries: !!validatedBody.finalChartConfig.multipleSeries,
+        hasDualAxisConfig: !!validatedBody.finalChartConfig.dualAxisConfig,
+        component: 'dimensions-api',
+      });
+
+      // Render expanded chart
+      const result = await dimensionExpansionRenderer.renderByDimension(
+        expansionRequest,
+        userContext
+      );
+
+      const duration = Date.now() - startTime;
+
+      log.info('Chart dimension expansion completed', {
+        chartId,
+        dimensionColumn: expansionRequest.dimensionColumn,
+        chartCount: result.charts.length,
+        totalQueryTime: result.metadata.totalQueryTime,
+        userId: userContext.user_id,
+        duration,
+        component: 'dimensions-api',
+      });
+
+      return createSuccessResponse(result);
+    }
   } catch (error) {
     log.error('Failed to expand chart by dimension', error as Error, {
       chartId: params.chartId,
@@ -82,5 +130,6 @@ const expandChartHandler = async (
 
 export const POST = rbacRoute(expandChartHandler, {
   permission: 'analytics:read:organization',
+  rateLimit: 'api', // 100 req/min - Dimension expansion is computationally expensive
 });
 

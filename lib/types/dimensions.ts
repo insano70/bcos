@@ -61,10 +61,10 @@ export interface DimensionChartError {
 }
 
 /**
- * Chart data for a single dimension value
+ * Chart data for a single dimension value or combination of dimension values
  */
 export interface DimensionExpandedChart {
-  dimensionValue: DimensionValue; // Which dimension value this chart represents
+  dimensionValue: DimensionValue | DimensionValueCombination; // Single dimension value or combination
   chartData: import('@/lib/services/dashboard-rendering/mappers').BatchChartData | null; // Transformed chart data (null if error)
   error?: DimensionChartError; // Error information if chart failed to render
   metadata: {
@@ -85,7 +85,23 @@ export interface DimensionExpandedChartData {
     totalQueryTime: number; // Total time for all queries
     parallelExecution: boolean; // Whether queries ran in parallel
     totalCharts: number; // Number of charts rendered
+    totalDimensionValues?: number; // Total dimension values (before pagination)
+    offset?: number; // Current pagination offset
+    limit?: number; // Current page size
+    hasMore?: boolean; // Whether more charts available
   };
+}
+
+/**
+ * Combination of multiple dimension values (cartesian product)
+ *
+ * Example: { location: "downtown_clinic", line_of_business: "physical_therapy" }
+ * Display: "Downtown Clinic - Physical Therapy"
+ */
+export interface DimensionValueCombination {
+  values: Record<string, string | number>; // Map of columnName to value
+  label: string; // Display label composed from all dimension labels
+  recordCount?: number; // Optional record count (populated after query)
 }
 
 /**
@@ -102,16 +118,17 @@ export interface DimensionExpansionRequest {
   // SIMPLE: Configs from the base chart render (preferred)
   finalChartConfig?: Record<string, unknown>;
   runtimeFilters?: Record<string, unknown>;
-  
+
   // FALLBACK: Chart definition ID (triggers full metadata fetch)
   chartDefinitionId?: string;
-  
+
   // Required
   dimensionColumn: string;
-  
+
   // Fallback filters (only if configs not provided)
   baseFilters?: Record<string, unknown>;
   limit?: number;
+  offset?: number; // Pagination offset (default: 0)
 }
 
 /**
@@ -131,5 +148,40 @@ export interface DimensionValuesResponse {
   dimension: ExpansionDimension;
   totalValues: number; // Total unique values (may be > values.length if limited)
   filtered: boolean; // Whether values are filtered by user's RBAC
+}
+
+/**
+ * Multi-dimension expansion request
+ *
+ * Extends single-dimension expansion to support cartesian product
+ * of multiple dimension values (e.g., Location × Line of Business)
+ */
+export interface MultiDimensionExpansionRequest {
+  finalChartConfig: Record<string, unknown>;
+  runtimeFilters: Record<string, unknown>;
+  dimensionColumns: string[]; // Array of dimension column names
+  limit?: number;
+  offset?: number; // Pagination offset (default: 0)
+}
+
+/**
+ * Multi-dimension expanded chart data
+ *
+ * Result from expanding by multiple dimensions simultaneously.
+ * Charts array contains one chart per combination of dimension values.
+ */
+export interface MultiDimensionExpandedChartData {
+  dimensions: ExpansionDimension[]; // All dimensions used for expansion
+  charts: DimensionExpandedChart[]; // One chart per dimension value combination
+  metadata: {
+    totalQueryTime: number; // Total time for all queries
+    parallelExecution: boolean; // Whether queries ran in parallel
+    totalCharts: number; // Number of charts rendered
+    dimensionCounts: Record<string, number>; // Value count per dimension (e.g., { location: 2, line_of_business: 3 })
+    totalCombinations?: number; // Total possible combinations (before pagination)
+    offset?: number; // Current pagination offset
+    limit?: number; // Current page size
+    hasMore?: boolean; // Whether more charts available
+  };
 }
 

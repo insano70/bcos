@@ -12,6 +12,7 @@ import { createPortal } from 'react-dom';
 import AnalyticsProgressBarChart from './analytics-progress-bar-chart';
 import { apiClient } from '@/lib/api/client';
 import type { AvailableDimensionsResponse, DimensionExpandedChartData, ExpansionDimension } from '@/lib/types/dimensions';
+import { MAX_PARALLEL_DIMENSION_CHARTS } from '@/lib/constants/dimension-expansion';
 import DimensionSelector from './dimension-selector';
 import DimensionComparisonView from './dimension-comparison-view';
 
@@ -91,57 +92,77 @@ export default function ProgressBarFullscreenModal({
     if (!chartDefinitionId) return;
 
     try {
-      const response = await apiClient.get<AvailableDimensionsResponse>(
-        `/api/admin/analytics/charts/${chartDefinitionId}/dimensions`
+      const response = await apiClient.post<AvailableDimensionsResponse>(
+        `/api/admin/analytics/charts/${chartDefinitionId}/dimensions`,
+        {
+          runtimeFilters: runtimeFilters || {},
+        }
       );
       setAvailableDimensions(response.dimensions || []);
     } catch (_error) {
       // Silently fail - dimensions are optional feature
       setAvailableDimensions([]);
     }
-  }, [chartDefinitionId]);
+  }, [chartDefinitionId, runtimeFilters]);
 
   const handleExpandByDimension = useCallback(() => {
-    if (availableDimensions.length === 1) {
-      // Auto-expand if only one dimension
-      handleDimensionSelect(availableDimensions[0]!);
-    } else {
-      setShowDimensionSelector(true);
+    // Auto-expand by first dimension (sorted by data source configuration)
+    if (availableDimensions.length > 0) {
+      handleDimensionsSelect([availableDimensions[0]!]);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [availableDimensions]);
 
-  const handleDimensionSelect = useCallback(async (dimension: ExpansionDimension) => {
+  const handleDimensionsSelect = useCallback(async (dimensions: ExpansionDimension[]) => {
     setShowDimensionSelector(false);
     setDimensionLoading(true);
 
     try {
       // SIMPLE: Just reuse the configs that rendered the base chart!
       if (finalChartConfig && runtimeFilters) {
-        // No reconstruction - just pass what was used to render the base chart
-        const response = await apiClient.post<DimensionExpandedChartData>(
-          `/api/admin/analytics/charts/${chartDefinitionId}/expand`,
-          {
-            finalChartConfig,      // Already has seriesConfigs, dualAxisConfig, groupBy, colorPalette, EVERYTHING!
-            runtimeFilters,        // Already has resolved dates, practices, all filters!
-            dimensionColumn: dimension.columnName,
-            limit: 20,
-          }
-        );
-        setExpandedData(response);
+        // Single dimension - use original API format
+        if (dimensions.length === 1) {
+          const dimension = dimensions[0]!;
+          const response = await apiClient.post<DimensionExpandedChartData>(
+            `/api/admin/analytics/charts/${chartDefinitionId}/expand`,
+            {
+              finalChartConfig,
+              runtimeFilters,
+              dimensionColumn: dimension.columnName,
+              limit: MAX_PARALLEL_DIMENSION_CHARTS,
+            }
+          );
+          setExpandedData(response);
+        } else {
+          // Multiple dimensions - use new multi-dimension API format
+          const response = await apiClient.post<DimensionExpandedChartData>(
+            `/api/admin/analytics/charts/${chartDefinitionId}/expand`,
+            {
+              finalChartConfig,
+              runtimeFilters,
+              dimensionColumns: dimensions.map((d) => d.columnName),
+              limit: MAX_PARALLEL_DIMENSION_CHARTS,
+            }
+          );
+          setExpandedData(response);
+        }
       } else {
-        // FALLBACK: Legacy path (fetch metadata)
-        const response = await apiClient.post<DimensionExpandedChartData>(
-          `/api/admin/analytics/charts/${chartDefinitionId}/expand`,
-          {
-            dimensionColumn: dimension.columnName,
-            baseFilters: currentFilters,
-            limit: 20,
-          }
-        );
-        setExpandedData(response);
+        // FALLBACK: Legacy path (single dimension only)
+        if (dimensions.length === 1) {
+          const dimension = dimensions[0]!;
+          const response = await apiClient.post<DimensionExpandedChartData>(
+            `/api/admin/analytics/charts/${chartDefinitionId}/expand`,
+            {
+              dimensionColumn: dimension.columnName,
+              baseFilters: currentFilters,
+              limit: MAX_PARALLEL_DIMENSION_CHARTS,
+            }
+          );
+          setExpandedData(response);
+        }
       }
     } catch (error) {
-      console.error('Failed to expand by dimension:', error);
+      console.error('Failed to expand by dimensions:', error);
     } finally {
       setDimensionLoading(false);
     }
@@ -227,7 +248,7 @@ export default function ProgressBarFullscreenModal({
             <div className="h-full flex items-center justify-center p-8">
               <DimensionSelector
                 availableDimensions={availableDimensions}
-                onSelect={handleDimensionSelect}
+                onSelect={handleDimensionsSelect}
                 onCancel={() => setShowDimensionSelector(false)}
               />
             </div>
@@ -244,6 +265,14 @@ export default function ProgressBarFullscreenModal({
               }}
               dimensionCharts={expandedData.charts}
               position={{ x: 0, y: 0, w: 12, h: 6 }}
+              availableDimensions={availableDimensions}
+              selectedDimensionColumns={
+                Array.isArray(expandedData.dimension)
+                  ? expandedData.dimension.map((d) => d.columnName)
+                  : [expandedData.dimension.columnName]
+              }
+              onApplyDimensions={handleDimensionsSelect}
+              isApplying={dimensionLoading}
             />
           )}
 

@@ -16,6 +16,31 @@ export const DIMENSION_EXPANSION_LIMITS = {
 /**
  * Maximum number of charts to render in parallel during dimension expansion
  * Prevents server overload from too many concurrent queries
+ * Increased to 100 to support pagination (20 shown at a time on frontend)
  */
-export const MAX_PARALLEL_DIMENSION_CHARTS = 20;
+export const MAX_PARALLEL_DIMENSION_CHARTS = 100;
+
+/**
+ * Maximum number of concurrent database queries during dimension expansion
+ * Controls p-limit concurrency to prevent connection pool exhaustion
+ */
+export const MAX_CONCURRENT_DIMENSION_QUERIES = 10;
+
+/**
+ * Maximum number of dimensions to expand by simultaneously
+ * Prevents cartesian explosion (3 dimensions × 10 values each = 1000 charts)
+ */
+export const MAX_DIMENSIONS_PER_EXPANSION = 3;
+
+/**
+ * Number of charts to display per page in dimension comparison view
+ * Frontend shows this many initially, with "Show More" to load additional batches
+ */
+export const CHARTS_PER_PAGE = 20;
+
+/**
+ * Warning thresholds for combination count in dimension selector
+ */
+export const COMBINATION_WARNING_THRESHOLD = 15; // Low warning (amber)
+export const COMBINATION_HIGH_WARNING_THRESHOLD = 50; // High warning (amber, stronger message)
 

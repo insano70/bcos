@@ -37,18 +37,26 @@ import type {
   DimensionExpandedChartData,
   DimensionExpansionRequest,
   DimensionValue,
+  MultiDimensionExpansionRequest,
+  MultiDimensionExpandedChartData,
+  DimensionValueCombination,
 } from '@/lib/types/dimensions';
 import { dimensionDiscoveryService } from './dimension-discovery-service';
 import { chartDataOrchestrator } from '@/lib/services/chart-data-orchestrator';
 import {
   DIMENSION_EXPANSION_LIMITS,
   MAX_PARALLEL_DIMENSION_CHARTS,
+  MAX_CONCURRENT_DIMENSION_QUERIES,
 } from '@/lib/constants/dimension-expansion';
 import { orchestrationResultToBatchChartData } from '@/lib/services/dashboard-rendering/mappers';
 import type { ChartExecutionConfig } from '@/lib/services/dashboard-rendering/types';
 import { createFilterBuilderService } from '@/lib/services/filters/filter-builder-service';
 import type { UniversalChartFilters } from '@/lib/types/filters';
 import { DimensionChartAdapter } from './dimension-chart-adapter';
+import {
+  generateDimensionCombinations,
+  calculateCombinationCount,
+} from '@/lib/utils/dimension-combinations';
 
 /**
  * Dimension Expansion Renderer
@@ -296,12 +304,11 @@ export class DimensionExpansionRenderer {
     userContext: UserContext
   ): Promise<DimensionExpandedChart[]> {
     // PERFORMANCE: Limit concurrent queries to prevent database overload
-    // Max 10 concurrent queries (configurable)
-    const limit = pLimit(10);
+    const limit = pLimit(MAX_CONCURRENT_DIMENSION_QUERIES);
 
     log.info('Executing dimension expansion with concurrency control', {
       totalDimensions: dimensionConfigs.length,
-      maxConcurrent: 10,
+      maxConcurrent: MAX_CONCURRENT_DIMENSION_QUERIES,
       userId: userContext.user_id,
       component: 'dimension-expansion',
     });
@@ -458,6 +465,388 @@ export class DimensionExpansionRenderer {
         totalQueryTime: Date.now() - startTime,
         parallelExecution: true,
         totalCharts: 0,
+      },
+    };
+  }
+
+  /**
+   * Render chart for each combination of multiple dimension values
+   *
+   * Extends single-dimension expansion to support cartesian product of
+   * multiple dimensions (e.g., Location × Line of Business).
+   *
+   * Process:
+   * 1. Extract config from provided finalChartConfig and runtimeFilters
+   * 2. Get metadata for ALL dimensions
+   * 3. Convert filters for dimension discovery
+   * 4. Fetch unique values for ALL dimensions in parallel
+   * 5. Generate cartesian product of dimension values
+   * 6. Validate total combination count (max 20 charts)
+   * 7. Create dimension-specific configs with multiple filters per chart
+   * 8. Execute all charts in parallel
+   * 9. Aggregate and sort results
+   *
+   * @param request - Multi-dimension expansion request
+   * @param userContext - User context for RBAC
+   * @returns Multi-dimension expanded chart data
+   */
+  async renderByMultipleDimensions(
+    request: MultiDimensionExpansionRequest,
+    userContext: UserContext
+  ): Promise<MultiDimensionExpandedChartData> {
+    const startTime = Date.now();
+
+    try {
+      const {
+        finalChartConfig,
+        runtimeFilters,
+        dimensionColumns,
+        limit = DIMENSION_EXPANSION_LIMITS.DEFAULT,
+        offset = 0,
+      } = request;
+
+      // Validate required parameters
+      if (!finalChartConfig || !runtimeFilters) {
+        throw new Error('finalChartConfig and runtimeFilters are required');
+      }
+
+      if (dimensionColumns.length === 0) {
+        throw new Error('At least one dimension column required');
+      }
+
+      // SECURITY: Validate and clamp limit parameter
+      const validatedLimit = Math.min(Math.max(limit, 1), DIMENSION_EXPANSION_LIMITS.MAXIMUM);
+
+      // 1. Extract config from provided finalChartConfig
+      const dataSourceId = finalChartConfig.dataSourceId as number;
+
+      if (!dataSourceId || dataSourceId <= 0) {
+        throw new Error('Invalid dataSourceId in provided finalChartConfig');
+      }
+
+      const metadata: { measure?: string; frequency?: string; groupBy?: string } = {};
+      if (typeof runtimeFilters.measure === 'string') metadata.measure = runtimeFilters.measure;
+      if (typeof runtimeFilters.frequency === 'string')
+        metadata.frequency = runtimeFilters.frequency;
+      if (typeof finalChartConfig.groupBy === 'string') metadata.groupBy = finalChartConfig.groupBy;
+
+      const chartConfig: ChartExecutionConfig & { dataSourceId: number } = {
+        chartId: 'multi-dimension-expansion',
+        chartName: 'Multi-Dimension Expansion',
+        chartType: (finalChartConfig.chartType as string) || 'bar',
+        finalChartConfig,
+        runtimeFilters,
+        metadata,
+        dataSourceId,
+      };
+
+      log.info('Using provided configs for multi-dimension expansion', {
+        chartType: finalChartConfig.chartType,
+        dataSourceId,
+        dimensionCount: dimensionColumns.length,
+        dimensions: dimensionColumns,
+        component: 'dimension-expansion',
+      });
+
+      // 2. Get dimension metadata for ALL dimensions
+      const dimensions = await Promise.all(
+        dimensionColumns.map((col) => this.getDimensionMetadata(chartConfig.dataSourceId, col))
+      );
+
+      // 3. Convert filters for dimension discovery
+      const filterBuilder = createFilterBuilderService(userContext);
+      const discoveryFilters = await this.buildDiscoveryFilters(chartConfig, filterBuilder);
+
+      // 4. Fetch dimension values for ALL dimensions in parallel
+      const dimensionValuesArrays = await Promise.all(
+        dimensionColumns.map((col) =>
+          this.getDimensionValues(
+            chartConfig.dataSourceId,
+            col,
+            discoveryFilters,
+            userContext,
+            validatedLimit
+          )
+        )
+      );
+
+      // Build map of column name to dimension values
+      const dimensionValuesByColumn: Record<string, DimensionValue[]> = {};
+      for (let i = 0; i < dimensionColumns.length; i++) {
+        const col = dimensionColumns[i];
+        const values = dimensionValuesArrays[i];
+        if (col && values) {
+          dimensionValuesByColumn[col] = values;
+        }
+      }
+
+      // Check if any dimension has no values
+      const emptyDimensions = dimensionColumns.filter(
+        (col) => !dimensionValuesByColumn[col] || dimensionValuesByColumn[col].length === 0
+      );
+
+      if (emptyDimensions.length > 0) {
+        log.warn('Some dimensions have no values', {
+          emptyDimensions,
+          allDimensions: dimensionColumns,
+          component: 'dimension-expansion',
+        });
+
+        return {
+          dimensions,
+          charts: [],
+          metadata: {
+            totalQueryTime: Date.now() - startTime,
+            parallelExecution: true,
+            totalCharts: 0,
+            dimensionCounts: Object.fromEntries(
+              dimensionColumns.map((col) => [col, dimensionValuesByColumn[col]?.length || 0])
+            ),
+          },
+        };
+      }
+
+      // 5. Calculate and validate combination count
+      const totalCombinations = calculateCombinationCount(dimensionValuesByColumn);
+
+      // 6. Generate cartesian product (all combinations)
+      const allCombinations = generateDimensionCombinations(dimensionValuesByColumn);
+
+      // 7. Sort combinations by estimated record count (descending)
+      const sortedCombinations = allCombinations.sort((a, b) => {
+        const countA = a.recordCount ?? 0;
+        const countB = b.recordCount ?? 0;
+        return countB - countA;
+      });
+
+      // 8. LAZY LOADING: Paginate BEFORE executing queries (only execute visible page)
+      const paginatedCombinations = sortedCombinations.slice(offset, offset + limit);
+      const hasMore = offset + limit < sortedCombinations.length;
+
+      log.info('Generated and paginated dimension combinations', {
+        totalCombinations: sortedCombinations.length,
+        offset,
+        limit,
+        returned: paginatedCombinations.length,
+        hasMore,
+        dimensions: dimensionColumns,
+        dimensionCounts: Object.fromEntries(
+          dimensionColumns.map((col) => [col, dimensionValuesByColumn[col]?.length || 0])
+        ),
+        component: 'dimension-expansion',
+      });
+
+      // 9. Create dimension-specific configs for paginated combinations only
+      const adapter = new DimensionChartAdapter();
+      const dimensionConfigs = adapter.createMultiDimensionConfigs(paginatedCombinations, chartConfig);
+
+      // 10. Execute only the paginated charts (LAZY: not all combinations)
+      const charts = await this.executeAllDimensionCombinations(
+        dimensionConfigs,
+        paginatedCombinations,
+        chartConfig,
+        userContext
+      );
+
+      // 11. Aggregate results with pagination metadata
+      return this.aggregateMultiDimensionResults(
+        charts,
+        dimensions,
+        dimensionColumns,
+        dimensionValuesByColumn,
+        startTime,
+        sortedCombinations.length,
+        offset,
+        limit,
+        hasMore
+      );
+    } catch (error) {
+      log.error('Multi-dimension expansion failed', error as Error, {
+        request,
+        userId: userContext.user_id,
+        component: 'dimension-expansion',
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Execute charts for all dimension value combinations
+   *
+   * Similar to executeAllDimensions but uses DimensionValueCombination instead of DimensionValue.
+   *
+   * @param dimensionConfigs - Dimension-specific chart configs
+   * @param combinations - Dimension value combinations (for result mapping)
+   * @param baseConfig - Base chart config (for metadata)
+   * @param userContext - User context
+   * @returns Array of dimension expanded charts
+   */
+  private async executeAllDimensionCombinations(
+    dimensionConfigs: ChartExecutionConfig[],
+    combinations: DimensionValueCombination[],
+    baseConfig: ChartExecutionConfig,
+    userContext: UserContext
+  ): Promise<DimensionExpandedChart[]> {
+    // PERFORMANCE: Limit concurrent queries to prevent database overload
+    const limit = pLimit(MAX_CONCURRENT_DIMENSION_QUERIES);
+
+    log.info('Executing multi-dimension expansion with concurrency control', {
+      totalCombinations: dimensionConfigs.length,
+      maxConcurrent: MAX_CONCURRENT_DIMENSION_QUERIES,
+      userId: userContext.user_id,
+      component: 'dimension-expansion',
+    });
+
+    const chartPromises = dimensionConfigs.map((config, index) =>
+      limit(async () => {
+        const combination = combinations[index];
+        if (!combination) {
+          throw new Error(`Missing combination for index ${index}`);
+        }
+
+        const queryStart = Date.now();
+
+        try {
+          // Execute chart query using orchestrator
+          const result = await chartDataOrchestrator.orchestrate(
+            {
+              chartConfig: config.finalChartConfig as Record<string, unknown> & {
+                chartType: string;
+                dataSourceId: number;
+              },
+              runtimeFilters: config.runtimeFilters,
+            },
+            userContext
+          );
+
+          const queryTime = Date.now() - queryStart;
+
+          // Map to BatchChartData using shared mapper
+          const batchChartData = orchestrationResultToBatchChartData(result, {
+            ...baseConfig.metadata,
+            finalChartConfig: config.finalChartConfig,
+            runtimeFilters: config.runtimeFilters,
+          });
+
+          const expandedChart: DimensionExpandedChart = {
+            dimensionValue: {
+              ...combination,
+              recordCount: result.metadata.recordCount,
+            },
+            chartData: batchChartData,
+            metadata: {
+              recordCount: result.metadata.recordCount,
+              queryTimeMs: queryTime,
+              cacheHit: result.metadata.cacheHit,
+              transformDuration: 0,
+            },
+          };
+
+          return expandedChart;
+        } catch (error) {
+          const queryTime = Date.now() - queryStart;
+
+          log.error('Failed to render chart for dimension combination', error as Error, {
+            combination: combination.label,
+            userId: userContext.user_id,
+            queryTime,
+            component: 'dimension-expansion',
+          });
+
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+
+          const errorResult: DimensionExpandedChart = {
+            dimensionValue: combination,
+            chartData: null,
+            error: {
+              message: 'Failed to load chart data',
+              code: 'DIMENSION_CHART_RENDER_FAILED',
+              ...(process.env.NODE_ENV === 'development' && { details: errorMessage }),
+            },
+            metadata: {
+              recordCount: 0,
+              queryTimeMs: queryTime,
+              cacheHit: false,
+              transformDuration: 0,
+            },
+          };
+
+          return errorResult;
+        }
+      })
+    );
+
+    return Promise.all(chartPromises);
+  }
+
+  /**
+   * Aggregate and sort multi-dimension results
+   *
+   * @param charts - All dimension expanded charts
+   * @param dimensions - All dimensions used for expansion
+   * @param dimensionColumns - Dimension column names
+   * @param dimensionValuesByColumn - Value count per dimension
+   * @param startTime - Start time for duration calculation
+   * @param totalCombinations - Total combinations before pagination
+   * @param offset - Current pagination offset
+   * @param limit - Current page size
+   * @param hasMore - Whether more charts available
+   * @returns Aggregated multi-dimension expansion result
+   */
+  private aggregateMultiDimensionResults(
+    charts: DimensionExpandedChart[],
+    dimensions: import('@/lib/types/dimensions').ExpansionDimension[],
+    dimensionColumns: string[],
+    dimensionValuesByColumn: Record<string, DimensionValue[]>,
+    startTime: number,
+    totalCombinations: number,
+    offset: number,
+    limit: number,
+    hasMore: boolean
+  ): MultiDimensionExpandedChartData {
+    const successfulCharts = charts.filter((chart) => !chart.error && chart.metadata.recordCount > 0);
+    const errorCharts = charts.filter((chart) => chart.error);
+    const zeroRecordCharts = charts.filter(
+      (chart) => !chart.error && chart.metadata.recordCount === 0
+    );
+
+    // Sort successful charts by record count (descending), then append errors
+    const sortedCharts = [
+      ...successfulCharts.sort((a, b) => b.metadata.recordCount - a.metadata.recordCount),
+      ...errorCharts,
+    ];
+
+    const totalTime = Date.now() - startTime;
+
+    log.info('Multi-dimension expansion completed', {
+      dimensions: dimensionColumns,
+      totalCombinations,
+      offset,
+      limit,
+      returned: charts.length,
+      hasMore,
+      totalCharts: charts.length,
+      successfulCharts: successfulCharts.length,
+      errorCharts: errorCharts.length,
+      zeroRecordCharts: zeroRecordCharts.length,
+      totalQueryTime: totalTime,
+      component: 'dimension-expansion',
+    });
+
+    return {
+      dimensions,
+      charts: sortedCharts,
+      metadata: {
+        totalQueryTime: totalTime,
+        parallelExecution: true,
+        totalCharts: sortedCharts.length,
+        dimensionCounts: Object.fromEntries(
+          dimensionColumns.map((col) => [col, dimensionValuesByColumn[col]?.length || 0])
+        ),
+        totalCombinations,
+        offset,
+        limit,
+        hasMore,
       },
     };
   }

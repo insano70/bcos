@@ -1,10 +1,10 @@
 /**
  * Chart Expansion Dimensions API
  *
- * GET /api/admin/analytics/charts/:chartId/dimensions
+ * POST /api/admin/analytics/charts/:chartId/dimensions
  *
- * Returns available expansion dimensions for a chart based on
- * data source column configuration.
+ * Returns available expansion dimensions for a chart with value counts.
+ * Accepts current chart filters to calculate accurate dimension value counts.
  */
 
 import type { NextRequest } from 'next/server';
@@ -16,7 +16,7 @@ import type { UserContext } from '@/lib/types/rbac';
 import { log } from '@/lib/logger';
 
 const getDimensionsHandler = async (
-  _request: NextRequest,
+  request: NextRequest,
   userContext: UserContext,
   ...args: unknown[]
 ) => {
@@ -27,17 +27,29 @@ const getDimensionsHandler = async (
   try {
     const chartId = params.chartId;
 
-    // Get expansion dimensions
-    const result = await dimensionDiscoveryService.getChartExpansionDimensions(
+    // Parse request body for filters (optional)
+    let filters: Record<string, unknown> | undefined;
+    try {
+      const body = await request.json();
+      filters = body.runtimeFilters;
+    } catch {
+      // If no body or invalid JSON, proceed without filters
+      filters = undefined;
+    }
+
+    // Get expansion dimensions with value counts
+    const result = await dimensionDiscoveryService.getChartExpansionDimensionsWithCounts(
       chartId,
-      userContext
+      userContext,
+      filters
     );
 
     const duration = Date.now() - startTime;
 
-    log.info('Chart expansion dimensions retrieved', {
+    log.info('Chart expansion dimensions retrieved with counts', {
       chartId,
       dimensionCount: result.dimensions.length,
+      hasFilters: !!filters,
       userId: userContext.user_id,
       duration,
       component: 'dimensions-api',
@@ -53,7 +65,7 @@ const getDimensionsHandler = async (
   }
 };
 
-export const GET = rbacRoute(getDimensionsHandler, {
+export const POST = rbacRoute(getDimensionsHandler, {
   permission: 'analytics:read:organization',
+  rateLimit: 'api',
 });
-

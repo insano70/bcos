@@ -221,7 +221,7 @@ export default function ChartFullscreenModal({
             <div className="max-w-2xl mx-auto">
               <DimensionSelector
                 availableDimensions={dimension.availableDimensions}
-                onSelect={dimension.selectDimension}
+                onSelect={dimension.selectDimensions}
                 onCancel={dimension.collapse}
               />
             </div>
@@ -230,7 +230,7 @@ export default function ChartFullscreenModal({
           {/* Show dimension comparison view if expanded */}
           {dimension.expandedData && !dimension.showSelector && (
             <DimensionComparisonView
-              dimension={dimension.expandedData.dimension}
+              dimension={'dimension' in dimension.expandedData ? dimension.expandedData.dimension : dimension.expandedData.dimensions}
               chartDefinition={{
                 chart_definition_id: chartDefinitionId || '',
                 chart_name: chartTitle,
@@ -239,6 +239,16 @@ export default function ChartFullscreenModal({
               }}
               dimensionCharts={dimension.expandedData.charts}
               position={{ x: 0, y: 0, w: 12, h: 6 }}
+              availableDimensions={dimension.availableDimensions}
+              selectedDimensionColumns={
+                'dimension' in dimension.expandedData
+                  ? Array.isArray(dimension.expandedData.dimension)
+                    ? dimension.expandedData.dimension.map((d) => d.columnName)
+                    : [dimension.expandedData.dimension.columnName]
+                  : dimension.expandedData.dimensions.map((d) => d.columnName)
+              }
+              onApplyDimensions={dimension.selectDimensions}
+              isApplying={dimension.loading}
             />
           )}
 
