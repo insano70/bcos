@@ -275,7 +275,7 @@ export class DimensionValueCacheService {
       frequency: params.frequency,
       startDate: params.startDate,
       endDate: params.endDate,
-      practiceUids: params.practiceUids?.sort(),
+      practiceUids: params.practiceUids ? [...params.practiceUids].sort() : undefined,
       advancedFilters: params.advancedFilters,
     };
 
