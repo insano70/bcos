@@ -76,15 +76,18 @@ export function useDimensionExpansion(
     if (!chartDefinitionId) return;
 
     try {
-      const response = await apiClient.get<AvailableDimensionsResponse>(
-        `/api/admin/analytics/charts/${chartDefinitionId}/dimensions`
+      const response = await apiClient.post<AvailableDimensionsResponse>(
+        `/api/admin/analytics/charts/${chartDefinitionId}/dimensions`,
+        {
+          runtimeFilters: runtimeFilters || {},
+        }
       );
       setAvailableDimensions(response.dimensions || []);
     } catch (_error) {
       // Silently fail - dimensions are optional feature
       setAvailableDimensions([]);
     }
-  }, [chartDefinitionId]);
+  }, [chartDefinitionId, runtimeFilters]);
 
   /**
    * Initiate dimension expansion
