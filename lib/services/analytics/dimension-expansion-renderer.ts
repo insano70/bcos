@@ -553,9 +553,30 @@ export class DimensionExpansionRenderer {
         dimensionColumns.map((col) => this.getDimensionMetadata(chartConfig.dataSourceId, col))
       );
 
+      log.info('[DEBUG] Dimension metadata fetched for multi-dimension expansion', {
+        dimensionColumns,
+        dimensionsCount: dimensions.length,
+        dimensions: dimensions.map((d) => ({
+          columnName: d.columnName,
+          displayName: d.displayName,
+          dataType: d.dataType,
+        })),
+        component: 'dimension-expansion',
+      });
+
       // 3. Convert filters for dimension discovery
       const filterBuilder = createFilterBuilderService(userContext);
       const discoveryFilters = await this.buildDiscoveryFilters(chartConfig, filterBuilder);
+
+      log.info('[DEBUG] Discovery filters built for multi-dimension expansion', {
+        filterCount: discoveryFilters.length,
+        filters: discoveryFilters.map((f) => ({
+          field: f.field,
+          operator: f.operator,
+          value: f.value,
+        })),
+        component: 'dimension-expansion',
+      });
 
       // 4. Fetch dimension values for ALL dimensions in parallel
       const dimensionValuesArrays = await Promise.all(
@@ -570,6 +591,17 @@ export class DimensionExpansionRenderer {
         )
       );
 
+      log.info('[DEBUG] Dimension values fetched for all dimensions', {
+        dimensionColumns,
+        arrayLengths: dimensionValuesArrays.map((arr) => arr?.length || 0),
+        valuesPerDimension: dimensionColumns.map((col, idx) => ({
+          dimension: col,
+          valueCount: dimensionValuesArrays[idx]?.length || 0,
+          sampleValues: dimensionValuesArrays[idx]?.slice(0, 3).map((v) => v.value) || [],
+        })),
+        component: 'dimension-expansion',
+      });
+
       // Build map of column name to dimension values
       const dimensionValuesByColumn: Record<string, DimensionValue[]> = {};
       for (let i = 0; i < dimensionColumns.length; i++) {
@@ -579,6 +611,14 @@ export class DimensionExpansionRenderer {
           dimensionValuesByColumn[col] = values;
         }
       }
+
+      log.info('[DEBUG] Dimension values mapped by column', {
+        columnKeys: Object.keys(dimensionValuesByColumn),
+        valueCounts: Object.fromEntries(
+          Object.entries(dimensionValuesByColumn).map(([col, vals]) => [col, vals.length])
+        ),
+        component: 'dimension-expansion',
+      });
 
       // Check if any dimension has no values
       const emptyDimensions = dimensionColumns.filter(
@@ -607,7 +647,7 @@ export class DimensionExpansionRenderer {
       }
 
       // 5. Calculate and validate combination count
-      const totalCombinations = calculateCombinationCount(dimensionValuesByColumn);
+      const _totalCombinations = calculateCombinationCount(dimensionValuesByColumn);
 
       // 6. Generate cartesian product (all combinations)
       const allCombinations = generateDimensionCombinations(dimensionValuesByColumn);
@@ -640,6 +680,17 @@ export class DimensionExpansionRenderer {
       const adapter = new DimensionChartAdapter();
       const dimensionConfigs = adapter.createMultiDimensionConfigs(paginatedCombinations, chartConfig);
 
+      log.info('[DEBUG] Created dimension-specific configs', {
+        configCount: dimensionConfigs.length,
+        sampleConfigs: dimensionConfigs.slice(0, 3).map((config) => ({
+          advancedFilters: config.runtimeFilters.advancedFilters,
+          filterCount: Array.isArray(config.runtimeFilters.advancedFilters)
+            ? config.runtimeFilters.advancedFilters.length
+            : 0,
+        })),
+        component: 'dimension-expansion',
+      });
+
       // 10. Execute only the paginated charts (LAZY: not all combinations)
       const charts = await this.executeAllDimensionCombinations(
         dimensionConfigs,
@@ -647,6 +698,19 @@ export class DimensionExpansionRenderer {
         chartConfig,
         userContext
       );
+
+      log.info('[DEBUG] Charts executed for multi-dimension expansion', {
+        totalCharts: charts.length,
+        successfulCharts: charts.filter((c) => !c.error && c.metadata.recordCount > 0).length,
+        emptyCharts: charts.filter((c) => !c.error && c.metadata.recordCount === 0).length,
+        errorCharts: charts.filter((c) => c.error).length,
+        sampleResults: charts.slice(0, 3).map((c) => ({
+          dimensionValue: c.dimensionValue,
+          recordCount: c.metadata.recordCount,
+          error: c.error?.message,
+        })),
+        component: 'dimension-expansion',
+      });
 
       // 11. Aggregate results with pagination metadata
       return this.aggregateMultiDimensionResults(

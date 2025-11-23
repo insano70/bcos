@@ -88,7 +88,9 @@ export class InMemoryFilterService {
     rows: Record<string, unknown>[],
     filters: ChartFilter[]
   ): Record<string, unknown>[] {
-    return rows.filter((row) => {
+    const inputRowCount = rows.length;
+
+    const filtered = rows.filter((row) => {
       // All filters must pass (AND logic)
       for (const filter of filters) {
         if (!this.applyFilter(row, filter)) {
@@ -99,6 +101,33 @@ export class InMemoryFilterService {
       // All filters passed
       return true;
     });
+
+    const outputRowCount = filtered.length;
+
+    if (inputRowCount > 0 && outputRowCount === 0) {
+      log.warn('[DEBUG] Advanced filters eliminated ALL rows', {
+        inputRows: inputRowCount,
+        outputRows: outputRowCount,
+        filterCount: filters.length,
+        filters: filters.map((f) => ({
+          field: f.field,
+          operator: f.operator,
+          value: f.value,
+        })),
+        sampleInputRow: rows[0],
+        component: 'in-memory-filter-service',
+      });
+    } else if (filters.length > 0) {
+      log.info('[DEBUG] Advanced filters applied', {
+        inputRows: inputRowCount,
+        outputRows: outputRowCount,
+        filterCount: filters.length,
+        percentageRemaining: inputRowCount > 0 ? Math.round((outputRowCount / inputRowCount) * 100) : 0,
+        component: 'in-memory-filter-service',
+      });
+    }
+
+    return filtered;
   }
 
   /**

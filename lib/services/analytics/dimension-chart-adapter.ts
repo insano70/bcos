@@ -16,6 +16,7 @@
 import type { ChartExecutionConfig } from '@/lib/services/dashboard-rendering/types';
 import type { DimensionValue, DimensionValueCombination } from '@/lib/types/dimensions';
 import type { ChartFilter } from '@/lib/types/analytics';
+import { log } from '@/lib/logger';
 
 /**
  * Dimension Chart Adapter
@@ -99,7 +100,7 @@ export class DimensionChartAdapter {
     combinations: DimensionValueCombination[],
     baseConfig: ChartExecutionConfig
   ): ChartExecutionConfig[] {
-    return combinations.map((combination) => {
+    return combinations.map((combination, index) => {
       // Extract existing advanced filters
       const existingFilters = Array.isArray(baseConfig.runtimeFilters.advancedFilters)
         ? (baseConfig.runtimeFilters.advancedFilters as ChartFilter[])
@@ -113,6 +114,27 @@ export class DimensionChartAdapter {
           value,
         })
       );
+
+      if (index < 3) {
+        log.info('[DEBUG] Creating config for dimension combination', {
+          combinationIndex: index,
+          combinationLabel: combination.label,
+          combinationValues: combination.values,
+          existingFilterCount: existingFilters.length,
+          existingFilters: existingFilters.map((f) => ({
+            field: f.field,
+            operator: f.operator,
+            value: f.value,
+          })),
+          dimensionFilterCount: dimensionFilters.length,
+          dimensionFilters: dimensionFilters.map((f) => ({
+            field: f.field,
+            operator: f.operator,
+            value: f.value,
+          })),
+          component: 'dimension-chart-adapter',
+        });
+      }
 
       // Build dimension-specific runtime filters
       const dimensionRuntimeFilters: Record<string, unknown> = {
