@@ -15,7 +15,7 @@
  * - Apply and Cancel buttons
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import type { ExpansionDimension } from '@/lib/types/dimensions';
 import {
   MAX_DIMENSIONS_PER_EXPANSION,
@@ -29,14 +29,24 @@ interface DimensionSelectorProps {
   availableDimensions: ExpansionDimension[];
   onSelect: (dimensions: ExpansionDimension[]) => void;
   onCancel: () => void;
+  initialSelectedColumns?: string[];
+  maxSelectable?: number;
 }
 
 export default function DimensionSelector({
   availableDimensions,
   onSelect,
   onCancel,
+  initialSelectedColumns = [],
+  maxSelectable = MAX_DIMENSIONS_PER_EXPANSION,
 }: DimensionSelectorProps) {
-  const [selectedDimensionColumns, setSelectedDimensionColumns] = useState<Set<string>>(new Set());
+  const [selectedDimensionColumns, setSelectedDimensionColumns] = useState<Set<string>>(
+    () => new Set(initialSelectedColumns)
+  );
+
+  useEffect(() => {
+    setSelectedDimensionColumns(new Set(initialSelectedColumns));
+  }, [initialSelectedColumns]);
 
   // Calculate selected dimensions
   const selectedDimensions = useMemo(() => {
@@ -46,10 +56,7 @@ export default function DimensionSelector({
   // Calculate estimated combination count
   const estimatedCombinations = useMemo(() => {
     if (selectedDimensions.length === 0) return 0;
-    return selectedDimensions.reduce(
-      (product, dim) => product * (dim.valueCount || 1),
-      1
-    );
+    return selectedDimensions.reduce((product, dim) => product * (dim.valueCount || 1), 1);
   }, [selectedDimensions]);
 
   // Toggle dimension selection
@@ -60,7 +67,7 @@ export default function DimensionSelector({
         next.delete(columnName);
       } else {
         // Enforce maximum dimensions
-        if (next.size >= MAX_DIMENSIONS_PER_EXPANSION) {
+        if (next.size >= maxSelectable) {
           return prev;
         }
         next.add(columnName);
@@ -96,7 +103,7 @@ export default function DimensionSelector({
           Expand by Dimensions
         </h3>
         <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-          Select 1-{MAX_DIMENSIONS_PER_EXPANSION} dimensions to view side-by-side chart comparisons
+          Select 1-{maxSelectable} dimensions to view side-by-side chart comparisons
         </p>
       </div>
 

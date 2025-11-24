@@ -14,11 +14,13 @@ import { useEffect, useState, useCallback } from 'react';
 import { apiClient } from '@/lib/api/client';
 import type {
   AvailableDimensionsResponse,
-  DimensionExpandedChartData,
   MultiDimensionExpandedChartData,
   ExpansionDimension,
 } from '@/lib/types/dimensions';
 import { MAX_PARALLEL_DIMENSION_CHARTS } from '@/lib/constants/dimension-expansion';
+import { createClientLogger } from '@/lib/utils/client-logger';
+
+const dimensionLogger = createClientLogger('DimensionExpansion');
 
 /**
  * Parameters for useDimensionExpansion hook
@@ -35,9 +37,14 @@ interface UseDimensionExpansionParams {
  */
 export interface DimensionExpansionState {
   showSelector: boolean;
+  setShowSelector: (show: boolean) => void;
   availableDimensions: ExpansionDimension[];
-  expandedData: DimensionExpandedChartData | MultiDimensionExpandedChartData | null;
+  expandedData: MultiDimensionExpandedChartData | null;
   loading: boolean;
+  error: string | null;
+  clearError: () => void;
+  selectedDimensionColumns: string[];
+  canExpand: boolean;
   expandByDimension: () => void;
   selectDimensions: (dimensions: ExpansionDimension[]) => Promise<void>;
   collapse: () => void;
@@ -56,10 +63,16 @@ export function useDimensionExpansion(
 
   const [showSelector, setShowSelector] = useState(false);
   const [availableDimensions, setAvailableDimensions] = useState<ExpansionDimension[]>([]);
-  const [expandedData, setExpandedData] = useState<
-    DimensionExpandedChartData | MultiDimensionExpandedChartData | null
-  >(null);
+  const [expandedData, setExpandedData] = useState<MultiDimensionExpandedChartData | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedDimensionColumns, setSelectedDimensionColumns] = useState<string[]>([]);
+  const clearError = useCallback(() => setError(null), []);
+
+  const canExpand =
+    Boolean(chartDefinitionId) &&
+    Boolean(finalChartConfig && Object.keys(finalChartConfig).length > 0) &&
+    Boolean(runtimeFilters && Object.keys(runtimeFilters).length > 0);
 
   // Fetch available dimensions when modal opens
   // biome-ignore lint/correctness/useExhaustiveDependencies: fetchAvailableDimensions is stable
@@ -93,75 +106,75 @@ export function useDimensionExpansion(
    * Initiate dimension expansion
    * Auto-expands if only one dimension, otherwise shows selector
    */
-  // biome-ignore lint/correctness/useExhaustiveDependencies: selectDimensions is stable
-  const expandByDimension = useCallback(() => {
-    if (availableDimensions.length === 1) {
-      // Auto-expand if only one dimension
-      const firstDimension = availableDimensions[0];
-      if (firstDimension) {
-        selectDimensions([firstDimension]);
-      }
-    } else {
-      setShowSelector(true);
-    }
-  }, [availableDimensions]);
-
   /**
    * Select dimensions and fetch expanded data
    *
-   * Supports both single-dimension and multi-dimension expansion.
-   * API automatically detects based on array length.
+   * Always uses multi-dimension expansion API for consistency.
    *
    * @param dimensions - Selected dimensions to expand by
    */
   const selectDimensions = useCallback(
     async (dimensions: ExpansionDimension[]) => {
+      if (dimensions.length === 0) {
+        setShowSelector(false);
+        return;
+      }
+
       setShowSelector(false);
       setLoading(true);
+      clearError();
+
+      const uniqueColumns = Array.from(new Set(dimensions.map((d) => d.columnName))).filter(
+        Boolean
+      );
+      setSelectedDimensionColumns(uniqueColumns);
 
       try {
-        if (!finalChartConfig || !runtimeFilters) {
-          throw new Error('finalChartConfig and runtimeFilters are required for dimension expansion');
+        if (!chartDefinitionId || !finalChartConfig || !runtimeFilters) {
+          throw new Error('Dimension expansion requires chart metadata and filters.');
         }
 
-        // Single dimension - use original API format for backward compatibility
-        if (dimensions.length === 1) {
-          const dimension = dimensions[0];
-          if (!dimension) {
-            throw new Error('Invalid dimension selection');
+        const response = await apiClient.post<MultiDimensionExpandedChartData>(
+          `/api/admin/analytics/charts/${chartDefinitionId}/expand`,
+          {
+            finalChartConfig,
+            runtimeFilters,
+            dimensionColumns: uniqueColumns,
+            limit: MAX_PARALLEL_DIMENSION_CHARTS,
           }
+        );
 
-          const response = await apiClient.post<DimensionExpandedChartData>(
-            `/api/admin/analytics/charts/${chartDefinitionId}/expand`,
-            {
-              finalChartConfig,
-              runtimeFilters,
-              dimensionColumn: dimension.columnName,
-              limit: MAX_PARALLEL_DIMENSION_CHARTS,
-            }
-          );
-          setExpandedData(response);
-        } else {
-          // Multiple dimensions - use new multi-dimension API format
-          const response = await apiClient.post<MultiDimensionExpandedChartData>(
-            `/api/admin/analytics/charts/${chartDefinitionId}/expand`,
-            {
-              finalChartConfig,
-              runtimeFilters,
-              dimensionColumns: dimensions.map((d) => d.columnName),
-              limit: MAX_PARALLEL_DIMENSION_CHARTS,
-            }
-          );
-          setExpandedData(response);
-        }
-      } catch (error) {
-        console.error('Failed to expand by dimensions:', error);
+        setExpandedData(response);
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : 'Failed to expand chart by selected dimensions.';
+        setError(message);
+        dimensionLogger.error('Dimension expansion failed', err, {
+          chartDefinitionId,
+          dimensionCount: dimensions.length,
+        });
       } finally {
         setLoading(false);
       }
     },
-    [chartDefinitionId, finalChartConfig, runtimeFilters]
+    [chartDefinitionId, finalChartConfig, runtimeFilters, clearError]
   );
+
+  const expandByDimension = useCallback(() => {
+    if (!canExpand) {
+      setError('Dimension expansion requires a rendered chart context.');
+      return;
+    }
+
+    if (availableDimensions.length === 1 && !expandedData) {
+      const firstDimension = availableDimensions[0];
+      if (firstDimension) {
+        void selectDimensions([firstDimension]);
+      }
+    } else {
+      setShowSelector(true);
+    }
+  }, [availableDimensions, expandedData, canExpand, selectDimensions]);
 
   /**
    * Collapse back to single chart view
@@ -169,13 +182,20 @@ export function useDimensionExpansion(
   const collapse = useCallback(() => {
     setExpandedData(null);
     setShowSelector(false);
-  }, []);
+    setSelectedDimensionColumns([]);
+    clearError();
+  }, [clearError]);
 
   return {
     showSelector,
+    setShowSelector,
     availableDimensions,
     expandedData,
     loading,
+    error,
+    clearError,
+    selectedDimensionColumns,
+    canExpand,
     expandByDimension,
     selectDimensions,
     collapse,

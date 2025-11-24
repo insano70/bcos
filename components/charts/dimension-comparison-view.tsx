@@ -30,7 +30,7 @@ interface ChartPosition {
 }
 
 interface DimensionComparisonViewProps {
-  dimension: ExpansionDimension | ExpansionDimension[]; // Support both single and multi-dimension
+  dimensions: ExpansionDimension[]; // Always array now
   chartDefinition: {
     chart_definition_id: string;
     chart_name: string;
@@ -47,9 +47,9 @@ interface DimensionComparisonViewProps {
 }
 
 export default function DimensionComparisonView({
-  dimension,
+  dimensions = [],
   chartDefinition,
-  dimensionCharts,
+  dimensionCharts = [],
   position,
   availableDimensions,
   selectedDimensionColumns,
@@ -74,6 +74,12 @@ export default function DimensionComparisonView({
       setLocalSelectedColumns(selectedDimensionColumns);
     }
   }, [selectedDimensionColumns]);
+
+  // Format dimension names for display
+  const dimensionNames = dimensions.map((d) => d.displayName).join(', ') || '';
+
+  // Determine label type
+  const labelType = dimensions.length > 1 ? 'combinations' : 'values';
 
   // Handle dimension checkbox toggle
   const handleDimensionToggle = (columnName: string) => {
@@ -136,14 +142,6 @@ export default function DimensionComparisonView({
   const baseHeight = position.h * DASHBOARD_LAYOUT.CHART.HEIGHT_MULTIPLIER;
   const containerHeight = Math.max(baseHeight, DASHBOARD_LAYOUT.CHART.MIN_HEIGHT);
 
-  // Format dimension names for display
-  const dimensionNames = Array.isArray(dimension)
-    ? dimension.map((d) => d.displayName).join(', ')
-    : dimension.displayName;
-
-  // Determine label type (single dimension: "values", multi-dimension: "combinations")
-  const labelType = Array.isArray(dimension) ? 'combinations' : 'values';
-
   return (
     <div className="relative bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-gray-200 dark:border-gray-700">
       {/* Compact info bar with inline dimension selection */}
@@ -193,10 +191,7 @@ export default function DimensionComparisonView({
           {visibleCharts.map((dimensionChart, index) => {
             // Generate unique key for mobile indicators
             const dimensionValue = dimensionChart.dimensionValue;
-            const mobileIndicatorKey =
-              'value' in dimensionValue
-                ? `mobile-indicator-${dimensionValue.value}`
-                : `mobile-indicator-${Object.values(dimensionValue.values).join('-')}`;
+            const mobileIndicatorKey = `mobile-indicator-${Object.values(dimensionValue.values).join('-')}`;
 
             return (
               <div
@@ -223,12 +218,9 @@ export default function DimensionComparisonView({
       >
         <div className="flex gap-4 p-4" style={{ minWidth: 'min-content' }}>
           {visibleCharts.map((dimensionChart, index) => {
-            // Generate unique key for both single and multi-dimension cases
+            // Generate unique key for charts
             const dimensionValue = dimensionChart.dimensionValue;
-            const uniqueKey =
-              'value' in dimensionValue
-                ? `chart-${index}-${dimensionValue.value}`
-                : `chart-${index}-${Object.values(dimensionValue.values).join('-')}`;
+            const uniqueKey = `chart-${index}-${Object.values(dimensionValue.values).join('-')}`;
 
             return (
               <div

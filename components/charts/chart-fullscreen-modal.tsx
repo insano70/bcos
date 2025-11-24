@@ -156,30 +156,20 @@ export default function ChartFullscreenModal({
             {chartTitle}
           </h2>
           <div className="flex items-center gap-2">
-            {/* Expand by Dimension button - only show if dimensions available */}
-            {!dimension.expandedData &&
-              dimension.availableDimensions.length > 0 &&
-              chartDefinitionId && (
-                <button
-                  type="button"
-                  onClick={dimension.expandByDimension}
-                  disabled={dimension.loading}
-                  className="px-3 py-1.5 text-sm bg-violet-100 dark:bg-violet-900 hover:bg-violet-200 dark:hover:bg-violet-800 text-violet-700 dark:text-violet-200 rounded-md transition-colors disabled:opacity-50"
-                  aria-label="Expand by dimension"
-                >
-                  {dimension.loading ? 'Loading...' : 'Expand by Dimension'}
-                </button>
-              )}
-
-            {/* Collapse button when viewing dimension expansion */}
-            {dimension.expandedData && (
+            {/* Dimensions button - always available if dimensions exist */}
+            {dimension.availableDimensions.length > 0 && dimension.canExpand && (
               <button
                 type="button"
-                onClick={dimension.collapse}
-                className="px-3 py-1.5 text-sm bg-violet-100 dark:bg-violet-900 hover:bg-violet-200 dark:hover:bg-violet-800 text-violet-700 dark:text-violet-200 rounded-md transition-colors"
-                aria-label="Collapse to single chart"
+                onClick={dimension.expandByDimension}
+                disabled={dimension.loading || !dimension.canExpand}
+                className={`px-3 py-1.5 text-sm rounded-md transition-colors disabled:opacity-50 ${
+                  dimension.expandedData
+                    ? 'bg-violet-600 text-white hover:bg-violet-700'
+                    : 'bg-violet-100 dark:bg-violet-900 hover:bg-violet-200 dark:hover:bg-violet-800 text-violet-700 dark:text-violet-200'
+                }`}
+                aria-label={dimension.expandedData ? 'Edit dimensions' : 'Expand by dimension'}
               >
-                Collapse
+                {dimension.loading ? 'Loading...' : dimension.expandedData ? 'Dimensions' : 'Expand by Dimension'}
               </button>
             )}
 
@@ -222,15 +212,23 @@ export default function ChartFullscreenModal({
               <DimensionSelector
                 availableDimensions={dimension.availableDimensions}
                 onSelect={dimension.selectDimensions}
-                onCancel={dimension.collapse}
+                onCancel={() => dimension.setShowSelector(false)}
+                initialSelectedColumns={dimension.selectedDimensionColumns}
               />
             </div>
           )}
 
+          {/* Dimension error message */}
+          {dimension.error && (
+            <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/30 dark:text-red-200">
+              {dimension.error}
+            </div>
+          )}
+
           {/* Show dimension comparison view if expanded */}
-          {dimension.expandedData && !dimension.showSelector && (
+          {dimension.expandedData?.dimensions && !dimension.showSelector && (
             <DimensionComparisonView
-              dimension={'dimension' in dimension.expandedData ? dimension.expandedData.dimension : dimension.expandedData.dimensions}
+              dimensions={dimension.expandedData.dimensions}
               chartDefinition={{
                 chart_definition_id: chartDefinitionId || '',
                 chart_name: chartTitle,
@@ -240,13 +238,7 @@ export default function ChartFullscreenModal({
               dimensionCharts={dimension.expandedData.charts}
               position={{ x: 0, y: 0, w: 12, h: 6 }}
               availableDimensions={dimension.availableDimensions}
-              selectedDimensionColumns={
-                'dimension' in dimension.expandedData
-                  ? Array.isArray(dimension.expandedData.dimension)
-                    ? dimension.expandedData.dimension.map((d) => d.columnName)
-                    : [dimension.expandedData.dimension.columnName]
-                  : dimension.expandedData.dimensions.map((d) => d.columnName)
-              }
+              selectedDimensionColumns={dimension.selectedDimensionColumns}
               onApplyDimensions={dimension.selectDimensions}
               isApplying={dimension.loading}
             />

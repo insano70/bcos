@@ -7,12 +7,10 @@
  * Follows same pattern as ChartFullscreenModal but adapted for progress bars.
  */
 
-import { useState, useEffect, useCallback, useRef, useId } from 'react';
+import { useState, useEffect, useRef, useId } from 'react';
 import { createPortal } from 'react-dom';
 import AnalyticsProgressBarChart from './analytics-progress-bar-chart';
-import { apiClient } from '@/lib/api/client';
-import type { AvailableDimensionsResponse, DimensionExpandedChartData, ExpansionDimension } from '@/lib/types/dimensions';
-import { MAX_PARALLEL_DIMENSION_CHARTS } from '@/lib/constants/dimension-expansion';
+import { useDimensionExpansion } from '@/hooks/useDimensionExpansion';
 import DimensionSelector from './dimension-selector';
 import DimensionComparisonView from './dimension-comparison-view';
 
@@ -24,7 +22,6 @@ interface ProgressBarFullscreenModalProps {
   colorPalette?: string;
   measureType?: string;
   chartDefinitionId?: string;
-  currentFilters?: Record<string, unknown>;
   // For dimension expansion: configs from batch API (already correct!)
   finalChartConfig?: Record<string, unknown>;
   runtimeFilters?: Record<string, unknown>;
@@ -38,7 +35,6 @@ export default function ProgressBarFullscreenModal({
   colorPalette = 'default',
   measureType = 'number',
   chartDefinitionId,
-  currentFilters = {},
   finalChartConfig,
   runtimeFilters,
 }: ProgressBarFullscreenModalProps) {
@@ -46,11 +42,12 @@ export default function ProgressBarFullscreenModal({
   const modalRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
 
-  // Dimension expansion state
-  const [showDimensionSelector, setShowDimensionSelector] = useState(false);
-  const [availableDimensions, setAvailableDimensions] = useState<ExpansionDimension[]>([]);
-  const [expandedData, setExpandedData] = useState<DimensionExpandedChartData | null>(null);
-  const [dimensionLoading, setDimensionLoading] = useState(false);
+  const dimension = useDimensionExpansion({
+    chartDefinitionId,
+    finalChartConfig,
+    runtimeFilters,
+    isOpen,
+  });
 
   // Handle client-side mounting for portal
   useEffect(() => {
@@ -81,98 +78,6 @@ export default function ProgressBarFullscreenModal({
     }
   }, [isOpen, onClose]);
 
-  // Fetch available dimensions when modal opens
-  useEffect(() => {
-    if (isOpen && chartDefinitionId && !expandedData) {
-      fetchAvailableDimensions();
-    }
-  }, [isOpen, chartDefinitionId]);
-
-  const fetchAvailableDimensions = useCallback(async () => {
-    if (!chartDefinitionId) return;
-
-    try {
-      const response = await apiClient.post<AvailableDimensionsResponse>(
-        `/api/admin/analytics/charts/${chartDefinitionId}/dimensions`,
-        {
-          runtimeFilters: runtimeFilters || {},
-        }
-      );
-      setAvailableDimensions(response.dimensions || []);
-    } catch (_error) {
-      // Silently fail - dimensions are optional feature
-      setAvailableDimensions([]);
-    }
-  }, [chartDefinitionId, runtimeFilters]);
-
-  const handleExpandByDimension = useCallback(() => {
-    // Auto-expand by first dimension (sorted by data source configuration)
-    if (availableDimensions.length > 0) {
-      handleDimensionsSelect([availableDimensions[0]!]);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [availableDimensions]);
-
-  const handleDimensionsSelect = useCallback(async (dimensions: ExpansionDimension[]) => {
-    setShowDimensionSelector(false);
-    setDimensionLoading(true);
-
-    try {
-      // SIMPLE: Just reuse the configs that rendered the base chart!
-      if (finalChartConfig && runtimeFilters) {
-        // Single dimension - use original API format
-        if (dimensions.length === 1) {
-          const dimension = dimensions[0]!;
-          const response = await apiClient.post<DimensionExpandedChartData>(
-            `/api/admin/analytics/charts/${chartDefinitionId}/expand`,
-            {
-              finalChartConfig,
-              runtimeFilters,
-              dimensionColumn: dimension.columnName,
-              limit: MAX_PARALLEL_DIMENSION_CHARTS,
-            }
-          );
-          setExpandedData(response);
-        } else {
-          // Multiple dimensions - use new multi-dimension API format
-          const response = await apiClient.post<DimensionExpandedChartData>(
-            `/api/admin/analytics/charts/${chartDefinitionId}/expand`,
-            {
-              finalChartConfig,
-              runtimeFilters,
-              dimensionColumns: dimensions.map((d) => d.columnName),
-              limit: MAX_PARALLEL_DIMENSION_CHARTS,
-            }
-          );
-          setExpandedData(response);
-        }
-      } else {
-        // FALLBACK: Legacy path (single dimension only)
-        if (dimensions.length === 1) {
-          const dimension = dimensions[0]!;
-          const response = await apiClient.post<DimensionExpandedChartData>(
-            `/api/admin/analytics/charts/${chartDefinitionId}/expand`,
-            {
-              dimensionColumn: dimension.columnName,
-              baseFilters: currentFilters,
-              limit: MAX_PARALLEL_DIMENSION_CHARTS,
-            }
-          );
-          setExpandedData(response);
-        }
-      }
-    } catch (error) {
-      console.error('Failed to expand by dimensions:', error);
-    } finally {
-      setDimensionLoading(false);
-    }
-  }, [chartDefinitionId, finalChartConfig, runtimeFilters, currentFilters]);
-
-  const handleCollapseDimension = useCallback(() => {
-    setExpandedData(null);
-    setShowDimensionSelector(false);
-  }, []);
-
   // Handle clicks outside modal
   const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget) {
@@ -201,22 +106,30 @@ export default function ProgressBarFullscreenModal({
           </h2>
           <div className="flex items-center gap-2">
             {/* Expand by Dimension button */}
-            {availableDimensions.length > 0 && !expandedData && !showDimensionSelector && (
+            {dimension.availableDimensions.length > 0 && dimension.canExpand && (
               <button
                 type="button"
-                onClick={handleExpandByDimension}
-                disabled={dimensionLoading}
-                className="px-3 py-1.5 text-sm bg-violet-100 dark:bg-violet-900 hover:bg-violet-200 dark:hover:bg-violet-800 text-violet-700 dark:text-violet-200 rounded-md transition-colors disabled:opacity-50"
+                onClick={dimension.expandByDimension}
+                disabled={dimension.loading || !dimension.canExpand}
+                className={`px-3 py-1.5 text-sm rounded-md transition-colors disabled:opacity-50 ${
+                  dimension.expandedData
+                    ? 'bg-violet-600 text-white hover:bg-violet-700'
+                    : 'bg-violet-100 dark:bg-violet-900 hover:bg-violet-200 dark:hover:bg-violet-800 text-violet-700 dark:text-violet-200'
+                }`}
                 aria-label="Expand by dimension"
               >
-                {dimensionLoading ? 'Loading...' : 'Expand by Dimension'}
+                {dimension.loading
+                  ? 'Loading...'
+                  : dimension.expandedData
+                    ? 'Dimensions'
+                    : 'Expand by Dimension'}
               </button>
             )}
             {/* Collapse button when viewing dimension expansion */}
-            {expandedData && (
+            {dimension.expandedData && (
               <button
                 type="button"
-                onClick={handleCollapseDimension}
+                onClick={dimension.collapse}
                 className="px-3 py-1.5 text-sm bg-violet-100 dark:bg-violet-900 hover:bg-violet-200 dark:hover:bg-violet-800 text-violet-700 dark:text-violet-200 rounded-md transition-colors"
                 aria-label="Collapse to single chart"
               >
@@ -244,40 +157,43 @@ export default function ProgressBarFullscreenModal({
         {/* Content */}
         <div className="flex-1 overflow-hidden">
           {/* Show dimension selector if requested */}
-          {showDimensionSelector && (
+          {dimension.showSelector && (
             <div className="h-full flex items-center justify-center p-8">
               <DimensionSelector
-                availableDimensions={availableDimensions}
-                onSelect={handleDimensionsSelect}
-                onCancel={() => setShowDimensionSelector(false)}
+                availableDimensions={dimension.availableDimensions}
+                onSelect={dimension.selectDimensions}
+                onCancel={() => dimension.setShowSelector(false)}
+                initialSelectedColumns={dimension.selectedDimensionColumns}
               />
             </div>
           )}
 
+          {dimension.error && (
+            <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/30 dark:text-red-200">
+              {dimension.error}
+            </div>
+          )}
+
           {/* Show dimension comparison view if expanded */}
-          {expandedData && !showDimensionSelector && (
+          {dimension.expandedData?.dimensions && !dimension.showSelector && (
             <DimensionComparisonView
-              dimension={expandedData.dimension}
+              dimensions={dimension.expandedData.dimensions}
               chartDefinition={{
                 chart_definition_id: chartDefinitionId || '',
                 chart_name: chartTitle,
                 chart_type: 'progress-bar',
               }}
-              dimensionCharts={expandedData.charts}
+              dimensionCharts={dimension.expandedData.charts}
               position={{ x: 0, y: 0, w: 12, h: 6 }}
-              availableDimensions={availableDimensions}
-              selectedDimensionColumns={
-                Array.isArray(expandedData.dimension)
-                  ? expandedData.dimension.map((d) => d.columnName)
-                  : [expandedData.dimension.columnName]
-              }
-              onApplyDimensions={handleDimensionsSelect}
-              isApplying={dimensionLoading}
+              availableDimensions={dimension.availableDimensions}
+              selectedDimensionColumns={dimension.selectedDimensionColumns}
+              onApplyDimensions={dimension.selectDimensions}
+              isApplying={dimension.loading}
             />
           )}
 
           {/* Show normal progress bar if not in dimension mode */}
-          {!showDimensionSelector && !expandedData && (
+          {!dimension.showSelector && !dimension.expandedData && (
             <div className="w-full h-full overflow-y-auto p-6">
               <AnalyticsProgressBarChart
                 data={data}

@@ -52,47 +52,6 @@ export interface DimensionValue {
 }
 
 /**
- * Error information for failed dimension chart
- */
-export interface DimensionChartError {
-  message: string; // User-friendly error message
-  code: string; // Error code for logging/debugging
-  details?: string | undefined; // Optional technical details (development only)
-}
-
-/**
- * Chart data for a single dimension value or combination of dimension values
- */
-export interface DimensionExpandedChart {
-  dimensionValue: DimensionValue | DimensionValueCombination; // Single dimension value or combination
-  chartData: import('@/lib/services/dashboard-rendering/mappers').BatchChartData | null; // Transformed chart data (null if error)
-  error?: DimensionChartError; // Error information if chart failed to render
-  metadata: {
-    recordCount: number; // Total records in this dimension (0 if error)
-    queryTimeMs: number; // Query execution time
-    cacheHit: boolean; // Whether data came from cache
-    transformDuration: number; // Data transformation time
-  };
-}
-
-/**
- * Complete dimension expansion result for a chart
- */
-export interface DimensionExpandedChartData {
-  dimension: ExpansionDimension; // Which dimension was expanded
-  charts: DimensionExpandedChart[]; // One chart per dimension value
-  metadata: {
-    totalQueryTime: number; // Total time for all queries
-    parallelExecution: boolean; // Whether queries ran in parallel
-    totalCharts: number; // Number of charts rendered
-    totalDimensionValues?: number; // Total dimension values (before pagination)
-    offset?: number; // Current pagination offset
-    limit?: number; // Current page size
-    hasMore?: boolean; // Whether more charts available
-  };
-}
-
-/**
  * Combination of multiple dimension values (cartesian product)
  *
  * Example: { location: "downtown_clinic", line_of_business: "physical_therapy" }
@@ -105,30 +64,27 @@ export interface DimensionValueCombination {
 }
 
 /**
- * Request payload for dimension expansion
- * 
- * SIMPLE APPROACH: Reuse the configs from the base chart render
- * - finalChartConfig: The exact config used to render the base chart (has seriesConfigs, dualAxisConfig, everything!)
- * - runtimeFilters: The exact filters used to render the base chart (resolved dates, practices, everything!)
- * - Just add dimension filter and re-render
- * 
- * No reconstruction, no fetching, just reuse what works!
+ * Error information for failed dimension chart
  */
-export interface DimensionExpansionRequest {
-  // SIMPLE: Configs from the base chart render (preferred)
-  finalChartConfig?: Record<string, unknown>;
-  runtimeFilters?: Record<string, unknown>;
+export interface DimensionChartError {
+  message: string; // User-friendly error message
+  code: string; // Error code for logging/debugging
+  details?: string | undefined; // Optional technical details (development only)
+}
 
-  // FALLBACK: Chart definition ID (triggers full metadata fetch)
-  chartDefinitionId?: string;
-
-  // Required
-  dimensionColumn: string;
-
-  // Fallback filters (only if configs not provided)
-  baseFilters?: Record<string, unknown>;
-  limit?: number;
-  offset?: number; // Pagination offset (default: 0)
+/**
+ * Chart data for a dimension value combination
+ */
+export interface DimensionExpandedChart {
+  dimensionValue: DimensionValueCombination; // Always a combination (even for single dim)
+  chartData: import('@/lib/services/dashboard-rendering/mappers').BatchChartData | null; // Transformed chart data (null if error)
+  error?: DimensionChartError; // Error information if chart failed to render
+  metadata: {
+    recordCount: number; // Total records in this dimension (0 if error)
+    queryTimeMs: number; // Query execution time
+    cacheHit: boolean; // Whether data came from cache
+    transformDuration: number; // Data transformation time
+  };
 }
 
 /**
@@ -185,3 +141,6 @@ export interface MultiDimensionExpandedChartData {
   };
 }
 
+// Type aliases for backward compatibility (optional, but helps with refactoring steps)
+// export type DimensionExpansionRequest = MultiDimensionExpansionRequest; 
+// export type DimensionExpandedChartData = MultiDimensionExpandedChartData;
