@@ -208,7 +208,7 @@ export default function ChartFullscreenModal({
         </header>
 
         {/* Chart Content */}
-        <div className="flex-1 p-6 overflow-auto">
+        <div className={`flex-1 p-6 ${dimension.expandedData ? 'overflow-hidden' : 'overflow-auto'}`}>
           {/* Dimension error message */}
           {dimension.error && (
             <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/30 dark:text-red-200">
@@ -237,6 +237,7 @@ export default function ChartFullscreenModal({
               isLoadingMore={dimension.loadingMore}
               isLoading={dimension.loading}
               totalCombinations={dimension.expandedData?.metadata?.totalCombinations}
+              fullscreen={true}
             />
           )}
 

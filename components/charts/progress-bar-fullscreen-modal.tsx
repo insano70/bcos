@@ -169,6 +169,7 @@ export default function ProgressBarFullscreenModal({
               isLoadingMore={dimension.loadingMore}
               isLoading={dimension.loading}
               totalCombinations={dimension.expandedData?.metadata?.totalCombinations}
+              fullscreen={true}
             />
           )}
 

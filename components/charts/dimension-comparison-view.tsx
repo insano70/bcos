@@ -91,6 +91,8 @@ interface DimensionComparisonViewProps {
   isLoading?: boolean;
   // Total combinations available (from server metadata)
   totalCombinations?: number | undefined;
+  // Fullscreen mode - uses viewport-based height instead of position-based
+  fullscreen?: boolean;
 }
 
 export default function DimensionComparisonView({
@@ -107,6 +109,7 @@ export default function DimensionComparisonView({
   isLoadingMore = false,
   isLoading = false,
   totalCombinations: _totalCombinations,
+  fullscreen = false,
 }: DimensionComparisonViewProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -140,7 +143,10 @@ export default function DimensionComparisonView({
     return () => container.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const baseHeight = position.h * DASHBOARD_LAYOUT.CHART.HEIGHT_MULTIPLIER;
+  // In fullscreen mode, use viewport-based height to fit modal
+  // Header takes ~120px, padding ~48px, indicators ~40px, leaving ~75vh for charts
+  const fullscreenHeight = typeof window !== 'undefined' ? Math.floor(window.innerHeight * 0.65) : 500;
+  const baseHeight = fullscreen ? fullscreenHeight : position.h * DASHBOARD_LAYOUT.CHART.HEIGHT_MULTIPLIER;
   const containerHeight = Math.max(baseHeight, DASHBOARD_LAYOUT.CHART.MIN_HEIGHT);
 
   return (
