@@ -33,6 +33,10 @@ interface DimensionCheckboxesProps {
   maxSelectable?: number;
   /** Compact mode for tighter spacing */
   compact?: boolean;
+  /** Current count of displayed charts (for "Showing X of Y" display) */
+  showingCount?: number | undefined;
+  /** Total count of available values/combinations */
+  totalCount?: number | undefined;
 }
 
 /**
@@ -46,6 +50,8 @@ export function DimensionCheckboxes({
   isDimensionsLoading = false,
   maxSelectable = MAX_DIMENSIONS_PER_EXPANSION,
   compact = false,
+  showingCount,
+  totalCount,
 }: DimensionCheckboxesProps) {
   // Local selection state for batch changes
   const [localSelection, setLocalSelection] = useState<Set<string>>(
@@ -168,10 +174,12 @@ export function DimensionCheckboxes({
         );
       })}
 
-      {/* Chart count indicator */}
+      {/* Chart count indicator - show actual count when expanded, estimate otherwise */}
       {localSelection.size > 0 && (
         <span className={`text-slate-500 dark:text-slate-400 ${compact ? 'text-xs' : 'text-sm'}`}>
-          ~{estimatedCharts} chart{estimatedCharts !== 1 ? 's' : ''}
+          {showingCount !== undefined && totalCount !== undefined
+            ? `${showingCount} of ${totalCount}`
+            : `~${estimatedCharts} chart${estimatedCharts !== 1 ? 's' : ''}`}
         </span>
       )}
 

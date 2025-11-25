@@ -135,6 +135,8 @@ export default function ProgressBarFullscreenModal({
               onApply={dimension.selectDimensionsByColumns}
               isLoading={dimension.loading}
               isDimensionsLoading={dimension.dimensionsLoading}
+              showingCount={dimension.expandedData?.charts?.length}
+              totalCount={dimension.expandedData?.metadata?.totalCombinations}
             />
           )}
         </div>

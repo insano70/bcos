@@ -85,7 +85,7 @@ function extractPracticeFilterFromAdvanced(
         numericValues.push(v);
       } else if (typeof v === 'string') {
         const parsed = parseInt(v, 10);
-        if (!isNaN(parsed)) {
+        if (!Number.isNaN(parsed)) {
           numericValues.push(parsed);
         }
       }
