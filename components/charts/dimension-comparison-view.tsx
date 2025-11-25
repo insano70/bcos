@@ -94,19 +94,19 @@ interface DimensionComparisonViewProps {
 }
 
 export default function DimensionComparisonView({
-  dimensions = [],
+  dimensions: _dimensions = [],
   chartDefinition,
   dimensionCharts = [],
   position,
-  availableDimensions,
-  selectedDimensionColumns,
-  onApplyDimensions,
-  isApplying = false,
+  availableDimensions: _availableDimensions,
+  selectedDimensionColumns: _selectedDimensionColumns,
+  onApplyDimensions: _onApplyDimensions,
+  isApplying: _isApplying = false,
   hasMoreFromServer = false,
   onLoadMore,
   isLoadingMore = false,
   isLoading = false,
-  totalCombinations,
+  totalCombinations: _totalCombinations,
 }: DimensionComparisonViewProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -115,12 +115,6 @@ export default function DimensionComparisonView({
   useEffect(() => {
     setVisibleCount(CHARTS_PER_PAGE);
   }, [dimensionCharts]);
-
-  // Format dimension names for display
-  const dimensionNames = dimensions.map((d) => d.displayName).join(', ') || '';
-
-  // Determine label type
-  const labelType = dimensions.length > 1 ? 'combinations' : 'values';
 
   // Slice charts to show only visible ones (pagination)
   const visibleCharts = dimensionCharts.slice(0, visibleCount);
@@ -151,13 +145,6 @@ export default function DimensionComparisonView({
 
   return (
     <div className="relative bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-gray-200 dark:border-gray-700">
-      {/* Compact info bar - dimension selection now handled by DimensionCheckboxes in header */}
-      <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
-        <p className="text-xs text-gray-600 dark:text-gray-400">
-          Expanded by {dimensionNames} • Showing {visibleCharts.length} of {totalCombinations ?? dimensionCharts.length} {labelType}
-        </p>
-      </div>
-
       {/* Scroll indicators (mobile) */}
       {visibleCharts.length > 1 && (
         <div className="flex items-center justify-center gap-1.5 py-2 lg:hidden">

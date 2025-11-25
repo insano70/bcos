@@ -439,6 +439,8 @@ export default function DualAxisFullscreenModal({
               onApply={dimension.selectDimensionsByColumns}
               isLoading={dimension.loading}
               isDimensionsLoading={dimension.dimensionsLoading}
+              showingCount={dimension.expandedData?.charts?.length}
+              totalCount={dimension.expandedData?.metadata?.totalCombinations}
             />
           )}
         </header>

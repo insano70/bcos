@@ -255,13 +255,13 @@ export class DimensionExpansionRenderer {
       });
 
       // 8. LAZY LOADING: Paginate BEFORE executing queries (only execute visible page)
-      const paginatedCombinations = sortedCombinations.slice(offset, offset + limit);
-      const hasMore = offset + limit < sortedCombinations.length;
+      const paginatedCombinations = sortedCombinations.slice(offset, offset + validatedLimit);
+      const hasMore = offset + validatedLimit < sortedCombinations.length;
 
       log.info('Generated and paginated dimension combinations', {
         totalCombinations: sortedCombinations.length,
         offset,
-        limit,
+        limit: validatedLimit,
         returned: paginatedCombinations.length,
         hasMore,
         dimensions: dimensionColumns,
@@ -316,7 +316,7 @@ export class DimensionExpansionRenderer {
         startTime,
         sortedCombinations.length,
         offset,
-        limit,
+        validatedLimit,
         hasMore
       );
     } catch (error) {
