@@ -47,9 +47,128 @@ import {
 import { db } from '@/lib/db';
 import { chart_data_sources } from '@/lib/db/chart-config-schema';
 import { eq } from 'drizzle-orm';
+import type { RequestScopedCache } from './request-scoped-cache';
 
 // Re-export CacheKeyComponents for external use
 export type { CacheKeyComponents } from './data-source/cache-key-builder';
+
+/**
+ * Extract practice_uid filter values from advancedFilters
+ * Looks for filters with field='practice_uid' and operator='in'
+ *
+ * @param advancedFilters - Array of chart filters
+ * @returns Array of practice UIDs from filter, or undefined if no practice filter
+ */
+function extractPracticeFilterFromAdvanced(
+  advancedFilters?: ChartFilter[]
+): number[] | undefined {
+  if (!advancedFilters || advancedFilters.length === 0) {
+    return undefined;
+  }
+
+  // Find practice_uid filter with 'in' operator
+  const practiceFilter = advancedFilters.find(
+    (f) => f.field === 'practice_uid' && f.operator === 'in'
+  );
+
+  if (!practiceFilter) {
+    return undefined;
+  }
+
+  // Extract practice UIDs from filter value
+  const filterValue = practiceFilter.value;
+  if (Array.isArray(filterValue)) {
+    // Filter to only numeric values and convert strings if needed
+    const numericValues: number[] = [];
+    for (const v of filterValue) {
+      if (typeof v === 'number') {
+        numericValues.push(v);
+      } else if (typeof v === 'string') {
+        const parsed = parseInt(v, 10);
+        if (!isNaN(parsed)) {
+          numericValues.push(parsed);
+        }
+      }
+    }
+    return numericValues.length > 0 ? numericValues : undefined;
+  }
+
+  return undefined;
+}
+
+/**
+ * Compute effective practices for cache query
+ *
+ * Returns the appropriate practice filter based on:
+ * 1. Permission scope (what level of access user has)
+ * 2. RBAC accessible_practices (what user CAN access - security boundary)
+ * 3. Runtime practice filter from advancedFilters (what user WANTS to see)
+ *
+ * This ensures:
+ * - A super user with runtime filter = 1 practice only fetches that practice's data
+ * - A regular user can never access practices outside their RBAC scope
+ * - If no runtime filter, returns appropriate practices for the scope
+ *
+ * @param accessiblePractices - Practices user can access (from RBAC)
+ * @param advancedFilters - Runtime filters (may contain practice_uid filter)
+ * @param permissionScope - User's permission scope ('all', 'organization', 'own', 'none')
+ * @returns Practices to filter by for cache query
+ */
+function computeEffectivePractices(
+  accessiblePractices: number[] | undefined,
+  advancedFilters: ChartFilter[] | undefined,
+  permissionScope: 'all' | 'organization' | 'own' | 'none'
+): number[] | undefined {
+  // Extract runtime practice filter
+  const runtimePracticeFilter = extractPracticeFilterFromAdvanced(advancedFilters);
+
+  // For 'all' scope (super admin), accessiblePractices is [] meaning "no restrictions"
+  // In this case, runtime filter directly controls what to fetch
+  if (permissionScope === 'all') {
+    // Super admin with runtime filter: use the filter directly
+    if (runtimePracticeFilter && runtimePracticeFilter.length > 0) {
+      return runtimePracticeFilter;
+    }
+    // Super admin with no filter: no practice filtering (undefined means all)
+    return undefined;
+  }
+
+  // For 'none' scope, return undefined to let RBAC fail-close later
+  if (permissionScope === 'none') {
+    return undefined;
+  }
+
+  // For 'organization' and 'own' scopes:
+  // accessiblePractices contains the actual practices they can access
+  
+  // No runtime filter: use RBAC scope
+  if (!runtimePracticeFilter || runtimePracticeFilter.length === 0) {
+    // Return accessible practices if they exist
+    if (accessiblePractices && accessiblePractices.length > 0) {
+      return accessiblePractices;
+    }
+    // No practices accessible (fail-closed for non-admin)
+    return undefined;
+  }
+
+  // Has runtime filter: compute intersection with RBAC scope
+  // SECURITY: Runtime filter can only NARROW the scope, never widen it
+  if (accessiblePractices && accessiblePractices.length > 0) {
+    const rbacSet = new Set(accessiblePractices);
+    const intersection = runtimePracticeFilter.filter((p) => rbacSet.has(p));
+    
+    // Return intersection if not empty
+    if (intersection.length > 0) {
+      return intersection;
+    }
+    // Intersection is empty - user requested practices outside their scope
+    // Return empty to signal no valid practices (will fail-close later)
+    return [];
+  }
+
+  // Non-admin with no RBAC practices but has runtime filter - fail closed
+  return undefined;
+}
 
 /**
  * Query parameters for fetchDataSource
@@ -227,15 +346,22 @@ class DataSourceCacheService {
    * SECURITY: Accepts UserContext for permission validation
    * Builds ChartRenderContext internally to ensure consistent RBAC
    *
+   * REQUEST-LEVEL DEDUPLICATION:
+   * When requestCache is provided, results are cached in-memory for the duration
+   * of the request. Multiple charts requesting the same (measure + frequency)
+   * will share a single Redis fetch, dramatically reducing redundant data transfer.
+   *
    * @param params - Query parameters
    * @param userContext - User context for RBAC
    * @param nocache - Skip cache (force database query)
+   * @param requestCache - Optional request-scoped cache for deduplication
    * @returns Data source fetch result
    */
   async fetchDataSource(
     params: CacheQueryParams,
     userContext: UserContext,
-    nocache: boolean = false
+    nocache: boolean = false,
+    requestCache?: RequestScopedCache
   ): Promise<DataSourceFetchResult> {
     const startTime = Date.now();
 
@@ -272,13 +398,100 @@ class DataSourceCacheService {
       ...(params.frequency && { frequency: params.frequency }),
     };
 
-    // Try cache first (unless nocache=true)
+    // REQUEST-LEVEL DEDUPLICATION: Check request-scoped cache first
+    // This prevents redundant Redis fetches when multiple charts request the same data
+    if (!nocache && requestCache) {
+      const requestCached = requestCache.get(params);
+      if (requestCached) {
+        // Apply in-memory filters to the cached raw data
+        let filteredRows = requestCached.rows as Record<string, unknown>[];
+
+        // 1. RBAC filtering (SECURITY CRITICAL)
+        filteredRows = rbacFilterService.applyRBACFilter(filteredRows, context, userContext);
+
+        // 2. Date range filtering
+        if (params.startDate || params.endDate) {
+          filteredRows = await inMemoryFilterService.applyDateRangeFilter(
+            filteredRows,
+            params.dataSourceId,
+            params.startDate,
+            params.endDate
+          );
+        }
+
+        // 3. Advanced filters
+        if (params.advancedFilters && params.advancedFilters.length > 0) {
+          filteredRows = inMemoryFilterService.applyAdvancedFilters(
+            filteredRows,
+            params.advancedFilters
+          );
+        }
+
+        const duration = Date.now() - startTime;
+        log.info('Data source served from request-scoped cache', {
+          dataSourceId: params.dataSourceId,
+          measure: params.measure,
+          frequency: params.frequency,
+          cachedRowCount: requestCached.rows.length,
+          finalRowCount: filteredRows.length,
+          duration,
+          component: 'data-source-cache',
+        });
+
+        return {
+          rows: filteredRows,
+          cacheHit: true, // Report as cache hit (it was cached, just at request level)
+        };
+      }
+    }
+
+    // Try Redis cache (unless nocache=true)
     if (!nocache) {
       const cacheStart = Date.now();
-      const cached = await cacheOperations.getCached(keyComponents);
+      
+      // PHASE 2 OPTIMIZATION: Compute effective practices for cache query
+      // This accounts for:
+      // 1. Permission scope (all, organization, own, none)
+      // 2. RBAC accessible_practices (what user CAN access)
+      // 3. Runtime practice filter from advancedFilters (what user WANTS to see)
+      // This ensures a super user with runtime filter = 1 practice doesn't get all data
+      const effectivePractices = computeEffectivePractices(
+        context.accessible_practices,
+        params.advancedFilters,
+        context.permission_scope ?? 'none' // Default to 'none' for fail-closed security
+      );
+      
+      log.info('Starting cache lookup', {
+        dataSourceId: params.dataSourceId,
+        measure: params.measure,
+        frequency: params.frequency,
+        practiceUid: params.practiceUid,
+        permissionScope: context.permission_scope,
+        rbacPracticeCount: context.accessible_practices?.length ?? 0,
+        runtimePracticeFilter: extractPracticeFilterFromAdvanced(params.advancedFilters),
+        effectivePractices: effectivePractices,
+        effectivePracticeCount: effectivePractices?.length ?? 0,
+        usingPracticeFilter: Boolean(effectivePractices && effectivePractices.length > 0),
+        component: 'data-source-cache',
+      });
+      
+      const cached = await cacheOperations.getCached(keyComponents, effectivePractices);
       const cacheDuration = Date.now() - cacheStart;
+      log.info('Cache lookup completed', {
+        dataSourceId: params.dataSourceId,
+        cacheHit: !!cached,
+        cacheDuration,
+        rowCount: cached?.rows?.length,
+        component: 'data-source-cache',
+      });
 
       if (cached) {
+        // Store raw data in request-scoped cache for deduplication
+        // This allows subsequent requests for the same (measure + frequency) to skip Redis
+        if (requestCache) {
+          requestCache.set(params, { rows: cached.rows, cacheHit: true });
+        }
+
         // Apply in-memory filters (ORDER MATTERS: RBAC first for security)
         let filteredRows = cached.rows;
 
@@ -348,12 +561,17 @@ class DataSourceCacheService {
     }
 
     // Cache miss - query database
-    log.info('Data source cache miss - querying database', {
+    const dbQueryStart = Date.now();
+    log.warn('Data source cache miss - falling back to database query', {
       dataSourceId: params.dataSourceId,
       measure: params.measure,
       practiceUid: params.practiceUid,
+      frequency: params.frequency,
       nocache,
       userId: context.user_id,
+      keyComponents,
+      note: 'PERFORMANCE: This database fallback may cause slow chart loads',
+      component: 'data-source-cache',
     });
 
     // Build query params for data source query service
@@ -372,6 +590,16 @@ class DataSourceCacheService {
     };
 
     const rows = await dataSourceQueryService.queryDataSource(queryParams, userContext);
+    const dbQueryDuration = Date.now() - dbQueryStart;
+    
+    log.warn('Database query completed (cache miss path)', {
+      dataSourceId: params.dataSourceId,
+      measure: params.measure,
+      rowCount: rows.length,
+      dbQueryDuration,
+      slow: dbQueryDuration > 5000,
+      component: 'data-source-cache',
+    });
 
     // REMOVED: Query-time caching no longer needed - warming handles all cache population
     // This prevents creating incompatible OLD format keys (datasource:1:m:...)

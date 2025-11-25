@@ -17,6 +17,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { apiClient } from '@/lib/api/client';
 import type { ChartData, ChartFilter, DualAxisConfig } from '@/lib/types/analytics';
+import { createClientLogger } from '@/lib/utils/client-logger';
+
+const chartDataLogger = createClientLogger('ChartData');
 
 /**
  * Formatted cell structure for table charts (Phase 3.2)
@@ -156,10 +159,9 @@ export function useChartData(request: UniversalChartDataRequest): UseChartDataRe
     // Debug logging for dual-axis only
     const dualAxisConfig = request.chartConfig?.dualAxisConfig as DualAxisConfig | undefined;
     if (request.chartConfig?.chartType === 'dual-axis' && dualAxisConfig) {
-      const time = new Date().toISOString().split('T')[1]?.substring(0, 12) || 'unknown';
       const primary = dualAxisConfig.primary?.measure || 'unknown';
       const secondary = dualAxisConfig.secondary?.measure || 'unknown';
-      console.log(`[DUAL-AXIS-FETCH ${time}] ${primary} + ${secondary}`);
+      chartDataLogger.log(`Dual-axis fetch: ${primary} + ${secondary}`, { primary, secondary });
     }
 
     // Validate request
@@ -191,14 +193,12 @@ export function useChartData(request: UniversalChartDataRequest): UseChartDataRe
       setError(errorMessage);
       setData(null);
 
-      // Log error for development debugging only
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Chart data fetch failed:', err, {
-          chartType: request.chartConfig?.chartType,
-          dataSourceId: request.chartConfig?.dataSourceId,
-          hasDefinitionId: Boolean(request.chartDefinitionId),
-        });
-      }
+      // Log error
+      chartDataLogger.error('Chart data fetch failed', err instanceof Error ? err : new Error(String(err)), {
+        chartType: request.chartConfig?.chartType,
+        dataSourceId: request.chartConfig?.dataSourceId,
+        hasDefinitionId: Boolean(request.chartDefinitionId),
+      });
     } finally {
       setIsLoading(false);
     }

@@ -397,7 +397,81 @@ async function _getAccessibleOrganizations(
 const requestCache = new Map<string, Promise<UserContext | null>>();
 
 /**
+ * Error thrown when user context cannot be loaded due to authentication issues
+ * This is NOT a server error - it indicates the session is no longer valid
+ */
+export class UserContextAuthError extends Error {
+  public readonly reason: UserContextAuthErrorReason;
+  public readonly userId: string;
+
+  constructor(reason: UserContextAuthErrorReason, userId: string, message?: string) {
+    const defaultMessages: Record<UserContextAuthErrorReason, string> = {
+      user_not_found: 'User not found',
+      user_inactive: 'User account is inactive',
+      context_load_failed: 'Failed to load user context',
+    };
+    super(message || defaultMessages[reason]);
+    this.name = 'UserContextAuthError';
+    this.reason = reason;
+    this.userId = userId;
+  }
+}
+
+export type UserContextAuthErrorReason = 'user_not_found' | 'user_inactive' | 'context_load_failed';
+
+/**
+ * Get user context with typed error throwing
+ *
+ * Use this when you want to distinguish between different auth failure scenarios.
+ * Throws UserContextAuthError for auth-related failures (should map to 401).
+ * Re-throws other errors (database errors, etc.) which should map to 500.
+ *
+ * @param userId - User ID to load context for
+ * @returns UserContext
+ * @throws UserContextAuthError for auth failures (user not found, inactive)
+ * @throws Error for server failures (database errors)
+ */
+export async function getUserContextOrThrow(userId: string): Promise<UserContext> {
+  try {
+    return await getUserContext(userId);
+  } catch (error) {
+    // Check for specific auth-related errors from getUserContext
+    if (error instanceof Error) {
+      const message = error.message.toLowerCase();
+
+      if (message.includes('user not found')) {
+        log.security('user_context_auth_failure', 'medium', {
+          userId,
+          reason: 'user_not_found',
+          action: 'throwing_auth_error',
+        });
+        throw new UserContextAuthError('user_not_found', userId);
+      }
+
+      if (message.includes('inactive')) {
+        log.security('user_context_auth_failure', 'medium', {
+          userId,
+          reason: 'user_inactive',
+          action: 'throwing_auth_error',
+        });
+        throw new UserContextAuthError('user_inactive', userId);
+      }
+    }
+
+    // For other errors (database failures, etc.), log and re-throw
+    // These are genuine server errors, not auth failures
+    log.error('User context load failed with server error', error instanceof Error ? error : new Error(String(error)), {
+      userId,
+      operation: 'getUserContextOrThrow',
+      component: 'rbac',
+    });
+    throw error;
+  }
+}
+
+/**
  * Get user context for API route handlers (with error handling and request-scoped caching)
+ * @deprecated Prefer getUserContextOrThrow for new code to get typed errors
  */
 export async function getUserContextSafe(userId: string): Promise<UserContext | null> {
   const isDev = process.env.NODE_ENV === 'development';

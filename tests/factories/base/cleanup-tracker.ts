@@ -62,9 +62,12 @@ export interface TrackedObject {
  */
 const CLEANUP_ORDER: Record<TestEntityType, number> = {
   // Most dependent (cleaned up first)
+  work_item: 110, // Work items depend on statuses, types, users, orgs
   appointment: 100,
   patient: 90,
+  work_item_status: 85, // Statuses depend on types
   staff: 80,
+  work_item_type: 75, // Types depend on orgs
   chart: 70,
   dashboard: 60,
   practice: 50,

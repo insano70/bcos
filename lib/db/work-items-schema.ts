@@ -7,6 +7,7 @@ import {
   pgTable,
   text,
   timestamp,
+  unique,
   uuid,
 } from 'drizzle-orm/pg-core';
 import { organizations } from './rbac-schema';
@@ -381,7 +382,7 @@ export const work_item_status_transitions = pgTable(
     fromStatusIdx: index('idx_transitions_from').on(table.from_status_id),
     toStatusIdx: index('idx_transitions_to').on(table.to_status_id),
     // Unique constraint: one transition rule per type + from_status + to_status combination
-    uniqueTransitionIdx: index('idx_unique_transition').on(
+    uniqueTransition: unique('uq_transition_type_from_to').on(
       table.work_item_type_id,
       table.from_status_id,
       table.to_status_id

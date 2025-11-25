@@ -15,6 +15,11 @@
  * - Automatic timing tracking
  * - Returns 401 if auth required but no valid session
  *
+ * SECURITY:
+ * - All authentication failures return 401 to trigger client-side login redirect
+ * - 500 errors are reserved for actual server failures (DB down, etc.)
+ * - Auth failures are logged as security events for monitoring
+ *
  * Usage:
  * ```typescript
  * const middleware = new AuthMiddleware(true);
@@ -82,23 +87,33 @@ export class AuthMiddleware implements Middleware {
     const userContext = session.userContext;
 
     if (!userContext) {
-      log.error('User context missing from session', undefined, {
+      // SECURITY: This is an authentication failure, not a server error
+      // The token validated but the user context could not be loaded, indicating:
+      // - User was deleted/deactivated after token was issued
+      // - Session was invalidated server-side
+      // - Database inconsistency between token and user records
+      //
+      // Return 401 to trigger client-side login redirect
+      log.warn('User context missing from session - treating as auth failure', {
         userId: session.user.id,
         sessionEmail: session.user.email,
-        sessionKeys: Object.keys(session),
+        sessionId: session.sessionId,
+        operation: 'auth_middleware',
+        component: 'auth',
       });
 
-      log.security('auth_context_missing', 'high', {
+      log.security('session_context_invalid', 'medium', {
         userId: session.user.id,
-        reason: 'context_not_in_session',
-        alert: 'This should not happen - investigate applyGlobalAuth()',
+        sessionId: session.sessionId,
+        reason: 'context_not_loaded',
+        action: 'returning_401_for_login_redirect',
       });
 
       return {
         success: false,
         response: createErrorResponse(
-          'Failed to load user context - authentication state invalid',
-          500,
+          'Session invalid - please sign in again',
+          401,
           request
         ) as Response,
       };

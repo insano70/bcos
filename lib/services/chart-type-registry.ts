@@ -1,4 +1,5 @@
 import { log } from '@/lib/logger';
+import type { RequestScopedCache } from '@/lib/cache/request-scoped-cache';
 import type { ChartData } from '@/lib/types/analytics';
 import type { UserContext } from '@/lib/types/rbac';
 
@@ -46,11 +47,13 @@ export interface ChartTypeHandler {
    *
    * @param config - Merged chart configuration with runtime filters
    * @param userContext - User context for RBAC
+   * @param requestCache - Optional request-scoped cache for deduplication
    * @returns Object with data array, cache hit status, and query time
    */
   fetchData(
     config: Record<string, unknown>,
-    userContext: UserContext
+    userContext: UserContext,
+    requestCache?: RequestScopedCache
   ): Promise<{
     data: Record<string, unknown>[];
     cacheHit: boolean;

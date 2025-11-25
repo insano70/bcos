@@ -1,5 +1,6 @@
 import { getCssVariable } from '@/components/utils/utils';
 import { log } from '@/lib/logger';
+import type { RequestScopedCache } from '@/lib/cache/request-scoped-cache';
 import { getPaletteColors } from '@/lib/services/color-palettes';
 import type { AggAppMeasure, ChartData, ChartDataset, DualAxisConfig } from '@/lib/types/analytics';
 import { MeasureAccessor } from '@/lib/types/analytics';
@@ -26,11 +27,13 @@ export class ComboChartHandler extends BaseChartHandler {
    *
    * @param config - Chart configuration with dualAxisConfig
    * @param userContext - User context for RBAC
+   * @param requestCache - Optional request-scoped cache for deduplication
    * @returns Combined data from both measures tagged with series_id
    */
   async fetchData(
     config: Record<string, unknown>,
-    userContext: UserContext
+    userContext: UserContext,
+    requestCache?: RequestScopedCache
   ): Promise<{
     data: Record<string, unknown>[];
     cacheHit: boolean;
@@ -62,12 +65,13 @@ export class ComboChartHandler extends BaseChartHandler {
         primaryMeasure: dualAxisConfig.primary.measure,
         secondaryMeasure: dualAxisConfig.secondary.measure,
         userId: userContext.user_id,
+        hasRequestCache: Boolean(requestCache),
       });
 
-      // Fetch both datasets in parallel for performance
+      // Fetch both datasets in parallel (with request-scoped cache for deduplication)
       const [primaryResult, secondaryResult] = await Promise.all([
-        super.fetchData(primaryConfig, userContext),
-        super.fetchData(secondaryConfig, userContext),
+        super.fetchData(primaryConfig, userContext, requestCache),
+        super.fetchData(secondaryConfig, userContext, requestCache),
       ]);
 
       // Tag data with series_id for transformation

@@ -365,7 +365,10 @@ export default function BatchChartRenderer({
             }))
           }
           {...(colorPalette && { colorPalette })}
-          {...(chartData.chartData.measureType && { measureType: chartData.chartData.measureType as string })}
+          // Use originalMeasureType for raw values, not the top-level measureType which is always 'percentage'
+          {...(chartData.chartData.datasets[0]?.originalMeasureType && {
+            measureType: chartData.chartData.datasets[0].originalMeasureType as string,
+          })}
           {...(chartDefinitionId && { chartDefinitionId })}
           {...(chartData.finalChartConfig && { finalChartConfig: chartData.finalChartConfig })}
           {...(chartData.runtimeFilters && { runtimeFilters: chartData.runtimeFilters })}

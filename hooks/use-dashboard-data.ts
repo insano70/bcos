@@ -19,6 +19,9 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiClient } from '@/lib/api/client';
+import { createClientLogger } from '@/lib/utils/client-logger';
+
+const dashboardLogger = createClientLogger('DashboardData');
 
 /**
  * Dashboard universal filters (Phase 7)
@@ -252,7 +255,7 @@ export function useDashboardData(options: UseDashboardDataOptions): UseDashboard
         });
 
         // Log performance metrics
-        console.log('[useDashboardData] Dashboard loaded', {
+        dashboardLogger.log('Dashboard loaded', {
           dashboardId,
           totalTime,
           cacheHitRate,
@@ -270,9 +273,8 @@ export function useDashboardData(options: UseDashboardDataOptions): UseDashboard
 
         setError(errorMessage);
 
-        console.error('[useDashboardData] Dashboard load failed', {
+        dashboardLogger.error('Dashboard load failed', new Error(errorMessage), {
           dashboardId,
-          error: errorMessage,
           duration: Date.now() - startTime,
         });
       } finally {

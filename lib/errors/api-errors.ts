@@ -44,6 +44,39 @@ export class AuthenticationError extends APIError {
 }
 
 /**
+ * 401 Unauthorized - Session invalid or expired
+ * Use when token validates but session/user context cannot be loaded
+ */
+export class SessionInvalidError extends APIError {
+  public readonly reason: SessionInvalidReason;
+
+  constructor(reason: SessionInvalidReason, message?: string) {
+    const defaultMessages: Record<SessionInvalidReason, string> = {
+      session_not_found: 'Session not found',
+      session_expired: 'Session has expired',
+      user_not_found: 'User account not found',
+      user_inactive: 'User account is inactive',
+      context_load_failed: 'Failed to load user context',
+      token_revoked: 'Token has been revoked',
+    };
+    super(message || defaultMessages[reason], 401);
+    this.name = 'SessionInvalidError';
+    this.reason = reason;
+  }
+}
+
+/**
+ * Reasons why a session can be invalid
+ */
+export type SessionInvalidReason =
+  | 'session_not_found'
+  | 'session_expired'
+  | 'user_not_found'
+  | 'user_inactive'
+  | 'context_load_failed'
+  | 'token_revoked';
+
+/**
  * 403 Forbidden - Insufficient permissions
  */
 export class AuthorizationError extends APIError {

@@ -16,3 +16,4 @@ export * from './dashboard-factory';
 export * from './organization-factory';
 export * from './role-factory';
 export * from './user-factory';
+export * from './work-item-factory';

@@ -105,7 +105,7 @@ export class InMemoryFilterService {
     const outputRowCount = filtered.length;
 
     if (inputRowCount > 0 && outputRowCount === 0) {
-      log.warn('[DEBUG] Advanced filters eliminated ALL rows', {
+      log.debug('Advanced filters eliminated ALL rows', {
         inputRows: inputRowCount,
         outputRows: outputRowCount,
         filterCount: filters.length,
@@ -118,7 +118,7 @@ export class InMemoryFilterService {
         component: 'in-memory-filter-service',
       });
     } else if (filters.length > 0) {
-      log.info('[DEBUG] Advanced filters applied', {
+      log.debug('Advanced filters applied', {
         inputRows: inputRowCount,
         outputRows: outputRowCount,
         filterCount: filters.length,

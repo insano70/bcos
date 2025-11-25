@@ -1,5 +1,6 @@
 import { QUERY_LIMITS } from '@/lib/constants/analytics';
 import { log } from '@/lib/logger';
+import type { RequestScopedCache } from '@/lib/cache/request-scoped-cache';
 import type {
   AnalyticsQueryParams,
   ChartData,
@@ -41,10 +42,15 @@ export abstract class BaseChartHandler implements ChartTypeHandler {
   /**
    * Fetch raw data for this chart type
    * Subclasses can override for custom fetching logic
+   *
+   * @param config - Chart configuration
+   * @param userContext - User context for RBAC
+   * @param requestCache - Optional request-scoped cache for deduplication
    */
   async fetchData(
     config: Record<string, unknown>,
-    userContext: UserContext
+    userContext: UserContext,
+    requestCache?: RequestScopedCache
   ): Promise<{
     data: Record<string, unknown>[];
     cacheHit: boolean;
@@ -61,13 +67,14 @@ export abstract class BaseChartHandler implements ChartTypeHandler {
         dataSourceId: config.dataSourceId,
         userId: userContext.user_id,
         hasDataSourceId: Boolean(config.dataSourceId),
+        hasRequestCache: Boolean(requestCache),
         note: 'Passing UserContext to enable Redis cache path',
       });
 
       // Pass userContext directly to enable Redis cache integration
       // SECURITY: queryMeasures() will build ChartRenderContext internally with proper RBAC
       // Passing UserContext (not ChartRenderContext) enables the Redis cache path
-      const result = await analyticsQueryBuilder.queryMeasures(queryParams, userContext);
+      const result = await analyticsQueryBuilder.queryMeasures(queryParams, userContext, requestCache);
 
       const duration = Date.now() - startTime;
 

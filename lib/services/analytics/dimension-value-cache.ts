@@ -25,6 +25,7 @@ import type { UserContext } from '@/lib/types/rbac';
 import type { DimensionValue } from '@/lib/types/dimensions';
 import { chartConfigService } from '@/lib/services/chart-config-service';
 import { createHash } from 'node:crypto';
+import { TOP_N_DIMENSION_VALUES } from '@/lib/constants/dimension-expansion';
 
 /**
  * Query parameters for dimension value discovery
@@ -48,6 +49,9 @@ export interface DimensionValueResult {
   values: DimensionValue[];
   fromCache: boolean;
   queryTimeMs: number;
+  hasMore?: boolean; // Whether there are more values beyond the returned set
+  otherRecordCount?: number; // Total record count for remaining values (beyond top N)
+  totalUniqueValues?: number; // Total count of unique values before limiting
 }
 
 /**
@@ -55,6 +59,16 @@ export interface DimensionValueResult {
  * Dimensions don't change frequently, so longer TTL is safe
  */
 const DIMENSION_CACHE_TTL = 3600;
+
+/**
+ * Internal result type for query that includes Other metadata
+ */
+interface QueryResultWithMetadata {
+  values: DimensionValue[];
+  hasMore: boolean;
+  otherRecordCount: number;
+  totalUniqueValues: number;
+}
 
 /**
  * Dimension Value Cache Service
@@ -92,45 +106,58 @@ export class DimensionValueCacheService {
       if (cached) {
         const duration = Date.now() - startTime;
 
+        // Check if cached data has "Other" entry to determine hasMore
+        const hasOtherInCache = cached.values.some((v) => v.isOther === true);
+
         log.info('Dimension values served from cache', {
           dataSourceId: params.dataSourceId,
           dimensionColumn: params.dimensionColumn,
-          valueCount: cached.length,
+          valueCount: cached.values.length,
           cacheHit: true,
+          hasMore: cached.hasMore,
           duration,
           userId: userContext.user_id,
           component: 'dimension-value-cache',
         });
 
         return {
-          values: cached,
+          values: cached.values,
           fromCache: true,
           queryTimeMs: duration,
+          hasMore: cached.hasMore ?? hasOtherInCache,
+          otherRecordCount: cached.otherRecordCount,
+          totalUniqueValues: cached.totalUniqueValues,
         };
       }
 
       // Cache miss - query database with optimized DISTINCT
-      const values = await this.queryDimensionValues(params, userContext);
+      const queryResult = await this.queryDimensionValues(params, userContext);
 
-      // Cache the results
-      await this.cacheValues(cacheKey, values);
+      // Cache the full results including metadata
+      await this.cacheValues(cacheKey, queryResult);
 
       const duration = Date.now() - startTime;
 
       log.info('Dimension values queried and cached', {
         dataSourceId: params.dataSourceId,
         dimensionColumn: params.dimensionColumn,
-        valueCount: values.length,
+        valueCount: queryResult.values.length,
         cacheHit: false,
+        hasMore: queryResult.hasMore,
+        otherRecordCount: queryResult.otherRecordCount,
+        totalUniqueValues: queryResult.totalUniqueValues,
         duration,
         userId: userContext.user_id,
         component: 'dimension-value-cache',
       });
 
       return {
-        values,
+        values: queryResult.values,
         fromCache: false,
         queryTimeMs: duration,
+        hasMore: queryResult.hasMore,
+        otherRecordCount: queryResult.otherRecordCount,
+        totalUniqueValues: queryResult.totalUniqueValues,
       };
     } catch (error) {
       log.error('Failed to get dimension values', error as Error, {
@@ -150,14 +177,17 @@ export class DimensionValueCacheService {
    * The cache contains pre-populated analytics data with proper indexing.
    * We fetch from cache and extract unique values in-memory.
    *
+   * Returns top N values by record count, with remaining values aggregated
+   * into an "Other" category for cleaner UI presentation.
+   *
    * @param params - Query parameters
    * @param userContext - User context for RBAC
-   * @returns Dimension values with record counts
+   * @returns Dimension values with record counts and metadata (top N + optional "Other")
    */
   private async queryDimensionValues(
     params: DimensionValueQueryParams,
     userContext: UserContext
-  ): Promise<DimensionValue[]> {
+  ): Promise<QueryResultWithMetadata> {
     const {
       dataSourceId,
       dimensionColumn,
@@ -227,16 +257,18 @@ export class DimensionValueCacheService {
       }
     }
 
+    const totalUniqueValues = valueCountMap.size;
+
     log.info('Unique dimension values extracted', {
       dataSourceId,
       dimensionColumn,
       totalRows: cacheResult.rows.length,
-      uniqueValues: valueCountMap.size,
+      uniqueValues: totalUniqueValues,
       component: 'dimension-value-cache',
     });
 
-    // Convert to sorted array
-    const sortedValues = Array.from(valueCountMap.entries())
+    // Convert to sorted array (all values, sorted by record count DESC)
+    const allSortedValues = Array.from(valueCountMap.entries())
       .sort((a, b) => {
         // Sort by record count DESC, then by value ASC
         if (b[1] !== a[1]) {
@@ -247,17 +279,54 @@ export class DimensionValueCacheService {
           return a[0].localeCompare(b[0]);
         }
         return String(a[0]).localeCompare(String(b[0]));
-      })
-      .slice(0, limit); // Apply limit after sorting
+      });
 
-    // Transform to DimensionValue format
-    const values: DimensionValue[] = sortedValues.map(([value, recordCount]) => ({
+    // Determine effective limit: use TOP_N_DIMENSION_VALUES for "Other" grouping
+    // but respect the requested limit if it's higher (e.g., for "Load More" requests)
+    const effectiveLimit = Math.min(limit, Math.max(TOP_N_DIMENSION_VALUES, limit));
+    
+    // Take top N values
+    const topNValues = allSortedValues.slice(0, effectiveLimit);
+    
+    // Calculate "Other" aggregate for remaining values
+    const remainingValues = allSortedValues.slice(effectiveLimit);
+    const hasMore = remainingValues.length > 0;
+    const otherRecordCount = remainingValues.reduce((sum, [, count]) => sum + count, 0);
+
+    // Transform top N to DimensionValue format
+    const values: DimensionValue[] = topNValues.map(([value, recordCount]) => ({
       value: value as string | number,
       label: String(value),
       recordCount,
     }));
 
-    return values;
+    // Add "Other" entry if there are remaining values
+    if (hasMore && otherRecordCount > 0) {
+      values.push({
+        value: '__OTHER__',
+        label: `Other (${remainingValues.length} more)`,
+        recordCount: otherRecordCount,
+        isOther: true,
+      });
+    }
+
+    log.info('Dimension values processed with Other aggregation', {
+      dataSourceId,
+      dimensionColumn,
+      totalUniqueValues,
+      topNReturned: topNValues.length,
+      hasOther: hasMore,
+      otherCount: remainingValues.length,
+      otherRecordCount,
+      component: 'dimension-value-cache',
+    });
+
+    return {
+      values,
+      hasMore,
+      otherRecordCount,
+      totalUniqueValues,
+    };
   }
 
   /**
@@ -291,9 +360,9 @@ export class DimensionValueCacheService {
    * Get cached dimension values from Redis
    *
    * @param cacheKey - Cache key
-   * @returns Cached values or null
+   * @returns Cached result with metadata or null
    */
-  private async getCachedValues(cacheKey: string): Promise<DimensionValue[] | null> {
+  private async getCachedValues(cacheKey: string): Promise<QueryResultWithMetadata | null> {
     try {
       const redis = getRedisClient();
       if (!redis) {
@@ -306,7 +375,7 @@ export class DimensionValueCacheService {
         return null;
       }
 
-      const parsed = JSON.parse(cached) as DimensionValue[];
+      const parsed = JSON.parse(cached) as QueryResultWithMetadata;
       return parsed;
     } catch (error) {
       log.error('Failed to get cached dimension values', error as Error, {
@@ -321,20 +390,21 @@ export class DimensionValueCacheService {
    * Cache dimension values in Redis
    *
    * @param cacheKey - Cache key
-   * @param values - Dimension values to cache
+   * @param result - Query result with metadata to cache
    */
-  private async cacheValues(cacheKey: string, values: DimensionValue[]): Promise<void> {
+  private async cacheValues(cacheKey: string, result: QueryResultWithMetadata): Promise<void> {
     try {
       const redis = getRedisClient();
       if (!redis) {
         return;
       }
 
-      await redis.setex(cacheKey, DIMENSION_CACHE_TTL, JSON.stringify(values));
+      await redis.setex(cacheKey, DIMENSION_CACHE_TTL, JSON.stringify(result));
 
       log.debug('Dimension values cached', {
         cacheKey,
-        valueCount: values.length,
+        valueCount: result.values.length,
+        hasMore: result.hasMore,
         ttl: DIMENSION_CACHE_TTL,
         component: 'dimension-value-cache',
       });

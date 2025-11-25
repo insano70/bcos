@@ -49,6 +49,7 @@ export interface DimensionValue {
   value: string | number; // Actual value from data (e.g., "downtown_clinic" or 100)
   label: string; // Display label for UI (e.g., "Downtown Clinic")
   recordCount?: number; // Number of records with this value (optional, for UI display)
+  isOther?: boolean; // True if this is the aggregated "Other" category (remaining values beyond top N)
 }
 
 /**
@@ -61,6 +62,9 @@ export interface DimensionValueCombination {
   values: Record<string, string | number>; // Map of columnName to value
   label: string; // Display label composed from all dimension labels
   recordCount?: number; // Optional record count (populated after query)
+  isOther?: boolean; // True if any dimension in this combination is "Other"
+  otherDimensions?: string[]; // Dimension columns where value is "Other"
+  excludeValues?: Record<string, Array<string | number>>; // Values to exclude for "Other" (NOT IN filter)
 }
 
 /**
@@ -104,6 +108,51 @@ export interface DimensionValuesResponse {
   dimension: ExpansionDimension;
   totalValues: number; // Total unique values (may be > values.length if limited)
   filtered: boolean; // Whether values are filtered by user's RBAC
+  hasMore?: boolean; // Whether there are more values beyond the returned set
+  otherRecordCount?: number; // Record count for remaining values not in top N (for "Other" category)
+}
+
+/**
+ * Chart configuration for dimension expansion
+ * Contains the chart's data source and rendering configuration
+ * 
+ * Note: Properties are optional to maintain backward compatibility
+ * with existing code passing Record<string, unknown>
+ */
+export interface DimensionExpansionChartConfig {
+  /** Data source ID for the chart */
+  dataSourceId?: number;
+  /** Chart type (bar, line, pie, etc.) */
+  chartType?: string;
+  /** Optional group by column */
+  groupBy?: string;
+  /** Color palette name */
+  colorPalette?: string;
+  /** Stacking mode for bar/area charts */
+  stackingMode?: 'normal' | 'stacked' | 'percentage';
+  /** Allow additional properties for flexibility */
+  [key: string]: unknown;
+}
+
+/**
+ * Runtime filters for dimension expansion
+ * Contains the current filter state for the chart
+ */
+export interface DimensionExpansionFilters {
+  /** Start date for date range filter (ISO format) */
+  startDate?: string;
+  /** End date for date range filter (ISO format) */
+  endDate?: string;
+  /** Practice UIDs for filtering */
+  practiceUids?: number[];
+  /** Measure for measure-based data sources */
+  measure?: string;
+  /** Frequency/time period for measure-based data sources */
+  frequency?: string;
+  /** Advanced filters (field-level filtering) */
+  advancedFilters?: import('./analytics').ChartFilter[];
+  /** Allow additional properties for flexibility */
+  [key: string]: unknown;
 }
 
 /**
@@ -113,8 +162,8 @@ export interface DimensionValuesResponse {
  * of multiple dimension values (e.g., Location × Line of Business)
  */
 export interface MultiDimensionExpansionRequest {
-  finalChartConfig: Record<string, unknown>;
-  runtimeFilters: Record<string, unknown>;
+  finalChartConfig: DimensionExpansionChartConfig;
+  runtimeFilters: DimensionExpansionFilters;
   dimensionColumns: string[]; // Array of dimension column names
   limit?: number;
   offset?: number; // Pagination offset (default: 0)

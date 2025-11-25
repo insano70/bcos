@@ -398,15 +398,27 @@ export class DimensionDiscoveryService {
         })
       );
 
+      // Filter out dimensions with <= 1 value (can't meaningfully expand with only 0 or 1 value)
+      // A dimension needs at least 2 unique values to enable comparison
+      const expandableDimensions = dimensionsWithCounts.filter((d) => {
+        const count = d.valueCount ?? 0;
+        return count > 1;
+      });
+
+      const filteredOutCount = dimensionsWithCounts.length - expandableDimensions.length;
+
       const duration = Date.now() - startTime;
 
       log.info('Chart expansion dimensions fetched with value counts', {
         chartDefinitionId,
         dataSourceId: baseResult.dataSourceId,
-        dimensionCount: dimensionsWithCounts.length,
+        totalDimensions: dimensionsWithCounts.length,
+        expandableDimensions: expandableDimensions.length,
+        filteredOut: filteredOutCount,
         valueCounts: dimensionsWithCounts.map((d) => ({
           column: d.columnName,
           count: d.valueCount,
+          expandable: (d.valueCount ?? 0) > 1,
         })),
         userId: userContext.user_id,
         duration,
@@ -415,7 +427,7 @@ export class DimensionDiscoveryService {
 
       return {
         ...baseResult,
-        dimensions: dimensionsWithCounts,
+        dimensions: expandableDimensions,
       };
     } catch (error) {
       log.error('Failed to get chart expansion dimensions with counts', error as Error, {

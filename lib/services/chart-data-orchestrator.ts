@@ -1,4 +1,5 @@
 import { log } from '@/lib/logger';
+import type { RequestScopedCache } from '@/lib/cache/request-scoped-cache';
 import type { ChartData } from '@/lib/types/analytics';
 import type { UserContext } from '@/lib/types/rbac';
 import { chartTypeRegistry } from './chart-type-registry';
@@ -135,10 +136,15 @@ class ChartDataOrchestrator {
   /**
    * Main orchestration method
    * Routes request to appropriate handler and returns transformed data
+   *
+   * @param request - Chart data request
+   * @param userContext - User context for RBAC
+   * @param requestCache - Optional request-scoped cache for data deduplication
    */
   async orchestrate(
     request: UniversalChartDataRequest,
-    userContext: UserContext
+    userContext: UserContext,
+    requestCache?: RequestScopedCache
   ): Promise<OrchestrationResult> {
     const startTime = Date.now();
 
@@ -205,7 +211,7 @@ class ChartDataOrchestrator {
       const fetchStartTime = Date.now();
 
       const fetchResult = await withTimeout(
-        handler.fetchData(mergedConfig, userContext),
+        handler.fetchData(mergedConfig, userContext, requestCache),
         CHART_FETCH_TIMEOUT_MS,
         `Chart data fetch for type: ${chartConfig.chartType}`
       );

@@ -4,6 +4,7 @@ import { log } from '@/lib/logger';
 import type { UserContext } from '@/lib/types/rbac';
 import { requireAuth } from './auth';
 import { applyRateLimit } from './rate-limit';
+import { AuthenticationError } from '../responses/error';
 
 /**
  * Global API Authentication Middleware
@@ -118,15 +119,15 @@ export async function applyGlobalAuth(request: NextRequest): Promise<AuthResult 
   }
 
   if (!hasAuth) {
-    log.warn('API authentication failed - no valid auth method', {
+    log.security('api_no_auth_credentials', 'low', {
       pathname,
-      path: pathname,
       method,
       hasAuthHeader: !!authHeader,
       hasCookieHeader: !!cookieHeader,
       cookieContainsToken: cookieHeader?.includes('access-token=') || false,
+      action: 'returning_401',
     });
-    throw new Error(`Authentication required for ${pathname}: Access token required`);
+    throw AuthenticationError('Access token required');
   }
 
   // Validate authentication (requireAuth handles both Authorization headers and cookies)
@@ -134,20 +135,37 @@ export async function applyGlobalAuth(request: NextRequest): Promise<AuthResult 
     const authResult = await requireAuth(request);
     return authResult;
   } catch (error) {
-    log.error(
-      'API authentication failed',
-      error instanceof Error ? error : new Error(String(error)),
-      {
+    // Log authentication failure with appropriate severity
+    // AuthenticationError from requireAuth indicates auth failure (should be 401)
+    const isAuthError = error instanceof Error &&
+      (error.name === 'APIError' || error.message.includes('token') ||
+       error.message.includes('session') || error.message.includes('User'));
+
+    if (isAuthError) {
+      log.security('api_auth_failed', 'medium', {
         pathname,
-        path: pathname,
         method,
         authMethod,
-        errorType: error instanceof Error ? error.constructor.name : typeof error,
-      }
-    );
-    throw new Error(
-      `Authentication required for ${pathname}: ${error instanceof Error ? error.message : 'Unknown error'}`
-    );
+        errorMessage: error instanceof Error ? error.message : 'Unknown error',
+        action: 'returning_401',
+      });
+    } else {
+      log.error(
+        'API authentication failed with unexpected error',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          pathname,
+          path: pathname,
+          method,
+          authMethod,
+          errorType: error instanceof Error ? error.constructor.name : typeof error,
+        }
+      );
+    }
+
+    // Re-throw the error - it will be caught by route handlers
+    // AuthenticationError from requireAuth will result in 401
+    throw error;
   }
 }
 

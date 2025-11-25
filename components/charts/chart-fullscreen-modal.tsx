@@ -19,6 +19,10 @@ import { createPortal } from 'react-dom';
 import { useTheme } from 'next-themes';
 import type { Chart, ChartTypeRegistry } from 'chart.js';
 import type { ChartData } from '@/lib/types/analytics';
+import type {
+  DimensionExpansionChartConfig,
+  DimensionExpansionFilters,
+} from '@/lib/types/dimensions';
 import { useChartFullscreen } from '@/hooks/useChartFullscreen';
 import { useDimensionExpansion } from '@/hooks/useDimensionExpansion';
 import { useChartInstance } from '@/hooks/useChartInstance';
@@ -29,7 +33,7 @@ import {
 } from '@/lib/utils/chart-fullscreen-config';
 import { createPeriodComparisonHtmlLegend } from '@/lib/utils/period-comparison-legend';
 import ChartLegend from './ChartLegend';
-import DimensionSelector from './dimension-selector';
+import { DimensionCheckboxes } from './dimension-checkboxes';
 import DimensionComparisonView from './dimension-comparison-view';
 import 'chartjs-adapter-moment';
 
@@ -46,8 +50,8 @@ interface ChartFullscreenModalProps {
   stackingMode?: StackingMode;
   chartDefinitionId?: string;
   // For dimension expansion: configs from batch API
-  finalChartConfig?: Record<string, unknown>;
-  runtimeFilters?: Record<string, unknown>;
+  finalChartConfig?: DimensionExpansionChartConfig;
+  runtimeFilters?: DimensionExpansionFilters;
 }
 
 /**
@@ -148,76 +152,61 @@ export default function ChartFullscreenModal({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <header className="px-5 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between flex-shrink-0">
-          <h2
-            id={chartTitleId}
-            className="font-semibold text-gray-800 dark:text-gray-100 text-lg"
-          >
-            {chartTitle}
-          </h2>
-          <div className="flex items-center gap-2">
-            {/* Dimensions button - always available if dimensions exist */}
-            {dimension.availableDimensions.length > 0 && dimension.canExpand && (
-              <button
-                type="button"
-                onClick={dimension.expandByDimension}
-                disabled={dimension.loading || !dimension.canExpand}
-                className={`px-3 py-1.5 text-sm rounded-md transition-colors disabled:opacity-50 ${
-                  dimension.expandedData
-                    ? 'bg-violet-600 text-white hover:bg-violet-700'
-                    : 'bg-violet-100 dark:bg-violet-900 hover:bg-violet-200 dark:hover:bg-violet-800 text-violet-700 dark:text-violet-200'
-                }`}
-                aria-label={dimension.expandedData ? 'Edit dimensions' : 'Expand by dimension'}
-              >
-                {dimension.loading ? 'Loading...' : dimension.expandedData ? 'Dimensions' : 'Expand by Dimension'}
-              </button>
-            )}
-
-            {/* Reset Zoom button (only show when not in dimension view) */}
-            {!dimension.expandedData && (
-              <button
-                type="button"
-                onClick={resetZoom}
-                className="px-3 py-1.5 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-md transition-colors"
-                aria-label="Reset zoom level"
-              >
-                Reset Zoom
-              </button>
-            )}
-
-            {/* Close button */}
-            <button
-              type="button"
-              onClick={onClose}
-              className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-              aria-label="Close fullscreen view"
+        <header className="px-5 py-4 border-b border-gray-200 dark:border-gray-700 flex flex-col gap-3 flex-shrink-0">
+          {/* Title row */}
+          <div className="flex items-center justify-between">
+            <h2
+              id={chartTitleId}
+              className="font-semibold text-gray-800 dark:text-gray-100 text-lg"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
+              {chartTitle}
+            </h2>
+            <div className="flex items-center gap-2">
+              {/* Reset Zoom button (only show when not in dimension view) */}
+              {!dimension.expandedData && (
+                <button
+                  type="button"
+                  onClick={resetZoom}
+                  className="px-3 py-1.5 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-md transition-colors"
+                  aria-label="Reset zoom level"
+                >
+                  Reset Zoom
+                </button>
+              )}
+
+              {/* Close button */}
+              <button
+                type="button"
+                onClick={onClose}
+                className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                aria-label="Close fullscreen view"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
           </div>
+
+          {/* Dimension checkboxes row - inline, no modal */}
+          {dimension.canExpand && (
+            <DimensionCheckboxes
+              availableDimensions={dimension.availableDimensions}
+              selectedColumns={dimension.selectedDimensionColumns}
+              onApply={dimension.selectDimensionsByColumns}
+              isLoading={dimension.loading}
+              isDimensionsLoading={dimension.dimensionsLoading}
+            />
+          )}
         </header>
 
         {/* Chart Content */}
         <div className="flex-1 p-6 overflow-auto">
-          {/* Show dimension selector if active */}
-          {dimension.showSelector && dimension.availableDimensions.length > 0 && (
-            <div className="max-w-2xl mx-auto">
-              <DimensionSelector
-                availableDimensions={dimension.availableDimensions}
-                onSelect={dimension.selectDimensions}
-                onCancel={() => dimension.setShowSelector(false)}
-                initialSelectedColumns={dimension.selectedDimensionColumns}
-              />
-            </div>
-          )}
-
           {/* Dimension error message */}
           {dimension.error && (
             <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/30 dark:text-red-200">
@@ -225,27 +214,32 @@ export default function ChartFullscreenModal({
             </div>
           )}
 
-          {/* Show dimension comparison view if expanded */}
-          {dimension.expandedData?.dimensions && !dimension.showSelector && (
+          {/* Show dimension comparison view if expanded or loading */}
+          {(dimension.expandedData?.dimensions || dimension.loading) && (
             <DimensionComparisonView
-              dimensions={dimension.expandedData.dimensions}
+              dimensions={dimension.expandedData?.dimensions || []}
               chartDefinition={{
                 chart_definition_id: chartDefinitionId || '',
                 chart_name: chartTitle,
                 chart_type: chartType,
                 ...(finalChartConfig && { chart_config: finalChartConfig }),
               }}
-              dimensionCharts={dimension.expandedData.charts}
+              dimensionCharts={dimension.expandedData?.charts || []}
               position={{ x: 0, y: 0, w: 12, h: 6 }}
               availableDimensions={dimension.availableDimensions}
               selectedDimensionColumns={dimension.selectedDimensionColumns}
               onApplyDimensions={dimension.selectDimensions}
               isApplying={dimension.loading}
+              hasMoreFromServer={dimension.hasMore}
+              onLoadMore={dimension.loadMore}
+              isLoadingMore={dimension.loadingMore}
+              isLoading={dimension.loading}
+              totalCombinations={dimension.expandedData?.metadata?.totalCombinations}
             />
           )}
 
           {/* Show normal chart if not in dimension mode */}
-          {!dimension.showSelector && !dimension.expandedData && (
+          {!dimension.expandedData && (
             <>
               <div className="w-full h-[calc(90vh-200px)] min-h-[400px]">
                 <canvas ref={canvasRef} />

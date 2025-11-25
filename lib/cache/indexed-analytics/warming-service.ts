@@ -130,29 +130,58 @@ export class CacheWarmingService {
         FROM ${schemaName}.${tableName}
       `;
 
-      log.debug('Executing cache warming query', {
+      log.info('Executing cache warming query', {
         datasourceId,
         schema: schemaName,
         table: tableName,
         columnMapping,
+        timePeriodField: columnMapping.timePeriodField,
         component: 'warming-service',
       });
 
       const allRows = await executeAnalyticsQuery(query, []);
 
+      // Check for unusually large rows that could cause memory issues
+      const sampleRowSizes = allRows.slice(0, 100).map(row => JSON.stringify(row).length);
+      const avgRowSize = sampleRowSizes.reduce((a, b) => a + b, 0) / sampleRowSizes.length;
+      const maxRowSize = Math.max(...sampleRowSizes);
+      const estimatedTotalSizeMB = Math.round((avgRowSize * allRows.length) / 1024 / 1024);
+
       log.info('Cache warming query completed', {
         datasourceId,
         totalRows: allRows.length,
+        avgRowSizeBytes: Math.round(avgRowSize),
+        maxRowSizeBytes: maxRowSize,
+        estimatedTotalSizeMB,
         component: 'warming-service',
       });
 
       // Group by unique combination
       const grouped = this.groupDataByKey(allRows, datasourceId, columnMapping);
 
+      // Analyze group sizes to detect potential issues
+      const groupSizes = Array.from(grouped.values()).map(rows => rows.length);
+      const maxGroupSize = Math.max(...groupSizes);
+      const avgGroupSize = Math.round(groupSizes.reduce((a, b) => a + b, 0) / groupSizes.length);
+      const largeGroups = groupSizes.filter(size => size > 10000).length;
+      
+      // Find the largest groups for debugging
+      const sortedGroups = Array.from(grouped.entries())
+        .sort((a, b) => b[1].length - a[1].length)
+        .slice(0, 5);
+      
       log.info('Data grouped for caching', {
         datasourceId,
         uniqueCombinations: grouped.size,
         validRows: allRows.length,
+        maxGroupSize,
+        avgGroupSize,
+        largeGroups,
+        top5LargestGroups: sortedGroups.map(([key, rows]) => ({
+          key,
+          rowCount: rows.length,
+          estimatedSizeMB: Math.round(JSON.stringify(rows.slice(0, 10)).length * rows.length / 10 / 1024 / 1024),
+        })),
         component: 'warming-service',
       });
 
@@ -274,12 +303,23 @@ export class CacheWarmingService {
     }
 
     if (skippedRows > 0) {
-      log.warn('Skipped rows with missing required fields', {
+      log.warn('Skipped rows with missing required fields during grouping', {
         datasourceId,
         skippedRows,
+        totalRows: rows.length,
+        percentSkipped: Math.round((skippedRows / rows.length) * 100),
         component: 'warming-service',
       });
     }
+
+    // Log sample keys to help debug grouping issues
+    const sampleKeys = Array.from(grouped.keys()).slice(0, 5);
+    log.debug('Sample cache keys generated', {
+      datasourceId,
+      sampleKeys,
+      uniqueKeys: grouped.size,
+      component: 'warming-service',
+    });
 
     return grouped;
   }
@@ -292,16 +332,20 @@ export class CacheWarmingService {
    * @param datasourceId - Data source ID
    * @returns Number of entries cached
    */
+  // Maximum size for a single cache entry (100MB to stay well under JS string limit)
+  private readonly MAX_ENTRY_SIZE_BYTES = 100 * 1024 * 1024;
+
   private async writeBatchesToShadow(
     grouped: Map<string, Record<string, unknown>[]>,
     datasourceId: number
   ): Promise<number> {
     let entriesCached = 0;
+    let entriesSkipped = 0;
     const batchSize = this.client.getBatchSize();
     let pipeline = this.client.createPipeline();
 
     if (!pipeline) {
-      log.error('Failed to create Redis pipeline', {
+      log.error('Failed to create Redis pipeline', new Error('Pipeline creation returned null'), {
         datasourceId,
         component: 'warming-service',
       });
@@ -340,10 +384,40 @@ export class CacheWarmingService {
       const productionCacheKey = KeyGenerator.getCacheKey(entry); // What the key will be called after RENAME
       const shadowIndexKeys = KeyGenerator.getShadowIndexKeys(entry);
 
+      // Serialize data and check size to prevent RangeError: Invalid string length
+      let serializedData: string;
+      try {
+        serializedData = JSON.stringify(rows);
+      } catch (serializeError) {
+        log.error('Failed to serialize cache entry - skipping', serializeError instanceof Error ? serializeError : new Error(String(serializeError)), {
+          datasourceId,
+          key,
+          rowCount: rows.length,
+          component: 'warming-service',
+        });
+        entriesSkipped++;
+        continue;
+      }
+
+      // Skip entries that are too large (prevent memory issues)
+      if (serializedData.length > this.MAX_ENTRY_SIZE_BYTES) {
+        log.warn('Cache entry too large - skipping', {
+          datasourceId,
+          key,
+          rowCount: rows.length,
+          sizeBytes: serializedData.length,
+          sizeMB: Math.round(serializedData.length / 1024 / 1024),
+          maxSizeMB: Math.round(this.MAX_ENTRY_SIZE_BYTES / 1024 / 1024),
+          component: 'warming-service',
+        });
+        entriesSkipped++;
+        continue;
+      }
+
       // Store data to shadow key WITHOUT TTL
       // CRITICAL: Shadow keys must not expire before swap completes
       // TTL will be applied to production keys after atomic RENAME
-      pipeline.set(shadowCacheKey, JSON.stringify(rows));
+      pipeline.set(shadowCacheKey, serializedData);
 
       // Add PRODUCTION key names to shadow indexes
       // CRITICAL: Index must reference the FINAL key name (after RENAME), not the shadow name
@@ -360,7 +434,7 @@ export class CacheWarmingService {
         const result = await this.client.executePipeline(pipeline);
 
         if (!result.success) {
-          log.error('Redis pipeline errors during shadow key warming', {
+          log.error('Redis pipeline errors during shadow key warming', new Error(`Pipeline failed with ${result.errorCount} errors`), {
             datasourceId,
             errorCount: result.errorCount,
             component: 'warming-service',
@@ -388,13 +462,25 @@ export class CacheWarmingService {
       const result = await this.client.executePipeline(pipeline);
 
       if (!result.success) {
-        log.error('Redis pipeline errors during final shadow key batch', {
+        log.error('Redis pipeline errors during final shadow key batch', new Error(`Pipeline failed with ${result.errorCount} errors`), {
           datasourceId,
           errorCount: result.errorCount,
           component: 'warming-service',
         });
         throw new Error(`Redis pipeline failed with ${result.errorCount} errors`);
       }
+    }
+
+    // Log summary if entries were skipped
+    if (entriesSkipped > 0) {
+      log.warn('Some cache entries were skipped due to size limits', {
+        datasourceId,
+        entriesCached,
+        entriesSkipped,
+        totalEntries: grouped.size,
+        maxEntrySizeMB: Math.round(this.MAX_ENTRY_SIZE_BYTES / 1024 / 1024),
+        component: 'warming-service',
+      });
     }
 
     return entriesCached;

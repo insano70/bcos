@@ -1,4 +1,5 @@
 import { log } from '@/lib/logger';
+import type { RequestScopedCache } from '@/lib/cache/request-scoped-cache';
 import { createRBACDataSourceColumnsService } from '@/lib/services/rbac-data-source-columns-service';
 import type { ChartData } from '@/lib/types/analytics';
 import type { UserContext } from '@/lib/types/rbac';
@@ -66,11 +67,13 @@ export class TableChartHandler extends BaseChartHandler {
    *
    * @param config - Chart configuration (will be mutated with columns)
    * @param userContext - User context for RBAC
+   * @param requestCache - Optional request-scoped cache for deduplication
    * @returns Row data (columns available via config.columns)
    */
   async fetchData(
     config: Record<string, unknown>,
-    userContext: UserContext
+    userContext: UserContext,
+    requestCache?: RequestScopedCache
   ): Promise<{
     data: Record<string, unknown>[];
     cacheHit: boolean;
@@ -99,8 +102,8 @@ export class TableChartHandler extends BaseChartHandler {
       iconMapping: col.icon_mapping,
     }));
 
-    // Fetch row data using base method
-    return super.fetchData(config, userContext);
+    // Fetch row data using base method (with request-scoped cache)
+    return super.fetchData(config, userContext, requestCache);
   }
 
   /**

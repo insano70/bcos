@@ -3,7 +3,7 @@
  * Provides reusable query patterns for work items operations
  */
 
-import { eq } from 'drizzle-orm';
+import { aliasedTable, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import {
   organizations,
@@ -12,6 +12,14 @@ import {
   work_item_types,
   work_items,
 } from '@/lib/db/schema';
+
+/**
+ * Aliased users table for creator (separate from assignee)
+ * Required because work_items has two foreign keys to users table:
+ * - assigned_to -> users (assignee)
+ * - created_by -> users (creator)
+ */
+const creatorUsers = aliasedTable(users, 'creator_users');
 
 /**
  * Raw database result from work items query
@@ -50,6 +58,10 @@ export interface WorkItemQueryResult {
  * Get the common SELECT fields for work items queries
  * This is used across getWorkItems, getWorkItemById, getWorkItemChildren, getWorkItemAncestors
  * Reduces duplication of 25+ field definitions
+ *
+ * Note: Uses two separate user table references:
+ * - `users` for assigned_to (assignee)
+ * - `creatorUsers` for created_by (creator)
  */
 export function getWorkItemSelectFields() {
   return {
@@ -75,8 +87,8 @@ export function getWorkItemSelectFields() {
     depth: work_items.depth,
     path: work_items.path,
     created_by: work_items.created_by,
-    created_by_first_name: users.first_name,
-    created_by_last_name: users.last_name,
+    created_by_first_name: creatorUsers.first_name,
+    created_by_last_name: creatorUsers.last_name,
     created_at: work_items.created_at,
     updated_at: work_items.updated_at,
   };
@@ -85,6 +97,13 @@ export function getWorkItemSelectFields() {
 /**
  * Get the common query builder with all necessary joins
  * Returns a query builder that can be further filtered with .where()
+ *
+ * Joins:
+ * - work_item_types: Get type name
+ * - organizations: Get organization name
+ * - work_item_statuses: Get status name and category
+ * - users (as users): Get assignee name (assigned_to)
+ * - users (as creatorUsers): Get creator name (created_by)
  */
 export function getWorkItemQueryBuilder() {
   return db
@@ -93,5 +112,6 @@ export function getWorkItemQueryBuilder() {
     .leftJoin(work_item_types, eq(work_items.work_item_type_id, work_item_types.work_item_type_id))
     .leftJoin(organizations, eq(work_items.organization_id, organizations.organization_id))
     .leftJoin(work_item_statuses, eq(work_items.status_id, work_item_statuses.work_item_status_id))
-    .leftJoin(users, eq(work_items.assigned_to, users.user_id));
+    .leftJoin(users, eq(work_items.assigned_to, users.user_id))
+    .leftJoin(creatorUsers, eq(work_items.created_by, creatorUsers.user_id));
 }

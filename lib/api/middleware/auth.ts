@@ -1,17 +1,37 @@
 import { validateAccessToken } from '@/lib/auth/tokens';
 import { authCache } from '@/lib/cache';
 import { log } from '@/lib/logger';
-import { getUserContextSafe } from '@/lib/rbac/user-context';
+import { getUserContextOrThrow, UserContextAuthError } from '@/lib/rbac/user-context';
+import type { UserContext } from '@/lib/types/rbac';
 import { AuthenticationError, AuthorizationError } from '../responses/error';
 
+/**
+ * Require authentication for API routes
+ *
+ * Validates access token and loads user context with RBAC information.
+ * All authentication failures throw AuthenticationError (maps to 401).
+ *
+ * SECURITY:
+ * - Token validation failures → 401
+ * - User not found → 401
+ * - User inactive → 401
+ * - User context load failure → 401
+ * - Only database/server errors should result in 500
+ *
+ * @param request - The incoming request
+ * @returns Session object with user info and RBAC context
+ * @throws AuthenticationError for all auth-related failures (401)
+ */
 export async function requireAuth(request: Request) {
   // Extract access token from Authorization header OR httpOnly cookie
   const authHeader = request.headers.get('Authorization');
   let accessToken: string | null = null;
+  let tokenSource: 'header' | 'cookie' | null = null;
 
   if (authHeader?.startsWith('Bearer ')) {
     // Use Authorization header if present (for API clients)
     accessToken = authHeader.slice(7);
+    tokenSource = 'header';
   } else {
     // Fallback to httpOnly cookie (for browser requests)
     const cookieHeader = request.headers.get('Cookie');
@@ -23,35 +43,87 @@ export async function requireAuth(request: Request) {
 
       if (accessTokenCookie) {
         accessToken = accessTokenCookie;
+        tokenSource = 'cookie';
         log.debug('Using access token from httpOnly cookie', { component: 'auth' });
       }
     }
   }
 
   if (!accessToken) {
+    log.security('auth_no_token', 'low', {
+      tokenSource,
+      hasAuthHeader: !!authHeader,
+      action: 'rejecting_request',
+    });
     throw AuthenticationError('Access token required');
   }
 
   // Validate access token
   const payload = await validateAccessToken(accessToken);
   if (!payload) {
+    log.security('auth_invalid_token', 'medium', {
+      tokenSource,
+      action: 'rejecting_request',
+    });
     throw AuthenticationError('Invalid or expired access token');
   }
 
   const userId = payload.sub as string;
+  const sessionId = payload.session_id as string;
 
   // Get user info from cache or database
   const user = await authCache.getUser(userId);
 
-  if (!user || !user.is_active) {
+  if (!user) {
+    log.security('auth_user_not_found', 'medium', {
+      userId,
+      sessionId,
+      action: 'rejecting_request',
+    });
+    throw AuthenticationError('User account not found');
+  }
+
+  if (!user.is_active) {
+    log.security('auth_user_inactive', 'medium', {
+      userId,
+      sessionId,
+      action: 'rejecting_request',
+    });
     throw AuthenticationError('User account is inactive');
   }
 
-  // Get user's RBAC context
-  const userContext = await getUserContextSafe(user.user_id);
+  // Get user's RBAC context - use throwing version to properly handle auth errors
+  let userContext: UserContext;
+  try {
+    userContext = await getUserContextOrThrow(user.user_id);
+  } catch (error) {
+    // UserContextAuthError means auth failure (user not found, inactive, etc.)
+    if (error instanceof UserContextAuthError) {
+      log.security('auth_context_load_failed', 'medium', {
+        userId,
+        sessionId,
+        reason: error.reason,
+        action: 'rejecting_request',
+      });
+      throw AuthenticationError(`Session invalid: ${error.message}`);
+    }
+
+    // Other errors are server errors - log but still return 401 to client
+    // We don't want to expose internal errors, and the user should re-authenticate
+    log.error('User context load failed with server error', error instanceof Error ? error : new Error(String(error)), {
+      userId,
+      sessionId,
+      operation: 'requireAuth',
+      component: 'auth',
+    });
+
+    // Still throw auth error to trigger login redirect
+    // Better UX than showing 500 error
+    throw AuthenticationError('Unable to verify session - please sign in again');
+  }
 
   // Get the user's actual assigned roles
-  const userRoles = userContext?.roles?.map((r) => r.name) || [];
+  const userRoles = userContext.roles?.map((r) => r.name) || [];
   const primaryRole = userRoles.length > 0 ? userRoles[0] : 'user';
 
   // Return session-like object with actual RBAC information
@@ -64,14 +136,14 @@ export async function requireAuth(request: Request) {
       lastName: user.last_name,
       role: primaryRole, // First assigned role, or 'user' if none
       emailVerified: user.email_verified,
-      practiceId: userContext?.current_organization_id,
+      practiceId: userContext.current_organization_id,
       roles: userRoles, // All explicitly assigned roles
-      permissions: userContext?.all_permissions?.map((p) => p.name) || [],
-      isSuperAdmin: userContext?.is_super_admin || false,
-      organizationAdminFor: userContext?.organization_admin_for || [],
+      permissions: userContext.all_permissions?.map((p) => p.name) || [],
+      isSuperAdmin: userContext.is_super_admin || false,
+      organizationAdminFor: userContext.organization_admin_for || [],
     },
     accessToken,
-    sessionId: payload.session_id as string,
+    sessionId,
     userContext, // Include full RBAC context for middleware
   };
 }

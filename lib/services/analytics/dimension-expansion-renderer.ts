@@ -146,7 +146,7 @@ export class DimensionExpansionRenderer {
         dimensionColumns.map((col) => this.getDimensionMetadata(chartConfig.dataSourceId, col))
       );
 
-      log.info('[DEBUG] Dimension metadata fetched for multi-dimension expansion', {
+      log.debug('Dimension metadata fetched for multi-dimension expansion', {
         dimensionColumns,
         dimensionsCount: dimensions.length,
         dimensions: dimensions.map((d) => ({
@@ -161,7 +161,7 @@ export class DimensionExpansionRenderer {
       const filterBuilder = createFilterBuilderService(userContext);
       const discoveryFilters = await this.buildDiscoveryFilters(chartConfig, filterBuilder);
 
-      log.info('[DEBUG] Discovery filters built for multi-dimension expansion', {
+      log.debug('Discovery filters built for multi-dimension expansion', {
         filterCount: discoveryFilters.length,
         filters: discoveryFilters.map((f) => ({
           field: f.field,
@@ -172,6 +172,8 @@ export class DimensionExpansionRenderer {
       });
 
       // 4. Fetch dimension values for ALL dimensions in parallel
+      // Note: We fetch ALL dimension values (up to MAX_PARALLEL_DIMENSION_CHARTS) per dimension
+      // The chart pagination limit (validatedLimit) is only used for slicing combinations later
       const dimensionValuesArrays = await Promise.all(
         dimensionColumns.map((col) =>
           this.getDimensionValues(
@@ -179,12 +181,12 @@ export class DimensionExpansionRenderer {
             col,
             discoveryFilters,
             userContext,
-            validatedLimit
+            MAX_PARALLEL_DIMENSION_CHARTS // Fetch all values per dimension, not chart pagination limit
           )
         )
       );
 
-      log.info('[DEBUG] Dimension values fetched for all dimensions', {
+      log.debug('Dimension values fetched for all dimensions', {
         dimensionColumns,
         arrayLengths: dimensionValuesArrays.map((arr) => arr?.length || 0),
         valuesPerDimension: dimensionColumns.map((col, idx) => ({
@@ -205,7 +207,7 @@ export class DimensionExpansionRenderer {
         }
       }
 
-      log.info('[DEBUG] Dimension values mapped by column', {
+      log.debug('Dimension values mapped by column', {
         columnKeys: Object.keys(dimensionValuesByColumn),
         valueCounts: Object.fromEntries(
           Object.entries(dimensionValuesByColumn).map(([col, vals]) => [col, vals.length])
@@ -273,7 +275,7 @@ export class DimensionExpansionRenderer {
       const adapter = new DimensionChartAdapter();
       const dimensionConfigs = adapter.createMultiDimensionConfigs(paginatedCombinations, chartConfig);
 
-      log.info('[DEBUG] Created dimension-specific configs', {
+      log.debug('Created dimension-specific configs', {
         configCount: dimensionConfigs.length,
         sampleConfigs: dimensionConfigs.slice(0, 3).map((config) => ({
           advancedFilters: config.runtimeFilters.advancedFilters,
@@ -292,7 +294,7 @@ export class DimensionExpansionRenderer {
         userContext
       );
 
-      log.info('[DEBUG] Charts executed for multi-dimension expansion', {
+      log.debug('Charts executed for multi-dimension expansion', {
         totalCharts: charts.length,
         successfulCharts: charts.filter((c) => !c.error && c.metadata.recordCount > 0).length,
         emptyCharts: charts.filter((c) => !c.error && c.metadata.recordCount === 0).length,

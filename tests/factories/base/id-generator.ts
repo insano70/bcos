@@ -23,7 +23,10 @@ export type TestEntityType =
   | 'practice'
   | 'staff'
   | 'patient'
-  | 'appointment';
+  | 'appointment'
+  | 'work_item'
+  | 'work_item_type'
+  | 'work_item_status';
 
 /**
  * Configuration for name generation

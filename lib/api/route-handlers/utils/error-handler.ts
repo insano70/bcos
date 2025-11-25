@@ -13,6 +13,12 @@
  * - Automatic metrics recording on errors
  * - Consistent error response formatting
  * - Type-safe error handling
+ * - Proper HTTP status codes from APIError types
+ *
+ * SECURITY:
+ * - Authentication errors (APIError with 401) trigger client-side login redirect
+ * - Authorization errors (APIError with 403) show permission denied
+ * - Server errors (500) are logged for investigation
  *
  * Usage:
  * ```typescript
@@ -29,7 +35,7 @@
  */
 
 import type { NextRequest } from 'next/server';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { createErrorResponse, APIError } from '@/lib/api/responses/error';
 import { log } from '@/lib/logger';
 
 /**
@@ -65,20 +71,49 @@ export class RouteErrorHandler {
     const method = context.method || request.method;
     const totalDuration = context.totalDuration || 0;
 
-    // Log error with context
-    log.error(`${context.routeType} route error`, error, {
-      endpoint,
-      method,
-      totalDuration,
-      errorType: RouteErrorHandler.getErrorType(error),
-      ...(context.userId && { userId: context.userId }),
-    });
+    // Extract status code from error (APIError has statusCode property)
+    const statusCode = RouteErrorHandler.getStatusCode(error);
+    const isAuthError = statusCode === 401;
+    const isAuthzError = statusCode === 403;
+
+    // Log error with appropriate severity based on type
+    if (isAuthError) {
+      // Auth errors are expected - log as security event, not error
+      log.security('route_auth_error', 'medium', {
+        endpoint,
+        method,
+        totalDuration,
+        errorMessage: RouteErrorHandler.getErrorMessage(error),
+        action: 'returning_401',
+        ...(context.userId && { userId: context.userId }),
+      });
+    } else if (isAuthzError) {
+      // Authorization errors are expected - log as security event
+      log.security('route_authz_error', 'low', {
+        endpoint,
+        method,
+        totalDuration,
+        errorMessage: RouteErrorHandler.getErrorMessage(error),
+        action: 'returning_403',
+        ...(context.userId && { userId: context.userId }),
+      });
+    } else {
+      // Server errors - log as error for investigation
+      log.error(`${context.routeType} route error`, error, {
+        endpoint,
+        method,
+        totalDuration,
+        statusCode,
+        errorType: RouteErrorHandler.getErrorType(error),
+        ...(context.userId && { userId: context.userId }),
+      });
+    }
 
     // Record metrics for error
-    await RouteErrorHandler.recordErrorMetrics(endpoint, totalDuration, context.userId);
+    await RouteErrorHandler.recordErrorMetrics(endpoint, totalDuration, statusCode, context.userId);
 
-    // Return standardized error response
-    return createErrorResponse(RouteErrorHandler.getErrorMessage(error), 500, request) as Response;
+    // Return standardized error response with proper status code
+    return createErrorResponse(RouteErrorHandler.getErrorMessage(error), statusCode, request) as Response;
   }
 
   /**
@@ -88,11 +123,13 @@ export class RouteErrorHandler {
    *
    * @param endpoint - API endpoint path
    * @param duration - Request duration in ms
+   * @param statusCode - HTTP status code
    * @param userId - Optional user ID
    */
   private static async recordErrorMetrics(
     endpoint: string,
     duration: number,
+    statusCode: number,
     userId?: string
   ): Promise<void> {
     try {
@@ -104,13 +141,67 @@ export class RouteErrorHandler {
       metricsCollector.recordRequest(
         endpoint,
         duration,
-        500, // Error status code
+        statusCode,
         userId,
         category
       );
     } catch {
       // Silently fail if metrics collector not available
     }
+  }
+
+  /**
+   * Extract HTTP status code from error
+   *
+   * Checks for APIError instances or errors with statusCode property.
+   * Falls back to 500 for unknown error types.
+   *
+   * @param error - Unknown error object
+   * @returns HTTP status code (401, 403, 500, etc.)
+   */
+  private static getStatusCode(error: unknown): number {
+    // Check for APIError (from responses/error.ts)
+    if (error instanceof APIError) {
+      return error.statusCode;
+    }
+
+    // Check for errors with statusCode property (other API error types)
+    if (
+      error &&
+      typeof error === 'object' &&
+      'statusCode' in error &&
+      typeof error.statusCode === 'number'
+    ) {
+      return error.statusCode;
+    }
+
+    // Check for errors from lib/errors/api-errors.ts (different class hierarchy)
+    if (
+      error &&
+      typeof error === 'object' &&
+      'name' in error
+    ) {
+      const errorName = String(error.name);
+      // Map known error names to status codes
+      if (errorName === 'AuthenticationError' || errorName === 'SessionInvalidError') {
+        return 401;
+      }
+      if (errorName === 'AuthorizationError') {
+        return 403;
+      }
+      if (errorName === 'ValidationError') {
+        return 400;
+      }
+      if (errorName === 'NotFoundError') {
+        return 404;
+      }
+      if (errorName === 'RateLimitError') {
+        return 429;
+      }
+    }
+
+    // Default to 500 for unknown errors
+    return 500;
   }
 
   /**

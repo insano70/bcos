@@ -15,6 +15,10 @@ import type { DimensionValue, DimensionValueCombination } from '@/lib/types/dime
  * Creates all possible combinations of dimension values across multiple dimensions.
  * For single dimension, converts to combination format for consistency.
  *
+ * Handles "Other" values specially:
+ * - Tracks which dimensions have "Other" values
+ * - Includes excludeValues for proper NOT IN filtering
+ *
  * Example:
  * Input: {
  *   location: [
@@ -32,18 +36,7 @@ import type { DimensionValue, DimensionValueCombination } from '@/lib/types/dime
  *     values: { location: "downtown", line_of_business: "pt" },
  *     label: "Downtown Clinic - Physical Therapy"
  *   },
- *   {
- *     values: { location: "downtown", line_of_business: "ot" },
- *     label: "Downtown Clinic - Occupational Therapy"
- *   },
- *   {
- *     values: { location: "uptown", line_of_business: "pt" },
- *     label: "Uptown Clinic - Physical Therapy"
- *   },
- *   {
- *     values: { location: "uptown", line_of_business: "ot" },
- *     label: "Uptown Clinic - Occupational Therapy"
- *   }
+ *   ...
  * ]
  *
  * @param dimensionValuesByColumn - Map of column name to dimension values
@@ -58,6 +51,17 @@ export function generateDimensionCombinations(
     return [];
   }
 
+  // Pre-compute non-Other values per column for excludeValues in "Other" combinations
+  const nonOtherValuesByColumn: Record<string, Array<string | number>> = {};
+  for (const col of columns) {
+    const values = dimensionValuesByColumn[col];
+    if (values) {
+      nonOtherValuesByColumn[col] = values
+        .filter((v) => !v.isOther)
+        .map((v) => v.value);
+    }
+  }
+
   // Single dimension - convert to combination format for consistency
   if (columns.length === 1) {
     const column = columns[0];
@@ -68,11 +72,24 @@ export function generateDimensionCombinations(
     if (!values) {
       return [];
     }
-    return values.map((value) => ({
-      values: { [column]: value.value },
-      label: value.label,
-      ...(value.recordCount !== undefined && { recordCount: value.recordCount }),
-    }));
+    return values.map((value) => {
+      const combination: DimensionValueCombination = {
+        values: { [column]: value.value },
+        label: value.label,
+        ...(value.recordCount !== undefined && { recordCount: value.recordCount }),
+      };
+
+      // Handle "Other" value
+      if (value.isOther) {
+        combination.isOther = true;
+        combination.otherDimensions = [column];
+        combination.excludeValues = {
+          [column]: nonOtherValuesByColumn[column] || [],
+        };
+      }
+
+      return combination;
+    });
   }
 
   // Multiple dimensions - generate cartesian product
@@ -85,12 +102,14 @@ export function generateDimensionCombinations(
    * @param currentValues - Accumulated values so far
    * @param currentLabels - Accumulated labels so far
    * @param currentRecordCounts - Accumulated record counts for estimation
+   * @param currentOtherDimensions - Dimensions with "Other" value in this combination
    */
   function generateRecursive(
     columnIndex: number,
     currentValues: Record<string, string | number>,
     currentLabels: string[],
-    currentRecordCounts: number[]
+    currentRecordCounts: number[],
+    currentOtherDimensions: string[]
   ): void {
     // Base case: all columns processed, save combination
     if (columnIndex === columns.length) {
@@ -100,11 +119,23 @@ export function generateDimensionCombinations(
         ? Math.min(...currentRecordCounts)
         : undefined;
 
-      combinations.push({
+      const combination: DimensionValueCombination = {
         values: { ...currentValues },
         label: currentLabels.join(' - '),
         ...(estimatedRecordCount !== undefined && { recordCount: estimatedRecordCount }),
-      });
+      };
+
+      // Handle "Other" combinations
+      if (currentOtherDimensions.length > 0) {
+        combination.isOther = true;
+        combination.otherDimensions = [...currentOtherDimensions];
+        combination.excludeValues = {};
+        for (const otherCol of currentOtherDimensions) {
+          combination.excludeValues[otherCol] = nonOtherValuesByColumn[otherCol] || [];
+        }
+      }
+
+      combinations.push(combination);
       return;
     }
 
@@ -123,16 +154,22 @@ export function generateDimensionCombinations(
         ? [...currentRecordCounts, value.recordCount]
         : currentRecordCounts;
 
+      // Track if this value is "Other"
+      const otherDimensions = value.isOther
+        ? [...currentOtherDimensions, column]
+        : currentOtherDimensions;
+
       generateRecursive(
         columnIndex + 1,
         { ...currentValues, [column]: value.value },
         [...currentLabels, value.label],
-        recordCounts
+        recordCounts,
+        otherDimensions
       );
     }
   }
 
-  generateRecursive(0, {}, [], []);
+  generateRecursive(0, {}, [], [], []);
   return combinations;
 }
 

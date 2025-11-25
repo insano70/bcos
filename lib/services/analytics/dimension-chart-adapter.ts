@@ -30,10 +30,14 @@ export class DimensionChartAdapter {
    * Takes a base chart config and creates N copies, each with a
    * dimension filter added to the advancedFilters array.
    *
+   * Handles "Other" values specially:
+   * - For "Other" values, uses NOT IN filter with all non-Other values
+   * - For regular values, uses EQ filter
+   *
    * Process:
    * 1. For each dimension value
    * 2. Clone base chart config
-   * 3. Add dimension filter to advancedFilters
+   * 3. Add dimension filter to advancedFilters (EQ or NOT IN)
    * 4. Generate unique chart ID
    *
    * @param dimensionValues - Array of dimension values to expand
@@ -46,18 +50,30 @@ export class DimensionChartAdapter {
     baseConfig: ChartExecutionConfig,
     dimensionColumn: string
   ): ChartExecutionConfig[] {
+    // Pre-compute non-Other values for NOT IN filter
+    const nonOtherValues = dimensionValues
+      .filter((v) => !v.isOther)
+      .map((v) => v.value);
+
     return dimensionValues.map((dimensionValue) => {
       // Extract existing advanced filters
       const existingFilters = Array.isArray(baseConfig.runtimeFilters.advancedFilters)
         ? (baseConfig.runtimeFilters.advancedFilters as ChartFilter[])
         : [];
 
-      // Create dimension filter
-      const dimensionFilter: ChartFilter = {
-        field: dimensionColumn,
-        operator: 'eq',
-        value: dimensionValue.value,
-      };
+      // Create dimension filter - use NOT IN for "Other", EQ for regular values
+      const dimensionFilter: ChartFilter = dimensionValue.isOther
+        ? {
+            field: dimensionColumn,
+            operator: 'not_in',
+            // Cast to string[] - dimension values are typically strings
+            value: nonOtherValues as string[],
+          }
+        : {
+            field: dimensionColumn,
+            operator: 'eq',
+            value: dimensionValue.value,
+          };
 
       // Build dimension-specific runtime filters
       const dimensionRuntimeFilters: Record<string, unknown> = {
@@ -84,12 +100,17 @@ export class DimensionChartAdapter {
    * Takes a base chart config and creates N copies for multi-dimension expansion,
    * each with MULTIPLE dimension filters added to the advancedFilters array.
    *
+   * Handles "Other" combinations specially:
+   * - For dimensions marked as "Other", uses NOT IN filter with excluded values
+   * - For regular dimensions, uses EQ filter
+   *
    * Example: Location=Downtown AND LineOfBusiness=PhysicalTherapy
+   * Example "Other": Location NOT IN [Downtown, Uptown] (for "Other" locations)
    *
    * Process:
    * 1. For each dimension value combination
    * 2. Clone base chart config
-   * 3. Add ALL dimension filters to advancedFilters (one per dimension in combination)
+   * 3. Add dimension filters (EQ for regular, NOT IN for "Other")
    * 4. Generate unique chart ID
    *
    * @param combinations - Array of dimension value combinations (from cartesian product)
@@ -107,30 +128,45 @@ export class DimensionChartAdapter {
         : [];
 
       // Create dimension filters (one per dimension in combination)
+      // For "Other" dimensions, use NOT IN filter; for regular, use EQ
       const dimensionFilters: ChartFilter[] = Object.entries(combination.values).map(
-        ([field, value]) => ({
-          field,
-          operator: 'eq',
-          value,
-        })
+        ([field, value]) => {
+          // Check if this dimension is an "Other" dimension
+          const isOtherDimension = combination.otherDimensions?.includes(field);
+
+          if (isOtherDimension && combination.excludeValues?.[field]) {
+            // For "Other" dimension: use NOT IN filter with excluded values
+            return {
+              field,
+              operator: 'not_in',
+              // Cast to string[] - dimension values are typically strings
+              value: combination.excludeValues[field] as string[],
+            };
+          }
+
+          // For regular dimension: use EQ filter
+          return {
+            field,
+            operator: 'eq',
+            value,
+          };
+        }
       );
 
       if (index < 3) {
-        log.info('[DEBUG] Creating config for dimension combination', {
+        log.debug('Creating config for dimension combination', {
           combinationIndex: index,
           combinationLabel: combination.label,
           combinationValues: combination.values,
+          isOther: combination.isOther,
+          otherDimensions: combination.otherDimensions,
           existingFilterCount: existingFilters.length,
-          existingFilters: existingFilters.map((f) => ({
-            field: f.field,
-            operator: f.operator,
-            value: f.value,
-          })),
           dimensionFilterCount: dimensionFilters.length,
           dimensionFilters: dimensionFilters.map((f) => ({
             field: f.field,
             operator: f.operator,
-            value: f.value,
+            valueType: Array.isArray(f.value) ? 'array' : typeof f.value,
+            valueCount: Array.isArray(f.value) ? f.value.length : 1,
           })),
           component: 'dimension-chart-adapter',
         });

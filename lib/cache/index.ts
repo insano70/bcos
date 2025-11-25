@@ -49,6 +49,8 @@ export type {
   CacheQueryParams,
 } from './data-source-cache';
 export { dataSourceCache } from './data-source-cache';
+// Request-scoped cache for data source deduplication
+export { createRequestScopedCache, RequestScopedCache } from './request-scoped-cache';
 export type { RateLimitResult } from './rate-limit-cache';
 export { rateLimitCache } from './rate-limit-cache';
 // Re-export specific types from cache services

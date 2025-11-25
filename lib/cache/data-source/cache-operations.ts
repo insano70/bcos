@@ -67,10 +67,19 @@ export class CacheOperations {
    * Caches data at granular level (measure + practice + provider + frequency)
    * and uses secondary indexes for efficient selective fetching
    *
+   * PERFORMANCE OPTIMIZATION (Phase 2):
+   * When accessiblePracticeUids is provided, the cache query uses practice-level
+   * indexes to fetch only data for those practices. This dramatically reduces
+   * data transfer from Redis (e.g., 281K rows → 318 rows for typical RBAC scope).
+   *
    * @param components - Cache key components
+   * @param accessiblePracticeUids - Optional array of practice UIDs the user can access (from RBAC)
    * @returns Cached data or null if not found
    */
-  async getCached(components: CacheKeyComponents): Promise<CacheGetResult | null> {
+  async getCached(
+    components: CacheKeyComponents,
+    accessiblePracticeUids?: number[]
+  ): Promise<CacheGetResult | null> {
     const datasourceId = components.dataSourceId;
 
     // Check if indexed cache is warm for this datasource
@@ -129,11 +138,31 @@ export class CacheOperations {
     if (willUseIndexedCache && components.measure && components.frequency) {
       // Try indexed cache with index lookup
       // Type guard confirms measure and frequency are defined
+      
+      // PHASE 2 OPTIMIZATION: Use practice-level indexes when RBAC practices are available
+      // Priority: explicit chart filter (practiceUid) > RBAC scope (accessiblePracticeUids)
+      let practiceUidsForQuery: number[] | undefined;
+      
+      if (components.practiceUid) {
+        // Explicit chart filter for a specific practice
+        practiceUidsForQuery = [components.practiceUid];
+      } else if (accessiblePracticeUids && accessiblePracticeUids.length > 0) {
+        // RBAC scope - filter to only practices user can access
+        practiceUidsForQuery = accessiblePracticeUids;
+        
+        log.info('Using RBAC practice filter for cache query', {
+          datasourceId,
+          measure: components.measure,
+          practiceCount: accessiblePracticeUids.length,
+          component: 'cache-operations',
+        });
+      }
+      
       const filters: CacheQueryFilters = {
         datasourceId: datasourceId,
         measure: components.measure,
         frequency: components.frequency,
-        ...(components.practiceUid && { practiceUids: [components.practiceUid] }),
+        ...(practiceUidsForQuery && { practiceUids: practiceUidsForQuery }),
         ...(components.providerUid && { providerUids: [components.providerUid] }),
       };
 

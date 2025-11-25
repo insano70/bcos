@@ -29,6 +29,45 @@ interface ChartPosition {
   h: number;
 }
 
+/**
+ * Loading skeleton for dimension chart cards
+ */
+function ChartSkeleton({ height }: { height: number }) {
+  return (
+    <div
+      className="flex-shrink-0 animate-pulse"
+      style={{
+        width: 'min(90vw, 500px)',
+      }}
+    >
+      {/* Label skeleton */}
+      <div className="mb-1.5 px-2">
+        <div className="flex items-baseline justify-between gap-2">
+          <div className="h-4 w-32 bg-slate-200 dark:bg-slate-700 rounded" />
+          <div className="h-3 w-16 bg-slate-200 dark:bg-slate-700 rounded" />
+        </div>
+      </div>
+      
+      {/* Chart skeleton */}
+      <div
+        className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden"
+        style={{ height: `${height - 30}px` }}
+      >
+        <div className="h-full flex flex-col p-4">
+          {/* Chart area skeleton */}
+          <div className="flex-1 bg-slate-100 dark:bg-slate-800 rounded-lg mb-4" />
+          {/* Legend skeleton */}
+          <div className="flex gap-4 justify-center">
+            <div className="h-3 w-20 bg-slate-200 dark:bg-slate-700 rounded" />
+            <div className="h-3 w-24 bg-slate-200 dark:bg-slate-700 rounded" />
+            <div className="h-3 w-16 bg-slate-200 dark:bg-slate-700 rounded" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface DimensionComparisonViewProps {
   dimensions: ExpansionDimension[]; // Always array now
   chartDefinition: {
@@ -44,6 +83,14 @@ interface DimensionComparisonViewProps {
   selectedDimensionColumns?: string[];
   onApplyDimensions?: (dimensions: ExpansionDimension[]) => void;
   isApplying?: boolean;
+  // Server-side load more
+  hasMoreFromServer?: boolean;
+  onLoadMore?: () => Promise<void>;
+  isLoadingMore?: boolean;
+  // Loading state for initial expansion
+  isLoading?: boolean;
+  // Total combinations available (from server metadata)
+  totalCombinations?: number | undefined;
 }
 
 export default function DimensionComparisonView({
@@ -55,65 +102,25 @@ export default function DimensionComparisonView({
   selectedDimensionColumns,
   onApplyDimensions,
   isApplying = false,
+  hasMoreFromServer = false,
+  onLoadMore,
+  isLoadingMore = false,
+  isLoading = false,
+  totalCombinations,
 }: DimensionComparisonViewProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [visibleCount, setVisibleCount] = useState(CHARTS_PER_PAGE);
-  const [localSelectedColumns, setLocalSelectedColumns] = useState<string[]>(
-    selectedDimensionColumns || []
-  );
-
   // Reset visible count when dimensionCharts changes
   useEffect(() => {
     setVisibleCount(CHARTS_PER_PAGE);
   }, [dimensionCharts]);
-
-  // Sync local selected columns with prop changes
-  useEffect(() => {
-    if (selectedDimensionColumns) {
-      setLocalSelectedColumns(selectedDimensionColumns);
-    }
-  }, [selectedDimensionColumns]);
 
   // Format dimension names for display
   const dimensionNames = dimensions.map((d) => d.displayName).join(', ') || '';
 
   // Determine label type
   const labelType = dimensions.length > 1 ? 'combinations' : 'values';
-
-  // Handle dimension checkbox toggle
-  const handleDimensionToggle = (columnName: string) => {
-    setLocalSelectedColumns((prev) => {
-      if (prev.includes(columnName)) {
-        // Deselect (but keep at least one selected)
-        if (prev.length > 1) {
-          return prev.filter((col) => col !== columnName);
-        }
-        return prev;
-      } else {
-        // Select (max 3 dimensions)
-        if (prev.length < 3) {
-          return [...prev, columnName];
-        }
-        return prev;
-      }
-    });
-  };
-
-  // Handle Apply button click
-  const handleApply = () => {
-    if (!availableDimensions || !onApplyDimensions) return;
-    const selectedDimensions = availableDimensions.filter((dim) =>
-      localSelectedColumns.includes(dim.columnName)
-    );
-    onApplyDimensions(selectedDimensions);
-  };
-
-  // Check if selection has changed
-  const hasSelectionChanged =
-    selectedDimensionColumns &&
-    (localSelectedColumns.length !== selectedDimensionColumns.length ||
-      !localSelectedColumns.every((col) => selectedDimensionColumns.includes(col)));
 
   // Slice charts to show only visible ones (pagination)
   const visibleCharts = dimensionCharts.slice(0, visibleCount);
@@ -144,44 +151,10 @@ export default function DimensionComparisonView({
 
   return (
     <div className="relative bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-gray-200 dark:border-gray-700">
-      {/* Compact info bar with inline dimension selection */}
+      {/* Compact info bar - dimension selection now handled by DimensionCheckboxes in header */}
       <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
-        {/* Dimension checkboxes and Apply button (if enabled) */}
-        {availableDimensions && availableDimensions.length > 1 && onApplyDimensions && (
-          <div className="flex items-center gap-3 mb-2 flex-wrap">
-            {/* Dimension checkboxes */}
-            <div className="flex items-center gap-3 flex-wrap">
-              {availableDimensions.map((dim) => (
-                <label
-                  key={dim.columnName}
-                  className="flex items-center gap-1.5 cursor-pointer text-xs text-gray-700 dark:text-gray-300"
-                >
-                  <input
-                    type="checkbox"
-                    checked={localSelectedColumns.includes(dim.columnName)}
-                    onChange={() => handleDimensionToggle(dim.columnName)}
-                    disabled={isApplying}
-                    className="w-3.5 h-3.5 rounded border-gray-300 dark:border-gray-600 text-violet-600 focus:ring-violet-500 focus:ring-offset-0 focus:ring-2 disabled:opacity-50"
-                  />
-                  <span className="select-none">{dim.displayName}</span>
-                </label>
-              ))}
-            </div>
-            {/* Apply button */}
-            <button
-              type="button"
-              onClick={handleApply}
-              disabled={!hasSelectionChanged || isApplying}
-              className="px-3 py-1 text-xs font-medium text-white bg-violet-600 hover:bg-violet-700
-                       rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isApplying ? 'Applying...' : 'Apply'}
-            </button>
-          </div>
-        )}
-        {/* Status text */}
         <p className="text-xs text-gray-600 dark:text-gray-400">
-          Expanded by {dimensionNames} • Showing {visibleCount} of {dimensionCharts.length} {labelType}
+          Expanded by {dimensionNames} • Showing {visibleCharts.length} of {totalCombinations ?? dimensionCharts.length} {labelType}
         </p>
       </div>
 
@@ -217,6 +190,14 @@ export default function DimensionComparisonView({
         }}
       >
         <div className="flex gap-4 p-4" style={{ minWidth: 'min-content' }}>
+          {/* Show skeletons when loading */}
+          {isLoading && dimensionCharts.length === 0 &&
+            [1, 2, 3].map((i) => (
+              <ChartSkeleton key={`skeleton-${i}`} height={containerHeight} />
+            ))
+          }
+          
+          {/* Show actual charts */}
           {visibleCharts.map((dimensionChart, index) => {
             // Generate unique key for charts
             const dimensionValue = dimensionChart.dimensionValue;
@@ -306,18 +287,46 @@ export default function DimensionComparisonView({
         </div>
       </div>
 
-      {/* Show More button */}
-      {hasMore && (
-        <div className="flex items-center justify-center py-4 border-t border-gray-200 dark:border-gray-700">
-          <button
-            type="button"
-            onClick={handleShowMore}
-            className="px-6 py-2 text-sm font-medium text-violet-700 dark:text-violet-300
-                     bg-violet-50 dark:bg-violet-900/20 hover:bg-violet-100 dark:hover:bg-violet-900/30
-                     rounded-lg transition-colors border border-violet-200 dark:border-violet-700"
-          >
-            Show More (+{Math.min(CHARTS_PER_PAGE, dimensionCharts.length - visibleCount)})
-          </button>
+      {/* Show More buttons - client-side pagination and server-side load more */}
+      {(hasMore || hasMoreFromServer) && (
+        <div className="flex items-center justify-center gap-4 py-4 border-t border-gray-200 dark:border-gray-700">
+          {/* Client-side: Show more from already loaded charts */}
+          {hasMore && (
+            <button
+              type="button"
+              onClick={handleShowMore}
+              className="px-6 py-2 text-sm font-medium text-violet-700 dark:text-violet-300
+                       bg-violet-50 dark:bg-violet-900/20 hover:bg-violet-100 dark:hover:bg-violet-900/30
+                       rounded-lg transition-colors border border-violet-200 dark:border-violet-700"
+            >
+              Show More (+{Math.min(CHARTS_PER_PAGE, dimensionCharts.length - visibleCount)})
+            </button>
+          )}
+          
+          {/* Server-side: Load more from API (when all local charts shown) */}
+          {!hasMore && hasMoreFromServer && onLoadMore && (
+            <button
+              type="button"
+              onClick={onLoadMore}
+              disabled={isLoadingMore}
+              className="px-6 py-2 text-sm font-medium text-white
+                       bg-violet-600 hover:bg-violet-700
+                       rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed
+                       flex items-center gap-2"
+            >
+              {isLoadingMore ? (
+                <>
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  Loading...
+                </>
+              ) : (
+                'Load More Values'
+              )}
+            </button>
+          )}
         </div>
       )}
 

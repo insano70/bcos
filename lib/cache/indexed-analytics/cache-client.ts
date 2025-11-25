@@ -30,7 +30,10 @@ export class IndexedCacheClient extends CacheService<Record<string, unknown>[]> 
   protected namespace = 'indexed-analytics';
   protected defaultTTL = 172800; // 48 hours (2 days)
 
-  private readonly BATCH_SIZE = 5000; // Pipeline batch size for writes
+  // Pipeline batch size for writes
+  // Reduced from 5000 to prevent RangeError: Invalid string length
+  // With avg 150 rows/entry at ~500 bytes/row, 500 entries = ~37MB per pipeline
+  private readonly BATCH_SIZE = 500;
   private readonly QUERY_BATCH_SIZE = 10000; // Max keys for MGET
 
   /**
@@ -449,11 +452,12 @@ export class IndexedCacheClient extends CacheService<Record<string, unknown>[]> 
       const errors = results.filter(([err]) => err !== null);
 
       if (errors.length > 0) {
-        log.error('Redis pipeline execution had errors', {
+        const sampleErrors = errors.slice(0, 3).map(([err]) => err?.message);
+        log.error('Redis pipeline execution had errors', new Error(`${errors.length} pipeline commands failed: ${sampleErrors.join(', ')}`), {
           component: 'indexed-cache-client',
           operation: 'execute_pipeline',
           errorCount: errors.length,
-          sampleErrors: errors.slice(0, 3).map(([err]) => err?.message),
+          sampleErrors,
         });
         return { success: false, errorCount: errors.length };
       }

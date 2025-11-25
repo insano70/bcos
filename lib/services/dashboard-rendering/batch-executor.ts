@@ -8,9 +8,15 @@
  * - Result aggregation
  * - Statistics collection
  * - Error handling (partial success)
+ *
+ * PERFORMANCE OPTIMIZATION:
+ * Uses request-scoped cache to deduplicate data source fetches.
+ * When multiple charts request the same (measure + frequency), only one
+ * Redis fetch occurs - subsequent requests use in-memory cache.
  */
 
 import { log } from '@/lib/logger';
+import { createRequestScopedCache, type RequestScopedCache } from '@/lib/cache/request-scoped-cache';
 import { chartDataOrchestrator } from '@/lib/services/chart-data-orchestrator';
 import { BaseDashboardRenderingService } from './base-service';
 import type { ChartExecutionConfig, ChartRenderResult, ExecutionResult } from './types';
@@ -25,15 +31,20 @@ export class BatchExecutorService extends BaseDashboardRenderingService {
    * Execute all charts in parallel
    *
    * Process:
-   * 1. Analyze charts for batching opportunities
-   * 2. Execute all charts in parallel
-   * 3. Aggregate statistics
+   * 1. Create request-scoped cache for deduplication
+   * 2. Analyze charts for batching opportunities
+   * 3. Execute all charts in parallel
+   * 4. Aggregate statistics
    *
    * @param chartConfigs - Chart execution configs
    * @returns Execution result with statistics
    */
   async executeParallel(chartConfigs: ChartExecutionConfig[]): Promise<ExecutionResult> {
     const startTime = Date.now();
+
+    // Create request-scoped cache for data source deduplication
+    // This cache lives for the duration of this dashboard render only
+    const requestCache = createRequestScopedCache();
 
     // Analyze charts for batching opportunities
     const batchingOpportunities = this.analyzeBatchingOpportunities(chartConfigs);
@@ -49,17 +60,27 @@ export class BatchExecutorService extends BaseDashboardRenderingService {
       });
     }
 
-    // Execute all charts in parallel
+    // Execute all charts in parallel, sharing the request-scoped cache
     const renderPromises = chartConfigs.map((config) =>
-      this.executeSingleChart(config)
+      this.executeSingleChart(config, requestCache, startTime)
     );
 
-    const results = await Promise.all(renderPromises);
+    const resultsWithTiming = await Promise.all(renderPromises);
+
+    // Log request-scoped cache statistics
+    requestCache.logFinalStats();
+
+    // Extract results without timing for return value
+    const results = resultsWithTiming.map(({ chartId, result }) => ({ chartId, result }));
 
     // Aggregate statistics
     const stats = this.aggregateStats(results);
 
     const duration = Date.now() - startTime;
+
+    // Analyze parallel execution effectiveness
+    const timings = resultsWithTiming.map(r => r.timing);
+    const parallelAnalysis = this.analyzeParallelExecution(timings, duration);
 
     log.info('Batch execution completed', {
       userId: this.userContext.user_id,
@@ -70,6 +91,8 @@ export class BatchExecutorService extends BaseDashboardRenderingService {
       totalQueryTime: stats.totalQueryTime,
       parallelDuration: duration,
       batchingOpportunities: batchingOpportunities.groupCount,
+      requestCacheStats: requestCache.getStats(),
+      parallelExecution: parallelAnalysis,
       component: 'dashboard-rendering',
     });
 
@@ -122,22 +145,29 @@ export class BatchExecutorService extends BaseDashboardRenderingService {
    * Execute single chart
    *
    * @param config - Chart execution config
+   * @param requestCache - Request-scoped cache for data deduplication
+   * @param batchStartTime - Start time of the batch (for parallel timing analysis)
    * @returns Chart ID and result (or null on error)
    */
   private async executeSingleChart(
-    config: ChartExecutionConfig
-  ): Promise<{ chartId: string; result: ChartRenderResult | null }> {
+    config: ChartExecutionConfig,
+    requestCache: RequestScopedCache,
+    batchStartTime: number
+  ): Promise<{ chartId: string; result: ChartRenderResult | null; timing: { startOffset: number; duration: number } }> {
+    const chartStartTime = Date.now();
+    const startOffset = chartStartTime - batchStartTime;
+    
     try {
-      log.info('Processing chart in batch', {
+      log.debug('Chart execution starting', {
         userId: this.userContext.user_id,
         chartId: config.chartId,
         chartName: config.chartName,
         chartType: config.chartType,
-        batchSupported: true,
+        startOffset,
         component: 'dashboard-rendering',
       });
 
-      // Execute orchestration directly without deduplication
+      // Execute orchestration with request-scoped cache for deduplication
       const orchestrationResult = await chartDataOrchestrator.orchestrate(
         {
           chartConfig: config.finalChartConfig as typeof config.finalChartConfig & {
@@ -146,7 +176,8 @@ export class BatchExecutorService extends BaseDashboardRenderingService {
           },
           runtimeFilters: config.runtimeFilters,
         },
-        this.userContext
+        this.userContext,
+        requestCache
       );
 
       // Build chart result
@@ -180,15 +211,32 @@ export class BatchExecutorService extends BaseDashboardRenderingService {
         chartResult.formattedData = orchestrationResult.formattedData;
       }
 
+      const duration = Date.now() - chartStartTime;
+      
+      log.debug('Chart execution completed', {
+        userId: this.userContext.user_id,
+        chartId: config.chartId,
+        chartName: config.chartName,
+        duration,
+        startOffset,
+        cacheHit: orchestrationResult.metadata.cacheHit,
+        component: 'dashboard-rendering',
+      });
+
       return {
         chartId: config.chartId,
         result: chartResult,
+        timing: { startOffset, duration },
       };
     } catch (error) {
+      const duration = Date.now() - chartStartTime;
+      
       log.error('Chart render failed in batch', error, {
         userId: this.userContext.user_id,
         chartId: config.chartId,
         chartName: config.chartName,
+        duration,
+        startOffset,
         component: 'dashboard-rendering',
       });
 
@@ -196,6 +244,7 @@ export class BatchExecutorService extends BaseDashboardRenderingService {
       return {
         chartId: config.chartId,
         result: null,
+        timing: { startOffset, duration },
       };
     }
   }
@@ -228,6 +277,63 @@ export class BatchExecutorService extends BaseDashboardRenderingService {
       cacheHits,
       cacheMisses,
       totalQueryTime,
+    };
+  }
+
+  /**
+   * Analyze parallel execution effectiveness
+   *
+   * Computes metrics to verify charts are truly executing in parallel:
+   * - Sequential time: Sum of all chart durations (if run sequentially)
+   * - Parallel time: Actual wall-clock time
+   * - Speedup factor: Sequential / Parallel (higher = more parallelism)
+   * - Overlap percentage: How much charts overlapped in time
+   *
+   * @param timings - Array of chart timing data
+   * @param totalDuration - Total batch execution time
+   * @returns Parallel execution analysis
+   */
+  private analyzeParallelExecution(
+    timings: Array<{ startOffset: number; duration: number }>,
+    totalDuration: number
+  ): {
+    sequentialTime: number;
+    parallelTime: number;
+    speedupFactor: number;
+    overlapPercent: number;
+    chartsExecuted: number;
+  } {
+    if (timings.length === 0) {
+      return {
+        sequentialTime: 0,
+        parallelTime: totalDuration,
+        speedupFactor: 1,
+        overlapPercent: 0,
+        chartsExecuted: 0,
+      };
+    }
+
+    // Calculate sequential time (sum of all durations)
+    const sequentialTime = timings.reduce((sum, t) => sum + t.duration, 0);
+
+    // Calculate overlap percentage
+    // If charts run truly in parallel, overlap should be high
+    // If sequential, overlap would be 0%
+    const parallelTime = totalDuration;
+    const speedupFactor = sequentialTime > 0 ? sequentialTime / parallelTime : 1;
+    
+    // Overlap = (sequential - parallel) / sequential * 100
+    // 0% = no overlap (sequential), 100% = perfect overlap (all started at once)
+    const overlapPercent = sequentialTime > 0 
+      ? Math.max(0, ((sequentialTime - parallelTime) / sequentialTime) * 100)
+      : 0;
+
+    return {
+      sequentialTime,
+      parallelTime,
+      speedupFactor: Math.round(speedupFactor * 100) / 100,
+      overlapPercent: Math.round(overlapPercent * 10) / 10,
+      chartsExecuted: timings.length,
     };
   }
 }

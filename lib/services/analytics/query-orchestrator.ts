@@ -24,6 +24,7 @@
  */
 
 import { type CacheQueryParams, dataSourceCache } from '@/lib/cache';
+import type { RequestScopedCache } from '@/lib/cache/request-scoped-cache';
 import { log } from '@/lib/logger';
 import { chartConfigService } from '@/lib/services/chart-config-service';
 import type {
@@ -82,7 +83,8 @@ export class QueryOrchestrator {
     userContext: UserContext,
     tableName: string,
     schemaName: string,
-    startTime: number
+    startTime: number,
+    requestCache?: RequestScopedCache
   ): Promise<AnalyticsQueryResult> {
     // Type guard: data_source_id is required for cache path
     if (!params.data_source_id) {
@@ -111,11 +113,12 @@ export class QueryOrchestrator {
       ...(params.advanced_filters && { advancedFilters: params.advanced_filters }),
     };
 
-    // Fetch with caching (passing UserContext - ChartRenderContext built internally)
+    // Fetch with caching (passing UserContext and request-scoped cache for deduplication)
     const fetchResult = await dataSourceCache.fetchDataSource(
       cacheParams,
       userContext,
-      params.nocache || false
+      params.nocache || false,
+      requestCache
     );
 
     // Calculate total count from filtered rows
@@ -150,7 +153,8 @@ export class QueryOrchestrator {
    */
   private async executeMultipleSeries(
     params: AnalyticsQueryParams,
-    userContext: UserContext
+    userContext: UserContext,
+    requestCache?: RequestScopedCache
   ): Promise<AnalyticsQueryResult> {
     const startTime = Date.now();
 
@@ -172,8 +176,8 @@ export class QueryOrchestrator {
         multiple_series: undefined, // Clear to avoid recursion
       };
 
-      // Recursive call - will hit cache per measure
-      const result = await this.queryMeasures(seriesParams, userContext);
+      // Recursive call - will hit cache per measure (with request-scoped cache for deduplication)
+      const result = await this.queryMeasures(seriesParams, userContext, requestCache);
 
       // Tag with series metadata
       return result.data.map((item) => ({
@@ -213,7 +217,8 @@ export class QueryOrchestrator {
    */
   private async executePeriodComparison(
     params: AnalyticsQueryParams,
-    userContext: UserContext
+    userContext: UserContext,
+    requestCache?: RequestScopedCache
   ): Promise<AnalyticsQueryResult> {
     const startTime = Date.now();
 
@@ -292,10 +297,10 @@ export class QueryOrchestrator {
       userId: userContext.user_id,
     });
 
-    // Execute both queries in parallel
+    // Execute both queries in parallel (with request-scoped cache for deduplication)
     const [currentResult, comparisonResult] = await Promise.all([
-      this.queryMeasures(currentPeriodParams, userContext),
-      this.queryMeasures(comparisonPeriodParams, userContext),
+      this.queryMeasures(currentPeriodParams, userContext, requestCache),
+      this.queryMeasures(comparisonPeriodParams, userContext, requestCache),
     ]);
 
     // Generate comparison label
@@ -351,11 +356,13 @@ export class QueryOrchestrator {
    *
    * @param params - Query parameters (data_source_id REQUIRED)
    * @param userContext - User context for RBAC
+   * @param requestCache - Optional request-scoped cache for deduplication
    * @returns Query result with data and metadata
    */
   async queryMeasures(
     params: AnalyticsQueryParams,
-    userContext: UserContext
+    userContext: UserContext,
+    requestCache?: RequestScopedCache
   ): Promise<AnalyticsQueryResult> {
     const startTime = Date.now();
 
@@ -367,12 +374,12 @@ export class QueryOrchestrator {
 
       // If multiple series are requested, handle them separately
       if (params.multiple_series && params.multiple_series.length > 0) {
-        return await this.executeMultipleSeries(params, userContext);
+        return await this.executeMultipleSeries(params, userContext, requestCache);
       }
 
       // If period comparison is requested, handle it separately
       if (params.period_comparison?.enabled) {
-        return await this.executePeriodComparison(params, userContext);
+        return await this.executePeriodComparison(params, userContext, requestCache);
       }
 
       log.info('Building analytics query with caching', {
@@ -396,7 +403,7 @@ export class QueryOrchestrator {
       await queryValidator.validateTable(tableName, schemaName, dataSourceConfig);
 
       // Always use cache path (with nocache support for previews)
-      return await this.executeCachePath(params, userContext, tableName, schemaName, startTime);
+      return await this.executeCachePath(params, userContext, tableName, schemaName, startTime, requestCache);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       log.error('Analytics query failed', error, {

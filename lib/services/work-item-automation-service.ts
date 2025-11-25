@@ -227,17 +227,28 @@ class WorkItemAutomationService implements WorkItemAutomationServiceInterface {
               fieldDefinitions.map((f) => [f.field_name, f.work_item_field_id])
             );
 
-            // Insert field values
+            // Collect field values for batch insert
+            const fieldValuesToInsert: Array<{
+              work_item_id: string;
+              work_item_field_id: string;
+              field_value: string;
+            }> = [];
+
             for (const [fieldName, fieldValue] of Object.entries(interpolatedFieldValues)) {
               const fieldId = fieldMap.get(fieldName);
               if (fieldId) {
-                await db.insert(work_item_field_values).values({
+                fieldValuesToInsert.push({
                   work_item_id: childWorkItem.work_item_id,
                   work_item_field_id: fieldId,
                   field_value: fieldValue,
                 });
-                customFieldsCount++;
               }
+            }
+
+            // Batch insert all field values in a single query
+            if (fieldValuesToInsert.length > 0) {
+              await db.insert(work_item_field_values).values(fieldValuesToInsert);
+              customFieldsCount = fieldValuesToInsert.length;
             }
 
             const fieldsDuration = Date.now() - fieldsStart;
