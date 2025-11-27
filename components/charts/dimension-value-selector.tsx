@@ -53,88 +53,6 @@ interface DimensionValueSelectorProps {
 }
 
 /**
- * Combination count preview with color-coded feedback
- */
-function CombinationPreview({
-  count,
-  selections,
-  compact = false,
-}: {
-  count: number;
-  selections: { dimension: string; count: number }[];
-  compact?: boolean;
-}) {
-  if (count === 0) {
-    return null;
-  }
-
-  // Determine status
-  const isGood = count <= CHART_BUDGET.GOOD;
-  const isWarning = count > CHART_BUDGET.GOOD && count <= CHART_BUDGET.WARNING;
-  const isError = count > CHART_BUDGET.WARNING;
-  const isBlocked = count > CHART_BUDGET.HARD_LIMIT;
-
-  // Build formula string (e.g., "2 × 3 × 2 = 12")
-  const formula = selections.length > 0
-    ? `${selections.map(s => s.count).join(' × ')} = ${count}`
-    : String(count);
-
-  return (
-    <div className={`
-      rounded-lg px-3 py-2 text-sm
-      ${isGood ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800' : ''}
-      ${isWarning ? 'bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800' : ''}
-      ${isError ? 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800' : ''}
-      ${compact ? 'px-2 py-1.5 text-xs' : ''}
-    `}>
-      <div className="flex items-center gap-2">
-        {/* Status icon */}
-        {isGood && (
-          <svg className="w-4 h-4 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-          </svg>
-        )}
-        {isWarning && (
-          <svg className="w-4 h-4 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-          </svg>
-        )}
-        {isError && (
-          <svg className="w-4 h-4 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        )}
-        
-        <span className={`font-medium ${
-          isGood ? 'text-green-700 dark:text-green-300' : ''
-        }${isWarning ? 'text-amber-700 dark:text-amber-300' : ''
-        }${isError ? 'text-red-700 dark:text-red-300' : ''}`}>
-          {count} chart{count !== 1 ? 's' : ''}
-        </span>
-        
-        {selections.length > 1 && (
-          <span className="text-slate-500 dark:text-slate-400">
-            ({formula})
-          </span>
-        )}
-      </div>
-      
-      {/* Warning messages */}
-      {isWarning && !isBlocked && (
-        <p className="mt-1 text-amber-600 dark:text-amber-400 text-xs">
-          Consider reducing selections for better performance
-        </p>
-      )}
-      {isBlocked && (
-        <p className="mt-1 text-red-600 dark:text-red-400 text-xs">
-          Exceeds limit of {CHART_BUDGET.HARD_LIMIT}. Please reduce selections.
-        </p>
-      )}
-    </div>
-  );
-}
-
-/**
  * Dimension Value Selector Component
  */
 export function DimensionValueSelector({
@@ -283,47 +201,31 @@ export function DimensionValueSelector({
   const isBlocked = combinationInfo.count > CHART_BUDGET.HARD_LIMIT;
 
   return (
-    <div className={`space-y-3 ${compact ? 'space-y-2' : ''}`}>
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <span className={`text-slate-600 dark:text-slate-400 font-medium ${compact ? 'text-xs' : 'text-sm'}`}>
-          Filter by values:
-        </span>
-      </div>
-
-      {/* Dimension dropdowns - horizontal layout */}
-      <div className={`flex flex-wrap items-start gap-3 ${compact ? 'gap-2' : ''}`}>
-        {dimensionsWithValues.map((dwv) => (
-          <div key={dwv.dimension.columnName} className={compact ? 'min-w-[160px] max-w-[200px]' : 'min-w-[180px] max-w-[240px]'}>
-            {/* Dimension label */}
-            <div className={`mb-1 font-medium text-slate-700 dark:text-slate-200 ${compact ? 'text-xs' : 'text-sm'}`}>
-              {dwv.dimension.displayName}
-            </div>
-            {/* Value dropdown */}
-            <ValueMultiSelect
-              dimensionName={dwv.dimension.displayName}
-              options={dwv.values}
-              selected={selections[dwv.dimension.columnName] ?? new Set()}
-              onChange={(selected) => updateDimensionSelection(dwv.dimension.columnName, selected)}
-              placeholder={`Select ${dwv.dimension.displayName.toLowerCase()}...`}
-              disabled={isLoading}
-              compact={compact}
-              isLoading={dwv.isLoading ?? false}
-              {...(dwv.error ? { error: dwv.error } : {})}
-            />
+    <div className={`flex flex-wrap items-end gap-3 ${compact ? 'gap-2' : ''}`}>
+      {/* Dimension dropdowns */}
+      {dimensionsWithValues.map((dwv) => (
+        <div key={dwv.dimension.columnName} className={compact ? 'min-w-[140px] max-w-[180px]' : 'min-w-[160px] max-w-[220px]'}>
+          {/* Dimension label */}
+          <div className={`mb-1 font-medium text-slate-700 dark:text-slate-200 ${compact ? 'text-xs' : 'text-sm'}`}>
+            {dwv.dimension.displayName}
           </div>
-        ))}
-      </div>
+          {/* Value dropdown */}
+          <ValueMultiSelect
+            dimensionName={dwv.dimension.displayName}
+            options={dwv.values}
+            selected={selections[dwv.dimension.columnName] ?? new Set()}
+            onChange={(selected) => updateDimensionSelection(dwv.dimension.columnName, selected)}
+            placeholder={`Select...`}
+            disabled={isLoading}
+            compact={compact}
+            isLoading={dwv.isLoading ?? false}
+            {...(dwv.error ? { error: dwv.error } : {})}
+          />
+        </div>
+      ))}
 
-      {/* Combination preview */}
-      <CombinationPreview
-        count={combinationInfo.count}
-        selections={combinationInfo.selections}
-        compact={compact}
-      />
-
-      {/* Action buttons */}
-      <div className="flex items-center gap-2">
+      {/* Action buttons - same row as dropdowns */}
+      <div className={`flex items-center gap-2 ${compact ? 'pb-0.5' : 'pb-1'}`}>
         {/* Apply button */}
         {hasChanges && (
           <button
@@ -331,26 +233,26 @@ export function DimensionValueSelector({
             onClick={handleApply}
             disabled={isLoading || isBlocked || combinationInfo.count === 0}
             className={`
-              px-4 py-1.5 font-medium text-white bg-violet-600 hover:bg-violet-700
+              px-3 py-1.5 font-medium text-white bg-violet-600 hover:bg-violet-700
               rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed
-              ${compact ? 'text-xs px-3 py-1' : 'text-sm'}
+              ${compact ? 'text-xs px-2 py-1' : 'text-sm'}
             `}
           >
             {isLoading ? 'Loading...' : 'Apply'}
           </button>
         )}
 
-        {/* Reset button (always visible, disabled when nothing to reset) */}
+        {/* Reset button */}
         <button
           type="button"
           onClick={handleReset}
           disabled={isLoading || appliedSelections.length === 0}
           className={`
-            px-4 py-1.5 font-medium text-slate-600 dark:text-slate-400
+            px-3 py-1.5 font-medium text-slate-600 dark:text-slate-400
             hover:text-slate-800 dark:hover:text-slate-200
             border border-slate-300 dark:border-slate-600 hover:border-slate-400 dark:hover:border-slate-500
             rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed
-            ${compact ? 'text-xs px-3 py-1' : 'text-sm'}
+            ${compact ? 'text-xs px-2 py-1' : 'text-sm'}
           `}
         >
           Reset

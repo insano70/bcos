@@ -71,10 +71,6 @@ export function ValueMultiSelect({
     );
   }, [options, searchQuery]);
 
-  // Get selected values for chip display
-  const selectedValues = useMemo(() => {
-    return options.filter((opt) => selected.has(opt.value));
-  }, [options, selected]);
 
   // Handle click outside to close dropdown
   useEffect(() => {
@@ -126,17 +122,6 @@ export function ValueMultiSelect({
     },
     [selected, onChange, maxSelectable]
   );
-
-  // Remove a chip
-  const removeChip = useCallback(
-    (value: string | number) => {
-      const newSelected = new Set(selected);
-      newSelected.delete(value);
-      onChange(newSelected);
-    },
-    [selected, onChange]
-  );
-
   // Select all values
   const selectAll = useCallback(() => {
     const newSelected = new Set(options.map(opt => opt.value));
@@ -189,43 +174,6 @@ export function ValueMultiSelect({
 
   return (
     <div ref={containerRef} className="relative">
-      {/* Selected chips (above input) */}
-      {selectedValues.length > 0 && (
-        <div className={`flex flex-wrap gap-1.5 mb-1.5 ${compact ? 'gap-1 mb-1' : ''}`}>
-          {selectedValues.slice(0, 5).map((val) => (
-            <span
-              key={String(val.value)}
-              className={`
-                inline-flex items-center gap-1 px-2 py-0.5 rounded-md
-                bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300
-                border border-violet-300 dark:border-violet-600
-                ${compact ? 'text-xs px-1.5' : 'text-sm'}
-              `}
-            >
-              <span className="truncate max-w-[120px]">{val.label}</span>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  removeChip(val.value);
-                }}
-                className="ml-0.5 hover:text-violet-900 dark:hover:text-violet-100 transition-colors"
-                aria-label={`Remove ${val.label}`}
-              >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </span>
-          ))}
-          {selectedValues.length > 5 && (
-            <span className={`text-slate-500 dark:text-slate-400 ${compact ? 'text-xs' : 'text-sm'}`}>
-              +{selectedValues.length - 5} more
-            </span>
-          )}
-        </div>
-      )}
-
       {/* Input field / trigger */}
       <div
         onClick={handleContainerClick}
