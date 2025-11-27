@@ -4,14 +4,15 @@
  * Dimension Checkboxes
  *
  * Inline horizontal checkbox UI for dimension expansion.
- * Replaces the modal-based DimensionSelector for cleaner UX.
+ * Displays dimensions as pill-style buttons for quick selection.
  *
  * Features:
- * - Horizontal checkbox layout (fits in header)
+ * - Horizontal pill layout (fits in header)
  * - Multi-select with limit enforcement
  * - Value count badges
  * - Compact design for inline use
  * - Apply button for batch changes
+ * - Reset button (always visible, disabled when nothing to reset)
  */
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
@@ -40,7 +41,7 @@ interface DimensionCheckboxesProps {
 }
 
 /**
- * Inline checkboxes for dimension expansion selection
+ * Inline pill checkboxes for dimension expansion selection
  */
 export function DimensionCheckboxes({
   availableDimensions,
@@ -138,7 +139,7 @@ export function DimensionCheckboxes({
         Expand by:
       </span>
 
-      {/* Checkboxes */}
+      {/* Dimension pills */}
       {availableDimensions.map((dimension) => {
         const isSelected = localSelection.has(dimension.columnName);
         const isDisabled =
@@ -199,26 +200,23 @@ export function DimensionCheckboxes({
         </button>
       )}
 
-      {/* Clear button (only shown when expanded) */}
-      {selectedColumns.length > 0 && !hasChanges && (
-        <button
-          type="button"
-          onClick={() => onApply([])}
-          disabled={isLoading}
-          className={`
-            px-3 py-1 font-medium text-slate-600 dark:text-slate-400 
-            hover:text-slate-800 dark:hover:text-slate-200
-            border border-slate-300 dark:border-slate-600 hover:border-slate-400 dark:hover:border-slate-500
-            rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed
-            ${compact ? 'text-xs px-2 py-0.5' : 'text-sm'}
-          `}
-        >
-          Clear
-        </button>
-      )}
+      {/* Reset button (always visible, disabled when nothing to reset) */}
+      <button
+        type="button"
+        onClick={() => onApply([])}
+        disabled={isLoading || selectedColumns.length === 0}
+        className={`
+          px-3 py-1 font-medium text-slate-600 dark:text-slate-400 
+          hover:text-slate-800 dark:hover:text-slate-200
+          border border-slate-300 dark:border-slate-600 hover:border-slate-400 dark:hover:border-slate-500
+          rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed
+          ${compact ? 'text-xs px-2 py-0.5' : 'text-sm'}
+        `}
+      >
+        Reset
+      </button>
     </div>
   );
 }
 
 export default DimensionCheckboxes;
-

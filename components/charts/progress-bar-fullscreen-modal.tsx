@@ -16,6 +16,7 @@ import type {
   DimensionExpansionFilters,
 } from '@/lib/types/dimensions';
 import { DimensionCheckboxes } from './dimension-checkboxes';
+import { DimensionValueSelector } from './dimension-value-selector';
 import DimensionComparisonView from './dimension-comparison-view';
 
 interface ProgressBarFullscreenModalProps {
@@ -43,6 +44,8 @@ export default function ProgressBarFullscreenModal({
   runtimeFilters,
 }: ProgressBarFullscreenModalProps) {
   const [mounted, setMounted] = useState(false);
+  // Phase 1: Toggle between simple (dimension-level) and advanced (value-level) selection
+  const [useAdvancedSelection, setUseAdvancedSelection] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
 
@@ -127,17 +130,53 @@ export default function ProgressBarFullscreenModal({
             </button>
           </div>
 
-          {/* Dimension checkboxes row - inline, no modal */}
+          {/* Dimension selection row - simple or advanced mode */}
           {dimension.canExpand && (
-            <DimensionCheckboxes
-              availableDimensions={dimension.availableDimensions}
-              selectedColumns={dimension.selectedDimensionColumns}
-              onApply={dimension.selectDimensionsByColumns}
-              isLoading={dimension.loading}
-              isDimensionsLoading={dimension.dimensionsLoading}
-              showingCount={dimension.expandedData?.charts?.length}
-              totalCount={dimension.expandedData?.metadata?.totalCombinations}
-            />
+            <div className="space-y-2">
+              {/* Controls row: Toggle button on left, then selector */}
+              <div className="flex items-center gap-2">
+                {/* Show/Hide Filters toggle button */}
+                <button
+                  type="button"
+                  onClick={() => setUseAdvancedSelection(!useAdvancedSelection)}
+                  className={`
+                    px-3 py-1 text-xs font-medium rounded-md transition-colors
+                    ${useAdvancedSelection
+                      ? 'bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 border border-violet-300 dark:border-violet-600'
+                      : 'text-slate-600 dark:text-slate-400 border border-slate-300 dark:border-slate-600 hover:border-violet-300 dark:hover:border-violet-500'
+                    }
+                  `}
+                  title={useAdvancedSelection ? 'Hide value-level filters' : 'Show value-level filters'}
+                >
+                  {useAdvancedSelection ? 'Hide Filters' : 'Show Filters'}
+                </button>
+
+                {/* Dimension selector */}
+                <div className="flex-1">
+                  {useAdvancedSelection ? (
+                    <DimensionValueSelector
+                      dimensionsWithValues={dimension.dimensionsWithValues}
+                      onApply={dimension.expandByValueSelections}
+                      appliedSelections={dimension.appliedValueSelections}
+                      isLoading={dimension.loading}
+                      isDimensionsLoading={dimension.valuesLoading}
+                      compact
+                    />
+                  ) : (
+                    <DimensionCheckboxes
+                      availableDimensions={dimension.availableDimensions}
+                      selectedColumns={dimension.selectedDimensionColumns}
+                      onApply={dimension.selectDimensionsByColumns}
+                      isLoading={dimension.loading}
+                      isDimensionsLoading={dimension.dimensionsLoading}
+                      showingCount={dimension.expandedData?.charts?.length}
+                      totalCount={dimension.expandedData?.metadata?.totalCombinations}
+                      compact
+                    />
+                  )}
+                </div>
+              </div>
+            </div>
           )}
         </div>
 

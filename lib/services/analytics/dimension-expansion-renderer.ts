@@ -38,6 +38,7 @@ import type {
   MultiDimensionExpansionRequest,
   MultiDimensionExpandedChartData,
   DimensionValueCombination,
+  DimensionValueSelection,
 } from '@/lib/types/dimensions';
 import { dimensionDiscoveryService } from './dimension-discovery-service';
 import { chartDataOrchestrator } from '@/lib/services/chart-data-orchestrator';
@@ -207,11 +208,50 @@ export class DimensionExpansionRenderer {
         }
       }
 
+      // Phase 1: Apply value-level selections if provided
+      // This filters dimension values to only include user-selected values,
+      // preventing combinatorial explosion
+      const selections = (request as unknown as { selections?: DimensionValueSelection[] }).selections;
+      if (selections && selections.length > 0) {
+        log.info('Applying value-level selections', {
+          selectionCount: selections.length,
+          selections: selections.map(s => ({
+            column: s.columnName,
+            valueCount: s.selectedValues.length,
+          })),
+          component: 'dimension-expansion',
+        });
+
+        // Filter each dimension's values to only include selected values
+        for (const selection of selections) {
+          const col = selection.columnName;
+          const allValues = dimensionValuesByColumn[col];
+          if (allValues) {
+            // Create a Set of selected values for efficient lookup
+            const selectedSet = new Set(selection.selectedValues.map(v => String(v)));
+            
+            // Filter to only include selected values
+            const filteredValues = allValues.filter(v => selectedSet.has(String(v.value)));
+            
+            dimensionValuesByColumn[col] = filteredValues;
+
+            log.debug('Filtered dimension values by selection', {
+              column: col,
+              originalCount: allValues.length,
+              selectedCount: selection.selectedValues.length,
+              filteredCount: filteredValues.length,
+              component: 'dimension-expansion',
+            });
+          }
+        }
+      }
+
       log.debug('Dimension values mapped by column', {
         columnKeys: Object.keys(dimensionValuesByColumn),
         valueCounts: Object.fromEntries(
           Object.entries(dimensionValuesByColumn).map(([col, vals]) => [col, vals.length])
         ),
+        hasValueSelections: Boolean(selections && selections.length > 0),
         component: 'dimension-expansion',
       });
 

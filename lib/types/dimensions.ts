@@ -193,3 +193,137 @@ export interface MultiDimensionExpandedChartData {
 // Type aliases for backward compatibility (optional, but helps with refactoring steps)
 // export type DimensionExpansionRequest = MultiDimensionExpansionRequest; 
 // export type DimensionExpandedChartData = MultiDimensionExpandedChartData;
+
+// =============================================================================
+// Phase 1: Value-Level Selection Types
+// =============================================================================
+
+/**
+ * Value-level dimension selection
+ * 
+ * Allows users to select specific values within a dimension rather than
+ * expanding by all values. This prevents combinatorial explosion.
+ * 
+ * Example: Instead of expanding by ALL 10 locations, user selects only
+ * "Downtown Clinic" and "Uptown Clinic" (2 values).
+ */
+export interface DimensionValueSelection {
+  /** Column name of the dimension (e.g., "location") */
+  columnName: string;
+  /** Specific values to include in expansion */
+  selectedValues: (string | number)[];
+  /** Display name of the dimension (for UI) */
+  displayName?: string;
+}
+
+/**
+ * Request with specific value selections (Phase 1)
+ * 
+ * Replaces the all-or-nothing MultiDimensionExpansionRequest with
+ * fine-grained value selection per dimension.
+ * 
+ * Example:
+ * - Old: dimensionColumns: ["location", "line_of_business"]
+ *   Result: 10 locations × 5 LOBs = 50 charts
+ * 
+ * - New: selections: [
+ *     { columnName: "location", selectedValues: ["downtown", "uptown"] },
+ *     { columnName: "line_of_business", selectedValues: ["pt", "ot"] }
+ *   ]
+ *   Result: 2 × 2 = 4 charts (user-controlled)
+ */
+export interface ValueLevelExpansionRequest {
+  /** Chart configuration (data source, chart type, etc.) */
+  finalChartConfig: DimensionExpansionChartConfig;
+  /** Runtime filters (date range, practice, etc.) */
+  runtimeFilters: DimensionExpansionFilters;
+  /** Dimension selections with specific values */
+  selections: DimensionValueSelection[];
+  /** Maximum charts to return (pagination) */
+  limit?: number;
+  /** Pagination offset */
+  offset?: number;
+}
+
+/**
+ * Dimension with its available values for selection UI
+ * 
+ * Used by DimensionValueSelector component to render expandable
+ * dimension groups with checkboxes for each value.
+ */
+export interface DimensionWithValues {
+  /** Dimension metadata */
+  dimension: ExpansionDimension;
+  /** Available values for selection */
+  values: DimensionValue[];
+  /** Whether values are currently loading */
+  isLoading?: boolean;
+  /** Error message if value fetch failed */
+  error?: string;
+}
+
+/**
+ * State for value-level selection UI
+ * 
+ * Tracks which values are selected for each dimension.
+ * Key: columnName, Value: set of selected values
+ */
+export type ValueSelectionState = Record<string, Set<string | number>>;
+
+/**
+ * Serializable version of ValueSelectionState for API/storage
+ * 
+ * Sets are not JSON-serializable, so we convert to arrays for
+ * API requests and localStorage persistence.
+ */
+export type SerializedValueSelection = Record<string, (string | number)[]>;
+
+/**
+ * Convert ValueSelectionState to DimensionValueSelection array
+ * for API requests
+ */
+export function toSelectionArray(
+  state: ValueSelectionState,
+  dimensions: ExpansionDimension[]
+): DimensionValueSelection[] {
+  return Object.entries(state)
+    .filter(([_, values]) => values.size > 0)
+    .map(([columnName, values]) => {
+      const dimension = dimensions.find(d => d.columnName === columnName);
+      const selection: DimensionValueSelection = {
+        columnName,
+        selectedValues: Array.from(values),
+      };
+      // Only add displayName if it exists (exactOptionalPropertyTypes compliance)
+      if (dimension?.displayName) {
+        selection.displayName = dimension.displayName;
+      }
+      return selection;
+    });
+}
+
+/**
+ * Convert DimensionValueSelection array to ValueSelectionState
+ * for state management
+ */
+export function toSelectionState(
+  selections: DimensionValueSelection[]
+): ValueSelectionState {
+  const state: ValueSelectionState = {};
+  for (const selection of selections) {
+    state[selection.columnName] = new Set(selection.selectedValues);
+  }
+  return state;
+}
+
+/**
+ * Calculate the number of chart combinations from selections
+ * 
+ * @param state - Current value selection state
+ * @returns Product of selected values per dimension (cartesian product size)
+ */
+export function calculateCombinationCount(state: ValueSelectionState): number {
+  const counts = Object.values(state).map(set => set.size);
+  if (counts.length === 0) return 0;
+  return counts.reduce((product, count) => product * (count || 1), 1);
+}

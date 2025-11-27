@@ -12,6 +12,7 @@
  * - Caches dimension results by chartDefinitionId + filter hash
  * - Supports inline checkbox selection (no modal required)
  * - Toggle dimensions on/off for expansion
+ * - Phase 1: Value-level selection support (select specific values, not just dimensions)
  *
  * Single Responsibility: Dimension expansion state and API calls
  */
@@ -24,6 +25,9 @@ import type {
   ExpansionDimension,
   DimensionExpansionChartConfig,
   DimensionExpansionFilters,
+  DimensionWithValues,
+  DimensionValueSelection,
+  DimensionValuesResponse,
 } from '@/lib/types/dimensions';
 import { CHARTS_PER_PAGE } from '@/lib/constants/dimension-expansion';
 import { createClientLogger } from '@/lib/utils/client-logger';
@@ -47,6 +51,12 @@ function hashFilters(filters: Record<string, unknown> | undefined): string {
  * Key: `${chartDefinitionId}:${filterHash}`
  */
 const dimensionCache = new Map<string, ExpansionDimension[]>();
+
+/**
+ * Global cache for dimension values
+ * Key: `${chartDefinitionId}:${dimensionColumn}:${filterHash}`
+ */
+const dimensionValuesCache = new Map<string, DimensionValuesResponse>();
 
 /**
  * Parameters for useDimensionExpansion hook
@@ -100,6 +110,20 @@ export interface DimensionExpansionState {
   refreshDimensions: () => Promise<void>;
   /** Load more charts (server-side pagination) */
   loadMore: () => Promise<void>;
+  
+  // Phase 1: Value-level selection support
+  /** Dimensions with their available values for value-level selection */
+  dimensionsWithValues: DimensionWithValues[];
+  /** Whether dimension values are being loaded */
+  valuesLoading: boolean;
+  /** Fetch values for a specific dimension */
+  fetchDimensionValues: (columnName: string) => Promise<void>;
+  /** Fetch values for all available dimensions */
+  fetchAllDimensionValues: () => Promise<void>;
+  /** Expand by specific value selections (Phase 1 value-level selection) */
+  expandByValueSelections: (selections: DimensionValueSelection[]) => Promise<void>;
+  /** Currently applied value selections */
+  appliedValueSelections: DimensionValueSelection[];
 }
 
 /**
@@ -121,6 +145,11 @@ export function useDimensionExpansion(
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedDimensionColumns, setSelectedDimensionColumns] = useState<string[]>([]);
+  
+  // Phase 1: Value-level selection state
+  const [dimensionsWithValues, setDimensionsWithValues] = useState<DimensionWithValues[]>([]);
+  const [valuesLoading, setValuesLoading] = useState(false);
+  const [appliedValueSelections, setAppliedValueSelections] = useState<DimensionValueSelection[]>([]);
   
   // Ref to track if dimensions have been fetched for current params
   const lastFetchKey = useRef<string | null>(null);
@@ -320,6 +349,180 @@ export function useDimensionExpansion(
    */
   const hasMore = expandedData?.metadata?.hasMore ?? false;
 
+  // ==========================================================================
+  // Phase 1: Value-level selection methods
+  // ==========================================================================
+
+  /**
+   * Fetch values for a specific dimension
+   */
+  const fetchDimensionValues = useCallback(async (columnName: string) => {
+    if (!chartDefinitionId || !cacheKey) return;
+
+    const dimension = availableDimensions.find(d => d.columnName === columnName);
+    if (!dimension) return;
+
+    // Check cache
+    const valuesCacheKey = `${cacheKey}:${columnName}`;
+    const cached = dimensionValuesCache.get(valuesCacheKey);
+    if (cached) {
+      // Update dimensionsWithValues with cached data
+      setDimensionsWithValues(prev => {
+        const existing = prev.find(d => d.dimension.columnName === columnName);
+        if (existing) {
+          return prev.map(d => 
+            d.dimension.columnName === columnName 
+              ? { ...d, values: cached.values, isLoading: false }
+              : d
+          );
+        }
+        return [...prev, { dimension, values: cached.values, isLoading: false }];
+      });
+      return;
+    }
+
+    // Mark as loading
+    setDimensionsWithValues(prev => {
+      const existing = prev.find(d => d.dimension.columnName === columnName);
+      if (existing) {
+        return prev.map(d => {
+          if (d.dimension.columnName === columnName) {
+            // Create new object without error property (exactOptionalPropertyTypes compliance)
+            const updated: DimensionWithValues = {
+              dimension: d.dimension,
+              values: d.values,
+              isLoading: true,
+            };
+            return updated;
+          }
+          return d;
+        });
+      }
+      return [...prev, { dimension, values: [], isLoading: true }];
+    });
+
+    try {
+      const response = await apiClient.post<DimensionValuesResponse>(
+        `/api/admin/analytics/charts/${chartDefinitionId}/dimensions/${columnName}/values`,
+        { runtimeFilters: runtimeFilters || {} }
+      );
+
+      // Cache the result
+      dimensionValuesCache.set(valuesCacheKey, response);
+
+      // Update state
+      setDimensionsWithValues(prev => 
+        prev.map(d => 
+          d.dimension.columnName === columnName 
+            ? { ...d, values: response.values, isLoading: false }
+            : d
+        )
+      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to fetch dimension values';
+      setDimensionsWithValues(prev => 
+        prev.map(d => 
+          d.dimension.columnName === columnName 
+            ? { ...d, isLoading: false, error: message }
+            : d
+        )
+      );
+      dimensionLogger.error('Failed to fetch dimension values', err, { columnName });
+    }
+  }, [chartDefinitionId, cacheKey, runtimeFilters, availableDimensions]);
+
+  /**
+   * Fetch values for all available dimensions
+   */
+  const fetchAllDimensionValues = useCallback(async () => {
+    if (availableDimensions.length === 0) return;
+
+    setValuesLoading(true);
+
+    // Initialize all dimensions as loading
+    setDimensionsWithValues(
+      availableDimensions.map(dimension => ({
+        dimension,
+        values: [],
+        isLoading: true,
+      }))
+    );
+
+    // Fetch all in parallel
+    await Promise.all(
+      availableDimensions.map(dim => fetchDimensionValues(dim.columnName))
+    );
+
+    setValuesLoading(false);
+  }, [availableDimensions, fetchDimensionValues]);
+
+  /**
+   * Auto-fetch dimension values when dimensions are loaded
+   */
+  useEffect(() => {
+    if (isOpen && availableDimensions.length > 0 && dimensionsWithValues.length === 0) {
+      fetchAllDimensionValues();
+    }
+  }, [isOpen, availableDimensions, dimensionsWithValues.length, fetchAllDimensionValues]);
+
+  /**
+   * Expand by specific value selections (Phase 1)
+   * 
+   * Instead of expanding by all values of selected dimensions,
+   * this method expands only by the specific values the user selected.
+   */
+  const expandByValueSelections = useCallback(
+    async (selections: DimensionValueSelection[]) => {
+      if (selections.length === 0) {
+        // Clear selection and collapse
+        setExpandedData(null);
+        setSelectedDimensionColumns([]);
+        setAppliedValueSelections([]);
+        return;
+      }
+
+      setLoading(true);
+      clearError();
+
+      // Track selected columns
+      const columns = selections.map(s => s.columnName);
+      setSelectedDimensionColumns(columns);
+      setAppliedValueSelections(selections);
+
+      try {
+        if (!chartDefinitionId || !finalChartConfig || !runtimeFilters) {
+          throw new Error('Dimension expansion requires chart metadata and filters.');
+        }
+
+        // Use the new value-level expansion endpoint
+        const response = await apiClient.post<MultiDimensionExpandedChartData>(
+          `/api/admin/analytics/charts/${chartDefinitionId}/expand`,
+          {
+            finalChartConfig,
+            runtimeFilters,
+            // Pass value selections instead of just dimension columns
+            selections,
+            limit: CHARTS_PER_PAGE,
+            offset: 0,
+          }
+        );
+
+        setExpandedData(response);
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : 'Failed to expand chart by selected values.';
+        setError(message);
+        dimensionLogger.error('Value-level expansion failed', err, {
+          chartDefinitionId,
+          selectionCount: selections.length,
+        });
+      } finally {
+        setLoading(false);
+      }
+    },
+    [chartDefinitionId, finalChartConfig, runtimeFilters, clearError]
+  );
+
   /**
    * Load more charts from server (pagination)
    * Fetches next batch and appends to existing charts
@@ -415,5 +618,12 @@ export function useDimensionExpansion(
     collapse,
     refreshDimensions,
     loadMore,
+    // Phase 1: Value-level selection
+    dimensionsWithValues,
+    valuesLoading,
+    fetchDimensionValues,
+    fetchAllDimensionValues,
+    expandByValueSelections,
+    appliedValueSelections,
   };
 }

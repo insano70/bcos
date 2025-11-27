@@ -16,11 +16,12 @@ import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { dimensionExpansionRenderer } from '@/lib/services/analytics/dimension-expansion-renderer';
 import { log } from '@/lib/logger';
-import type { MultiDimensionExpansionRequest } from '@/lib/types/dimensions';
+import type { MultiDimensionExpansionRequest, DimensionValueSelection } from '@/lib/types/dimensions';
 import type { UserContext } from '@/lib/types/rbac';
 import {
   dimensionExpansionConfigRequestSchema,
   multiDimensionExpansionRequestSchema,
+  valueLevelExpansionRequestSchema,
 } from '@/lib/validations/dimension-expansion';
 
 const expandChartHandler = async (
@@ -36,37 +37,56 @@ const expandChartHandler = async (
     const chartId = params.chartId;
     const body = await request.json();
 
-    // Unified handling: Treat all requests as multi-dimension
+    // Determine request type: value-level (Phase 1), multi-dimension, or single-dimension
+    const hasValueSelections = Array.isArray(body.selections) && body.selections.length > 0;
     const isMultiDimensionRequest = Array.isArray(body.dimensionColumns);
     
-    // Normalize to multi-dimension request
-    const expansionRequest: MultiDimensionExpansionRequest = {
+    // Get dimension columns from selections or direct specification
+    let dimensionColumns: string[];
+    let selections: DimensionValueSelection[] | undefined;
+    
+    if (hasValueSelections) {
+      // Phase 1: Value-level selection - derive dimension columns from selections
+      valueLevelExpansionRequestSchema.parse(body);
+      selections = body.selections as DimensionValueSelection[];
+      dimensionColumns = selections.map(s => s.columnName);
+    } else if (isMultiDimensionRequest) {
+      multiDimensionExpansionRequestSchema.parse(body);
+      dimensionColumns = body.dimensionColumns;
+    } else {
+      // Legacy single-dimension request
+      dimensionExpansionConfigRequestSchema.parse(body);
+      dimensionColumns = [body.dimensionColumn];
+    }
+    
+    // Normalize to multi-dimension request (renderer handles selections internally)
+    const expansionRequest: MultiDimensionExpansionRequest & { selections?: DimensionValueSelection[] } = {
       finalChartConfig: body.finalChartConfig,
       runtimeFilters: body.runtimeFilters,
-      // Convert single dimensionColumn to array if necessary
-      dimensionColumns: isMultiDimensionRequest 
-        ? body.dimensionColumns 
-        : [body.dimensionColumn],
+      dimensionColumns,
       limit: body.limit,
       offset: body.offset,
     };
     
-    // Validate request schema based on type (for safety)
-    if (isMultiDimensionRequest) {
-      multiDimensionExpansionRequestSchema.parse(body);
-    } else {
-      dimensionExpansionConfigRequestSchema.parse(body);
+    // Add selections to request if using value-level expansion
+    if (selections) {
+      expansionRequest.selections = selections;
     }
 
     log.info('Dimension expansion request (unified)', {
       chartId,
       dimensionColumns: expansionRequest.dimensionColumns,
       dimensionCount: expansionRequest.dimensionColumns.length,
-      originalType: isMultiDimensionRequest ? 'multi' : 'single',
+      hasValueSelections,
+      selectionCounts: hasValueSelections 
+        ? selections?.map(s => ({ col: s.columnName, values: s.selectedValues.length }))
+        : undefined,
+      originalType: hasValueSelections ? 'value-level' : (isMultiDimensionRequest ? 'multi' : 'single'),
       component: 'dimensions-api',
     });
 
     // Render expanded chart using unified multi-dimension renderer
+    // Note: Renderer handles selections internally via type assertion
     const result = await dimensionExpansionRenderer.renderByMultipleDimensions(
       expansionRequest,
       userContext
