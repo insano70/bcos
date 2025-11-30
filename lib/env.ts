@@ -1,6 +1,9 @@
 import { createEnv } from '@t3-oss/env-nextjs';
 import { z } from 'zod';
 
+// Note: This file is loaded very early in Next.js lifecycle (during next.config.js loading)
+// before path aliases are resolved. We cannot use @/lib/logger here - must use console.
+
 export const env = createEnv({
   /**
    * Specify your server-side environment variables schema here. This way you can ensure the app
@@ -203,7 +206,8 @@ if (typeof window === 'undefined') {
 
     // Email service configuration - using EMAIL_FROM if available
     if (!env.ADMIN_NOTIFICATION_EMAILS) {
-      console.warn('⚠️ ADMIN_NOTIFICATION_EMAILS not configured - security alerts will not be sent');
+      // eslint-disable-next-line no-console -- Bootstrap code, logger unavailable
+      console.warn('ADMIN_NOTIFICATION_EMAILS not configured - security alerts will not be sent');
     }
   }
 

@@ -3,7 +3,7 @@ import { log } from '@/lib/logger';
 import type { RequestScopedCache } from '@/lib/cache/request-scoped-cache';
 import { getPaletteColors } from '@/lib/services/color-palettes';
 import type { AggAppMeasure, ChartData, ChartDataset, DualAxisConfig } from '@/lib/types/analytics';
-import { MeasureAccessor } from '@/lib/types/analytics';
+import { MeasureAccessor } from '@/lib/services/analytics/measure-accessor';
 import type { UserContext } from '@/lib/types/rbac';
 import { columnMappingService } from '../column-mapping-service';
 import { BaseChartHandler } from './base-handler';

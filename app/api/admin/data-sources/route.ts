@@ -3,7 +3,7 @@ import { validateRequest } from '@/lib/api/middleware/validation';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
-import { log, logTemplates, sanitizeFilters } from '@/lib/logger';
+import { log, logTemplates, sanitizeFilters, SLOW_THRESHOLDS } from '@/lib/logger';
 import { createRBACDataSourcesService } from '@/lib/services/rbac-data-sources-service';
 import type { UserContext } from '@/lib/types/rbac';
 import {
@@ -86,7 +86,7 @@ const getDataSourcesHandler = async (request: NextRequest, userContext: UserCont
         pageSize: validatedQuery.limit || 50,
       },
       duration,
-      slow: duration > 1000,
+      slow: duration > SLOW_THRESHOLDS.API_OPERATION,
       component: 'admin',
     });
 
@@ -195,7 +195,7 @@ const getTableColumnsHandler = async (request: NextRequest, userContext: UserCon
         byDataType: dataTypeCounts,
       },
       duration,
-      slow: duration > 2000,
+      slow: duration > SLOW_THRESHOLDS.AUTH_OPERATION,
       component: 'admin',
     });
 

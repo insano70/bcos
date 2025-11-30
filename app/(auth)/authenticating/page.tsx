@@ -25,10 +25,6 @@ export default function AuthenticatingPage() {
   useEffect(() => {
     // Once authenticated and not loading, redirect to destination
     if (isAuthenticated && !isLoading) {
-      if (process.env.NODE_ENV === 'development') {
-        console.log('Authentication confirmed, redirecting to:', returnUrl);
-      }
-
       // Use router.push for client-side navigation (middleware will have seen cookies by now)
       router.push(returnUrl);
     }

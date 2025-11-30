@@ -11,7 +11,7 @@ import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { authRoute } from '@/lib/api/route-handlers';
 import { getUserCredentials } from '@/lib/auth/webauthn';
-import { log } from '@/lib/logger';
+import { log, SLOW_THRESHOLDS } from '@/lib/logger';
 import type { CredentialListItem } from '@/lib/types/webauthn';
 
 export const dynamic = 'force-dynamic';
@@ -65,7 +65,7 @@ const handler = async (request: NextRequest) => {
         deviceTypes,
       },
       duration,
-      slow: duration > 1000,
+      slow: duration > SLOW_THRESHOLDS.API_OPERATION,
       component: 'auth',
     });
 

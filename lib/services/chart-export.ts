@@ -1,4 +1,5 @@
 import type { ChartData } from '@/lib/types/analytics';
+import { clientDebugLog } from '@/lib/utils/debug-client';
 
 /**
  * Chart Export Service
@@ -201,7 +202,7 @@ export class ChartExportService {
    */
   downloadFile(result: ExportResult): void {
     if (!result.success || !result.data) {
-      console.error('Cannot download file:', result.error);
+      clientDebugLog.component('Cannot download file', { error: result.error });
       return;
     }
 

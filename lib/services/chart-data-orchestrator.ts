@@ -1,6 +1,7 @@
 import { log } from '@/lib/logger';
 import type { RequestScopedCache } from '@/lib/cache/request-scoped-cache';
-import type { ChartData } from '@/lib/types/analytics';
+import type { ChartData, ChartFilter } from '@/lib/types/analytics';
+import type { TableRow, FormattedTableCell, TableColumnMeta } from '@/lib/types/data-rows';
 import type { UserContext } from '@/lib/types/rbac';
 import { chartTypeRegistry } from './chart-type-registry';
 import { createRBACChartDefinitionsService } from './rbac-chart-definitions-service';
@@ -58,67 +59,75 @@ async function withTimeout<T>(
  */
 
 /**
+ * Inline chart configuration for universal requests
+ */
+interface InlineChartConfig {
+  chartType: string;
+  dataSourceId: number;
+  groupBy?: string | undefined;
+  colorPalette?: string | undefined;
+  stackingMode?: string | undefined;
+  aggregation?: string | undefined;
+  target?: number | undefined;
+  dualAxisConfig?: import('@/lib/types/analytics').DualAxisConfig | undefined;
+  xAxis?: import('@/lib/types/analytics').ChartAxisConfig | undefined;
+  yAxis?: import('@/lib/types/analytics').ChartAxisConfig | undefined;
+  series?: import('@/lib/types/analytics').ChartSeriesConfig | undefined;
+  options?: import('@/lib/types/analytics').ChartDisplayOptions | undefined;
+  periodComparison?: import('@/lib/types/analytics').PeriodComparisonConfig | undefined;
+  calculatedField?: string | undefined;
+  /** @deprecated Allow additional properties for backward compatibility */
+  [key: string]: unknown;
+}
+
+/**
+ * Runtime filters for chart data requests
+ */
+interface ChartRuntimeFilters {
+  startDate?: string | undefined;
+  endDate?: string | undefined;
+  dateRangePreset?: string | undefined;
+  practice?: string | undefined;
+  practiceUid?: string | undefined;
+  providerName?: string | undefined;
+  measure?: string | undefined;
+  frequency?: string | undefined;
+  advancedFilters?: ChartFilter[] | undefined;
+  calculatedField?: string | undefined;
+  nocache?: boolean | undefined;
+  /** @deprecated Allow additional properties for backward compatibility */
+  [key: string]: unknown;
+}
+
+/**
  * Universal chart data request (from API endpoint)
  */
 interface UniversalChartDataRequest {
   chartDefinitionId?: string | undefined;
-  chartConfig?:
-    | {
-        chartType: string;
-        dataSourceId: number;
-        [key: string]: unknown;
-      }
-    | undefined;
-  runtimeFilters?:
-    | {
-        startDate?: string | undefined;
-        endDate?: string | undefined;
-        dateRangePreset?: string | undefined;
-        practice?: string | undefined;
-        practiceUid?: string | undefined;
-        providerName?: string | undefined;
-        measure?: string | undefined;
-        frequency?: string | undefined;
-      }
-    | undefined;
+  chartConfig?: InlineChartConfig | undefined;
+  runtimeFilters?: ChartRuntimeFilters | undefined;
 }
 
 /**
  * Column definition for table charts
+ * Re-exported from data-rows for backward compatibility
  */
-export interface ColumnDefinition {
-  columnName: string;
-  displayName: string;
-  dataType: string;
-  formatType?: string | null;
-  displayIcon?: boolean | null;
-  iconType?: string | null;
-  iconColorMode?: string | null;
-  iconColor?: string | null;
-  iconMapping?: Record<string, unknown> | null;
-}
+export type ColumnDefinition = TableColumnMeta;
 
 /**
  * Formatted cell for table charts (Phase 3.2)
+ * Re-exported from data-rows for backward compatibility
  */
-export interface FormattedCell {
-  formatted: string; // Display value (e.g., "$1,000.00")
-  raw: unknown; // Original value for sorting/exporting
-  icon?: {
-    name: string;
-    color?: string;
-    type?: string;
-  };
-}
+export type FormattedCell = FormattedTableCell;
 
 /**
  * Orchestration result
  */
 export interface OrchestrationResult {
   chartData: ChartData;
-  rawData: Record<string, unknown>[];
-  columns?: ColumnDefinition[]; // Optional: Only for table charts
-  formattedData?: Array<Record<string, FormattedCell>>; // Optional: Only for table charts (Phase 3.2)
+  rawData: TableRow[];
+  columns?: ColumnDefinition[];
+  formattedData?: Array<Record<string, FormattedCell>>;
   metadata: {
     chartType: string;
     dataSourceId: number;
@@ -259,7 +268,7 @@ class ChartDataOrchestrator {
 
       const result: OrchestrationResult = {
         chartData,
-        rawData: fetchResult.data,
+        rawData: fetchResult.data as TableRow[],
         ...(columns && { columns }), // Only include columns if present
         ...(formattedData && { formattedData }), // Only include formatted data if present (Phase 3.2)
         metadata: {
@@ -358,7 +367,9 @@ class ChartDataOrchestrator {
       throw new Error('Either chartDefinitionId or chartConfig must be provided');
     }
 
-    return request.chartConfig as Record<string, unknown>;
+    // InlineChartConfig extends Record<string, unknown> via index signature
+    // Cast is safe since InlineChartConfig satisfies Record<string, unknown>
+    return request.chartConfig satisfies Record<string, unknown>;
   }
 
   /**
@@ -367,7 +378,7 @@ class ChartDataOrchestrator {
    */
   private mergeRuntimeFilters(
     chartConfig: Record<string, unknown>,
-    runtimeFilters?: Record<string, unknown>
+    runtimeFilters?: ChartRuntimeFilters
   ): Record<string, unknown> {
     if (!runtimeFilters) {
       return chartConfig;

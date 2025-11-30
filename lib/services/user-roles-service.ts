@@ -3,7 +3,7 @@ import { db } from '@/lib/db';
 import { roles, user_roles } from '@/lib/db/rbac-schema';
 import { log, logTemplates, SLOW_THRESHOLDS } from '@/lib/logger';
 import type { UserContext } from '@/lib/types/rbac';
-import { PermissionDeniedError } from '@/lib/types/rbac';
+import { PermissionDeniedError } from '@/lib/errors/rbac-errors';
 
 /**
  * User Roles Service

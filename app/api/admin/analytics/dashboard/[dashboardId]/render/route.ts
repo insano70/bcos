@@ -3,7 +3,7 @@ import { validateRequest } from '@/lib/api/middleware/validation';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
-import { log } from '@/lib/logger';
+import { log, SLOW_THRESHOLDS } from '@/lib/logger';
 import {
   createDashboardRenderingService,
   type DashboardUniversalFilters,
@@ -112,7 +112,7 @@ const renderDashboardHandler = async (
         filtersApplied: result.metadata.dashboardFiltersApplied.length,
         nocache,
       },
-      slow: duration > 2000, // Flag if slower than 2 seconds
+      slow: duration > SLOW_THRESHOLDS.AUTH_OPERATION,
       performance: {
         target: 2000, // Target 2s for dashboard load
         actual: duration,

@@ -73,3 +73,11 @@ export const sessionSchema = z.object({
   }),
   expires: z.string(),
 });
+
+// Export types inferred from schemas
+export type Login = z.infer<typeof loginSchema>;
+export type Register = z.infer<typeof registerSchema>;
+export type PasswordResetRequest = z.infer<typeof passwordResetRequestSchema>;
+export type PasswordReset = z.infer<typeof passwordResetSchema>;
+export type AuthPasswordChange = z.infer<typeof passwordChangeSchema>;
+export type Session = z.infer<typeof sessionSchema>;

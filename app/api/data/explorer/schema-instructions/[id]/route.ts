@@ -40,10 +40,12 @@ const updateInstructionHandler = async (
     };
     const updated = await metadataService.updateSchemaInstruction(id, updateData);
 
+    // Note: Change tracking requires getSchemaInstructionById method to be added to ExplorerMetadataService
     log.info('Schema instruction updated', {
       operation: 'data_explorer_update_instruction',
       instructionId: id,
       userId: userContext.user_id,
+      fieldsUpdated: Object.keys(updateData),
       component: 'business-logic',
     });
 

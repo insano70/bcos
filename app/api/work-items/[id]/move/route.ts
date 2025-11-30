@@ -25,18 +25,28 @@ const moveWorkItemHandler = async (
     const validationStart = Date.now();
     const validatedParams = await extractRouteParams(args[0], workItemParamsSchema);
     const validatedData = await validateRequest(request, workItemMoveSchema);
-    log.info('Request validation completed', { duration: Date.now() - validationStart });
+    log.info('Request validation completed', {
+      duration: Date.now() - validationStart,
+      operation: 'move_work_item',
+      component: 'work-items',
+    });
 
     log.info('Move work item request initiated', {
       requestingUserId: userContext.user_id,
       workItemId: validatedParams.id,
       newParentId: validatedData.parent_work_item_id,
+      operation: 'move_work_item',
+      component: 'work-items',
     });
 
     // Create hierarchy service
     const serviceStart = Date.now();
     const hierarchyService = createWorkItemHierarchyService(userContext);
-    log.info('Hierarchy service created', { duration: Date.now() - serviceStart });
+    log.info('Hierarchy service created', {
+      duration: Date.now() - serviceStart,
+      operation: 'move_work_item',
+      component: 'work-items',
+    });
 
     // Move work item with automatic permission checking and path recalculation
     const moveStart = Date.now();
@@ -51,6 +61,8 @@ const moveWorkItemHandler = async (
       workItemId: validatedParams.id,
       newParentId: validatedData.parent_work_item_id,
       totalDuration,
+      operation: 'move_work_item',
+      component: 'work-items',
     });
 
     return createSuccessResponse(
@@ -84,6 +96,8 @@ const moveWorkItemHandler = async (
     log.error('Move work item failed', error, {
       requestingUserId: userContext.user_id,
       totalDuration,
+      operation: 'move_work_item',
+      component: 'work-items',
     });
 
     return createErrorResponse(

@@ -3,7 +3,7 @@ import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { extractRouteParams } from '@/lib/api/utils/params';
-import { log } from '@/lib/logger';
+import { log, SLOW_THRESHOLDS } from '@/lib/logger';
 import { createRBACDataSourcesService } from '@/lib/services/rbac-data-sources-service';
 import type { UserContext } from '@/lib/types/rbac';
 import { dataSourceParamsSchema } from '@/lib/validations/data-sources';
@@ -43,7 +43,7 @@ const testConnectionHandler = async (
         ...(testResult.details && { details: testResult.details }),
       },
       duration,
-      slow: duration > 5000,
+      slow: duration > SLOW_THRESHOLDS.EXTERNAL_CONNECTION,
       component: 'admin',
     });
 

@@ -21,7 +21,7 @@ import {
 import { FILE_SIZE_LIMITS, IMAGE_MIME_TYPES } from '@/lib/s3/private-assets/constants';
 import type { UserContext } from '@/lib/types/rbac';
 import type { AttachmentFieldConfig } from '@/lib/types/work-item-fields';
-import { PermissionDeniedError } from '@/lib/types/rbac';
+import { PermissionDeniedError } from '@/lib/errors/rbac-errors';
 
 /**
  * Attachment Field Service with RBAC

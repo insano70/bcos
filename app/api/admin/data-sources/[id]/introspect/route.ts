@@ -3,7 +3,7 @@ import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { extractRouteParams } from '@/lib/api/utils/params';
-import { log } from '@/lib/logger';
+import { log, SLOW_THRESHOLDS } from '@/lib/logger';
 import { createRBACDataSourcesService } from '@/lib/services/rbac-data-sources-service';
 import type { UserContext } from '@/lib/types/rbac';
 import { dataSourceParamsSchema } from '@/lib/validations/data-sources';
@@ -42,7 +42,7 @@ const introspectDataSourceHandler = async (
         columnsReturned: result.columns?.length || 0,
       },
       duration,
-      slow: duration > 10000,
+      slow: duration > SLOW_THRESHOLDS.SCHEMA_INTROSPECTION,
       component: 'admin',
     });
 

@@ -26,17 +26,27 @@ const getWorkItemActivityHandler = async (
     const validationStart = Date.now();
     const validatedParams = await extractRouteParams(args[0], workItemParamsSchema);
     const query = validateQuery(searchParams, workItemActivityQuerySchema);
-    log.info('Request validation completed', { duration: Date.now() - validationStart });
+    log.info('Request validation completed', {
+      duration: Date.now() - validationStart,
+      operation: 'get_work_item_activity',
+      component: 'work-items',
+    });
 
     log.info('Get work item activity request initiated', {
       requestingUserId: userContext.user_id,
       workItemId: validatedParams.id,
+      operation: 'get_work_item_activity',
+      component: 'work-items',
     });
 
     // Create RBAC service
     const serviceStart = Date.now();
     const activityService = createRBACWorkItemActivityService(userContext);
-    log.info('RBAC service created', { duration: Date.now() - serviceStart });
+    log.info('RBAC service created', {
+      duration: Date.now() - serviceStart,
+      operation: 'get_work_item_activity',
+      component: 'work-items',
+    });
 
     // Get activity with automatic permission checking
     const activityStart = Date.now();
@@ -55,6 +65,8 @@ const getWorkItemActivityHandler = async (
       workItemId: validatedParams.id,
       activityCount: activity.length,
       totalDuration,
+      operation: 'get_work_item_activity',
+      component: 'work-items',
     });
 
     return createSuccessResponse(
@@ -77,6 +89,8 @@ const getWorkItemActivityHandler = async (
     log.error('Get work item activity failed', error, {
       requestingUserId: userContext.user_id,
       totalDuration,
+      operation: 'get_work_item_activity',
+      component: 'work-items',
     });
 
     return createErrorResponse(

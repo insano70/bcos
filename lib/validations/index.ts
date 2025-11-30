@@ -82,14 +82,90 @@ export {
 } from './user';
 
 /**
- * Type inference helpers for schemas
- * TODO: Fix circular dependency issues preventing schema access
+ * Type inference exports from validation schemas
+ * These types are inferred directly from Zod schemas for type-safety
  */
-// export type LoginFormData = z.infer<typeof loginSchema>;
-// export type RegisterFormData = z.infer<typeof registerSchema>;
-// export type UserCreateData = z.infer<typeof userCreateSchema>;
-// export type UserUpdateData = z.infer<typeof userUpdateSchema>;
-// export type PasswordChangeData = z.infer<typeof passwordChangeSchema>;
+
+// Auth types
+export type {
+  Login,
+  Register,
+  PasswordResetRequest,
+  PasswordReset,
+  AuthPasswordChange,
+  Session,
+} from './auth';
+
+// User types
+export type {
+  UserCreate,
+  UserUpdate,
+  UserQuery,
+  UserParams,
+  PasswordChange,
+} from './user';
+
+// Organization types
+export type {
+  OrganizationCreate,
+  OrganizationUpdate,
+  OrganizationQuery,
+  OrganizationParams,
+  OrganizationUsersBatchUpdate,
+} from './organization';
+
+// Role types
+export type {
+  RoleQuery,
+  RoleCreate,
+  RoleUpdate,
+} from './role';
+
+// Practice types
+export type {
+  PracticeCreate,
+  PracticeUpdate,
+  PracticeQuery,
+  PracticeAttributesUpdate,
+  PracticeParams,
+} from './practice';
+
+// Analytics types
+export type {
+  ChartCategoryCreate,
+  ChartCategoryUpdate,
+  ChartDefinitionCreate,
+  ChartDefinitionUpdate,
+  DashboardCreate,
+  DashboardUpdate,
+  FavoriteCreate,
+  BulkOperation,
+  DataSource,
+  ChartDataRequest,
+  DashboardUniversalFilters,
+  DashboardRenderRequest,
+} from './analytics';
+
+// Work item types
+export type {
+  WorkItemCreate,
+  WorkItemUpdate,
+  WorkItemQuery,
+  WorkItemParams,
+  WorkItemTypeCreate,
+  WorkItemTypeUpdate,
+  WorkItemTypeQuery,
+  WorkItemTypeParams,
+  WorkItemStatusCreate,
+  WorkItemStatusUpdate,
+  WorkItemStatusParams,
+  WorkItemStatusTransitionCreate,
+  WorkItemStatusTransitionUpdate,
+  WorkItemStatusTransitionQuery,
+  WorkItemStatusTransitionParams,
+  ValidationConfig,
+  ActionConfig,
+} from './work-items';
 
 // Re-export Zod for convenience
 export { z } from 'zod';

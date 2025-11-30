@@ -163,9 +163,8 @@ export default function AttachmentFieldRenderer({
                 [attachment.work_item_attachment_id]: url,
               }));
             }
-          } catch (error) {
+          } catch {
             // Silently fail - thumbnails are optional
-            console.debug('Failed to load thumbnail:', error);
           }
         }
       }

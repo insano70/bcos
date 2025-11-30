@@ -12,8 +12,18 @@ import {
   safeJsonParse,
 } from '@/lib/utils/json-parser';
 
-// Mock console.warn
-const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+// Mock the structured logger
+vi.mock('@/lib/logger', () => ({
+  log: {
+    warn: vi.fn(),
+    error: vi.fn(),
+    info: vi.fn(),
+    debug: vi.fn(),
+  },
+}));
+
+// Import the mocked logger for assertions
+import { log } from '@/lib/logger';
 
 describe('json-parser utilities', () => {
   beforeEach(() => {
@@ -78,11 +88,13 @@ describe('json-parser utilities', () => {
       const result = safeJsonParse(invalidJson, fallback);
 
       expect(result).toEqual(fallback);
-      expect(consoleWarnSpy).toHaveBeenCalledWith(
-        'Failed to parse JSON:',
-        invalidJson,
-        expect.any(SyntaxError)
-      );
+      // Implementation uses structured JSON logger
+      expect(log.warn).toHaveBeenCalledWith('Failed to parse JSON', {
+        operation: 'json_parse',
+        component: 'utils',
+        inputPreview: invalidJson.substring(0, 100),
+        errorMessage: expect.any(String),
+      });
     });
 
     it('should handle complex valid JSON', () => {

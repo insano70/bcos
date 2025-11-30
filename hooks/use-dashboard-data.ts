@@ -20,6 +20,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiClient } from '@/lib/api/client';
 import { createClientLogger } from '@/lib/utils/client-logger';
+import type { ChartDataStructure } from '@/lib/types/dimensions';
 
 const dashboardLogger = createClientLogger('DashboardData');
 
@@ -36,21 +37,18 @@ export interface DashboardUniversalFilters {
 }
 
 /**
+ * Raw data row from analytics query
+ */
+interface AnalyticsRow {
+  [key: string]: string | number | boolean | null | undefined;
+}
+
+/**
  * Chart render result from batch API
  */
 interface ChartRenderResult {
-  chartData: {
-    labels: string[];
-    datasets: Array<{
-      label: string;
-      data: number[];
-      backgroundColor?: string | string[];
-      borderColor?: string | string[];
-      [key: string]: unknown;
-    }>;
-    [key: string]: unknown;
-  };
-  rawData: Record<string, unknown>[];
+  chartData: ChartDataStructure;
+  rawData: AnalyticsRow[];
   metadata: {
     chartType: string;
     dataSourceId: number;

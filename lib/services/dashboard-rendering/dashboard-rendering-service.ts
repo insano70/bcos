@@ -59,6 +59,7 @@ export class DashboardRenderingService {
     universalFilters: DashboardUniversalFilters
   ): Promise<DashboardRenderResponse> {
     const startTime = Date.now();
+    const breakdown: Record<string, number> = {};
 
     try {
       log.info('Dashboard batch render initiated', {
@@ -71,29 +72,37 @@ export class DashboardRenderingService {
       });
 
       // 1. Load dashboard + charts (RBAC enforced)
+      const t1 = Date.now();
       const { dashboard, charts } = await this.loader.loadDashboardWithCharts(dashboardId);
+      breakdown.load = Date.now() - t1;
 
       if (charts.length === 0) {
         return buildEmptyDashboardResponse(universalFilters);
       }
 
       // 2. Validate and resolve filters
+      const t2 = Date.now();
       const resolvedFilters = await this.filterService.validateAndResolve(
         universalFilters,
         dashboard
       );
+      breakdown.filterResolve = Date.now() - t2;
 
       // 3. Build chart configurations
+      const t3 = Date.now();
       const chartConfigs = this.configBuilder.buildChartConfigs(charts, resolvedFilters);
+      breakdown.configBuild = Date.now() - t3;
 
       // 4. Execute charts in parallel
+      const t4 = Date.now();
       const executionResult = await this.executor.executeParallel(chartConfigs);
+      breakdown.execution = Date.now() - t4;
 
       // 5. Transform and return
       const duration = Date.now() - startTime;
       const response = mapDashboardRenderResponse(executionResult, resolvedFilters, duration);
 
-      // Log completion with template
+      // Log completion with template - includes breakdown for performance analysis
       const template = logTemplates.crud.read('dashboard', {
         resourceId: dashboardId,
         userId: this.userContext.user_id,
@@ -102,6 +111,8 @@ export class DashboardRenderingService {
         metadata: {
           chartsRendered: executionResult.results.length,
           cacheHits: executionResult.stats.cacheHits,
+          cacheMisses: executionResult.stats.cacheMisses,
+          breakdown,
         },
       });
       log.info(template.message, template.context);

@@ -9,12 +9,16 @@ import {
 
 describe('user validation schemas', () => {
   describe('userCreateSchema', () => {
+    // Schema now requires organization_id for all users
+    const validOrgId = '550e8400-e29b-41d4-a716-446655440099';
+
     it('should validate correct user creation data', () => {
       const validData = {
         email: 'test@example.com',
         first_name: 'John',
         last_name: 'Doe',
         password: 'ValidPass123!',
+        organization_id: validOrgId,
         role_ids: ['550e8400-e29b-41d4-a716-446655440000'],
         email_verified: true,
         is_active: true,
@@ -31,6 +35,7 @@ describe('user validation schemas', () => {
         first_name: 'John',
         last_name: 'Doe',
         password: 'ValidPass123!',
+        organization_id: validOrgId,
         role_ids: ['550e8400-e29b-41d4-a716-446655440000'],
       };
 
@@ -46,6 +51,7 @@ describe('user validation schemas', () => {
         first_name: 'John',
         last_name: 'Doe',
         password: 'ValidPass123!',
+        organization_id: validOrgId,
         role_ids: ['550e8400-e29b-41d4-a716-446655440000'],
       };
 
@@ -60,6 +66,7 @@ describe('user validation schemas', () => {
         first_name: 'John',
         last_name: 'Doe',
         password: 'weak',
+        organization_id: validOrgId,
         role_ids: ['550e8400-e29b-41d4-a716-446655440000'],
       };
 
@@ -74,6 +81,7 @@ describe('user validation schemas', () => {
         first_name: 'John',
         last_name: 'Doe',
         password: 'ValidPass123!',
+        organization_id: validOrgId,
         role_ids: [],
       };
 
@@ -88,6 +96,7 @@ describe('user validation schemas', () => {
         first_name: 'John',
         last_name: 'Doe',
         password: 'ValidPass123!',
+        organization_id: validOrgId,
         role_ids: ['invalid-uuid'],
       };
 
@@ -102,6 +111,7 @@ describe('user validation schemas', () => {
         first_name: '<script>alert("xss")</script>',
         last_name: 'Doe',
         password: 'ValidPass123!',
+        organization_id: validOrgId,
         role_ids: ['550e8400-e29b-41d4-a716-446655440000'],
       };
 
@@ -110,18 +120,19 @@ describe('user validation schemas', () => {
       expect(result.error?.issues?.[0]?.path).toContain('first_name');
     });
 
-    it('should reject missing required fields', () => {
+    it('should reject missing organization_id', () => {
       const invalidData = {
         email: 'test@example.com',
         first_name: 'John',
         last_name: 'Doe',
         password: 'ValidPass123!',
-        // Missing role_ids
+        role_ids: ['550e8400-e29b-41d4-a716-446655440000'],
+        // Missing organization_id
       };
 
       const result = userCreateSchema.safeParse(invalidData);
       expect(result.success).toBe(false);
-      expect(result.error?.issues?.[0]?.path).toContain('role_ids');
+      expect(result.error?.issues?.[0]?.path).toContain('organization_id');
     });
   });
 

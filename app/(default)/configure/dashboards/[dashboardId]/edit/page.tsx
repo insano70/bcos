@@ -50,12 +50,6 @@ export default function EditDashboardPage() {
         charts,
       };
 
-      console.log('✅ Dashboard loaded for editing:', {
-        dashboardId,
-        dashboardName: dashboardData.dashboard_name,
-        chartCount: charts.length,
-      });
-
       setDashboardData(fullDashboardData);
     } catch (error) {
       console.error('❌ Failed to load dashboard for editing:', error);

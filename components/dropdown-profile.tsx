@@ -11,11 +11,6 @@ export default function DropdownProfile({ align }: { align?: 'left' | 'right' })
 
   const handleSignOut = async () => {
     try {
-      // Logout initiated (client-side debug)
-      if (process.env.NODE_ENV === 'development') {
-        console.log('Initiating logout from dropdown...');
-      }
-
       // Use our custom logout
       await logout();
 

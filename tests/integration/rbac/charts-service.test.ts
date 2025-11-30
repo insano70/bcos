@@ -13,17 +13,17 @@ import { describe, expect, it } from 'vitest';
 import '@/tests/setup/integration-setup';
 import { createRBACChartsService } from '@/lib/services/rbac-charts-service';
 import type { PermissionName } from '@/lib/types/rbac';
-import { PermissionDeniedError } from '@/lib/types/rbac';
+import { PermissionDeniedError } from '@/lib/errors/rbac-errors';
 import { assignRoleToUser, createTestRole, createTestUser } from '@/tests/factories';
 import { buildUserContext, mapDatabaseRoleToRole } from '@/tests/helpers/rbac-helper';
 
 describe('RBAC Charts Service - Permission Enforcement', () => {
   describe('getCharts', () => {
-    it('should allow listing charts with analytics:read:all permission', async () => {
+    it('should allow listing charts with charts:read:all permission', async () => {
       const user = await createTestUser();
       const role = await createTestRole({
         name: 'analytics_reader',
-        permissions: ['analytics:read:all' as PermissionName],
+        permissions: ['charts:read:all' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -35,7 +35,7 @@ describe('RBAC Charts Service - Permission Enforcement', () => {
       expect(Array.isArray(charts)).toBe(true);
     });
 
-    it('should deny listing charts without analytics:read:all permission', async () => {
+    it('should deny listing charts without charts:read:all permission', async () => {
       const user = await createTestUser();
       const role = await createTestRole({
         name: 'no_analytics',
@@ -51,11 +51,11 @@ describe('RBAC Charts Service - Permission Enforcement', () => {
   });
 
   describe('getChartCount', () => {
-    it('should allow counting charts with analytics:read:all permission', async () => {
+    it('should allow counting charts with charts:read:all permission', async () => {
       const user = await createTestUser();
       const role = await createTestRole({
         name: 'analytics_reader',
-        permissions: ['analytics:read:all' as PermissionName],
+        permissions: ['charts:read:all' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -67,7 +67,7 @@ describe('RBAC Charts Service - Permission Enforcement', () => {
       expect(count).toBeGreaterThanOrEqual(0);
     });
 
-    it('should deny counting charts without analytics:read:all permission', async () => {
+    it('should deny counting charts without charts:read:all permission', async () => {
       const user = await createTestUser();
       const role = await createTestRole({
         name: 'no_analytics',
@@ -83,7 +83,7 @@ describe('RBAC Charts Service - Permission Enforcement', () => {
   });
 
   describe('getChartById', () => {
-    it('should deny retrieving chart by ID without analytics:read:all permission', async () => {
+    it('should deny retrieving chart by ID without charts:read:all permission', async () => {
       const user = await createTestUser();
       const role = await createTestRole({
         name: 'no_analytics',
@@ -101,7 +101,7 @@ describe('RBAC Charts Service - Permission Enforcement', () => {
   });
 
   describe('createChart', () => {
-    it('should deny creating chart without analytics:read:all permission', async () => {
+    it('should deny creating chart without charts:read:all permission', async () => {
       const user = await createTestUser();
       const role = await createTestRole({
         name: 'no_analytics',
@@ -123,7 +123,7 @@ describe('RBAC Charts Service - Permission Enforcement', () => {
   });
 
   describe('updateChart', () => {
-    it('should deny updating chart without analytics:read:all permission', async () => {
+    it('should deny updating chart without charts:read:all permission', async () => {
       const user = await createTestUser();
       const role = await createTestRole({
         name: 'no_analytics',
@@ -145,7 +145,7 @@ describe('RBAC Charts Service - Permission Enforcement', () => {
   });
 
   describe('deleteChart', () => {
-    it('should deny deleting chart without analytics:read:all permission', async () => {
+    it('should deny deleting chart without charts:read:all permission', async () => {
       const user = await createTestUser();
       const role = await createTestRole({
         name: 'no_analytics',

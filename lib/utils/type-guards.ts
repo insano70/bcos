@@ -385,3 +385,245 @@ export function isNumber(value: unknown): value is number {
 export function isBoolean(value: unknown): value is boolean {
   return typeof value === 'boolean';
 }
+
+// =============================================================================
+// Domain-Specific Type Guards
+// =============================================================================
+
+/**
+ * Type guard to check if a value is a valid UUID
+ *
+ * @param value - The value to check
+ * @returns True if value is a valid UUID string
+ */
+export function isUUID(value: unknown): value is string {
+  if (typeof value !== 'string') return false;
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(value);
+}
+
+/**
+ * Type guard to check if a value is a valid ISO date string
+ *
+ * @param value - The value to check
+ * @returns True if value is a valid ISO date string
+ */
+export function isISODateString(value: unknown): value is string {
+  if (typeof value !== 'string') return false;
+  const date = new Date(value);
+  return !Number.isNaN(date.getTime()) && value.includes('-');
+}
+
+/**
+ * Type guard to check if a value is a valid email address
+ *
+ * @param value - The value to check
+ * @returns True if value is a valid email format
+ */
+export function isEmail(value: unknown): value is string {
+  if (typeof value !== 'string') return false;
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(value);
+}
+
+/**
+ * Type guard to check if a value is a non-empty string
+ *
+ * @param value - The value to check
+ * @returns True if value is a non-empty string
+ */
+export function isNonEmptyString(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+/**
+ * Type guard to check if a value is a positive number
+ *
+ * @param value - The value to check
+ * @returns True if value is a positive number
+ */
+export function isPositiveNumber(value: unknown): value is number {
+  return typeof value === 'number' && !Number.isNaN(value) && value > 0;
+}
+
+/**
+ * Type guard to check if a value is a non-negative integer
+ *
+ * @param value - The value to check
+ * @returns True if value is a non-negative integer
+ */
+export function isNonNegativeInteger(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0;
+}
+
+/**
+ * Type guard for chart types
+ */
+export type ChartType = 
+  | 'line' 
+  | 'bar' 
+  | 'stacked-bar' 
+  | 'horizontal-bar' 
+  | 'progress-bar' 
+  | 'pie' 
+  | 'doughnut' 
+  | 'area' 
+  | 'table' 
+  | 'dual-axis' 
+  | 'number';
+
+const CHART_TYPES: readonly ChartType[] = [
+  'line',
+  'bar',
+  'stacked-bar',
+  'horizontal-bar',
+  'progress-bar',
+  'pie',
+  'doughnut',
+  'area',
+  'table',
+  'dual-axis',
+  'number',
+] as const;
+
+/**
+ * Type guard to check if a value is a valid chart type
+ *
+ * @param value - The value to check
+ * @returns True if value is a valid ChartType
+ */
+export function isChartType(value: unknown): value is ChartType {
+  return typeof value === 'string' && CHART_TYPES.includes(value as ChartType);
+}
+
+/**
+ * Get all valid chart types
+ *
+ * @returns Readonly array of all ChartType values
+ */
+export function getChartTypes(): readonly ChartType[] {
+  return CHART_TYPES;
+}
+
+/**
+ * Aggregation types for analytics
+ */
+export type AggregationType = 'sum' | 'avg' | 'count' | 'min' | 'max';
+
+const AGGREGATION_TYPES: readonly AggregationType[] = ['sum', 'avg', 'count', 'min', 'max'] as const;
+
+/**
+ * Type guard to check if a value is a valid aggregation type
+ *
+ * @param value - The value to check
+ * @returns True if value is a valid AggregationType
+ */
+export function isAggregationType(value: unknown): value is AggregationType {
+  return typeof value === 'string' && AGGREGATION_TYPES.includes(value as AggregationType);
+}
+
+/**
+ * Type guard to check if an object has specific required properties
+ *
+ * @param value - The value to check
+ * @param properties - Array of required property names
+ * @returns True if value is an object with all specified properties
+ */
+export function hasProperties<K extends string>(
+  value: unknown,
+  properties: K[]
+): value is Record<K, unknown> {
+  if (typeof value !== 'object' || value === null) return false;
+  return properties.every((prop) => prop in value);
+}
+
+/**
+ * Type guard for chart data structure
+ */
+export interface ChartDataGuard {
+  labels: (string | Date)[];
+  datasets: Array<{
+    label: string;
+    data: number[];
+  }>;
+}
+
+/**
+ * Type guard to check if a value is valid chart data
+ *
+ * @param value - The value to check
+ * @returns True if value matches ChartDataGuard structure
+ */
+export function isChartData(value: unknown): value is ChartDataGuard {
+  if (!isObject(value)) return false;
+  if (!('labels' in value) || !Array.isArray(value.labels)) return false;
+  if (!('datasets' in value) || !Array.isArray(value.datasets)) return false;
+  return value.datasets.every(
+    (ds: unknown) =>
+      isObject(ds) &&
+      'label' in ds &&
+      typeof ds.label === 'string' &&
+      'data' in ds &&
+      Array.isArray(ds.data)
+  );
+}
+
+/**
+ * Type guard for user context with required fields
+ */
+export interface MinimalUserContext {
+  user_id: string;
+  email?: string;
+  permissions?: string[];
+}
+
+/**
+ * Type guard to check if a value is a minimal user context
+ *
+ * @param value - The value to check
+ * @returns True if value matches MinimalUserContext structure
+ */
+export function isUserContext(value: unknown): value is MinimalUserContext {
+  if (!isObject(value)) return false;
+  if (!('user_id' in value) || typeof value.user_id !== 'string') return false;
+  return true;
+}
+
+/**
+ * Assert a value is defined (not null or undefined)
+ *
+ * @param value - The value to check
+ * @param message - Error message if assertion fails
+ * @throws Error if value is null or undefined
+ */
+export function assertDefined<T>(value: T | null | undefined, message?: string): asserts value is T {
+  if (value === null || value === undefined) {
+    throw new Error(message ?? 'Value is null or undefined');
+  }
+}
+
+/**
+ * Assert a value is a string
+ *
+ * @param value - The value to check
+ * @param context - Context for error message
+ * @throws TypeError if value is not a string
+ */
+export function assertString(value: unknown, context?: string): asserts value is string {
+  if (typeof value !== 'string') {
+    throw new TypeError(`Expected string${context ? ` in ${context}` : ''}, got ${typeof value}`);
+  }
+}
+
+/**
+ * Assert a value is a number
+ *
+ * @param value - The value to check
+ * @param context - Context for error message
+ * @throws TypeError if value is not a number
+ */
+export function assertNumber(value: unknown, context?: string): asserts value is number {
+  if (typeof value !== 'number' || Number.isNaN(value)) {
+    throw new TypeError(`Expected number${context ? ` in ${context}` : ''}, got ${typeof value}`);
+  }
+}

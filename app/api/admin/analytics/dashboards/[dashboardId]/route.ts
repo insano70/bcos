@@ -4,7 +4,7 @@ import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { analyticsCache } from '@/lib/cache/analytics-cache';
-import { log } from '@/lib/logger';
+import { calculateChanges, log, logTemplates } from '@/lib/logger';
 import { createRBACDashboardsService } from '@/lib/services/dashboards';
 import type { UserContext } from '@/lib/types/rbac';
 import { dashboardUpdateSchema } from '@/lib/validations/analytics';
@@ -24,11 +24,6 @@ const getDashboardHandler = async (
   const { dashboardId } = await params;
   const startTime = Date.now();
 
-  log.info('Dashboard get request initiated', {
-    dashboardId,
-    requestingUserId: userContext.user_id,
-  });
-
   try {
     // Create RBAC dashboards service
     const dashboardsService = createRBACDashboardsService(userContext);
@@ -40,10 +35,21 @@ const getDashboardHandler = async (
       return createErrorResponse('Dashboard not found', 404);
     }
 
-    log.db('SELECT', 'dashboards', Date.now() - startTime, { rowCount: 1 });
-
     // Extract charts array from dashboard object to match frontend expectations
     const { charts, ...dashboardWithoutCharts } = dashboard;
+
+    const template = logTemplates.crud.read('dashboard', {
+      resourceId: dashboardId,
+      resourceName: dashboard.dashboard_name,
+      userId: userContext.user_id,
+      found: true,
+      duration: Date.now() - startTime,
+      metadata: {
+        chartCount: charts.length,
+        isActive: dashboard.is_active,
+      },
+    });
+    log.info(template.message, template.context);
 
     return createSuccessResponse(
       {
@@ -54,8 +60,11 @@ const getDashboardHandler = async (
     );
   } catch (error) {
     log.error('Dashboard get error', error, {
+      operation: 'read_dashboard',
       dashboardId,
-      requestingUserId: userContext.user_id,
+      userId: userContext.user_id,
+      duration: Date.now() - startTime,
+      component: 'admin',
     });
 
     const errorMessage =
@@ -79,17 +88,18 @@ const updateDashboardHandler = async (
   const { dashboardId } = await params;
   const startTime = Date.now();
 
-  log.info('Dashboard update request initiated', {
-    dashboardId,
-    requestingUserId: userContext.user_id,
-  });
-
   try {
     // Validate request body with Zod
     const validatedData = await validateRequest(request, dashboardUpdateSchema);
 
     // Create RBAC dashboards service
     const dashboardsService = createRBACDashboardsService(userContext);
+
+    // Get before state for change tracking
+    const before = await dashboardsService.getDashboardById(dashboardId);
+    if (!before) {
+      return createErrorResponse('Dashboard not found', 404);
+    }
 
     // Update dashboard through service with automatic permission checking
     // Cast is safe because validated data matches UpdateDashboardData structure
@@ -98,13 +108,34 @@ const updateDashboardHandler = async (
       validatedData as Parameters<typeof dashboardsService.updateDashboard>[1]
     );
 
-    log.db('UPDATE', 'dashboards', Date.now() - startTime, { rowCount: 1 });
+    // Calculate changes for audit trail
+    const changes = calculateChanges(
+      {
+        dashboard_name: before.dashboard_name,
+        dashboard_description: before.dashboard_description,
+        is_active: before.is_active,
+        chart_ids: before.charts.map(c => c.chart_definition_id),
+      },
+      {
+        dashboard_name: updatedDashboard.dashboard_name,
+        dashboard_description: updatedDashboard.dashboard_description,
+        is_active: updatedDashboard.is_active,
+        chart_ids: updatedDashboard.charts.map(c => c.chart_definition_id),
+      }
+    );
 
-    log.info('Dashboard updated successfully', {
-      dashboardId,
-      dashboardName: updatedDashboard.dashboard_name,
-      updatedBy: userContext.user_id,
+    const template = logTemplates.crud.update('dashboard', {
+      resourceId: dashboardId,
+      resourceName: updatedDashboard.dashboard_name,
+      userId: userContext.user_id,
+      changes,
+      duration: Date.now() - startTime,
+      metadata: {
+        chartCount: updatedDashboard.charts.length,
+        isActive: updatedDashboard.is_active,
+      },
     });
+    log.info(template.message, template.context);
 
     // Targeted cache invalidation with error handling
     // Only invalidate what changed:
@@ -186,11 +217,6 @@ const deleteDashboardHandler = async (
   const { dashboardId } = await params;
   const startTime = Date.now();
 
-  log.info('Dashboard delete request initiated', {
-    dashboardId,
-    requestingUserId: userContext.user_id,
-  });
-
   try {
     // Create RBAC dashboards service
     const dashboardsService = createRBACDashboardsService(userContext);
@@ -205,13 +231,18 @@ const deleteDashboardHandler = async (
     // Delete dashboard through service with automatic permission checking
     await dashboardsService.deleteDashboard(dashboardId);
 
-    log.db('DELETE', 'dashboards', Date.now() - startTime, { rowCount: 1 });
-
-    log.info('Dashboard deleted successfully', {
-      dashboardId,
-      dashboardName: dashboard.dashboard_name,
-      deletedBy: userContext.user_id,
+    const template = logTemplates.crud.delete('dashboard', {
+      resourceId: dashboardId,
+      resourceName: dashboard.dashboard_name,
+      userId: userContext.user_id,
+      soft: false,
+      duration: Date.now() - startTime,
+      metadata: {
+        wasActive: dashboard.is_active,
+        hadCharts: dashboard.charts.length,
+      },
     });
+    log.info(template.message, template.context);
 
     // Targeted cache invalidation after deletion
     // Only invalidate:

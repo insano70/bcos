@@ -21,6 +21,17 @@ import {
   createMockTokenResponse,
 } from '@/tests/factories/oidc-factory';
 
+/**
+ * NOTE: These tests have known ESM mocking issues with openid-client v6.
+ * The module mocking doesn't properly intercept the discovery function,
+ * causing real HTTP requests to be made.
+ *
+ * TODO: Investigate vitest ESM mocking alternatives:
+ * - Use msw (mock service worker) to intercept network requests
+ * - Consider dependency injection pattern for the oauth module
+ * - Check if __esModule flag helps with vitest hoisting
+ */
+
 // Mock dependencies
 vi.mock('openid-client');
 vi.mock('@/lib/oidc/config', () => ({

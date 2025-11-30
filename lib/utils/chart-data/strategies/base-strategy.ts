@@ -6,6 +6,7 @@
  */
 
 import type { ColumnConfig } from '@/lib/services/chart-config-service';
+import { log } from '@/lib/logger';
 import type { AggAppMeasure, ChartData } from '@/lib/types/analytics';
 
 /**
@@ -147,9 +148,12 @@ export abstract class BaseChartTransformStrategy implements ChartTransformStrate
     if (config.columnMetadata) {
       const columnConfig = config.columnMetadata.get(groupBy);
       if (columnConfig && !columnConfig.isGroupable) {
-        console.warn(
-          `Field '${groupBy}' (${columnConfig.displayName}) is not marked as groupable in data source configuration`
-        );
+        log.warn(`Field '${groupBy}' (${columnConfig.displayName}) is not marked as groupable in data source configuration`, {
+          operation: 'chart_transform',
+          component: 'analytics',
+          field: groupBy,
+          displayName: columnConfig.displayName,
+        });
       }
     }
 

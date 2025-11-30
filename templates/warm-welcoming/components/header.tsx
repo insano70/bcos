@@ -1,9 +1,9 @@
-import type { Practice, PracticeAttributes } from '@/lib/types/practice';
+import type { Practice, PracticeAttributes, ColorStyles } from '@/lib/types/practice';
 
 interface HeaderProps {
   practice: Practice;
   attributes: PracticeAttributes;
-  colorStyles?: any;
+  colorStyles?: ColorStyles;
 }
 
 export default function Header({ practice, attributes, colorStyles }: HeaderProps) {

@@ -5,7 +5,7 @@ import { createPaginatedResponse, createSuccessResponse } from '@/lib/api/respon
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { extractors, rbacConfigs } from '@/lib/api/utils/rbac-extractors';
 import { getPagination, getSortParams } from '@/lib/api/utils/request';
-import { log, logTemplates, sanitizeFilters } from '@/lib/logger';
+import { log, logTemplates, sanitizeFilters, SLOW_THRESHOLDS } from '@/lib/logger';
 import { createRBACPracticesService } from '@/lib/services/rbac-practices-service';
 import type { UserContext } from '@/lib/types/rbac';
 import { practiceCreateSchema, practiceQuerySchema } from '@/lib/validations/practice';
@@ -81,7 +81,7 @@ const getPracticesHandler = async (request: NextRequest, userContext: UserContex
         direction: sort.sortOrder,
       },
       duration: Date.now() - startTime,
-      slow: Date.now() - startTime > 1000,
+      slow: Date.now() - startTime > SLOW_THRESHOLDS.API_OPERATION,
       component: 'business-logic',
     });
 

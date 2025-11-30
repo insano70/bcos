@@ -5,7 +5,7 @@ import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { extractRouteParams } from '@/lib/api/utils/params';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
-import { log, logTemplates, sanitizeFilters } from '@/lib/logger';
+import { log, logTemplates, sanitizeFilters, SLOW_THRESHOLDS } from '@/lib/logger';
 import { createRBACWorkItemCommentsService } from '@/lib/services/rbac-work-item-comments-service';
 import type { UserContext } from '@/lib/types/rbac';
 import {
@@ -58,7 +58,7 @@ const getWorkItemCommentsHandler = async (
         replies: replyComments,
       },
       duration,
-      slow: duration > 1000,
+      slow: duration > SLOW_THRESHOLDS.API_OPERATION,
       component: 'work-items',
     });
 

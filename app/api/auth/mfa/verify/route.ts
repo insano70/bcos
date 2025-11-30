@@ -13,7 +13,7 @@ import { createSuccessResponse } from '@/lib/api/responses/success';
 import { publicRoute } from '@/lib/api/route-handlers';
 import { COOKIE_NAMES } from '@/lib/auth/cookie-names';
 import { requireMFATempToken } from '@/lib/auth/webauthn-temp-token';
-import { log } from '@/lib/logger';
+import { log, SLOW_THRESHOLDS } from '@/lib/logger';
 import { getCachedUserContextSafe } from '@/lib/rbac/cached-user-context';
 import { setCSRFToken } from '@/lib/security/csrf-unified';
 import type {
@@ -145,7 +145,7 @@ const handler = async (request: NextRequest) => {
         fingerprint: deviceFingerprint.substring(0, 8),
       },
       duration,
-      slow: duration > 2000,
+      slow: duration > SLOW_THRESHOLDS.AUTH_OPERATION,
       ipAddress,
       component: 'auth',
     });

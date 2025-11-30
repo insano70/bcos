@@ -68,8 +68,9 @@ const handler = async (request: NextRequest, session?: AuthSession, ...args: unk
       'MFA reset successfully. User must re-configure passkey on next login.'
     );
   } catch (error) {
-    log.error('Admin MFA reset failed', {
-      error: error instanceof Error ? error.message : String(error),
+    log.error('Admin MFA reset failed', error instanceof Error ? error : new Error(String(error)), {
+      operation: 'admin_mfa_reset',
+      component: 'auth',
     });
 
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);

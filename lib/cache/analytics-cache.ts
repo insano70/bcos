@@ -23,6 +23,30 @@ import { log } from '@/lib/logger';
 import { CacheService } from './base';
 
 /**
+ * Icon mapping configuration for columns
+ */
+export interface IconMapping {
+  [value: string]: {
+    icon: string;
+    color: string;
+    label?: string;
+  };
+}
+
+/**
+ * Validation rules for columns
+ */
+export interface ValidationRules {
+  required?: boolean;
+  minLength?: number;
+  maxLength?: number;
+  min?: number;
+  max?: number;
+  pattern?: string;
+  custom?: string;
+}
+
+/**
  * Chart data source column
  */
 export interface DataSourceColumn {
@@ -46,15 +70,34 @@ export interface DataSourceColumn {
   icon_type: string | null;
   icon_color_mode: string | null;
   icon_color: string | null;
-  icon_mapping: Record<string, unknown> | null;
+  icon_mapping: IconMapping | null;
   is_sensitive: boolean | null;
   access_level: string | null;
-  allowed_values: unknown[] | null;
-  validation_rules: Record<string, unknown> | null;
+  allowed_values: Array<string | number> | null;
+  validation_rules: ValidationRules | null;
   example_value: string | null;
   is_active: boolean | null;
   created_at: Date | null;
   updated_at: Date | null;
+}
+
+/**
+ * Dashboard layout configuration
+ */
+export interface DashboardLayoutConfig {
+  columns: number;
+  rowHeight: number;
+  margin: number;
+  filterConfig?: {
+    enabled?: boolean;
+    showDateRange?: boolean;
+    showOrganization?: boolean;
+    showPractice?: boolean;
+    showProvider?: boolean;
+  };
+  useBatchRendering?: boolean;
+  gap?: number;
+  padding?: number;
 }
 
 /**
@@ -64,13 +107,42 @@ export interface Dashboard {
   dashboard_id: string;
   dashboard_name: string;
   dashboard_description: string | null;
-  layout_config: Record<string, unknown> | null;
+  layout_config: DashboardLayoutConfig | null;
   is_active: boolean;
   is_published: boolean;
   is_default: boolean;
   created_at: Date;
   updated_at: Date | null;
-  [key: string]: unknown; // Allow additional fields from joins
+  dashboard_category_id?: number | null;
+  category_name?: string | null;
+  organization_id?: string | null;
+  created_by?: string | null;
+  creator_name?: string | null;
+  chart_count?: number;
+}
+
+/**
+ * Chart configuration stored in database
+ */
+export interface StoredChartConfig {
+  x_axis?: { field: string; label: string; format: string };
+  y_axis?: { field: string; label: string; format: string };
+  colorPalette?: string;
+  stackingMode?: 'normal' | 'percentage';
+  aggregation?: 'sum' | 'avg' | 'count' | 'min' | 'max';
+  target?: number;
+  groupBy?: string;
+  periodComparison?: {
+    enabled: boolean;
+    comparisonType: string;
+    labelFormat: string;
+  };
+  options?: {
+    responsive: boolean;
+    showLegend: boolean;
+    showTooltips: boolean;
+    animation: boolean;
+  };
 }
 
 /**
@@ -82,11 +154,16 @@ export interface ChartDefinition {
   chart_description: string | null;
   chart_type: string;
   data_source: string;
-  chart_config: Record<string, unknown>;
+  chart_config: StoredChartConfig;
   is_active: boolean;
   created_at: Date;
   updated_at: Date | null;
-  [key: string]: unknown; // Allow additional fields from joins
+  data_source_id?: number | null;
+  chart_category_id?: number | null;
+  category_name?: string | null;
+  organization_id?: string | null;
+  created_by?: string | null;
+  creator_name?: string | null;
 }
 
 /**

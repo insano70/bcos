@@ -1,11 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import type { PracticeAttributes } from '@/lib/types/practice';
+import type { PracticeAttributes, ColorStyles } from '@/lib/types/practice';
 
 interface GalleryProps {
   attributes: PracticeAttributes;
-  colorStyles?: any;
+  colorStyles?: ColorStyles;
 }
 
 export default function Gallery({ attributes, colorStyles }: GalleryProps) {

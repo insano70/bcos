@@ -1,9 +1,9 @@
-import type { Practice, PracticeAttributes } from '@/lib/types/practice';
+import type { Practice, PracticeAttributes, ColorStyles } from '@/lib/types/practice';
 
 interface ContactProps {
   practice: Practice;
   attributes: PracticeAttributes;
-  colorStyles?: any;
+  colorStyles?: ColorStyles;
 }
 
 export default function Contact({ practice, attributes, colorStyles }: ContactProps) {

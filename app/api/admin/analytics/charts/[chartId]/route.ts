@@ -4,7 +4,7 @@ import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { analyticsCache } from '@/lib/cache/analytics-cache';
-import { log } from '@/lib/logger';
+import { log, calculateChanges } from '@/lib/logger';
 import { createRBACChartsService } from '@/lib/services/rbac-charts-service';
 import type { UserContext } from '@/lib/types/rbac';
 import { chartDefinitionUpdateSchema } from '@/lib/validations/analytics';
@@ -75,7 +75,13 @@ const updateChartHandler = async (
     // Use the RBAC charts service
     const chartsService = createRBACChartsService(userContext);
 
-    const updatedChart = await chartsService.updateChart(params.chartId, {
+    // Fetch current chart for change tracking
+    const existingChart = await chartsService.getChartById(params.chartId);
+    if (!existingChart) {
+      return createErrorResponse('Chart definition not found', 404);
+    }
+
+    const updateData = {
       chart_name: validatedData.chart_name,
       chart_description: validatedData.chart_description,
       chart_type: validatedData.chart_type,
@@ -83,12 +89,20 @@ const updateChartHandler = async (
       chart_config: validatedData.chart_config,
       chart_category_id: validatedData.chart_category_id ?? undefined,
       is_active: validatedData.is_active,
-    });
+    };
+
+    const updatedChart = await chartsService.updateChart(params.chartId, updateData);
+
+    // Calculate changes for audit trail
+    const changes = calculateChanges(existingChart, updateData);
 
     log.info('Chart definition updated successfully', {
       chartId: params.chartId,
       chartName: updatedChart.chart_name,
       updatedBy: userContext.user_id,
+      changes,
+      operation: 'update_chart',
+      component: 'analytics',
     });
 
     // Invalidate chart definition cache (this specific chart)

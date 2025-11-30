@@ -4,7 +4,7 @@ import { createErrorResponse } from '@/lib/api/responses/error';
 import { createPaginatedResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { getPagination } from '@/lib/api/utils/request';
-import { log, sanitizeFilters } from '@/lib/logger';
+import { log, sanitizeFilters, SLOW_THRESHOLDS } from '@/lib/logger';
 import { createRBACRolesService } from '@/lib/services/rbac-roles-service';
 import type { UserContext } from '@/lib/types/rbac';
 import { roleQuerySchema } from '@/lib/validations/role';
@@ -52,7 +52,7 @@ const getRolesHandler = async (request: NextRequest, userContext: UserContext) =
         systemRoles: systemRoleCount,
       },
       duration,
-      slow: duration > 1000,
+      slow: duration > SLOW_THRESHOLDS.API_OPERATION,
       component: 'rbac',
     });
 

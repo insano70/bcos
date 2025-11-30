@@ -154,7 +154,7 @@ const handler = async (request: NextRequest) => {
       email: {
         sent: true,
         duration: emailDuration,
-        slow: emailDuration > 2000,
+        slow: emailDuration > SLOW_THRESHOLDS.EMAIL_OPERATION,
       },
       duration,
       slow: duration > SLOW_THRESHOLDS.API_OPERATION,

@@ -37,7 +37,7 @@ import { eq } from 'drizzle-orm';
 import { isAccountLocked } from '@/lib/auth/security';
 import { CacheService } from '@/lib/cache/base';
 import { db, users } from '@/lib/db';
-import { log } from '@/lib/logger';
+import { log, SLOW_THRESHOLDS } from '@/lib/logger';
 import { UserLookupError, UserLookupErrorCode } from './errors';
 
 // Re-export for backward compatibility
@@ -216,7 +216,7 @@ export async function getUserByEmail(email: string): Promise<User | null> {
       operation: 'get_user_by_email',
       email: normalizedEmail.replace(/(.{2}).*@/, '$1***@'),
       cacheHit: false,
-      query: { duration: dbDuration, slow: dbDuration > 500 },
+      query: { duration: dbDuration, slow: dbDuration > SLOW_THRESHOLDS.DB_QUERY },
       duration: totalDuration,
       component: 'auth',
     });
@@ -231,7 +231,7 @@ export async function getUserByEmail(email: string): Promise<User | null> {
     email: normalizedEmail.replace(/(.{2}).*@/, '$1***@'),
     userId: user.user_id,
     cacheHit: false,
-    query: { duration: dbDuration, slow: dbDuration > 500 },
+    query: { duration: dbDuration, slow: dbDuration > SLOW_THRESHOLDS.DB_QUERY },
     duration: totalDuration,
     component: 'auth',
   });

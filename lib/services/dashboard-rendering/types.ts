@@ -35,12 +35,15 @@ export interface ResolvedFilters extends DashboardUniversalFilters {
   practiceUids: number[]; // Always resolved (empty array if none)
 }
 
+import type { TableRow, FormattedTableCell, TableColumnMeta } from '@/lib/types/data-rows';
+import type { DimensionExpansionChartConfig, DimensionExpansionFilters } from '@/lib/types/dimensions';
+
 /**
  * Individual chart render result
  */
 export interface ChartRenderResult {
   chartData: ChartData;
-  rawData: Record<string, unknown>[];
+  rawData: TableRow[];
   metadata: {
     chartType: string;
     dataSourceId: number;
@@ -49,22 +52,14 @@ export interface ChartRenderResult {
     cacheHit: boolean;
     recordCount: number;
     transformDuration: number;
-    // Optional metadata for proper chart rendering
     measure?: string;
     frequency?: string;
     groupBy?: string;
   };
-  // Config and filters used to render this chart (for dimension expansion)
-  finalChartConfig?: Record<string, unknown>;
-  runtimeFilters?: Record<string, unknown>;
-  // Table-specific fields (optional)
-  columns?: Array<{
-    columnName: string;
-    displayName: string;
-    dataType: string;
-    formatType?: string | null;
-  }>;
-  formattedData?: Array<Record<string, unknown>>;
+  finalChartConfig?: DimensionExpansionChartConfig;
+  runtimeFilters?: DimensionExpansionFilters;
+  columns?: TableColumnMeta[];
+  formattedData?: Array<Record<string, FormattedTableCell>>;
 }
 
 /**
@@ -92,8 +87,8 @@ export interface ChartExecutionConfig {
   chartId: string;
   chartName: string;
   chartType: string;
-  finalChartConfig: Record<string, unknown>;
-  runtimeFilters: Record<string, unknown>;
+  finalChartConfig: DimensionExpansionChartConfig;
+  runtimeFilters: DimensionExpansionFilters;
   metadata: {
     measure?: string;
     frequency?: string;

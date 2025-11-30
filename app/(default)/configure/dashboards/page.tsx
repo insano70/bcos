@@ -14,6 +14,7 @@ import DeleteDashboardModal from '@/components/delete-dashboard-modal';
 import FilterButton, { type ActiveFilter, type FilterGroup } from '@/components/dropdown-filter';
 import Toast from '@/components/toast';
 import { apiClient } from '@/lib/api/client';
+import { clientDebugLog, clientErrorLog } from '@/lib/utils/debug-client';
 import type { Dashboard, DashboardChart, DashboardListItem } from '@/lib/types/analytics';
 
 export default function DashboardsPage() {
@@ -139,7 +140,7 @@ export default function DashboardsPage() {
     setIsLoading(true);
 
     try {
-      console.log('🔍 Loading dashboard definitions from API...');
+      clientDebugLog.api('Loading dashboard definitions from API');
 
       const result = await apiClient.get<{
         dashboards: DashboardListItem[];
@@ -150,11 +151,11 @@ export default function DashboardsPage() {
           generatedAt: string;
         };
       }>('/api/admin/analytics/dashboards?limit=1000');
-      console.log('📊 Raw Dashboard API Response:', result);
+      clientDebugLog.api('Raw Dashboard API Response', result);
 
       // apiClient automatically unwraps the data, so result is already the data portion
       const dashboards = result.dashboards || [];
-      console.log('📋 Dashboards data structure:', {
+      clientDebugLog.api('Dashboards data structure', {
         count: dashboards.length,
         sampleDashboard: dashboards[0],
       });
@@ -163,11 +164,11 @@ export default function DashboardsPage() {
       // Just validate and filter out any malformed items
       const validDashboards: DashboardListItem[] = dashboards
         .map((item, index: number): DashboardListItem | null => {
-          console.log(`🔄 Validating dashboard ${index}:`, item);
+          clientDebugLog.api(`Validating dashboard ${index}`, item);
 
           // Validate required fields
           if (!item.dashboard_id || !item.dashboard_name) {
-            console.warn(`⚠️ Skipping dashboard ${index}: missing required fields`);
+            clientDebugLog.api(`Skipping dashboard ${index}: missing required fields`);
             return null;
           }
 
@@ -175,7 +176,7 @@ export default function DashboardsPage() {
         })
         .filter((item): item is DashboardListItem => item !== null);
 
-      console.log('✅ Validated dashboards:', {
+      clientDebugLog.api('Validated dashboards', {
         count: validDashboards.length,
         sample: validDashboards[0],
       });
@@ -183,7 +184,7 @@ export default function DashboardsPage() {
       setSavedDashboards(validDashboards);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to load dashboards';
-      console.error('❌ Failed to load dashboards:', error);
+      clientErrorLog('Failed to load dashboards', error);
       setError(errorMessage);
       setSavedDashboards([]); // Ensure we always have an array
     } finally {
@@ -208,7 +209,7 @@ export default function DashboardsPage() {
       // Refresh the dashboards list
       await loadDashboards();
     } catch (error) {
-      console.error('Failed to delete dashboard:', error);
+      clientErrorLog('Failed to delete dashboard', error);
       setToastMessage(
         `Failed to delete dashboard: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
@@ -239,7 +240,7 @@ export default function DashboardsPage() {
       // Refresh the dashboards list
       await loadDashboards();
     } catch (error) {
-      console.error('Failed to publish dashboard:', error);
+      clientErrorLog('Failed to publish dashboard', error);
       setToastMessage(
         `Failed to publish dashboard: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
@@ -266,7 +267,7 @@ export default function DashboardsPage() {
       // Refresh the dashboards list
       await loadDashboards();
     } catch (error) {
-      console.error('Failed to unpublish dashboard:', error);
+      clientErrorLog('Failed to unpublish dashboard', error);
       setToastMessage(
         `Failed to unpublish dashboard: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
@@ -293,7 +294,7 @@ export default function DashboardsPage() {
       // Refresh the dashboards list
       await loadDashboards();
     } catch (error) {
-      console.error('Failed to set dashboard as default:', error);
+      clientErrorLog('Failed to set dashboard as default', error);
       setToastMessage(
         `Failed to set dashboard as default: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
@@ -304,7 +305,7 @@ export default function DashboardsPage() {
 
   const handlePreviewDashboard = async (dashboard: DashboardListItem) => {
     try {
-      console.log('🔍 Loading dashboard for preview:', dashboard.dashboard_id);
+      clientDebugLog.api('Loading dashboard for preview', { dashboardId: dashboard.dashboard_id });
 
       const result = await apiClient.get<{
         dashboard: { dashboards?: Dashboard } | Dashboard;
@@ -329,7 +330,7 @@ export default function DashboardsPage() {
       });
       setPreviewModalOpen(true);
     } catch (error) {
-      console.error('❌ Failed to load dashboard for preview:', error);
+      clientErrorLog('Failed to load dashboard for preview', error);
       setToastMessage(
         `Failed to load dashboard preview: ${error instanceof Error ? error.message : 'Unknown error'}`
       );

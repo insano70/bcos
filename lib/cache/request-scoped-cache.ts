@@ -57,6 +57,7 @@ export class RequestScopedCache {
   private cache = new Map<string, CacheEntry>();
   private hits = 0;
   private misses = 0;
+  private coalesced = 0; // Requests that joined a pending fetch (deduplication wins)
   private pendingFetches = new Map<string, Promise<DataSourceFetchResult>>();
   private readonly requestId: string;
   private readonly createdAt: number;
@@ -140,9 +141,11 @@ export class RequestScopedCache {
     // Check if there's already a pending fetch for this key
     const pending = this.pendingFetches.get(key);
     if (pending) {
-      log.debug('Request-scoped cache: joining pending fetch', {
+      this.coalesced++; // Track deduplication wins
+      log.debug('Request-scoped cache: joining pending fetch (deduplication)', {
         requestId: this.requestId,
         cacheKey: key,
+        coalescedCount: this.coalesced,
         component: 'request-scoped-cache',
       });
       return pending;
@@ -164,11 +167,19 @@ export class RequestScopedCache {
 
   /**
    * Get cache statistics
+   *
+   * Stats explanation:
+   * - misses: Unique data sources fetched (one Redis call each)
+   * - hits: Requests served from already-cached data (sequential reuse)
+   * - coalesced: Requests that joined a pending fetch (parallel deduplication)
+   * - dedupRate: (hits + coalesced) / total - overall cache effectiveness
    */
   getStats(): {
     hits: number;
     misses: number;
+    coalesced: number;
     hitRate: number;
+    dedupRate: number;
     entriesCount: number;
     totalRows: number;
     requestId: string;
@@ -179,13 +190,16 @@ export class RequestScopedCache {
       0
     );
 
-    const total = this.hits + this.misses;
+    const total = this.hits + this.misses + this.coalesced;
     const hitRate = total > 0 ? this.hits / total : 0;
+    const dedupRate = total > 0 ? (this.hits + this.coalesced) / total : 0;
 
     return {
       hits: this.hits,
       misses: this.misses,
+      coalesced: this.coalesced,
       hitRate,
+      dedupRate,
       entriesCount: this.cache.size,
       totalRows,
       requestId: this.requestId,
@@ -199,11 +213,13 @@ export class RequestScopedCache {
   logFinalStats(): void {
     const stats = this.getStats();
 
-    if (stats.hits > 0) {
+    // Log if any deduplication occurred (hits or coalesced)
+    if (stats.hits > 0 || stats.coalesced > 0) {
       log.info('Request-scoped cache statistics', {
         ...stats,
         hitRatePercent: `${(stats.hitRate * 100).toFixed(1)}%`,
-        savedFetches: stats.hits,
+        dedupRatePercent: `${(stats.dedupRate * 100).toFixed(1)}%`,
+        savedFetches: stats.hits + stats.coalesced,
         component: 'request-scoped-cache',
       });
     }

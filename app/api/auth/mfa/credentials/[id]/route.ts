@@ -16,7 +16,7 @@ import { createSuccessResponse } from '@/lib/api/responses/success';
 import { authRoute, type AuthSession } from '@/lib/api/route-handlers';
 import { extractRouteParams } from '@/lib/api/utils/params';
 import { deleteCredential, renameCredential } from '@/lib/auth/webauthn';
-import { log } from '@/lib/logger';
+import { log, SLOW_THRESHOLDS } from '@/lib/logger';
 import type { CredentialUpdateRequest } from '@/lib/types/webauthn';
 
 export const dynamic = 'force-dynamic';
@@ -62,7 +62,7 @@ const deleteHandler = async (
         maxAuthAge: 5,
       },
       duration,
-      slow: duration > 1000,
+      slow: duration > SLOW_THRESHOLDS.API_OPERATION,
       component: 'auth',
     });
 
@@ -122,7 +122,7 @@ const renameHandler = async (
       newName: credential_name.trim(),
       nameLength: credential_name.trim().length,
       duration,
-      slow: duration > 1000,
+      slow: duration > SLOW_THRESHOLDS.API_OPERATION,
       component: 'auth',
     });
 

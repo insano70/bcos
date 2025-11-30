@@ -71,15 +71,6 @@ export function usePracticeMutations({
         Object.entries(cleanedData).filter(([_, value]) => value !== undefined)
       );
 
-      // Debug logging
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[usePracticeMutations] Sending to API:', {
-          hasHeroOverlayOpacity: 'hero_overlay_opacity' in filteredData,
-          heroOverlayOpacityValue: filteredData.hero_overlay_opacity,
-          filteredDataKeys: Object.keys(filteredData),
-        });
-      }
-
       // 4. Make the API call for attributes
       const result = await apiClient.put<SuccessResponse<PracticeAttributes>>(
         `/api/practices/${practiceId}/attributes`,

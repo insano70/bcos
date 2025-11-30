@@ -50,41 +50,66 @@ interface ColumnDefinition {
 }
 
 /**
+ * Inline chart configuration
+ */
+interface InlineChartConfig {
+  chartType: string;
+  dataSourceId: number;
+  groupBy?: string;
+  colorPalette?: string;
+  stackingMode?: string;
+  aggregation?: string;
+  target?: number;
+  dualAxisConfig?: DualAxisConfig;
+  xAxis?: { field: string; label: string; format: string };
+  yAxis?: { field: string; label: string; format: string };
+  calculatedField?: string;
+  periodComparison?: {
+    enabled: boolean;
+    comparisonType: string;
+    labelFormat: string;
+  };
+  /** @deprecated Allow additional properties for backward compatibility */
+  [key: string]: unknown;
+}
+
+/**
+ * Runtime filters for chart data
+ */
+interface ChartRuntimeFilters {
+  startDate?: string;
+  endDate?: string;
+  dateRangePreset?: string;
+  practice?: string;
+  practiceUid?: string;
+  providerName?: string;
+  measure?: string;
+  frequency?: string;
+  advancedFilters?: ChartFilter[];
+  calculatedField?: string;
+  /** @deprecated Allow additional properties for backward compatibility */
+  [key: string]: unknown;
+}
+
+/**
  * Universal chart data request
  */
 interface UniversalChartDataRequest {
-  // Option 1: Reference existing chart definition
-  chartDefinitionId?: string;
+  /** Reference existing chart definition */
+  chartDefinitionId?: string | undefined;
+  /** Inline chart configuration */
+  chartConfig?: InlineChartConfig | undefined;
+  /** Runtime filters (override chart definition) */
+  runtimeFilters?: ChartRuntimeFilters | undefined;
+  /** Cache control (Phase 6) */
+  nocache?: boolean | undefined;
+}
 
-  // Option 2: Inline chart configuration
-  chartConfig?: {
-    chartType: string;
-    dataSourceId: number;
-    groupBy?: string;
-    colorPalette?: string;
-    stackingMode?: string;
-    aggregation?: string;
-    target?: number;
-    dualAxisConfig?: unknown;
-    [key: string]: unknown;
-  };
-
-  // Runtime filters (override chart definition)
-  runtimeFilters?: {
-    startDate?: string;
-    endDate?: string;
-    dateRangePreset?: string;
-    practice?: string;
-    practiceUid?: string;
-    providerName?: string;
-    measure?: string;
-    frequency?: string;
-    advancedFilters?: ChartFilter[];
-    calculatedField?: string;
-  };
-
-  // Cache control (Phase 6)
-  nocache?: boolean;
+/**
+ * Raw analytics data row
+ */
+interface AnalyticsRow {
+  [key: string]: string | number | boolean | null | undefined;
 }
 
 /**
@@ -92,7 +117,7 @@ interface UniversalChartDataRequest {
  */
 interface UniversalChartDataResponse {
   chartData: ChartData;
-  rawData: Record<string, unknown>[];
+  rawData: AnalyticsRow[];
   columns?: ColumnDefinition[];
   formattedData?: Array<Record<string, FormattedCell>>;
   metadata: {

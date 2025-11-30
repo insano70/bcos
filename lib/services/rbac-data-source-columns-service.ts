@@ -225,10 +225,12 @@ export class RBACDataSourceColumnsService extends BaseRBACService {
             .returning();
 
           if (!result || result.length === 0) {
-            log.error('Column creation failed - no result from insert', {
+            log.error('Column creation failed - no result from insert', new Error('Insert returned empty result'), {
               dataSourceId: data.data_source_id,
               columnName: data.column_name,
               userId: this.userContext.user_id,
+              operation: 'create_column',
+              component: 'data-sources',
             });
             throw new Error('Failed to create column - no data returned');
           }

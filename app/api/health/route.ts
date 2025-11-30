@@ -14,7 +14,11 @@ export const dynamic = 'force-dynamic';
 const healthHandler = async (_request: NextRequest) => {
   const timestamp = new Date().toISOString();
 
-  log.debug('Health check ping', { endpoint: '/api/health' });
+  log.debug('Health check ping', {
+    operation: 'health_check',
+    component: 'monitoring',
+    endpoint: '/api/health',
+  });
 
   return NextResponse.json({
     success: true,

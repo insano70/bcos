@@ -4,7 +4,7 @@ import { createErrorResponse } from '@/lib/api/responses/error';
 import { createPaginatedResponse, createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
-import { log, logTemplates, sanitizeFilters } from '@/lib/logger';
+import { log, logTemplates, sanitizeFilters, SLOW_THRESHOLDS } from '@/lib/logger';
 import { createRBACWorkItemTypesService } from '@/lib/services/rbac-work-item-types-service';
 import type { UserContext } from '@/lib/types/rbac';
 import { workItemTypeQuerySchema } from '@/lib/validations/work-items';
@@ -73,7 +73,7 @@ const getWorkItemTypesHandler = async (request: NextRequest, userContext: UserCo
         pageSize: query.limit || 50,
       },
       duration,
-      slow: duration > 1000,
+      slow: duration > SLOW_THRESHOLDS.API_OPERATION,
       component: 'work-items',
     });
 

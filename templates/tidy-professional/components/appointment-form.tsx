@@ -1,9 +1,9 @@
-import type { Practice, PracticeAttributes } from '@/lib/types/practice';
+import type { Practice, PracticeAttributes, ColorStyles } from '@/lib/types/practice';
 
 interface AppointmentFormProps {
   practice: Practice;
   attributes: PracticeAttributes;
-  colorStyles?: any;
+  colorStyles?: ColorStyles;
 }
 
 export default function AppointmentForm({ practice, attributes, colorStyles }: AppointmentFormProps) {

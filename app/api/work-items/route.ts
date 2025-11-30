@@ -4,7 +4,7 @@ import { createErrorResponse } from '@/lib/api/responses/error';
 import { createPaginatedResponse, createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
-import { log, logTemplates, sanitizeFilters } from '@/lib/logger';
+import { log, logTemplates, sanitizeFilters, SLOW_THRESHOLDS } from '@/lib/logger';
 import { createRBACWorkItemFieldValuesService } from '@/lib/services/rbac-work-item-field-values-service';
 import { createRBACWorkItemsService } from '@/lib/services/work-items';
 import type { UserContext } from '@/lib/types/rbac';
@@ -122,7 +122,7 @@ const getWorkItemsHandler = async (request: NextRequest, userContext: UserContex
         direction: query.sortOrder || 'desc',
       },
       duration: Date.now() - startTime,
-      slow: Date.now() - startTime > 1000,
+      slow: Date.now() - startTime > SLOW_THRESHOLDS.API_OPERATION,
       component: 'business-logic',
     });
 

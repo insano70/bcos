@@ -18,14 +18,27 @@ import { useEffect, useMemo, useRef, useState } from 'react';
  * - Accessibility (ARIA labels, screen reader support)
  */
 
-export interface HierarchyItem extends Record<string, unknown> {
+/**
+ * Base interface for items that can be used in hierarchy select.
+ * All hierarchy items must have at least an id and name field,
+ * with optional parent reference for building the tree structure.
+ */
+export interface HierarchyItemBase {
+  /** Allow any property values for flexibility with different data structures */
+  [key: string]: unknown;
+}
+
+/**
+ * Concrete hierarchy item with computed level
+ */
+export interface HierarchyItem extends HierarchyItemBase {
   id: string | number;
   name: string;
   level: number;
   isActive?: boolean;
 }
 
-export interface HierarchySelectProps<T extends Record<string, unknown>> {
+export interface HierarchySelectProps<T extends HierarchyItemBase> {
   // Required
   items: T[];
   value: string | number | undefined;
@@ -60,7 +73,7 @@ export interface HierarchySelectProps<T extends Record<string, unknown>> {
   rootLabel?: string;
 }
 
-export default function HierarchySelect<T extends Record<string, unknown>>({
+export default function HierarchySelect<T extends HierarchyItemBase>({
   items,
   value,
   onChange,

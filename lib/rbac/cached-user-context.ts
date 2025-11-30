@@ -1,6 +1,11 @@
 /**
  * Cached User Context Service
  * Provides user context with role-permission caching for performance
+ *
+ * PERFORMANCE OPTIMIZATIONS:
+ * - Parallel DB queries where dependencies allow
+ * - Parallel role permission lookups with Promise.all
+ * - Breakdown timing for identifying bottlenecks
  */
 
 import { and, eq } from 'drizzle-orm';
@@ -15,7 +20,7 @@ import {
   user_roles,
   users,
 } from '@/lib/db/schema';
-import { log } from '@/lib/logger';
+import { log, logTemplates, SLOW_THRESHOLDS } from '@/lib/logger';
 import type { Organization, Permission, Role, UserContext, UserRole } from '@/lib/types/rbac';
 
 // Request-scoped cache to prevent multiple getUserContext calls per request
@@ -78,9 +83,18 @@ async function getRolePermissions(roleId: string, roleName: string): Promise<Per
 
 /**
  * Get complete user context with caching optimization
+ *
+ * PERFORMANCE OPTIMIZATIONS:
+ * - Parallel DB queries for orgs and roles after user validation
+ * - Parallel role permission lookups with Promise.all
+ * - Breakdown timing for bottleneck identification
  */
 export async function getCachedUserContext(userId: string): Promise<UserContext> {
-  // 1. Get basic user information (including provider_uid for analytics security)
+  const startTime = Date.now();
+  const breakdown: Record<string, number> = {};
+
+  // 1. Get basic user information (must run first to validate user exists)
+  const t1 = Date.now();
   const [user] = await db
     .select({
       user_id: users.user_id,
@@ -96,6 +110,7 @@ export async function getCachedUserContext(userId: string): Promise<UserContext>
     .from(users)
     .where(eq(users.user_id, userId))
     .limit(1);
+  breakdown.userQuery = Date.now() - t1;
 
   if (!user) {
     throw new Error(`User not found: ${userId}`);
@@ -105,76 +120,109 @@ export async function getCachedUserContext(userId: string): Promise<UserContext>
     throw new Error(`User account is inactive: ${userId}`);
   }
 
-  // 2. Get user's organizations (including practice_uids for analytics security)
-  const userOrgs = await db
-    .select({
-      user_organization_id: user_organizations.user_organization_id,
-      user_id: user_organizations.user_id,
-      organization_id: user_organizations.organization_id,
-      is_active: user_organizations.is_active,
-      joined_at: user_organizations.joined_at,
-      created_at: user_organizations.created_at,
-      // Organization details
-      org_name: organizations.name,
-      org_slug: organizations.slug,
-      org_parent_id: organizations.parent_organization_id,
-      org_practice_uids: organizations.practice_uids, // Analytics security - practice_uid filtering
-      org_is_active: organizations.is_active,
-      org_created_at: organizations.created_at,
-      org_updated_at: organizations.updated_at,
-      org_deleted_at: organizations.deleted_at,
-    })
-    .from(user_organizations)
-    .innerJoin(organizations, eq(user_organizations.organization_id, organizations.organization_id))
-    .where(
-      and(
-        eq(user_organizations.user_id, userId),
-        eq(user_organizations.is_active, true),
-        eq(organizations.is_active, true)
+  // 2 & 3. PARALLEL: Get user's organizations AND roles simultaneously
+  // These queries are independent once user is validated
+  const t2 = Date.now();
+  const [userOrgs, userRolesData] = await Promise.all([
+    // Query organizations
+    db
+      .select({
+        user_organization_id: user_organizations.user_organization_id,
+        user_id: user_organizations.user_id,
+        organization_id: user_organizations.organization_id,
+        is_active: user_organizations.is_active,
+        joined_at: user_organizations.joined_at,
+        created_at: user_organizations.created_at,
+        // Organization details
+        org_name: organizations.name,
+        org_slug: organizations.slug,
+        org_parent_id: organizations.parent_organization_id,
+        org_practice_uids: organizations.practice_uids, // Analytics security - practice_uid filtering
+        org_is_active: organizations.is_active,
+        org_created_at: organizations.created_at,
+        org_updated_at: organizations.updated_at,
+        org_deleted_at: organizations.deleted_at,
+      })
+      .from(user_organizations)
+      .innerJoin(
+        organizations,
+        eq(user_organizations.organization_id, organizations.organization_id)
       )
-    );
+      .where(
+        and(
+          eq(user_organizations.user_id, userId),
+          eq(user_organizations.is_active, true),
+          eq(organizations.is_active, true)
+        )
+      ),
+    // Query roles
+    db
+      .select({
+        // User role info
+        user_role_id: user_roles.user_role_id,
+        user_id: user_roles.user_id,
+        role_id: user_roles.role_id,
+        user_role_organization_id: user_roles.organization_id,
+        granted_by: user_roles.granted_by,
+        granted_at: user_roles.granted_at,
+        expires_at: user_roles.expires_at,
+        user_role_is_active: user_roles.is_active,
+        user_role_created_at: user_roles.created_at,
 
-  // 3. Get user's roles (without permissions for now)
-  const userRolesData = await db
-    .select({
-      // User role info
-      user_role_id: user_roles.user_role_id,
-      user_id: user_roles.user_id,
-      role_id: user_roles.role_id,
-      user_role_organization_id: user_roles.organization_id,
-      granted_by: user_roles.granted_by,
-      granted_at: user_roles.granted_at,
-      expires_at: user_roles.expires_at,
-      user_role_is_active: user_roles.is_active,
-      user_role_created_at: user_roles.created_at,
+        // Role info
+        role_name: roles.name,
+        role_description: roles.description,
+        role_organization_id: roles.organization_id,
+        is_system_role: roles.is_system_role,
+        role_is_active: roles.is_active,
+        role_created_at: roles.created_at,
+        role_updated_at: roles.updated_at,
+        role_deleted_at: roles.deleted_at,
+      })
+      .from(user_roles)
+      .innerJoin(roles, eq(user_roles.role_id, roles.role_id))
+      .where(
+        and(
+          eq(user_roles.user_id, userId),
+          eq(user_roles.is_active, true),
+          eq(roles.is_active, true)
+        )
+      ),
+  ]);
+  breakdown.orgsAndRolesQuery = Date.now() - t2;
 
-      // Role info
-      role_name: roles.name,
-      role_description: roles.description,
-      role_organization_id: roles.organization_id,
-      is_system_role: roles.is_system_role,
-      role_is_active: roles.is_active,
-      role_created_at: roles.created_at,
-      role_updated_at: roles.updated_at,
-      role_deleted_at: roles.deleted_at,
-    })
-    .from(user_roles)
-    .innerJoin(roles, eq(user_roles.role_id, roles.role_id))
-    .where(
-      and(eq(user_roles.user_id, userId), eq(user_roles.is_active, true), eq(roles.is_active, true))
-    );
-
-  // 4. Transform data into structured format
+  // 4. Transform data into structured format with PARALLEL permission lookups
+  const t3 = Date.now();
   const rolesMap = new Map<string, Role>();
   const userRolesMap = new Map<string, UserRole>();
 
-  // Process each user role and get cached permissions
+  // Collect unique role IDs for parallel permission fetching
+  const uniqueRoleIds = new Map<string, { role_id: string; role_name: string }>();
   for (const row of userRolesData) {
-    // Build role if not already processed
-    if (!rolesMap.has(row.role_id)) {
-      // Get permissions from cache
-      const permissions = await getRolePermissions(row.role_id, row.role_name);
+    if (!uniqueRoleIds.has(row.role_id)) {
+      uniqueRoleIds.set(row.role_id, { role_id: row.role_id, role_name: row.role_name });
+    }
+  }
 
+  // PARALLEL: Fetch all role permissions at once
+  const rolePermissionsResults = await Promise.all(
+    Array.from(uniqueRoleIds.values()).map(async ({ role_id, role_name }) => ({
+      role_id,
+      permissions: await getRolePermissions(role_id, role_name),
+    }))
+  );
+
+  // Build permissions map for quick lookup
+  const permissionsByRoleId = new Map<string, Permission[]>();
+  for (const result of rolePermissionsResults) {
+    permissionsByRoleId.set(result.role_id, result.permissions);
+  }
+  breakdown.permissionsLookup = Date.now() - t3;
+
+  // Build roles map using pre-fetched permissions
+  for (const row of userRolesData) {
+    if (!rolesMap.has(row.role_id)) {
+      const rolePermissions = permissionsByRoleId.get(row.role_id) || [];
       rolesMap.set(row.role_id, {
         role_id: row.role_id,
         name: row.role_name,
@@ -185,7 +233,7 @@ export async function getCachedUserContext(userId: string): Promise<UserContext>
         created_at: row.role_created_at ?? new Date(),
         updated_at: row.role_updated_at ?? new Date(),
         deleted_at: row.role_deleted_at || undefined,
-        permissions,
+        permissions: rolePermissions,
       });
     }
 
@@ -223,6 +271,7 @@ export async function getCachedUserContext(userId: string): Promise<UserContext>
   }));
 
   // 6. Expand accessible organizations to include children via hierarchy
+  const t4 = Date.now();
   const accessibleOrganizations: Organization[] = [];
 
   // Import hierarchy service for traversal
@@ -259,14 +308,7 @@ export async function getCachedUserContext(userId: string): Promise<UserContext>
       }
     }
   }
-
-  log.info('User accessible organizations resolved with hierarchy (cached path)', {
-    userId: user.user_id,
-    email: user.email,
-    directOrganizationCount: userOrgs.length,
-    totalAccessibleOrganizationCount: accessibleOrganizations.length,
-    includesHierarchy: accessibleOrganizations.length > userOrgs.length,
-  });
+  breakdown.hierarchyResolution = Date.now() - t4;
 
   // 7. Get all unique permissions across all roles (O(1) deduplication with Set)
   const uniquePermissionsMap = new Map<string, Permission>();
@@ -329,6 +371,35 @@ export async function getCachedUserContext(userId: string): Promise<UserContext>
     is_super_admin: isSuperAdmin,
     organization_admin_for: organizationAdminFor,
   };
+
+  // Log performance breakdown - single log at end per guidelines
+  const duration = Date.now() - startTime;
+  if (duration > SLOW_THRESHOLDS.AUTH_OPERATION) {
+    const template = logTemplates.performance.slowOperation('user_context_load', {
+      duration,
+      threshold: SLOW_THRESHOLDS.AUTH_OPERATION,
+      userId,
+      breakdown,
+      metadata: {
+        roleCount: rolesMap.size,
+        orgCount: userOrgs.length,
+        permissionCount: allPermissions.length,
+        accessibleOrgCount: accessibleOrganizations.length,
+        component: 'rbac-cache',
+      },
+    });
+    log.warn(template.message, template.context);
+  } else {
+    log.debug('User context loaded', {
+      userId,
+      duration,
+      breakdown,
+      roleCount: rolesMap.size,
+      orgCount: userOrgs.length,
+      accessibleOrgCount: accessibleOrganizations.length,
+      component: 'rbac-cache',
+    });
+  }
 
   return userContext;
 }

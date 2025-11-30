@@ -409,48 +409,10 @@ export interface ProtectedPageProps {
   loadingComponent?: React.ReactNode;
 }
 
-// Error Types
-export class RBACError extends Error {
-  constructor(
-    message: string,
-    public code: string,
-    public statusCode: number = 403,
-    public details?: unknown
-  ) {
-    super(message);
-    this.name = 'RBACError';
-  }
-}
-
-export class PermissionDeniedError extends RBACError {
-  constructor(permission: string, resourceId?: string, organizationId?: string) {
-    const message = `Permission denied: ${permission}${resourceId ? ` for resource ${resourceId}` : ''}${organizationId ? ` in organization ${organizationId}` : ''}`;
-    super(message, 'PERMISSION_DENIED', 403, {
-      permission,
-      resourceId,
-      organizationId,
-    });
-  }
-}
-
-export class InsufficientScopeError extends RBACError {
-  constructor(requiredScope: PermissionScope, actualScope: PermissionScope) {
-    super(
-      `Insufficient scope: required ${requiredScope}, got ${actualScope}`,
-      'INSUFFICIENT_SCOPE',
-      403,
-      { requiredScope, actualScope }
-    );
-  }
-}
-
-export class OrganizationAccessError extends RBACError {
-  constructor(organizationId: string) {
-    super(`Access denied to organization: ${organizationId}`, 'ORGANIZATION_ACCESS_DENIED', 403, {
-      organizationId,
-    });
-  }
-}
+/**
+ * RBAC Error classes have been relocated to:
+ * @see {@link @/lib/errors/rbac-errors.ts}
+ */
 
 // Utility Types
 export type DeepPartial<T> = {

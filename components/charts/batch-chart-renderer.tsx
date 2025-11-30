@@ -169,22 +169,7 @@ export default function BatchChartRenderer({
   // Extract chart configuration from definition
   const chartConfig = chartDefinition.chart_config || {};
   const configRecord = chartConfig as Record<string, unknown>;
-  
-  console.log('BatchChartRenderer config extraction', {
-    chartType: chartDefinition.chart_type,
-    hasChartConfig: !!chartDefinition.chart_config,
-    configKeys: Object.keys(configRecord),
-    colorPalette: configRecord.colorPalette,
-    stackingMode: configRecord.stackingMode,
-    metadata: chartData.metadata,
-    chartDataStructure: {
-      hasLabels: !!chartData.chartData.labels,
-      labelCount: chartData.chartData.labels?.length,
-      datasetCount: chartData.chartData.datasets?.length,
-      firstDataset: chartData.chartData.datasets?.[0],
-    },
-  });
-  
+
   const colorPalette = configRecord.colorPalette as string | undefined;
   const stackingMode = configRecord.stackingMode as string | undefined;
   const dualAxisConfig = configRecord.dualAxisConfig as

@@ -277,11 +277,27 @@ export function buildTooltipConfig(
 }
 
 /**
+ * Zoom plugin configuration type
+ */
+interface ZoomPluginConfig {
+  pan: { enabled: boolean; mode: 'x' };
+  zoom: {
+    wheel: { enabled: boolean; speed: number };
+    pinch: { enabled: boolean };
+    mode: 'x';
+  };
+  limits: {
+    x: { min: 'original'; max: 'original' };
+    y: { min: number; max: 'original' };
+  };
+}
+
+/**
  * Build zoom plugin configuration
  *
  * @returns Zoom plugin configuration object
  */
-function buildZoomConfig() {
+function buildZoomConfig(): ZoomPluginConfig {
   return {
     pan: {
       enabled: true,

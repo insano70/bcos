@@ -1,9 +1,9 @@
-import type { Practice, PracticeAttributes } from '@/lib/types/practice';
+import type { Practice, PracticeAttributes, ColorStyles } from '@/lib/types/practice';
 
 interface AboutProps {
   practice: Practice;
   attributes: PracticeAttributes;
-  colorStyles?: any;
+  colorStyles?: ColorStyles | undefined;
 }
 
 export default function About({ practice, attributes, colorStyles }: AboutProps) {

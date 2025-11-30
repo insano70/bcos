@@ -25,6 +25,7 @@ import { dashboard_charts } from '@/lib/db/schema';
 import { log } from '@/lib/logger';
 // 5. Types
 import type { UserContext } from '@/lib/types/rbac';
+import type { InputChartPosition } from '@/lib/types/dashboards';
 // 3. Base service
 import { BaseDashboardsService } from './base-service';
 
@@ -66,7 +67,7 @@ class DashboardChartAssociationsService extends BaseDashboardsService {
   async addChartsToDashboard(
     dashboardId: string,
     chartIds: string[],
-    positions?: Record<string, unknown>[]
+    positions?: InputChartPosition[]
   ): Promise<void> {
     // Permission check via base class
     this.requireAnyPermission(['dashboards:create:organization', 'dashboards:manage:all']);
@@ -144,7 +145,7 @@ class DashboardChartAssociationsService extends BaseDashboardsService {
   async replaceChartsForDashboard(
     dashboardId: string,
     chartIds: string[],
-    positions?: Record<string, unknown>[]
+    positions?: InputChartPosition[]
   ): Promise<void> {
     // Permission check via base class
     this.requireAnyPermission(['dashboards:create:organization', 'dashboards:manage:all']);

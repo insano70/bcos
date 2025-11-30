@@ -33,3 +33,8 @@ export const roleUpdateSchema = z.object({
   permission_ids: z.array(z.string().uuid()).optional(),
   is_active: z.boolean().optional(),
 });
+
+// Export types inferred from schemas
+export type RoleQuery = z.infer<typeof roleQuerySchema>;
+export type RoleCreate = z.infer<typeof roleCreateSchema>;
+export type RoleUpdate = z.infer<typeof roleUpdateSchema>;

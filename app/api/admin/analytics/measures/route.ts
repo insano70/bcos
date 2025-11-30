@@ -15,7 +15,7 @@ import type {
   MultipleSeriesConfig,
   PeriodComparisonConfig,
 } from '@/lib/types/analytics';
-import { MeasureAccessor } from '@/lib/types/analytics';
+import { MeasureAccessor } from '@/lib/services/analytics/measure-accessor';
 import type { UserContext } from '@/lib/types/rbac';
 import { getDateRange } from '@/lib/utils/date-presets';
 

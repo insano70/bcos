@@ -123,32 +123,8 @@ export default function DataSourceColumnsContent({ dataSourceId }: DataSourceCol
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'error'>('success');
 
-  // Auth state logging
-  if (process.env.NODE_ENV === 'development') {
-    console.log('👤 DataSourceColumnsContent: Auth state -', {
-      isAuthenticated,
-      authLoading,
-      dataSourceId,
-    });
-  }
-
-  // API state logging
-  if (process.env.NODE_ENV === 'development') {
-    console.log('📊 DataSourceColumnsContent: API state -', {
-      hasDataSource: !!dataSource,
-      hasColumns: !!columns,
-      columnCount: columns.length,
-      isLoading,
-      hasError: !!error,
-      errorMessage: error?.message,
-    });
-  }
-
   // Redirect to login if not authenticated
   if (!authLoading && !isAuthenticated) {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('🔒 DataSourceColumnsContent: User not authenticated');
-    }
     return null;
   }
 

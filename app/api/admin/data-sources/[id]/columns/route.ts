@@ -4,7 +4,7 @@ import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { extractRouteParams } from '@/lib/api/utils/params';
-import { log, logTemplates, sanitizeFilters } from '@/lib/logger';
+import { log, logTemplates, sanitizeFilters, SLOW_THRESHOLDS } from '@/lib/logger';
 import { createRBACDataSourceColumnsService } from '@/lib/services/rbac-data-source-columns-service';
 import type { UserContext } from '@/lib/types/rbac';
 import {
@@ -89,7 +89,7 @@ const getDataSourceColumnsHandler = async (
         byDataType: dataTypeCounts,
       },
       duration,
-      slow: duration > 1000,
+      slow: duration > SLOW_THRESHOLDS.API_OPERATION,
       component: 'admin',
     });
 

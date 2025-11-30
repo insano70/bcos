@@ -125,7 +125,7 @@ export class ServerPermissionService {
     const result = await this.checkPermission(permissionName, resourceId, organizationId);
 
     if (!result.granted) {
-      const { PermissionDeniedError } = await import('@/lib/types/rbac');
+      const { PermissionDeniedError } = await import('@/lib/errors/rbac-errors');
       throw new PermissionDeniedError(permissionName, resourceId, organizationId);
     }
   }

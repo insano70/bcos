@@ -55,16 +55,15 @@ export default function DataTableDropdown<T>({ item, actions }: DataTableDropdow
       setIsOpen(false); // Close dropdown when modal opens
       return;
     }
-    
-    // Fallback to native confirm (deprecated)
+
+    // Auto-convert deprecated confirm prop to modal pattern
     if (action.confirm) {
-      const confirmMessage =
-        typeof action.confirm === 'function' ? action.confirm(item) : action.confirm;
-      if (!confirm(confirmMessage)) {
-        return;
-      }
+      setPendingAction(action);
+      setConfirmModalOpen(true);
+      setIsOpen(false); // Close dropdown when modal opens
+      return;
     }
-    
+
     // Execute action
     handleAction(action);
   };
@@ -158,14 +157,21 @@ export default function DataTableDropdown<T>({ item, actions }: DataTableDropdow
       )}
       
       {/* Confirmation Modal */}
-      {pendingAction?.confirmModal && (
+      {pendingAction && (pendingAction.confirmModal || pendingAction.confirm) && (
         <DeleteConfirmationModal
           isOpen={confirmModalOpen}
-          setIsOpen={setConfirmModalOpen}
+          setIsOpen={(value) => {
+            setConfirmModalOpen(value);
+            if (!value) {
+              setPendingAction(null);
+            }
+          }}
           title={
-            typeof pendingAction.confirmModal.title === 'function'
-              ? pendingAction.confirmModal.title(item)
-              : pendingAction.confirmModal.title
+            pendingAction.confirmModal?.title
+              ? typeof pendingAction.confirmModal.title === 'function'
+                ? pendingAction.confirmModal.title(item)
+                : pendingAction.confirmModal.title
+              : 'Confirm Action'
           }
           itemName={
             typeof pendingAction.label === 'function'
@@ -173,12 +179,18 @@ export default function DataTableDropdown<T>({ item, actions }: DataTableDropdow
               : pendingAction.label
           }
           message={
-            typeof pendingAction.confirmModal.message === 'function'
-              ? pendingAction.confirmModal.message(item)
-              : pendingAction.confirmModal.message
+            pendingAction.confirmModal?.message
+              ? typeof pendingAction.confirmModal.message === 'function'
+                ? pendingAction.confirmModal.message(item)
+                : pendingAction.confirmModal.message
+              : pendingAction.confirm
+                ? typeof pendingAction.confirm === 'function'
+                  ? pendingAction.confirm(item)
+                  : pendingAction.confirm
+                : 'Are you sure you want to proceed?'
           }
           confirmButtonText={
-            pendingAction.confirmModal.confirmText
+            pendingAction.confirmModal?.confirmText
               ? typeof pendingAction.confirmModal.confirmText === 'function'
                 ? pendingAction.confirmModal.confirmText(item)
                 : pendingAction.confirmModal.confirmText

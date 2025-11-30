@@ -124,7 +124,7 @@ const updateOrganizationUsersHandler = async (
       addUserIds: validatedData.add_user_ids,
       removeUserIds: validatedData.remove_user_ids,
       duration,
-      slow: duration > 2000,
+      slow: duration > SLOW_THRESHOLDS.AUTH_OPERATION,
       component: 'api',
     });
 

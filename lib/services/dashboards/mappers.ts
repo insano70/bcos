@@ -12,7 +12,89 @@
  */
 
 import type { DashboardWithCharts } from '@/lib/types/dashboards';
+import type { DashboardLayout, StoredChartPosition } from '@/lib/types/dashboard-config';
 import type { DashboardQueryResult } from './query-builder';
+
+/**
+ * Default dashboard layout configuration
+ * Used when layout_config is missing or invalid
+ */
+const DEFAULT_LAYOUT: DashboardLayout = {
+  columns: 12,
+  rowHeight: 100,
+  margin: 10,
+};
+
+/**
+ * Parse layout config from database, ensuring valid DashboardLayout structure
+ */
+function parseLayoutConfig(rawLayout: unknown): DashboardLayout {
+  if (!rawLayout || typeof rawLayout !== 'object') {
+    return DEFAULT_LAYOUT;
+  }
+
+  const layout = rawLayout as Record<string, unknown>;
+
+  // Build the result object explicitly to satisfy exactOptionalPropertyTypes
+  const result: DashboardLayout = {
+    columns: typeof layout.columns === 'number' ? layout.columns : DEFAULT_LAYOUT.columns,
+    rowHeight: typeof layout.rowHeight === 'number' ? layout.rowHeight : DEFAULT_LAYOUT.rowHeight,
+    margin:
+      typeof layout.margin === 'number' || Array.isArray(layout.margin)
+        ? (layout.margin as number | [number, number])
+        : DEFAULT_LAYOUT.margin,
+  };
+
+  // Only add optional properties if they are defined (not undefined)
+  if (layout.containerPadding !== undefined) {
+    result.containerPadding = layout.containerPadding as number | [number, number];
+  }
+  if (layout.filterConfig !== undefined) {
+    result.filterConfig = layout.filterConfig as DashboardLayout['filterConfig'];
+  }
+  if (layout.useBatchRendering !== undefined) {
+    result.useBatchRendering = layout.useBatchRendering as boolean;
+  }
+  if (layout.compactType !== undefined) {
+    result.compactType = layout.compactType as DashboardLayout['compactType'];
+  }
+  if (layout.preventCollision !== undefined) {
+    result.preventCollision = layout.preventCollision as boolean;
+  }
+  if (layout.verticalCompact !== undefined) {
+    result.verticalCompact = layout.verticalCompact as boolean;
+  }
+
+  return result;
+}
+
+/**
+ * Parse position config from database, ensuring valid StoredChartPosition structure
+ */
+function parsePositionConfig(rawPosition: unknown): StoredChartPosition | undefined {
+  if (!rawPosition || typeof rawPosition !== 'object') {
+    return undefined;
+  }
+
+  const pos = rawPosition as Record<string, unknown>;
+
+  // Validate required fields
+  if (
+    typeof pos.x !== 'number' ||
+    typeof pos.y !== 'number' ||
+    typeof pos.w !== 'number' ||
+    typeof pos.h !== 'number'
+  ) {
+    return undefined;
+  }
+
+  return {
+    x: pos.x,
+    y: pos.y,
+    w: pos.w,
+    h: pos.h,
+  };
+}
 
 /**
  * Chart detail structure (subset of full chart definition)
@@ -60,7 +142,7 @@ export function mapDashboardResult(
     dashboard_id: dashboard.dashboard_id,
     dashboard_name: dashboard.dashboard_name,
     dashboard_description: dashboard.dashboard_description || undefined,
-    layout_config: (dashboard.layout_config as Record<string, unknown>) || {},
+    layout_config: parseLayoutConfig(dashboard.layout_config),
     dashboard_category_id: dashboard.dashboard_category_id || undefined,
     organization_id: dashboard.organization_id || undefined,
     created_by: dashboard.created_by,
@@ -155,14 +237,14 @@ function mapChartDetail(chart: ChartDetail): {
   chart_name: string;
   chart_description: string | undefined;
   chart_type: string;
-  position_config: Record<string, unknown> | undefined;
+  position_config: StoredChartPosition | undefined;
 } {
   return {
     chart_definition_id: chart.chart_definition_id,
     chart_name: chart.chart_name,
     chart_description: chart.chart_description || undefined,
     chart_type: chart.chart_type,
-    position_config: (chart.position_config as Record<string, unknown>) || undefined,
+    position_config: parsePositionConfig(chart.position_config),
   };
 }
 

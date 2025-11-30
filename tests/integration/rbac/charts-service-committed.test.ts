@@ -23,7 +23,7 @@ import '@/tests/setup/integration-setup';
 import { nanoid } from 'nanoid';
 import { createRBACChartsService } from '@/lib/services/rbac-charts-service';
 import type { PermissionName } from '@/lib/types/rbac';
-import { PermissionDeniedError } from '@/lib/types/rbac';
+import { PermissionDeniedError } from '@/lib/errors/rbac-errors';
 import { assignRoleToUser, createTestOrganization, createTestRole } from '@/tests/factories';
 import { createTestScope, type ScopedFactoryCollection } from '@/tests/factories/base';
 import { createCommittedChart, createCommittedUser } from '@/tests/factories/committed';
@@ -69,7 +69,7 @@ describe('RBAC Charts Service - Comprehensive Tests', () => {
       const user = await createCommittedUser({ scope: scopeId });
       const role = await createTestRole({
         name: 'analytics_reader',
-        permissions: ['analytics:read:all' as PermissionName],
+        permissions: ['charts:read:all' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -101,7 +101,7 @@ describe('RBAC Charts Service - Comprehensive Tests', () => {
       const user = await createCommittedUser({ scope: scopeId });
       const role = await createTestRole({
         name: 'analytics_reader',
-        permissions: ['analytics:read:all' as PermissionName],
+        permissions: ['charts:read:all' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -137,7 +137,7 @@ describe('RBAC Charts Service - Comprehensive Tests', () => {
       const user = await createCommittedUser({ scope: scopeId });
       const role = await createTestRole({
         name: 'analytics_reader',
-        permissions: ['analytics:read:all' as PermissionName],
+        permissions: ['charts:read:all' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -178,7 +178,7 @@ describe('RBAC Charts Service - Comprehensive Tests', () => {
       const user = await createCommittedUser({ scope: scopeId });
       const role = await createTestRole({
         name: 'analytics_reader',
-        permissions: ['analytics:read:all' as PermissionName],
+        permissions: ['charts:read:all' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -203,7 +203,7 @@ describe('RBAC Charts Service - Comprehensive Tests', () => {
       const user = await createCommittedUser({ scope: scopeId });
       const role = await createTestRole({
         name: 'analytics_reader',
-        permissions: ['analytics:read:all' as PermissionName],
+        permissions: ['charts:read:all' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -241,7 +241,7 @@ describe('RBAC Charts Service - Comprehensive Tests', () => {
       const user = await createCommittedUser({ scope: scopeId });
       const role = await createTestRole({
         name: 'analytics_reader',
-        permissions: ['analytics:read:all' as PermissionName],
+        permissions: ['charts:read:all' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -263,7 +263,7 @@ describe('RBAC Charts Service - Comprehensive Tests', () => {
       });
       const role = await createTestRole({
         name: 'analytics_reader',
-        permissions: ['analytics:read:all' as PermissionName],
+        permissions: ['charts:read:all' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -307,7 +307,7 @@ describe('RBAC Charts Service - Comprehensive Tests', () => {
       const user = await createCommittedUser({ scope: scopeId });
       const role = await createTestRole({
         name: 'analytics_reader',
-        permissions: ['analytics:read:all' as PermissionName],
+        permissions: ['charts:read:all' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -335,7 +335,7 @@ describe('RBAC Charts Service - Comprehensive Tests', () => {
       const user = await createCommittedUser({ scope: scopeId });
       const role = await createTestRole({
         name: 'analytics_reader',
-        permissions: ['analytics:read:all' as PermissionName],
+        permissions: ['charts:read:all' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -354,7 +354,7 @@ describe('RBAC Charts Service - Comprehensive Tests', () => {
       });
       const role = await createTestRole({
         name: 'analytics_reader',
-        permissions: ['analytics:read:all' as PermissionName],
+        permissions: ['charts:read:all' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -405,7 +405,7 @@ describe('RBAC Charts Service - Comprehensive Tests', () => {
       const user = await createCommittedUser({ scope: scopeId });
       const role = await createTestRole({
         name: 'analytics_reader',
-        permissions: ['analytics:read:all' as PermissionName],
+        permissions: ['charts:read:all' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -441,7 +441,7 @@ describe('RBAC Charts Service - Comprehensive Tests', () => {
       const user = await createCommittedUser({ scope: scopeId });
       const role = await createTestRole({
         name: 'analytics_reader',
-        permissions: ['analytics:read:all' as PermissionName],
+        permissions: ['charts:read:all' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -490,7 +490,7 @@ describe('RBAC Charts Service - Comprehensive Tests', () => {
       const user = await createCommittedUser({ scope: scopeId });
       const role = await createTestRole({
         name: 'analytics_admin',
-        permissions: ['analytics:read:all' as PermissionName],
+        permissions: ['charts:read:all' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -518,7 +518,7 @@ describe('RBAC Charts Service - Comprehensive Tests', () => {
       const user = await createCommittedUser({ scope: scopeId });
       const role = await createTestRole({
         name: 'analytics_admin',
-        permissions: ['analytics:read:all' as PermissionName],
+        permissions: ['charts:read:all' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -542,7 +542,7 @@ describe('RBAC Charts Service - Comprehensive Tests', () => {
       const user = await createCommittedUser({ scope: scopeId });
       const role = await createTestRole({
         name: 'analytics_admin',
-        permissions: ['analytics:read:all' as PermissionName],
+        permissions: ['charts:read:all' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -572,7 +572,7 @@ describe('RBAC Charts Service - Comprehensive Tests', () => {
       const user = await createCommittedUser({ scope: scopeId });
       const role = await createTestRole({
         name: 'analytics_admin',
-        permissions: ['analytics:read:all' as PermissionName],
+        permissions: ['charts:read:all' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -622,7 +622,7 @@ describe('RBAC Charts Service - Comprehensive Tests', () => {
       const user = await createCommittedUser({ scope: scopeId });
       const role = await createTestRole({
         name: 'analytics_admin',
-        permissions: ['analytics:read:all' as PermissionName],
+        permissions: ['charts:read:all' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -646,7 +646,7 @@ describe('RBAC Charts Service - Comprehensive Tests', () => {
       const user = await createCommittedUser({ scope: scopeId });
       const role = await createTestRole({
         name: 'analytics_admin',
-        permissions: ['analytics:read:all' as PermissionName],
+        permissions: ['charts:read:all' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -691,7 +691,7 @@ describe('RBAC Charts Service - Comprehensive Tests', () => {
       const user = await createCommittedUser({ scope: scopeId });
       const role = await createTestRole({
         name: 'analytics_admin',
-        permissions: ['analytics:read:all' as PermissionName],
+        permissions: ['charts:read:all' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -717,7 +717,7 @@ describe('RBAC Charts Service - Comprehensive Tests', () => {
       const user = await createCommittedUser({ scope: scopeId });
       const role = await createTestRole({
         name: 'analytics_admin',
-        permissions: ['analytics:read:all' as PermissionName],
+        permissions: ['charts:read:all' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -742,7 +742,7 @@ describe('RBAC Charts Service - Comprehensive Tests', () => {
       const user = await createCommittedUser({ scope: scopeId });
       const role = await createTestRole({
         name: 'analytics_admin',
-        permissions: ['analytics:read:all' as PermissionName],
+        permissions: ['charts:read:all' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -769,7 +769,7 @@ describe('RBAC Charts Service - Comprehensive Tests', () => {
       const user = await createCommittedUser({ scope: scopeId });
       const role = await createTestRole({
         name: 'analytics_admin',
-        permissions: ['analytics:read:all' as PermissionName],
+        permissions: ['charts:read:all' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -801,7 +801,7 @@ describe('RBAC Charts Service - Comprehensive Tests', () => {
       const user = await createCommittedUser({ scope: scopeId });
       const role = await createTestRole({
         name: 'analytics_admin',
-        permissions: ['analytics:read:all' as PermissionName],
+        permissions: ['charts:read:all' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -827,7 +827,7 @@ describe('RBAC Charts Service - Comprehensive Tests', () => {
       const user = await createCommittedUser({ scope: scopeId });
       const role = await createTestRole({
         name: 'analytics_admin',
-        permissions: ['analytics:read:all' as PermissionName],
+        permissions: ['charts:read:all' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -858,7 +858,7 @@ describe('RBAC Charts Service - Comprehensive Tests', () => {
       const user = await createCommittedUser({ scope: scopeId });
       const role = await createTestRole({
         name: 'analytics_admin',
-        permissions: ['analytics:read:all' as PermissionName],
+        permissions: ['charts:read:all' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -903,7 +903,7 @@ describe('RBAC Charts Service - Comprehensive Tests', () => {
       const user = await createCommittedUser({ scope: scopeId });
       const role = await createTestRole({
         name: 'analytics_admin',
-        permissions: ['analytics:read:all' as PermissionName],
+        permissions: ['charts:read:all' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -928,7 +928,7 @@ describe('RBAC Charts Service - Comprehensive Tests', () => {
       const user = await createCommittedUser({ scope: scopeId });
       const role = await createTestRole({
         name: 'analytics_admin',
-        permissions: ['analytics:read:all' as PermissionName],
+        permissions: ['charts:read:all' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -969,7 +969,7 @@ describe('RBAC Charts Service - Comprehensive Tests', () => {
       const user = await createCommittedUser({ scope: scopeId });
       const role = await createTestRole({
         name: 'analytics_admin',
-        permissions: ['analytics:read:all' as PermissionName],
+        permissions: ['charts:read:all' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -987,7 +987,7 @@ describe('RBAC Charts Service - Comprehensive Tests', () => {
       const user = await createCommittedUser({ scope: scopeId });
       const role = await createTestRole({
         name: 'analytics_admin',
-        permissions: ['analytics:read:all' as PermissionName],
+        permissions: ['charts:read:all' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -1005,7 +1005,7 @@ describe('RBAC Charts Service - Comprehensive Tests', () => {
       const user = await createCommittedUser({ scope: scopeId });
       const role = await createTestRole({
         name: 'analytics_admin',
-        permissions: ['analytics:read:all' as PermissionName],
+        permissions: ['charts:read:all' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -1023,7 +1023,7 @@ describe('RBAC Charts Service - Comprehensive Tests', () => {
       const user = await createCommittedUser({ scope: scopeId });
       const role = await createTestRole({
         name: 'analytics_admin',
-        permissions: ['analytics:read:all' as PermissionName],
+        permissions: ['charts:read:all' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -1041,7 +1041,7 @@ describe('RBAC Charts Service - Comprehensive Tests', () => {
       const user = await createCommittedUser({ scope: scopeId });
       const role = await createTestRole({
         name: 'analytics_admin',
-        permissions: ['analytics:read:all' as PermissionName],
+        permissions: ['charts:read:all' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -1070,7 +1070,7 @@ describe('RBAC Charts Service - Comprehensive Tests', () => {
 
       const adminRole = await createTestRole({
         name: 'chart_admin',
-        permissions: ['analytics:read:all' as PermissionName],
+        permissions: ['charts:read:all' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(adminRole));
 
@@ -1096,7 +1096,7 @@ describe('RBAC Charts Service - Comprehensive Tests', () => {
       const user = await createCommittedUser({ scope: scopeId });
       const role = await createTestRole({
         name: 'analytics_admin',
-        permissions: ['analytics:read:all' as PermissionName],
+        permissions: ['charts:read:all' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -1129,7 +1129,7 @@ describe('RBAC Charts Service - Comprehensive Tests', () => {
       const user = await createCommittedUser({ scope: scopeId });
       const role = await createTestRole({
         name: 'analytics_admin',
-        permissions: ['analytics:read:all' as PermissionName],
+        permissions: ['charts:read:all' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -1164,7 +1164,7 @@ describe('RBAC Charts Service - Comprehensive Tests', () => {
       const user = await createCommittedUser({ scope: scopeId });
       const role = await createTestRole({
         name: 'analytics_admin',
-        permissions: ['analytics:read:all' as PermissionName],
+        permissions: ['charts:read:all' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 

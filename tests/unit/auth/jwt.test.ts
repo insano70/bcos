@@ -31,7 +31,10 @@ describe('JWT authentication logic', () => {
       expect(token).toBeNull();
     });
 
-    it('should return empty string for malformed Bearer token', () => {
+    it('should return null for malformed Bearer token (trailing space trimmed by Headers API)', () => {
+      // Note: The Request/Headers API trims trailing whitespace from header values
+      // So 'Bearer ' becomes 'Bearer' which doesn't match the 'Bearer ' pattern
+      // This is actually more secure behavior - rejecting malformed tokens
       const request = new Request('http://localhost', {
         headers: {
           Authorization: 'Bearer ',
@@ -39,7 +42,7 @@ describe('JWT authentication logic', () => {
       });
 
       const token = extractTokenFromRequest(request);
-      expect(token).toBe('');
+      expect(token).toBeNull();
     });
   });
 

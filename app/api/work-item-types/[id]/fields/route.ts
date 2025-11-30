@@ -25,6 +25,8 @@ const postFieldHandler = async (
   log.info('Work item field creation request initiated', {
     workItemTypeId,
     userId: userContext.user_id,
+    operation: 'create_work_item_field',
+    component: 'work-items',
   });
 
   try {
@@ -48,6 +50,8 @@ const postFieldHandler = async (
       workItemTypeId,
       fieldName: field.field_name,
       duration,
+      operation: 'create_work_item_field',
+      component: 'work-items',
     });
 
     return NextResponse.json(field, { status: 201 });
@@ -58,6 +62,8 @@ const postFieldHandler = async (
       workItemTypeId,
       userId: userContext.user_id,
       duration,
+      operation: 'create_work_item_field',
+      component: 'work-items',
     });
 
     if (error instanceof Error) {
@@ -103,6 +109,8 @@ const getFieldsHandler = async (
   log.info('Work item fields list request initiated', {
     workItemTypeId,
     userId: userContext.user_id,
+    operation: 'list_work_item_fields',
+    component: 'work-items',
   });
 
   try {
@@ -130,6 +138,8 @@ const getFieldsHandler = async (
       workItemTypeId,
       count: fields.length,
       duration,
+      operation: 'list_work_item_fields',
+      component: 'work-items',
     });
 
     return NextResponse.json(fields);
@@ -140,6 +150,8 @@ const getFieldsHandler = async (
       workItemTypeId,
       userId: userContext.user_id,
       duration,
+      operation: 'list_work_item_fields',
+      component: 'work-items',
     });
 
     if (error instanceof Error) {

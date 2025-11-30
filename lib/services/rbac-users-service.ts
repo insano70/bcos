@@ -5,7 +5,7 @@ import { user_organizations, users } from '@/lib/db/schema';
 import { webauthn_credentials } from '@/lib/db/webauthn-schema';
 import { calculateChanges, log, logTemplates, SLOW_THRESHOLDS } from '@/lib/logger';
 import type { UserContext } from '@/lib/types/rbac';
-import { PermissionDeniedError } from '@/lib/types/rbac';
+import { PermissionDeniedError } from '@/lib/errors/rbac-errors';
 import {
   applyUserSearchFilters,
   buildSingleUserWithOrganizations,

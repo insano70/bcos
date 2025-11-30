@@ -35,10 +35,10 @@ import type { UserContext } from '@/lib/types/rbac';
 import type {
   DimensionExpandedChart,
   DimensionValue,
+  ExpansionDimension,
   MultiDimensionExpansionRequest,
   MultiDimensionExpandedChartData,
   DimensionValueCombination,
-  DimensionValueSelection,
 } from '@/lib/types/dimensions';
 import { dimensionDiscoveryService } from './dimension-discovery-service';
 import { chartDataOrchestrator } from '@/lib/services/chart-data-orchestrator';
@@ -211,7 +211,7 @@ export class DimensionExpansionRenderer {
       // Phase 1: Apply value-level selections if provided
       // This filters dimension values to only include user-selected values,
       // preventing combinatorial explosion
-      const selections = (request as unknown as { selections?: DimensionValueSelection[] }).selections;
+      const selections = request.selections;
       if (selections && selections.length > 0) {
         log.info('Applying value-level selections', {
           selectionCount: selections.length,
@@ -417,7 +417,10 @@ export class DimensionExpansionRenderer {
    * @param dimensionColumn - Dimension column name
    * @returns Dimension metadata
    */
-  private async getDimensionMetadata(dataSourceId: number, dimensionColumn: string) {
+  private async getDimensionMetadata(
+    dataSourceId: number,
+    dimensionColumn: string
+  ): Promise<ExpansionDimension> {
     const dimensionCols = await dimensionDiscoveryService.getDataSourceExpansionDimensions(dataSourceId);
     const dimension = dimensionCols.find((d) => d.columnName === dimensionColumn);
 

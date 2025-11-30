@@ -1,4 +1,4 @@
-import { PermissionDeniedError } from '@/lib/types/rbac';
+import { PermissionDeniedError } from '@/lib/errors/rbac-errors';
 
 /**
  * RBAC Helper Functions

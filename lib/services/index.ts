@@ -4,7 +4,8 @@
  * Central export point for all services in the application.
  */
 
-export type { DataSourceColumnMapping, MeasureAccessor } from '@/lib/types/analytics';
+export type { DataSourceColumnMapping } from '@/lib/types/analytics';
+export { MeasureAccessor } from './analytics/measure-accessor';
 // Chart Config Service
 export { chartConfigService } from './chart-config-service';
 // Column Mapping Service

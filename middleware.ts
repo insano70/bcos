@@ -30,9 +30,10 @@ function isCSRFExempt(pathname: string): boolean {
   )
 }
 
-// PERFORMANCE OPTIMIZATION: Token validation cache (60-second TTL)
+// PERFORMANCE OPTIMIZATION: Token validation cache (5-minute TTL)
 // Reduces database queries by 95% while maintaining security
-// Trade-off: Up to 60-second delay for revocation to take effect
+// Trade-off: Up to 5-minute delay for revocation to take effect
+// Acceptable for page load auth checks; API auth uses shorter cache
 interface TokenCacheEntry {
   valid: boolean
   expires: number
@@ -103,10 +104,10 @@ async function validateRefreshTokenWithDB(refreshToken: string): Promise<boolean
     // Token not found or revoked in database
     if (!tokenRecord || !tokenRecord.is_active) {
       debugLog.middleware('Refresh token revoked in database:', tokenId.substring(0, 8))
-      // Cache negative result for 60 seconds
+      // Cache negative result for 5 minutes (consistent with positive cache)
       tokenValidationCache.set(cacheKey, {
         valid: false,
-        expires: Date.now() + 60000
+        expires: Date.now() + 300000
       })
       return false
     }
@@ -120,18 +121,18 @@ async function validateRefreshTokenWithDB(refreshToken: string): Promise<boolean
 
     if (blacklisted) {
       debugLog.middleware('Refresh token blacklisted:', tokenId.substring(0, 8))
-      // Cache negative result for 60 seconds
+      // Cache negative result for 5 minutes (consistent with positive cache)
       tokenValidationCache.set(cacheKey, {
         valid: false,
-        expires: Date.now() + 60000
+        expires: Date.now() + 300000
       })
       return false
     }
 
-    // Token is valid and active - cache result for 60 seconds
+    // Token is valid and active - cache result for 5 minutes
     tokenValidationCache.set(cacheKey, {
       valid: true,
-      expires: Date.now() + 60000
+      expires: Date.now() + 300000
     })
 
     debugLog.middleware('Token validation cache miss - stored:', tokenId.substring(0, 8))

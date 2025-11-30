@@ -5,6 +5,7 @@ import Toast from '@/components/toast';
 import { FormSkeleton, Skeleton } from '@/components/ui/loading-skeleton';
 import { apiClient } from '@/lib/api/client';
 import { useToast } from '@/lib/hooks/use-toast';
+import { clientDebugLog, clientErrorLog } from '@/lib/utils/debug-client';
 import type {
   ChartDefinition,
   ChartFilter,
@@ -151,7 +152,7 @@ export default function FunctionalChartBuilder({
 
   const loadSchemaInfo = async (dataSource?: DataSource | null) => {
     try {
-      console.log('🔍 Loading analytics schema information...');
+      clientDebugLog.api('Loading analytics schema information');
 
       // Use the provided data source, or fallback to selected data source, or default
       const sourceToUse = dataSource || chartConfig.selectedDataSource;
@@ -160,13 +161,13 @@ export default function FunctionalChartBuilder({
       if (sourceToUse?.id) {
         // Use data source ID if available (new configurable system)
         apiUrl += `?data_source_id=${sourceToUse.id}`;
-        console.log(`🔍 Loading schema for data source ID: ${sourceToUse.id}`);
+        clientDebugLog.api('Loading schema for data source', { dataSourceId: sourceToUse.id });
       } else {
         // Fallback to table/schema params (legacy system)
         const tableName = sourceToUse?.tableName || 'agg_app_measures';
         const schemaName = sourceToUse?.schemaName || 'ih';
         apiUrl += `?table=${tableName}&schema=${schemaName}`;
-        console.log(`🔍 Loading schema for: ${schemaName}.${tableName}`);
+        clientDebugLog.api('Loading schema for table', { schemaName, tableName });
       }
 
       const result = await apiClient.get<SchemaInfo>(apiUrl);
@@ -189,14 +190,14 @@ export default function FunctionalChartBuilder({
         }));
       }
 
-      console.log('✅ Schema loaded:', {
+      clientDebugLog.api('Schema loaded', {
         fieldCount: result.fields ? Object.keys(result.fields).length : 0,
         measureCount: result.availableMeasures ? result.availableMeasures.length : 0,
         dataSourceId: sourceToUse?.id,
         tableName: sourceToUse?.tableName,
       });
     } catch (error) {
-      console.error('❌ Failed to load schema:', error);
+      clientErrorLog('Failed to load schema', error);
     } finally {
       setIsLoadingSchema(false);
     }

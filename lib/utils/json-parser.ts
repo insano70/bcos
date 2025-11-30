@@ -1,3 +1,6 @@
+import { log } from '@/lib/logger';
+import type { BusinessHours } from '@/lib/types/practice';
+
 /**
  * Safely parse JSON strings with fallback values
  */
@@ -20,7 +23,12 @@ export function safeJsonParse<T>(jsonString: string | null | undefined | unknown
   try {
     return JSON.parse(jsonString);
   } catch (error) {
-    console.warn('Failed to parse JSON:', jsonString, error);
+    log.warn('Failed to parse JSON', {
+      operation: 'json_parse',
+      component: 'utils',
+      inputPreview: jsonString.substring(0, 100),
+      errorMessage: error instanceof Error ? error.message : 'Unknown parse error',
+    });
     return fallback;
   }
 }
@@ -28,8 +36,8 @@ export function safeJsonParse<T>(jsonString: string | null | undefined | unknown
 /**
  * Parse business hours with fallback
  */
-export function parseBusinessHours(jsonString: string | null | undefined | unknown) {
-  return safeJsonParse(jsonString, {
+export function parseBusinessHours(jsonString: string | null | undefined | unknown): BusinessHours {
+  return safeJsonParse<BusinessHours>(jsonString, {
     sunday: { closed: true },
     monday: { open: '09:00', close: '17:00', closed: false },
     tuesday: { open: '09:00', close: '17:00', closed: false },
@@ -43,15 +51,15 @@ export function parseBusinessHours(jsonString: string | null | undefined | unkno
 /**
  * Parse services array with fallback
  */
-export function parseServices(jsonString: string | null | undefined | unknown) {
-  return safeJsonParse(jsonString, []);
+export function parseServices(jsonString: string | null | undefined | unknown): string[] {
+  return safeJsonParse<string[]>(jsonString, []);
 }
 
 /**
  * Parse insurance array with fallback
  */
-export function parseInsurance(jsonString: string | null | undefined | unknown) {
-  return safeJsonParse(jsonString, [
+export function parseInsurance(jsonString: string | null | undefined | unknown): string[] {
+  return safeJsonParse<string[]>(jsonString, [
     'Aetna',
     'Anthem Blue Cross Blue Shield',
     'Cigna',
@@ -63,41 +71,41 @@ export function parseInsurance(jsonString: string | null | undefined | unknown) 
 /**
  * Parse insurance accepted array with fallback (alias for parseInsurance)
  */
-export function parseInsuranceAccepted(jsonString: string | null | undefined | unknown) {
+export function parseInsuranceAccepted(jsonString: string | null | undefined | unknown): string[] {
   return parseInsurance(jsonString);
 }
 
 /**
  * Parse conditions array with fallback
  */
-export function parseConditions(jsonString: string | null | undefined | unknown) {
-  return safeJsonParse(jsonString, []);
+export function parseConditions(jsonString: string | null | undefined | unknown): string[] {
+  return safeJsonParse<string[]>(jsonString, []);
 }
 
 /**
  * Parse conditions treated array with fallback (alias for parseConditions)
  */
-export function parseConditionsTreated(jsonString: string | null | undefined | unknown) {
+export function parseConditionsTreated(jsonString: string | null | undefined | unknown): string[] {
   return parseConditions(jsonString);
 }
 
 /**
  * Parse specialties array with fallback
  */
-export function parseSpecialties(jsonString: string | null | undefined | unknown) {
-  return safeJsonParse(jsonString, []);
+export function parseSpecialties(jsonString: string | null | undefined | unknown): string[] {
+  return safeJsonParse<string[]>(jsonString, []);
 }
 
 /**
  * Parse education array with fallback
  */
-export function parseEducation(jsonString: string | null | undefined | unknown) {
-  return safeJsonParse(jsonString, []);
+export function parseEducation(jsonString: string | null | undefined | unknown): string[] {
+  return safeJsonParse<string[]>(jsonString, []);
 }
 
 /**
  * Parse gallery images array with fallback
  */
-export function parseGalleryImages(jsonString: string | null | undefined | unknown) {
-  return safeJsonParse(jsonString, []);
+export function parseGalleryImages(jsonString: string | null | undefined | unknown): string[] {
+  return safeJsonParse<string[]>(jsonString, []);
 }

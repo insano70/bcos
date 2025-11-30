@@ -13,12 +13,8 @@
  */
 
 import { log } from '@/lib/logger';
-import type {
-  AggAppMeasure,
-  DataSourceColumnMapping,
-  MeasureAccessor,
-} from '@/lib/types/analytics';
-import { MeasureAccessor as MeasureAccessorClass } from '@/lib/types/analytics';
+import type { AggAppMeasure, DataSourceColumnMapping } from '@/lib/types/analytics';
+import { MeasureAccessor } from '@/lib/services/analytics/measure-accessor';
 import { chartConfigService } from './chart-config-service';
 
 /**
@@ -202,7 +198,7 @@ export class ColumnMappingService {
    */
   async createAccessor(row: AggAppMeasure, dataSourceId: number): Promise<MeasureAccessor> {
     const mapping = await this.getMapping(dataSourceId);
-    return new MeasureAccessorClass(row, mapping);
+    return new MeasureAccessor(row, mapping);
   }
 
   /**
@@ -217,7 +213,7 @@ export class ColumnMappingService {
    */
   async createAccessors(rows: AggAppMeasure[], dataSourceId: number): Promise<MeasureAccessor[]> {
     const mapping = await this.getMapping(dataSourceId);
-    return rows.map((row) => new MeasureAccessorClass(row, mapping));
+    return rows.map((row) => new MeasureAccessor(row, mapping));
   }
 
   /**
@@ -256,9 +252,16 @@ export class ColumnMappingService {
   }
 }
 
+// Extend globalThis to persist singleton across hot reloads in development
+declare global {
+  // eslint-disable-next-line no-var
+  var __columnMappingService: ColumnMappingService | undefined;
+}
+
 /**
  * Singleton instance of ColumnMappingService
  *
+ * Uses globalThis to persist across hot reloads in development.
  * Use this exported instance throughout the application.
  *
  * @example
@@ -269,4 +272,10 @@ export class ColumnMappingService {
  * const accessor = await columnMappingService.createAccessor(row, 3);
  * ```
  */
-export const columnMappingService = new ColumnMappingService();
+export const columnMappingService =
+  globalThis.__columnMappingService ?? new ColumnMappingService();
+
+// Store on globalThis in development to prevent cache loss during hot reload
+if (process.env.NODE_ENV !== 'production') {
+  globalThis.__columnMappingService = columnMappingService;
+}

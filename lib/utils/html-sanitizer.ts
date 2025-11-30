@@ -10,6 +10,8 @@ import DOMPurify from 'dompurify';
  * Removes potentially dangerous HTML tags and attributes while preserving safe formatting
  */
 export function sanitizeHtml(html: string): string {
+  if (typeof html !== 'string') return '';
+
   if (typeof window === 'undefined') {
     // Server-side: use JSDOM
     const { JSDOM } = require('jsdom');
@@ -80,6 +82,8 @@ export function sanitizeHtml(html: string): string {
  * Returns plain text only
  */
 export function stripHtml(html: string): string {
+  if (typeof html !== 'string') return '';
+
   if (typeof window === 'undefined') {
     // Server-side: simple regex approach
     return html
@@ -120,7 +124,7 @@ export function getHtmlTextLength(html: string): number {
  * Returns empty string if URL is potentially dangerous
  */
 export function sanitizeUrl(url: string): string {
-  if (!url) return '';
+  if (typeof url !== 'string' || !url) return '';
 
   const trimmedUrl = url.trim().toLowerCase();
 
@@ -142,7 +146,7 @@ export function sanitizeUrl(url: string): string {
  * and converting newlines to <br> tags
  */
 export function textToSafeHtml(text: string): string {
-  if (!text) return '';
+  if (typeof text !== 'string' || !text) return '';
 
   return text
     .replace(/&/g, '&amp;')

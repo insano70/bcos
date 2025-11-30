@@ -376,10 +376,12 @@ export async function authenticateWithPassword(
 
     // ===== EDGE CASE: MFA enabled but no active credentials =====
     if (mfaStatus.enabled && mfaStatus.credential_count === 0) {
-      log.error('MFA enabled but no active credentials', {
+      log.error('MFA enabled but no active credentials', new Error('MFA configuration inconsistency'), {
         userId: user.user_id,
         mfaEnabled: mfaStatus.enabled,
         credentialCount: mfaStatus.credential_count,
+        operation: 'authenticate_with_password',
+        component: 'auth',
       });
 
       await AuditLogger.logAuth({

@@ -351,10 +351,12 @@ export class OrganizationHierarchyService {
 
       // Prevent infinite loops in case of circular references (data integrity issue)
       if (depth > MAX_ORGANIZATION_HIERARCHY_DEPTH) {
-        log.error('Circular reference detected in organization hierarchy', {
+        log.error('Circular reference detected in organization hierarchy', new Error('Max hierarchy depth exceeded'), {
           organizationId,
           depth,
           maxDepth: MAX_ORGANIZATION_HIERARCHY_DEPTH,
+          operation: 'find_root_organization',
+          component: 'organizations',
         });
         break;
       }

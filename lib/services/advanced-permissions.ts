@@ -70,10 +70,11 @@ export class AdvancedPermissionsService {
         grantedBy,
       });
     } catch (error) {
-      log.error('Failed to grant chart permission', {
+      log.error('Failed to grant chart permission', error instanceof Error ? error : new Error(String(error)), {
         chartDefinitionId,
         userId,
-        error: error instanceof Error ? error.message : 'Unknown error',
+        operation: 'grant_chart_permission',
+        component: 'rbac',
       });
       throw error;
     }
@@ -95,10 +96,11 @@ export class AdvancedPermissionsService {
 
       log.info('Chart permission revoked', { chartDefinitionId, userId });
     } catch (error) {
-      log.error('Failed to revoke chart permission', {
+      log.error('Failed to revoke chart permission', error instanceof Error ? error : new Error(String(error)), {
         chartDefinitionId,
         userId,
-        error: error instanceof Error ? error.message : 'Unknown error',
+        operation: 'revoke_chart_permission',
+        component: 'rbac',
       });
       throw error;
     }
@@ -133,10 +135,11 @@ export class AdvancedPermissionsService {
 
       return userLevel >= requiredLevel;
     } catch (error) {
-      log.error('Permission check failed', {
+      log.error('Permission check failed', error instanceof Error ? error : new Error(String(error)), {
         chartDefinitionId,
         userId,
-        error: error instanceof Error ? error.message : 'Unknown error',
+        operation: 'check_chart_permission',
+        component: 'rbac',
       });
       return false;
     }
@@ -186,9 +189,10 @@ export class AdvancedPermissionsService {
         permission: row.permissionType || 'view',
       }));
     } catch (error) {
-      log.error('Failed to get user accessible charts', {
+      log.error('Failed to get user accessible charts', error instanceof Error ? error : new Error(String(error)), {
         userId,
-        error: error instanceof Error ? error.message : 'Unknown error',
+        operation: 'get_user_accessible_charts',
+        component: 'rbac',
       });
       return [];
     }
@@ -343,10 +347,11 @@ export class AdvancedPermissionsService {
         filteredData: requestedData,
       };
     } catch (error) {
-      log.error('Chart access validation failed', {
+      log.error('Chart access validation failed', error instanceof Error ? error : new Error(String(error)), {
         chartDefinitionId,
         userId,
-        error: error instanceof Error ? error.message : 'Unknown error',
+        operation: 'validate_chart_access',
+        component: 'rbac',
       });
 
       return {
@@ -383,8 +388,9 @@ export class AdvancedPermissionsService {
         recentGrants: [],
       };
     } catch (error) {
-      log.error('Failed to get permission summary', {
-        error: error instanceof Error ? error.message : 'Unknown error',
+      log.error('Failed to get permission summary', error instanceof Error ? error : new Error(String(error)), {
+        operation: 'get_permission_summary',
+        component: 'rbac',
       });
 
       return {

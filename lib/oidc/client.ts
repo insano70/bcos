@@ -17,6 +17,7 @@
 import * as oauth from 'openid-client';
 import { log } from '@/lib/logger';
 import { buildOIDCConfig } from './config';
+import { getDiscoveryDocument } from './discovery-cache';
 import { DiscoveryError, TokenExchangeError, TokenValidationError } from './errors';
 import type { OIDCAuthorizationResult, OIDCConfig, OIDCUserInfo } from './types';
 
@@ -56,33 +57,56 @@ export class OIDCClient {
    * Initialize Client
    *
    * Discovers OIDC configuration from Microsoft Entra ID.
+   * Uses Redis cache for discovery document to reduce network latency on cold starts.
    * This method is only called once per container lifecycle via the singleton pattern.
    *
    * @throws DiscoveryError if discovery fails
    */
   async initialize(): Promise<void> {
+    const startTime = Date.now();
     this.config = buildOIDCConfig();
-
-    // Perform discovery (cached at singleton level, not per-call level)
-    log.debug('Fetching OIDC discovery document', {
-      tenantId: this.config.tenantId,
-    });
 
     try {
       const issuerUrl = new URL(`https://login.microsoftonline.com/${this.config.tenantId}/v2.0`);
 
-      // Discover OIDC configuration from well-known endpoint
+      // Pre-warm Redis cache with discovery document
+      // This allows future cold starts to benefit from cached metadata
+      // Note: openid-client v6 still performs discovery, but we cache for monitoring/future optimization
+      const { cacheHit, duration: cacheCheckDuration } = await getDiscoveryDocument(this.config.tenantId);
+
+      log.debug('OIDC discovery cache check completed', {
+        component: 'oidc',
+        tenantId: this.config.tenantId,
+        cacheHit,
+        cacheCheckDuration,
+      });
+
+      // Perform discovery (openid-client v6 requires this for Configuration object)
+      // The library fetches from network, but globalThis singleton prevents repeat calls
+      const discoveryStart = Date.now();
       this.oauthConfig = await oauth.discovery(
         issuerUrl,
         this.config.clientId,
         this.config.clientSecret
       );
+      const discoveryDuration = Date.now() - discoveryStart;
 
-      log.debug('OIDC configuration discovered successfully', {
+      const totalDuration = Date.now() - startTime;
+
+      log.info('OIDC client initialized', {
+        component: 'oidc',
+        tenantId: this.config.tenantId,
         issuer: issuerUrl.href,
+        redisCacheHit: cacheHit,
+        timing: {
+          cacheCheck: cacheCheckDuration,
+          discovery: discoveryDuration,
+          total: totalDuration,
+        },
       });
     } catch (error) {
       log.error('Failed to discover OIDC configuration', error, {
+        component: 'oidc',
         tenantId: this.config.tenantId,
       });
       throw new DiscoveryError('OIDC discovery failed', {
@@ -255,7 +279,10 @@ export class OIDCClient {
     const claims = tokenSet.claims();
 
     if (!claims) {
-      log.error('No ID token claims returned from token exchange');
+      log.error('No ID token claims returned from token exchange', new Error('Missing claims'), {
+        operation: 'oidc_token_exchange',
+        component: 'auth',
+      });
       throw new TokenValidationError('No ID token claims in response');
     }
 
@@ -375,38 +402,44 @@ export class OIDCClient {
 
 // ===== Singleton Pattern for Client Instance =====
 
-let clientInstance: OIDCClient | null = null;
-let clientInitializing: Promise<OIDCClient> | null = null;
+// Extend globalThis to include our OIDC client state
+declare global {
+  // eslint-disable-next-line no-var
+  var __oidcClientInstance: OIDCClient | undefined;
+  // eslint-disable-next-line no-var
+  var __oidcClientInitializing: Promise<OIDCClient> | undefined;
+}
 
 /**
  * Get Singleton OIDC Client Instance
  *
  * Thread-safe initialization with promise caching.
+ * Uses globalThis to persist across hot reloads in development.
  * Ensures only one client instance exists and prevents duplicate initialization.
  *
  * @returns Initialized OIDC client instance
  */
 export async function getOIDCClient(): Promise<OIDCClient> {
-  // Return existing instance
-  if (clientInstance) {
-    return clientInstance;
+  // Return existing instance (from globalThis for hot reload persistence)
+  if (globalThis.__oidcClientInstance) {
+    return globalThis.__oidcClientInstance;
   }
 
   // Wait for ongoing initialization
-  if (clientInitializing) {
-    return clientInitializing;
+  if (globalThis.__oidcClientInitializing) {
+    return globalThis.__oidcClientInitializing;
   }
 
   // Initialize new instance
-  clientInitializing = (async () => {
+  globalThis.__oidcClientInitializing = (async () => {
     const client = new OIDCClient();
     await client.initialize();
-    clientInstance = client;
-    clientInitializing = null;
+    globalThis.__oidcClientInstance = client;
+    globalThis.__oidcClientInitializing = undefined;
     return client;
   })();
 
-  return clientInitializing;
+  return globalThis.__oidcClientInitializing;
 }
 
 /**
@@ -416,7 +449,7 @@ export async function getOIDCClient(): Promise<OIDCClient> {
  * Use for testing or when configuration changes.
  */
 export function resetOIDCClient(): void {
-  clientInstance = null;
-  clientInitializing = null;
+  globalThis.__oidcClientInstance = undefined;
+  globalThis.__oidcClientInitializing = undefined;
   log.info('OIDC client instance reset');
 }

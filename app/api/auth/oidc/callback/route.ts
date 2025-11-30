@@ -100,9 +100,11 @@ const oidcCallbackHandler = async (request: NextRequest) => {
 
     // Validate required parameters
     if (!code || !state) {
-      log.error('OIDC callback missing required parameters', {
+      log.error('OIDC callback missing required parameters', new Error('Missing code or state parameter'), {
         hasCode: !!code,
         hasState: !!state,
+        operation: 'oidc_callback',
+        component: 'auth',
       });
 
       return NextResponse.redirect(new URL('/signin?error=oidc_callback_failed', baseUrl));
@@ -113,7 +115,10 @@ const oidcCallbackHandler = async (request: NextRequest) => {
     const sessionCookie = cookieStore.get('oidc-session');
 
     if (!sessionCookie) {
-      log.error('OIDC session cookie not found');
+      log.error('OIDC session cookie not found', new Error('Missing session cookie'), {
+        operation: 'oidc_callback',
+        component: 'auth',
+      });
       throw new SessionError('OIDC session expired or not found');
     }
 
@@ -137,9 +142,11 @@ const oidcCallbackHandler = async (request: NextRequest) => {
 
     // ===== 3. Validate State (CSRF Protection) =====
     if (state !== sessionData.state) {
-      log.error('OIDC state mismatch', {
+      log.error('OIDC state mismatch', new Error('CSRF protection: state parameter mismatch'), {
         received: state.substring(0, 8),
         expected: sessionData.state.substring(0, 8),
+        operation: 'oidc_callback',
+        component: 'auth',
       });
 
       await AuditLogger.logAuth({
@@ -312,9 +319,11 @@ const oidcCallbackHandler = async (request: NextRequest) => {
     );
 
     if (!validationResult.valid) {
-      log.error('OIDC profile validation failed', {
+      log.error('OIDC profile validation failed', new Error('Profile validation rejected'), {
         errors: validationResult.errors,
         email: userInfo.email.replace(/(.{2}).*@/, '$1***@'),
+        operation: 'oidc_callback',
+        component: 'auth',
       });
 
       await AuditLogger.logAuth({
@@ -331,7 +340,10 @@ const oidcCallbackHandler = async (request: NextRequest) => {
     }
 
     if (!validationResult.sanitized) {
-      log.error('OIDC profile validation succeeded but sanitized profile is missing');
+      log.error('OIDC profile validation succeeded but sanitized profile is missing', new Error('Missing sanitized profile'), {
+        operation: 'oidc_callback',
+        component: 'auth',
+      });
       return NextResponse.redirect(new URL('/signin?error=oidc_invalid_profile', baseUrl));
     }
 

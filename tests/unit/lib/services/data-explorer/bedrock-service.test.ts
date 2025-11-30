@@ -17,13 +17,24 @@ vi.mock('@/lib/services/data-explorer', () => ({
   createRBACExplorerMetadataService: vi.fn(() => ({
     getTableMetadata: vi.fn(async () => [
       {
+        table_metadata_id: 1,
         table_name: 'patients',
         description: 'Patient demographic information',
       },
       {
+        table_metadata_id: 2,
         table_name: 'encounters',
         description: 'Patient visit records',
       },
+    ]),
+    getColumnMetadata: vi.fn(async () => [
+      { column_name: 'id', data_type: 'integer', description: 'Primary key' },
+      { column_name: 'name', data_type: 'varchar', description: 'Name field' },
+    ]),
+    // Returns array of SchemaInstruction with priority
+    getSchemaInstructions: vi.fn(async () => [
+      { priority: 1, instruction: 'Use ih schema for all queries.' },
+      { priority: 2, instruction: 'Always include proper date filtering.' },
     ]),
   })),
 }));

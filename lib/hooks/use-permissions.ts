@@ -10,6 +10,7 @@ import type {
   ResourceType,
   UsePermissionsReturn,
 } from '@/lib/types/rbac';
+import { clientDebugLog } from '@/lib/utils/debug-client';
 
 /**
  * React Hook for RBAC Permission Checking
@@ -47,10 +48,7 @@ export function usePermissions(): UsePermissionsReturn {
     try {
       return checker.hasPermission(permission, resourceId, organizationId);
     } catch (error) {
-      // Permission check failure (client-side debug)
-      if (process.env.NODE_ENV === 'development') {
-        console.warn('Permission check failed:', error);
-      }
+      clientDebugLog.rbac('Permission check failed', { error, permission });
       return false;
     }
   };
@@ -65,10 +63,7 @@ export function usePermissions(): UsePermissionsReturn {
     try {
       return checker.hasAnyPermission(permissions, resourceId, organizationId);
     } catch (error) {
-      // Permission check failure (client-side debug)
-      if (process.env.NODE_ENV === 'development') {
-        console.warn('Permission check failed:', error);
-      }
+      clientDebugLog.rbac('Permission check failed (hasAnyPermission)', { error, permissions });
       return false;
     }
   };
@@ -83,10 +78,7 @@ export function usePermissions(): UsePermissionsReturn {
     try {
       return checker.hasAllPermissions(permissions, resourceId, organizationId);
     } catch (error) {
-      // Permission check failure (client-side debug)
-      if (process.env.NODE_ENV === 'development') {
-        console.warn('Permission check failed:', error);
-      }
+      clientDebugLog.rbac('Permission check failed (hasAllPermissions)', { error, permissions });
       return false;
     }
   };

@@ -1,8 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import type { DashboardUniversalFilters } from '@/hooks/use-dashboard-data';
-import { apiClient } from '@/lib/api/client';
+import { useOrganizations } from '@/lib/hooks/use-organizations';
 
 /**
  * Dashboard Filter Pills Component
@@ -18,7 +17,7 @@ import { apiClient } from '@/lib/api/client';
  * - Graceful loading states
  *
  * Filter Types:
- * - Organization: Shows org name (fetched from API)
+ * - Organization: Shows org name (from shared React Query cache)
  * - Date Range: Shows preset label (e.g., "Last 30 Days")
  * - Practice: Shows practice UID count
  * - Provider: Shows provider name
@@ -29,16 +28,6 @@ interface DashboardFilterPillsProps {
   defaultFilters?: DashboardUniversalFilters | undefined; // Dashboard default filter configuration
   onRemoveFilter: (filterKey: keyof DashboardUniversalFilters) => void;
   loading?: boolean;
-}
-
-// Local Organization interface (matches API response)
-interface Organization extends Record<string, unknown> {
-  id?: string; // API returns 'id' field
-  organization_id?: string; // Legacy field name
-  name: string;
-  slug: string;
-  parent_organization_id?: string | null;
-  is_active?: boolean;
 }
 
 interface DatePreset {
@@ -74,38 +63,14 @@ export default function DashboardFilterPills({
   onRemoveFilter,
   loading = false,
 }: DashboardFilterPillsProps) {
-  const [organizationName, setOrganizationName] = useState<string | null>(null);
-  const [loadingOrgName, setLoadingOrgName] = useState(false);
+  // Use React Query hook for organizations - shared across components, cached
+  const { data: organizations = [], isLoading: loadingOrganizations } = useOrganizations();
 
-  // Fetch organization name when organizationId changes
-  useEffect(() => {
-    if (!filters.organizationId) {
-      setOrganizationName(null);
-      return;
-    }
-
-    const fetchOrganizationName = async () => {
-      try {
-        setLoadingOrgName(true);
-        const orgs = await apiClient.get<Organization[]>('/api/organizations?is_active=true');
-
-        // API returns 'id' field, but filter stores 'organization_id'
-        // Check both fields for compatibility
-        const org = orgs.find(
-          (o) => o.id === filters.organizationId || o.organization_id === filters.organizationId
-        );
-
-        setOrganizationName(org?.name || null);
-      } catch (error) {
-        console.error('[DashboardFilterPills] Failed to load organization name:', error);
-        setOrganizationName(null);
-      } finally {
-        setLoadingOrgName(false);
-      }
-    };
-
-    fetchOrganizationName();
-  }, [filters.organizationId]);
+  // Find organization name from cached organizations data
+  const organizationName = filters.organizationId
+    ? organizations.find((o) => o.id === filters.organizationId)?.name || null
+    : null;
+  const loadingOrgName = filters.organizationId ? loadingOrganizations : false;
 
   // Get date range label
   const getDateRangeLabel = (): string | null => {

@@ -1,9 +1,9 @@
-import type { PracticeAttributes } from '@/lib/types/practice';
+import type { PracticeAttributes, ColorStyles } from '@/lib/types/practice';
 import { parseServices, parseConditions } from '@/lib/utils/json-parser';
 
 interface ServicesProps {
   attributes: PracticeAttributes;
-  colorStyles?: any;
+  colorStyles?: ColorStyles | undefined;
 }
 
 export default function Services({ attributes, colorStyles }: ServicesProps) {

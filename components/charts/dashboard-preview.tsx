@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { DashboardUniversalFilters } from '@/hooks/use-dashboard-data';
 import { apiClient } from '@/lib/api/client';
 import type {
@@ -47,6 +47,62 @@ interface DashboardPreviewProps {
   title?: string;
 }
 
+/**
+ * Chart Preview Placeholder
+ * Shows chart info with a "Load Preview" button instead of auto-loading data
+ */
+interface ChartPlaceholderProps {
+  chartName: string;
+  chartType: string;
+  onLoad: () => void;
+  isLoading: boolean;
+}
+
+function ChartPreviewPlaceholder({ chartName, chartType, onLoad, isLoading }: ChartPlaceholderProps) {
+  return (
+    <div className="h-full w-full bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col">
+      {/* Header mimics chart header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+        <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+          {chartName}
+        </h3>
+        <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded">
+          {chartType}
+        </span>
+      </div>
+      
+      {/* Placeholder content with load button */}
+      <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+        <div className="text-4xl mb-3 opacity-30">📊</div>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+          Chart preview not loaded
+        </p>
+        <button
+          type="button"
+          onClick={onLoad}
+          disabled={isLoading}
+          className="px-4 py-2 bg-violet-500 hover:bg-violet-600 disabled:bg-violet-400 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
+        >
+          {isLoading ? (
+            <>
+              <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+              Loading...
+            </>
+          ) : (
+            <>
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+              </svg>
+              Load Preview
+            </>
+          )}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardPreview({
   dashboard,
   dashboardCharts,
@@ -58,6 +114,11 @@ export default function DashboardPreview({
   const [availableCharts, setAvailableCharts] = useState<ChartDefinition[]>([]);
   const [isLoadingCharts, setIsLoadingCharts] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Track which charts have been loaded (by chart id)
+  const [loadedChartIds, setLoadedChartIds] = useState<Set<string>>(new Set());
+  // Track which charts are currently loading
+  const [loadingChartIds, setLoadingChartIds] = useState<Set<string>>(new Set());
 
   // Phase 7: Preview filter state (non-functional, just visual)
   const [previewFilters, setPreviewFilters] = useState<DashboardUniversalFilters>(
@@ -85,13 +146,38 @@ export default function DashboardPreview({
         .filter((chart: ChartDefinition) => chart.is_active !== false);
 
       setAvailableCharts(charts);
-    } catch (error) {
-      console.error('Failed to load chart definitions:', error);
+    } catch (err) {
+      console.error('Failed to load chart definitions:', err);
       setError('Failed to load chart definitions for preview');
     } finally {
       setIsLoadingCharts(false);
     }
   };
+
+  // Handle loading a single chart
+  const handleLoadChart = useCallback((chartId: string) => {
+    // Mark as loading
+    setLoadingChartIds(prev => new Set(prev).add(chartId));
+    
+    // Small delay to show loading state, then mark as loaded
+    // The actual loading happens when AnalyticsChart mounts
+    setTimeout(() => {
+      setLoadedChartIds(prev => new Set(prev).add(chartId));
+      setLoadingChartIds(prev => {
+        const next = new Set(prev);
+        next.delete(chartId);
+        return next;
+      });
+    }, 100);
+  }, []);
+
+  // Handle loading all charts at once
+  const handleLoadAllCharts = useCallback(() => {
+    const allChartIds = previewConfig?.charts.map(c => c.id) || [];
+    for (const id of allChartIds) {
+      handleLoadChart(id);
+    }
+  }, [handleLoadChart]);
 
   // Determine which configuration to use
   const previewConfig = dashboardConfig || {
@@ -168,6 +254,8 @@ export default function DashboardPreview({
 
   // Phase 7: Check if filter dropdown should be shown in preview
   const showFilterInPreview = filterConfig?.enabled !== false;
+  const loadedCount = loadedChartIds.size;
+  const totalCount = previewConfig.charts.length;
 
   return (
     <div className="space-y-4">
@@ -182,14 +270,37 @@ export default function DashboardPreview({
             Preview Mode
           </div>
         </div>
-        {showFilterInPreview && filterConfig && (
-          <DashboardFilterDropdown
-            initialFilters={previewFilters}
-            onFiltersChange={setPreviewFilters}
-            loading={false}
-            align="right"
-          />
-        )}
+        <div className="flex items-center gap-3">
+          {/* Load All Charts button */}
+          {loadedCount < totalCount && (
+            <button
+              type="button"
+              onClick={handleLoadAllCharts}
+              className="px-3 py-1.5 bg-violet-500 hover:bg-violet-600 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+              </svg>
+              Load All Charts ({totalCount - loadedCount} remaining)
+            </button>
+          )}
+          {loadedCount === totalCount && totalCount > 0 && (
+            <span className="text-sm text-green-600 dark:text-green-400 flex items-center gap-1">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              All charts loaded
+            </span>
+          )}
+          {showFilterInPreview && filterConfig && (
+            <DashboardFilterDropdown
+              initialFilters={previewFilters}
+              onFiltersChange={setPreviewFilters}
+              loading={false}
+              align="right"
+            />
+          )}
+        </div>
       </div>
 
       {/* Preview Info - Description and Stats Only */}
@@ -203,8 +314,8 @@ export default function DashboardPreview({
             )}
             <div className="text-xs text-gray-500 dark:text-gray-400 mt-2">
               {previewConfig.charts.length} chart{previewConfig.charts.length !== 1 ? 's' : ''} •
-              {previewConfig.layout.columns} column grid •{previewConfig.layout.rowHeight}px row
-              height
+              {previewConfig.layout.columns} column grid • {previewConfig.layout.rowHeight}px row
+              height • {loadedCount}/{totalCount} loaded
             </div>
           </div>
         </div>
@@ -278,6 +389,9 @@ export default function DashboardPreview({
             colSpanClass = 'col-span-full';
           }
 
+          const isLoaded = loadedChartIds.has(dashboardChart.id);
+          const isLoading = loadingChartIds.has(dashboardChart.id);
+
           return (
             <div
               key={dashboardChart.id}
@@ -289,34 +403,42 @@ export default function DashboardPreview({
                 overflow: 'hidden',
               }}
             >
-              <AnalyticsChart
-                chartType={chartDef.chart_type}
-                {...(measureFilter?.value && { measure: measureFilter.value as MeasureType })}
-                {...(frequencyFilter?.value && {
-                  frequency: frequencyFilter.value as FrequencyType,
-                })}
-                practice={practiceFilter?.value?.toString()}
-                startDate={startDateFilter?.value?.toString()}
-                endDate={endDateFilter?.value?.toString()}
-                groupBy={chartConfig.series?.groupBy || 'provider_name'}
-                title={chartDef.chart_name}
-                calculatedField={chartConfig.calculatedField}
-                advancedFilters={dataSource.advancedFilters || []}
-                dataSourceId={chartConfig.dataSourceId}
-                stackingMode={chartConfig.stackingMode}
-                colorPalette={chartConfig.colorPalette}
-                {...(chartConfig.seriesConfigs && chartConfig.seriesConfigs.length > 0
-                  ? { multipleSeries: chartConfig.seriesConfigs }
-                  : {})}
-                {...(chartConfig.dualAxisConfig
-                  ? { dualAxisConfig: chartConfig.dualAxisConfig }
-                  : {})}
-                nocache={true}
-                className="w-full h-full flex-1"
-                responsive={true}
-                minHeight={200}
-                maxHeight={containerHeight - 100}
-              />
+              {isLoaded ? (
+                <AnalyticsChart
+                  chartType={chartDef.chart_type}
+                  {...(measureFilter?.value && { measure: measureFilter.value as MeasureType })}
+                  {...(frequencyFilter?.value && {
+                    frequency: frequencyFilter.value as FrequencyType,
+                  })}
+                  practice={practiceFilter?.value?.toString()}
+                  startDate={startDateFilter?.value?.toString()}
+                  endDate={endDateFilter?.value?.toString()}
+                  groupBy={chartConfig.series?.groupBy || 'provider_name'}
+                  title={chartDef.chart_name}
+                  calculatedField={chartConfig.calculatedField}
+                  advancedFilters={dataSource.advancedFilters || []}
+                  dataSourceId={chartConfig.dataSourceId}
+                  stackingMode={chartConfig.stackingMode}
+                  colorPalette={chartConfig.colorPalette}
+                  {...(chartConfig.seriesConfigs && chartConfig.seriesConfigs.length > 0
+                    ? { multipleSeries: chartConfig.seriesConfigs }
+                    : {})}
+                  {...(chartConfig.dualAxisConfig
+                    ? { dualAxisConfig: chartConfig.dualAxisConfig }
+                    : {})}
+                  className="w-full h-full flex-1"
+                  responsive={true}
+                  minHeight={200}
+                  maxHeight={containerHeight - 100}
+                />
+              ) : (
+                <ChartPreviewPlaceholder
+                  chartName={chartDef.chart_name}
+                  chartType={chartDef.chart_type}
+                  onLoad={() => handleLoadChart(dashboardChart.id)}
+                  isLoading={isLoading}
+                />
+              )}
             </div>
           );
         })}

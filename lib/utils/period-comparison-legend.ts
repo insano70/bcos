@@ -22,7 +22,9 @@ export interface PeriodComparisonLegendOptions {
 /**
  * Enhanced legend label generator for period comparison charts
  */
-export function createPeriodComparisonLegendLabels(options: PeriodComparisonLegendOptions = {}) {
+export function createPeriodComparisonLegendLabels(
+  options: PeriodComparisonLegendOptions = {}
+): (chart: Chart) => LegendItem[] {
   const { comparisonIcon = '📊', currentIcon = '📈' } = options;
 
   return function generateLabels(chart: Chart): LegendItem[] {
@@ -62,8 +64,8 @@ export function createPeriodComparisonLegendLabels(options: PeriodComparisonLege
 export function createPeriodComparisonLegendOnClick(
   chart: Chart,
   _options: PeriodComparisonLegendOptions = {}
-) {
-  return function onClick(_event: MouseEvent, legendItem: LegendItem, _legend: unknown) {
+): (event: MouseEvent, legendItem: LegendItem, legend: unknown) => void {
+  return function onClick(_event: MouseEvent, legendItem: LegendItem, _legend: unknown): void {
     if (legendItem.datasetIndex === undefined) return;
     const dataset = chart.data.datasets[legendItem.datasetIndex] as ExtendedDataset;
     const isComparison =
@@ -72,9 +74,8 @@ export function createPeriodComparisonLegendOnClick(
       dataset?.label?.includes('Ago');
 
     if (isComparison) {
-      // For comparison datasets, show a tooltip explaining the comparison
-      console.log(`Comparison period: ${dataset?.label}`);
-      // You could show a modal or tooltip here explaining the comparison
+      // For comparison datasets, could show a modal or tooltip here explaining the comparison
+      // Currently just toggles visibility like non-comparison datasets
     }
 
     // Default legend toggle behavior
@@ -92,7 +93,7 @@ export function createPeriodComparisonHtmlLegend(
   chart: Chart,
   container: HTMLElement,
   options: PeriodComparisonLegendOptions = {}
-) {
+): void {
   const { comparisonIcon = '📊', currentIcon = '📈' } = options;
 
   // Clear existing legend

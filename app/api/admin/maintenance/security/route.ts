@@ -23,6 +23,8 @@ const handler = async (request: NextRequest, userContext: UserContext) => {
     log.info('Security maintenance triggered', {
       triggeredBy: 'admin',
       adminUserId: userContext.user_id,
+      operation: 'security_maintenance',
+      component: 'admin',
     });
 
     // Cleanup expired WebAuthn challenges
@@ -33,6 +35,8 @@ const handler = async (request: NextRequest, userContext: UserContext) => {
     log.info('Security maintenance completed', {
       duration,
       challengesDeleted,
+      operation: 'security_maintenance',
+      component: 'admin',
     });
 
     return createSuccessResponse(
@@ -49,6 +53,8 @@ const handler = async (request: NextRequest, userContext: UserContext) => {
       error instanceof Error ? error : new Error(String(error)),
       {
         duration,
+        operation: 'security_maintenance',
+        component: 'admin',
       }
     );
 

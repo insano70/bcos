@@ -1,15 +1,14 @@
 import type { db } from '@/lib/db';
 import { log } from '@/lib/logger';
-import {
-  type AccessScope,
-  type ActionType,
-  type DataAccessFilter,
-  OrganizationAccessError,
-  PermissionDeniedError,
-  type PermissionName,
-  type ResourceType,
-  type UserContext,
+import type {
+  AccessScope,
+  ActionType,
+  DataAccessFilter,
+  PermissionName,
+  ResourceType,
+  UserContext,
 } from '@/lib/types/rbac';
+import { OrganizationAccessError, PermissionDeniedError } from '@/lib/errors/rbac-errors';
 import { PermissionChecker } from './permission-checker';
 
 /**

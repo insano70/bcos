@@ -1,17 +1,20 @@
+import type {
+  AccessScope,
+  ActionType,
+  Permission,
+  PermissionCheckOptions,
+  PermissionCheckResult,
+  PermissionName,
+  PermissionScope,
+  ResourceType,
+  UserContext,
+} from '@/lib/types/rbac';
 import {
-  type AccessScope,
-  type ActionType,
   InsufficientScopeError,
   OrganizationAccessError,
-  type Permission,
-  type PermissionCheckOptions,
-  type PermissionCheckResult,
   PermissionDeniedError,
-  type PermissionName,
-  type PermissionScope,
-  type ResourceType,
-  type UserContext,
-} from '@/lib/types/rbac';
+} from '@/lib/errors/rbac-errors';
+import { clientDebugLog } from '@/lib/utils/debug-client';
 
 /**
  * PermissionChecker - Core RBAC Logic Engine
@@ -34,14 +37,11 @@ export class PermissionChecker {
       return result.granted;
     } catch (error) {
       // Client-safe error handling (no server-side logger in client bundle)
-      // In development, errors are logged to console for debugging
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Permission check failed:', {
-          userId: this.userContext.user_id,
-          permission: permissionName,
-          error: error instanceof Error ? error.message : 'Unknown error',
-        });
-      }
+      clientDebugLog.rbac('Permission check failed', {
+        userId: this.userContext.user_id,
+        permission: permissionName,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
       return false;
     }
   }

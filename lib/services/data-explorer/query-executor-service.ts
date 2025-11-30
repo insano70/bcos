@@ -57,7 +57,7 @@ export class QueryExecutorService extends BaseRBACService implements QueryExecut
         component: 'analytics-db',
       });
 
-      const rows = (results as unknown) as Record<string, unknown>[];
+      const rows = (results as unknown) as Array<Record<string, string | number | boolean | null | undefined>>;
       return {
         rows,
         row_count: rows.length,

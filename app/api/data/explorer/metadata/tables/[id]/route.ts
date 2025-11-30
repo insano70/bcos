@@ -5,7 +5,7 @@ import { createSuccessResponse } from '@/lib/api/responses/success';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { createRBACExplorerMetadataService } from '@/lib/services/data-explorer';
 import { tableMetadataUpdateSchema } from '@/lib/validations/data-explorer';
-import { log } from '@/lib/logger';
+import { log, calculateChanges } from '@/lib/logger';
 import type { UserContext } from '@/lib/types/rbac';
 import type { TableMetadata } from '@/lib/types/data-explorer';
 
@@ -51,6 +51,13 @@ const updateTableHandler = async (
     const validatedData = await validateRequest(request, tableMetadataUpdateSchema);
 
     const metadataService = createRBACExplorerMetadataService(userContext);
+
+    // Fetch existing table for change tracking
+    const existingTable = await metadataService.getTableById(id);
+    if (!existingTable) {
+      return createErrorResponse('Table metadata not found', 404, request);
+    }
+
     const updateData: Partial<TableMetadata> = {
       ...(validatedData.display_name !== undefined && { display_name: validatedData.display_name }),
       ...(validatedData.description !== undefined && { description: validatedData.description }),
@@ -64,11 +71,15 @@ const updateTableHandler = async (
     };
     const updated = await metadataService.updateTableMetadata(id, updateData);
 
+    // Calculate changes for audit trail
+    const changes = calculateChanges(existingTable, updateData);
+
     log.info('Table metadata updated', {
       operation: 'data_explorer_update_table',
       resourceType: 'data_explorer_metadata',
       resourceId: id,
       userId: userContext.user_id,
+      changes,
       component: 'business-logic',
     });
 

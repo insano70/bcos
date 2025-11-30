@@ -346,10 +346,10 @@ class DataSourceCacheService {
    * SECURITY: Accepts UserContext for permission validation
    * Builds ChartRenderContext internally to ensure consistent RBAC
    *
-   * REQUEST-LEVEL DEDUPLICATION:
-   * When requestCache is provided, results are cached in-memory for the duration
-   * of the request. Multiple charts requesting the same (measure + frequency)
-   * will share a single Redis fetch, dramatically reducing redundant data transfer.
+   * REQUEST-LEVEL DEDUPLICATION (PARALLEL-SAFE):
+   * Uses getOrFetch() to ensure that when multiple charts request the same
+   * (measure + frequency) in parallel, only ONE Redis fetch occurs.
+   * Other charts wait for the first fetch to complete and share the result.
    *
    * @param params - Query parameters
    * @param userContext - User context for RBAC
@@ -398,267 +398,187 @@ class DataSourceCacheService {
       ...(params.frequency && { frequency: params.frequency }),
     };
 
-    // REQUEST-LEVEL DEDUPLICATION: Check request-scoped cache first
-    // This prevents redundant Redis fetches when multiple charts request the same data
-    if (!nocache && requestCache) {
-      const requestCached = requestCache.get(params);
-      if (requestCached) {
-        // Apply in-memory filters to the cached raw data
-        let filteredRows = requestCached.rows as Record<string, unknown>[];
+    // PHASE 2 OPTIMIZATION: Compute effective practices for cache query
+    // This accounts for:
+    // 1. Permission scope (all, organization, own, none)
+    // 2. RBAC accessible_practices (what user CAN access)
+    // 3. Runtime practice filter from advancedFilters (what user WANTS to see)
+    const effectivePractices = computeEffectivePractices(
+      context.accessible_practices,
+      params.advancedFilters,
+      context.permission_scope ?? 'none' // Default to 'none' for fail-closed security
+    );
 
-        // 1. RBAC filtering (SECURITY CRITICAL)
-        filteredRows = rbacFilterService.applyRBACFilter(filteredRows, context, userContext);
+    // Define the fetch function for raw data (Redis or DB)
+    // This is called ONCE per unique cache key, even with parallel requests
+    const fetchRawData = async (): Promise<DataSourceFetchResult> => {
+      // Try Redis cache (unless nocache=true)
+      if (!nocache) {
+        const cacheStart = Date.now();
 
-        // 2. Date range filtering
-        if (params.startDate || params.endDate) {
-          filteredRows = await inMemoryFilterService.applyDateRangeFilter(
-            filteredRows,
-            params.dataSourceId,
-            params.startDate,
-            params.endDate
-          );
-        }
-
-        // 3. Advanced filters
-        if (params.advancedFilters && params.advancedFilters.length > 0) {
-          filteredRows = inMemoryFilterService.applyAdvancedFilters(
-            filteredRows,
-            params.advancedFilters
-          );
-        }
-
-        const duration = Date.now() - startTime;
-        log.info('Data source served from request-scoped cache', {
+        log.debug('Starting cache lookup (deduped)', {
           dataSourceId: params.dataSourceId,
           measure: params.measure,
           frequency: params.frequency,
-          cachedRowCount: requestCached.rows.length,
-          finalRowCount: filteredRows.length,
-          duration,
+          effectivePracticeCount: effectivePractices?.length ?? 0,
           component: 'data-source-cache',
         });
 
-        return {
-          rows: filteredRows,
-          cacheHit: true, // Report as cache hit (it was cached, just at request level)
-        };
-      }
-    }
+        const cached = await cacheOperations.getCached(keyComponents, effectivePractices);
+        const cacheDuration = Date.now() - cacheStart;
 
-    // Try Redis cache (unless nocache=true)
-    if (!nocache) {
-      const cacheStart = Date.now();
-      
-      // PHASE 2 OPTIMIZATION: Compute effective practices for cache query
-      // This accounts for:
-      // 1. Permission scope (all, organization, own, none)
-      // 2. RBAC accessible_practices (what user CAN access)
-      // 3. Runtime practice filter from advancedFilters (what user WANTS to see)
-      // This ensures a super user with runtime filter = 1 practice doesn't get all data
-      const effectivePractices = computeEffectivePractices(
-        context.accessible_practices,
-        params.advancedFilters,
-        context.permission_scope ?? 'none' // Default to 'none' for fail-closed security
-      );
-      
-      log.info('Starting cache lookup', {
+        if (cached) {
+          log.info('Cache lookup completed (will be shared with parallel requests)', {
+            dataSourceId: params.dataSourceId,
+            cacheHit: true,
+            cacheDuration,
+            rowCount: cached.rows.length,
+            component: 'data-source-cache',
+          });
+
+          return {
+            rows: cached.rows,
+            cacheHit: true,
+          };
+        }
+
+        log.debug('Cache miss', {
+          dataSourceId: params.dataSourceId,
+          cacheDuration,
+          component: 'data-source-cache',
+        });
+      }
+
+      // Cache miss - query database
+      const dbQueryStart = Date.now();
+      log.warn('Data source cache miss - falling back to database query', {
         dataSourceId: params.dataSourceId,
         measure: params.measure,
-        frequency: params.frequency,
         practiceUid: params.practiceUid,
-        permissionScope: context.permission_scope,
-        rbacPracticeCount: context.accessible_practices?.length ?? 0,
-        runtimePracticeFilter: extractPracticeFilterFromAdvanced(params.advancedFilters),
-        effectivePractices: effectivePractices,
-        effectivePracticeCount: effectivePractices?.length ?? 0,
-        usingPracticeFilter: Boolean(effectivePractices && effectivePractices.length > 0),
+        frequency: params.frequency,
+        nocache,
+        userId: context.user_id,
+        keyComponents,
+        note: 'PERFORMANCE: This database fallback may cause slow chart loads',
         component: 'data-source-cache',
       });
-      
-      const cached = await cacheOperations.getCached(keyComponents, effectivePractices);
-      const cacheDuration = Date.now() - cacheStart;
-      log.info('Cache lookup completed', {
+
+      // Build query params for data source query service
+      const queryParams: DataSourceQueryParams = {
         dataSourceId: params.dataSourceId,
-        cacheHit: !!cached,
-        cacheDuration,
-        rowCount: cached?.rows?.length,
+        schema: params.schema,
+        table: params.table,
+        dataSourceType,
+        ...(params.measure && { measure: params.measure }),
+        ...(params.practiceUid && { practiceUid: params.practiceUid }),
+        ...(params.providerUid && { providerUid: params.providerUid }),
+        ...(params.frequency && { frequency: params.frequency }),
+        ...(params.startDate && { startDate: params.startDate }),
+        ...(params.endDate && { endDate: params.endDate }),
+        ...(params.advancedFilters && { advancedFilters: params.advancedFilters }),
+      };
+
+      const rows = await dataSourceQueryService.queryDataSource(queryParams, userContext);
+      const dbQueryDuration = Date.now() - dbQueryStart;
+
+      log.warn('Database query completed (cache miss path)', {
+        dataSourceId: params.dataSourceId,
+        measure: params.measure,
+        rowCount: rows.length,
+        dbQueryDuration,
+        slow: dbQueryDuration > 5000,
         component: 'data-source-cache',
       });
 
-      if (cached) {
-        // Store raw data in request-scoped cache for deduplication
-        // This allows subsequent requests for the same (measure + frequency) to skip Redis
-        if (requestCache) {
-          requestCache.set(params, { rows: cached.rows, cacheHit: true });
-        }
-
-        // Apply in-memory filters (ORDER MATTERS: RBAC first for security)
-        let filteredRows = cached.rows;
-
-        // 1. RBAC filtering (SECURITY CRITICAL - applied server-side before returning to client)
-        const rbacStart = Date.now();
-        filteredRows = rbacFilterService.applyRBACFilter(filteredRows, context, userContext);
-        const rbacDuration = Date.now() - rbacStart;
-
-        // 2. Date range filtering (in-memory for maximum cache reuse)
-        let dateFilterDuration = 0;
-        if (params.startDate || params.endDate) {
-          const dateStart = Date.now();
-          filteredRows = await inMemoryFilterService.applyDateRangeFilter(
-            filteredRows,
-            params.dataSourceId,
-            params.startDate,
-            params.endDate
-          );
-          dateFilterDuration = Date.now() - dateStart;
-        }
-
-        // 3. CRITICAL FIX: Apply advanced filters (dashboard/organization filters) in-memory
-        // These are NOT applied during cache population, so must be applied when serving from cache
-        if (params.advancedFilters && params.advancedFilters.length > 0) {
-          const rowCountBeforeAdvanced = filteredRows.length;
-          filteredRows = inMemoryFilterService.applyAdvancedFilters(
-            filteredRows,
-            params.advancedFilters
-          );
-
-          log.info('Advanced filters applied in-memory (cache hit path)', {
-            userId: context.user_id,
-            filterCount: params.advancedFilters.length,
-            filters: params.advancedFilters,
-            beforeFilter: rowCountBeforeAdvanced,
-            afterFilter: filteredRows.length,
-            rowsFiltered: rowCountBeforeAdvanced - filteredRows.length,
-          });
-        }
-
-        const duration = Date.now() - startTime;
-
-        log.info('Data source served from cache (server-filtered)', {
-          cacheKey: cached.cacheKey,
-          cacheLevel: cached.cacheLevel,
-          cachedRowCount: cached.rows.length,
-          afterRBAC: filteredRows.length,
-          finalRowCount: filteredRows.length,
-          duration,
-          slow: duration > SLOW_THRESHOLDS.API_OPERATION,
-          timingBreakdown: {
-            cacheFetch: cacheDuration,
-            rbacFilter: rbacDuration,
-            dateFilter: dateFilterDuration,
-            total: duration,
-          },
-          userId: context.user_id,
-          permissionScope: context.permission_scope,
-          security: 'filtered_before_client_send',
-        });
-
-        return {
-          rows: filteredRows,
-          cacheHit: true,
-        };
-      }
-    }
-
-    // Cache miss - query database
-    const dbQueryStart = Date.now();
-    log.warn('Data source cache miss - falling back to database query', {
-      dataSourceId: params.dataSourceId,
-      measure: params.measure,
-      practiceUid: params.practiceUid,
-      frequency: params.frequency,
-      nocache,
-      userId: context.user_id,
-      keyComponents,
-      note: 'PERFORMANCE: This database fallback may cause slow chart loads',
-      component: 'data-source-cache',
-    });
-
-    // Build query params for data source query service
-    const queryParams: DataSourceQueryParams = {
-      dataSourceId: params.dataSourceId,
-      schema: params.schema,
-      table: params.table,
-      dataSourceType,
-      ...(params.measure && { measure: params.measure }),
-      ...(params.practiceUid && { practiceUid: params.practiceUid }),
-      ...(params.providerUid && { providerUid: params.providerUid }),
-      ...(params.frequency && { frequency: params.frequency }),
-      ...(params.startDate && { startDate: params.startDate }),
-      ...(params.endDate && { endDate: params.endDate }),
-      ...(params.advancedFilters && { advancedFilters: params.advancedFilters }),
+      return {
+        rows,
+        cacheHit: false,
+      };
     };
 
-    const rows = await dataSourceQueryService.queryDataSource(queryParams, userContext);
-    const dbQueryDuration = Date.now() - dbQueryStart;
-    
-    log.warn('Database query completed (cache miss path)', {
-      dataSourceId: params.dataSourceId,
-      measure: params.measure,
-      rowCount: rows.length,
-      dbQueryDuration,
-      slow: dbQueryDuration > 5000,
-      component: 'data-source-cache',
-    });
+    // Get raw data with parallel deduplication
+    // If requestCache is provided, uses getOrFetch for deduplication
+    // Otherwise, fetches directly
+    let rawResult: DataSourceFetchResult;
 
-    // REMOVED: Query-time caching no longer needed - warming handles all cache population
-    // This prevents creating incompatible OLD format keys (datasource:1:m:...)
-    // Only the indexed analytics cache warming system should create cache entries
-    // in the NEW format (cache:{ds:1}:...)
+    if (!nocache && requestCache) {
+      // PARALLEL-SAFE: Use getOrFetch to ensure only one fetch per unique key
+      // Other parallel requests for the same key will wait and share the result
+      rawResult = await requestCache.getOrFetch(params, fetchRawData);
+    } else {
+      // No request cache or nocache=true, fetch directly
+      rawResult = await fetchRawData();
+    }
 
-    // Apply in-memory filters (ORDER MATTERS: RBAC first for security)
-    let filteredRows = rows;
+    // Apply in-memory filters to raw data (ORDER MATTERS: RBAC first for security)
+    // These filters are user/request-specific, so applied AFTER cache deduplication
+    let filteredRows = rawResult.rows as Record<string, unknown>[];
+    const filterStartTime = Date.now();
 
     // 1. RBAC filtering (SECURITY CRITICAL - applied server-side before returning to client)
+    const rbacStart = Date.now();
     filteredRows = rbacFilterService.applyRBACFilter(filteredRows, context, userContext);
+    const rbacDuration = Date.now() - rbacStart;
 
     // 2. Date range filtering (in-memory for maximum cache reuse)
+    let dateFilterDuration = 0;
     if (params.startDate || params.endDate) {
+      const dateStart = Date.now();
       filteredRows = await inMemoryFilterService.applyDateRangeFilter(
         filteredRows,
         params.dataSourceId,
         params.startDate,
         params.endDate
       );
+      dateFilterDuration = Date.now() - dateStart;
     }
 
-    // 3. Apply advanced filters (in-memory for consistency with cache path)
-    // Advanced filters are ALSO applied in SQL query, but we apply them in-memory as well
-    // to ensure consistency between cached and non-cached paths, and to handle type coercion
+    // 3. Apply advanced filters (dashboard/organization filters) in-memory
     if (params.advancedFilters && params.advancedFilters.length > 0) {
-      const rowCountBefore = filteredRows.length;
+      const rowCountBeforeAdvanced = filteredRows.length;
       filteredRows = inMemoryFilterService.applyAdvancedFilters(
         filteredRows,
         params.advancedFilters
       );
 
-      log.info('Advanced filters applied in-memory (nocache path)', {
+      log.debug('Advanced filters applied in-memory', {
         userId: context.user_id,
         filterCount: params.advancedFilters.length,
-        filters: params.advancedFilters,
-        beforeFilter: rowCountBefore,
+        beforeFilter: rowCountBeforeAdvanced,
         afterFilter: filteredRows.length,
-        rowsFiltered: rowCountBefore - filteredRows.length,
-        source: 'cache_miss_path',
+        rowsFiltered: rowCountBeforeAdvanced - filteredRows.length,
       });
     }
 
     const duration = Date.now() - startTime;
+    const filterDuration = Date.now() - filterStartTime;
 
-    log.info('Data source fetched from database (server-filtered)', {
-      totalRowCount: rows.length,
+    log.info('Data source fetch completed', {
+      dataSourceId: params.dataSourceId,
+      measure: params.measure,
+      frequency: params.frequency,
+      cachedRowCount: rawResult.rows.length,
       afterRBAC: filteredRows.length,
       finalRowCount: filteredRows.length,
       duration,
       slow: duration > SLOW_THRESHOLDS.API_OPERATION,
+      cacheHit: rawResult.cacheHit,
+      timingBreakdown: {
+        rawFetch: duration - filterDuration,
+        rbacFilter: rbacDuration,
+        dateFilter: dateFilterDuration,
+        total: duration,
+      },
       userId: context.user_id,
       permissionScope: context.permission_scope,
+      requestCacheUsed: Boolean(requestCache),
       security: 'filtered_before_client_send',
+      component: 'data-source-cache',
     });
 
     return {
       rows: filteredRows,
-      cacheHit: false,
+      cacheHit: rawResult.cacheHit,
     };
   }
 

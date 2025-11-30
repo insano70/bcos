@@ -12,7 +12,7 @@ import '@/tests/setup/integration-setup';
 import { nanoid } from 'nanoid';
 import { createRBACOrganizationsService } from '@/lib/services/organizations';
 import type { PermissionName } from '@/lib/types/rbac';
-import { PermissionDeniedError } from '@/lib/types/rbac';
+import { PermissionDeniedError } from '@/lib/errors/rbac-errors';
 import { assignRoleToUser, createTestRole } from '@/tests/factories';
 import { createTestScope, type ScopedFactoryCollection } from '@/tests/factories/base';
 import { createCommittedOrganization, createCommittedUser } from '@/tests/factories/committed';

@@ -1,11 +1,11 @@
-import type { Practice, PracticeAttributes } from '@/lib/types/practice';
+import type { Practice, PracticeAttributes, ColorStyles } from '@/lib/types/practice';
 import { parseBusinessHours, parseInsurance } from '@/lib/utils/json-parser';
 import { formatBusinessHours } from '@/lib/utils/business-hours-formatter';
 
 interface ContactProps {
   practice: Practice;
   attributes: PracticeAttributes;
-  colorStyles?: any;
+  colorStyles?: ColorStyles;
 }
 
 export default function Contact({ practice, attributes, colorStyles }: ContactProps) {

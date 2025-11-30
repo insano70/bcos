@@ -44,6 +44,8 @@ const oidcLogoutHandler = async (request: NextRequest) => {
     log.info('OIDC logout initiated', {
       ipAddress: metadata.ipAddress,
       duration: Date.now() - startTime,
+      operation: 'oidc_logout',
+      component: 'auth',
     });
 
     // Create response with cleared cookies
@@ -63,12 +65,17 @@ const oidcLogoutHandler = async (request: NextRequest) => {
 
       log.info('Redirecting to Entra logout', {
         postLogoutRedirectUri,
+        operation: 'oidc_logout',
+        component: 'auth',
       });
     } else {
       // OIDC not configured, just redirect to signin
       redirectUrl = new URL('/signin?logged_out=true', request.url).href;
 
-      log.warn('OIDC not configured, local logout only');
+      log.warn('OIDC not configured, local logout only', {
+        operation: 'oidc_logout',
+        component: 'auth',
+      });
     }
 
     const response = NextResponse.redirect(redirectUrl);
@@ -96,6 +103,8 @@ const oidcLogoutHandler = async (request: NextRequest) => {
 
     log.error('OIDC logout failed', error, {
       duration,
+      operation: 'oidc_logout',
+      component: 'auth',
     });
 
     // Even if logout fails, clear cookies and redirect to signin

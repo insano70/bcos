@@ -20,6 +20,8 @@ const getFavoritesHandler = async (request: NextRequest, userContext: UserContex
 
   log.info('User favorites list request initiated', {
     requestingUserId: userContext.user_id,
+    operation: 'list_favorites',
+    component: 'analytics',
   });
 
   try {
@@ -30,6 +32,8 @@ const getFavoritesHandler = async (request: NextRequest, userContext: UserContex
     log.info('User favorites list retrieved successfully', {
       count: result.favorites.length,
       duration: Date.now() - startTime,
+      operation: 'list_favorites',
+      component: 'analytics',
     });
 
     return createSuccessResponse(result, 'User favorites retrieved successfully');
@@ -37,6 +41,8 @@ const getFavoritesHandler = async (request: NextRequest, userContext: UserContex
     log.error('User favorites list error', error, {
       duration: Date.now() - startTime,
       requestingUserId: userContext.user_id,
+      operation: 'list_favorites',
+      component: 'analytics',
     });
 
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
@@ -49,6 +55,8 @@ const addFavoriteHandler = async (request: NextRequest, userContext: UserContext
 
   log.info('Add chart to favorites request initiated', {
     requestingUserId: userContext.user_id,
+    operation: 'add_favorite',
+    component: 'analytics',
   });
 
   try {
@@ -69,6 +77,8 @@ const addFavoriteHandler = async (request: NextRequest, userContext: UserContext
     log.error('Add chart to favorites error', error, {
       duration: Date.now() - startTime,
       requestingUserId: userContext.user_id,
+      operation: 'add_favorite',
+      component: 'analytics',
     });
 
     const statusCode = getErrorStatusCode(error);
@@ -89,6 +99,8 @@ const removeFavoriteHandler = async (request: NextRequest, userContext: UserCont
 
   log.info('Remove chart from favorites request initiated', {
     requestingUserId: userContext.user_id,
+    operation: 'remove_favorite',
+    component: 'analytics',
   });
 
   try {
@@ -109,6 +121,8 @@ const removeFavoriteHandler = async (request: NextRequest, userContext: UserCont
     log.error('Remove chart from favorites error', error, {
       duration: Date.now() - startTime,
       requestingUserId: userContext.user_id,
+      operation: 'remove_favorite',
+      component: 'analytics',
     });
 
     const statusCode = getErrorStatusCode(error);

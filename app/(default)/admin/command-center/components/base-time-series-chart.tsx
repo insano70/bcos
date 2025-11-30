@@ -23,7 +23,7 @@ import {
   TimeScale,
   Tooltip,
 } from 'chart.js';
-import type { Chart as ChartType, ChartConfiguration, ChartDataset } from 'chart.js';
+import type { ChartConfiguration, ChartDataset, ChartData } from 'chart.js';
 import { useTheme } from 'next-themes';
 import { useEffect, useRef, useState } from 'react';
 import 'chartjs-adapter-moment';
@@ -68,7 +68,7 @@ export default function BaseTimeSeriesChart({
   error = null,
 }: BaseTimeSeriesChartProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [chart, setChart] = useState<ChartType | null>(null);
+  const [chart, setChart] = useState<Chart<'line'> | null>(null);
   const [isReady, setIsReady] = useState(false);
   const { theme } = useTheme();
   const darkMode = theme === 'dark';
@@ -107,7 +107,7 @@ export default function BaseTimeSeriesChart({
   useEffect(() => {
     if (!isReady || loading || error || !canvasRef.current) return;
 
-    const chartData = {
+    const chartData: ChartData<'line'> = {
       labels,
       datasets: datasets.map((ds) => ({
         label: ds.label,
@@ -123,7 +123,7 @@ export default function BaseTimeSeriesChart({
     };
 
     if (chart) {
-      chart.data = chartData;
+      chart.data = chartData as ChartData<'line'>;
       updateChartTheme(chart, darkMode);
       chart.update();
     } else {
@@ -165,7 +165,7 @@ export default function BaseTimeSeriesChart({
           };
         }
 
-        const config: ChartConfiguration = {
+        const config: ChartConfiguration<'line'> = {
           type: 'line',
           data: chartData,
           options: {
@@ -267,7 +267,7 @@ export default function BaseTimeSeriesChart({
 /**
  * Update chart theme colors
  */
-function updateChartTheme(chart: ChartType, darkMode: boolean): void {
+function updateChartTheme(chart: Chart<'line'>, darkMode: boolean): void {
   if (chart.options.scales?.x?.ticks) {
     chart.options.scales.x.ticks.color = darkMode
       ? chartColors.textColor.dark

@@ -88,16 +88,6 @@ interface AnalyticsChartProps extends ResponsiveChartProps {
  * Benefits: server-side formatting, Redis caching, consistent architecture
  */
 export default function AnalyticsChart(props: AnalyticsChartProps) {
-  const { chartType, title, dualAxisConfig } = props;
-
-  // Debug logging for dual-axis charts only
-  if (chartType === 'dual-axis' && dualAxisConfig) {
-    const time = new Date().toISOString().split('T')[1]?.substring(0, 12) || 'unknown';
-    console.log(
-      `[DUAL-AXIS-RENDER ${time}] ${title || 'Untitled'} | ${dualAxisConfig.primary?.measure} + ${dualAxisConfig.secondary?.measure}`
-    );
-  }
-
   // All charts (including table) use universal endpoint
   return <UniversalChartComponent {...props} />;
 }

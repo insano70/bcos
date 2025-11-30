@@ -35,121 +35,9 @@ export interface DataSourceColumnMapping {
 }
 
 /**
- * Type-safe accessor for dynamic measure fields
- *
- * Use this instead of direct property access to support multiple data sources
- * with different column names.
- *
- * @example
- * ```typescript
- * const mapping = await columnMappingService.getMapping(dataSourceId);
- * const accessor = new MeasureAccessor(row, mapping);
- *
- * // ✅ Dynamic access based on config
- * const date = accessor.getDate();
- * const value = accessor.getMeasureValue();
- *
- * // ❌ Don't do this (hardcoded)
- * const date = row.date_index;
- * const value = row.measure_value;
- * ```
+ * MeasureAccessor class has been relocated to:
+ * @see {@link @/lib/services/analytics/measure-accessor.ts}
  */
-export class MeasureAccessor {
-  constructor(
-    private readonly row: AggAppMeasure,
-    private readonly mapping: DataSourceColumnMapping
-  ) {}
-
-  /**
-   * Get the date value from the row
-   * Column name determined by mapping.dateField
-   */
-  getDate(): string {
-    const value = this.row[this.mapping.dateField];
-    if (typeof value !== 'string') {
-      throw new Error(`Date field "${this.mapping.dateField}" is not a string`);
-    }
-    return value;
-  }
-
-  /**
-   * Get the measure value from the row
-   * Column name determined by mapping.measureField
-   */
-  getMeasureValue(): number {
-    const value = this.row[this.mapping.measureField];
-    if (typeof value === 'string') {
-      return parseFloat(value);
-    }
-    if (typeof value !== 'number') {
-      throw new Error(`Measure field "${this.mapping.measureField}" is not a number`);
-    }
-    return value;
-  }
-
-  /**
-   * Get the measure type from the row (e.g., "currency", "count", "percentage")
-   * Column name determined by mapping.measureTypeField
-   */
-  getMeasureType(): string {
-    const value = this.row[this.mapping.measureTypeField];
-    if (typeof value !== 'string') {
-      return 'number'; // Default fallback
-    }
-    return value;
-  }
-
-  /**
-   * Get the time period/frequency from the row (e.g., "Monthly", "Weekly")
-   * Column name determined by mapping.timePeriodField
-   */
-  getTimePeriod(): string | undefined {
-    const value = this.row[this.mapping.timePeriodField];
-    return typeof value === 'string' ? value : undefined;
-  }
-
-  /**
-   * Get the practice UID from the row
-   * Column name determined by mapping.practiceField or defaults to "practice_uid"
-   */
-  getPracticeUid(): number | undefined {
-    const fieldName = this.mapping.practiceField || 'practice_uid';
-    const value = this.row[fieldName];
-    if (typeof value === 'string') {
-      return parseInt(value, 10);
-    }
-    return typeof value === 'number' ? value : undefined;
-  }
-
-  /**
-   * Get the provider UID from the row
-   * Column name determined by mapping.providerField or defaults to "provider_uid"
-   */
-  getProviderUid(): number | undefined {
-    const fieldName = this.mapping.providerField || 'provider_uid';
-    const value = this.row[fieldName];
-    if (typeof value === 'string') {
-      return parseInt(value, 10);
-    }
-    return typeof value === 'number' ? value : undefined;
-  }
-
-  /**
-   * Generic accessor for any field in the row
-   * Use this for grouping fields or other dynamic columns
-   */
-  get(fieldName: string): string | number | boolean | null | undefined {
-    return this.row[fieldName];
-  }
-
-  /**
-   * Get the underlying row data
-   * Use sparingly - prefer typed accessors above
-   */
-  getRaw(): AggAppMeasure {
-    return this.row;
-  }
-}
 
 /**
  * Pre-aggregated measure record from analytics tables
@@ -231,6 +119,92 @@ export interface ChartDisplayOptions {
   animation: boolean;
 }
 
+/**
+ * Base chart configuration shared by all chart types
+ */
+export interface BaseChartConfig {
+  x_axis: ChartAxisConfig;
+  y_axis: ChartAxisConfig;
+  series?: ChartSeriesConfig;
+  options: ChartDisplayOptions;
+  colorPalette?: string;
+  periodComparison?: PeriodComparisonConfig;
+  calculatedField?: string;
+  dataSourceId?: number;
+  seriesConfigs?: MultipleSeriesConfig[];
+}
+
+/**
+ * Configuration for standard charts (line, bar, pie, area)
+ */
+export interface StandardChartConfig extends BaseChartConfig {
+  chartType?: 'line' | 'bar' | 'pie' | 'doughnut' | 'area';
+}
+
+/**
+ * Configuration for stacked bar charts
+ */
+export interface StackedBarChartConfig extends BaseChartConfig {
+  chartType: 'stacked-bar';
+  stackingMode: 'normal' | 'percentage';
+}
+
+/**
+ * Configuration for horizontal bar charts
+ */
+export interface HorizontalBarChartConfig extends BaseChartConfig {
+  chartType: 'horizontal-bar';
+}
+
+/**
+ * Configuration for progress bar charts
+ */
+export interface ProgressBarChartConfig extends BaseChartConfig {
+  chartType: 'progress-bar';
+  target?: number;
+}
+
+/**
+ * Configuration for number/metric charts
+ */
+export interface NumberChartConfig extends BaseChartConfig {
+  chartType: 'number';
+  aggregation: 'sum' | 'avg' | 'count' | 'min' | 'max';
+  target?: number;
+}
+
+/**
+ * Configuration for dual-axis combo charts
+ */
+export interface DualAxisChartConfig extends BaseChartConfig {
+  chartType: 'dual-axis';
+  dualAxisConfig: DualAxisConfig;
+}
+
+/**
+ * Configuration for table charts
+ */
+export interface TableChartConfig extends BaseChartConfig {
+  chartType: 'table';
+}
+
+/**
+ * Discriminated union of all chart configurations
+ * Use this for type-safe chart config handling
+ */
+export type TypedChartConfig =
+  | StandardChartConfig
+  | StackedBarChartConfig
+  | HorizontalBarChartConfig
+  | ProgressBarChartConfig
+  | NumberChartConfig
+  | DualAxisChartConfig
+  | TableChartConfig;
+
+/**
+ * Legacy ChartConfig interface for backward compatibility
+ * @deprecated Use TypedChartConfig for new code
+ */
 export interface ChartConfig {
   x_axis: ChartAxisConfig;
   y_axis: ChartAxisConfig;
@@ -238,15 +212,15 @@ export interface ChartConfig {
   options: ChartDisplayOptions;
   colorPalette?: string;
   periodComparison?: PeriodComparisonConfig;
-  // Extended configuration properties
   calculatedField?: string;
   dataSourceId?: number;
   stackingMode?: 'normal' | 'percentage';
   seriesConfigs?: MultipleSeriesConfig[];
   dualAxisConfig?: DualAxisConfig;
-  aggregation?: 'sum' | 'avg' | 'count' | 'min' | 'max'; // For number charts
-  target?: number; // For progress-bar and number charts
-  [key: string]: unknown; // Allow additional properties for extensibility
+  aggregation?: 'sum' | 'avg' | 'count' | 'min' | 'max';
+  target?: number;
+  /** @deprecated Avoid using index signature - use TypedChartConfig instead */
+  [key: string]: ChartAxisConfig | ChartSeriesConfig | ChartDisplayOptions | PeriodComparisonConfig | MultipleSeriesConfig[] | DualAxisConfig | string | number | boolean | undefined;
 }
 
 export interface ChartAccessControl {
@@ -499,9 +473,20 @@ export interface DashboardLayoutConfig {
   columns: number;
   rowHeight: number;
   margin: number;
-  filterConfig?: DashboardFilterConfig; // Phase 7: Universal filter configuration
-  useBatchRendering?: boolean; // Phase 7: Enable batch rendering (default: true)
-  [key: string]: unknown; // Allow additional properties for extensibility
+  filterConfig?: DashboardFilterConfig;
+  useBatchRendering?: boolean;
+  /** Optional gap between grid items */
+  gap?: number;
+  /** Optional padding around the grid */
+  padding?: number;
+  /** Optional minimum column width */
+  minColumnWidth?: number;
+  /** Optional maximum column width */
+  maxColumnWidth?: number;
+  /** Optional auto-fit columns based on container width */
+  autoFit?: boolean;
+  /** @deprecated Allow additional properties for backward compatibility */
+  [key: string]: unknown;
 }
 
 export interface DashboardChart {

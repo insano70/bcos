@@ -316,7 +316,11 @@ export class RBACChartsService extends BaseRBACService {
     const createdChart = createdCharts[0];
     if (!createdChart || !createdChart.chart_definitions) {
       // Extra safety: should not happen after length check
-      log.error('Created chart result had length > 0 but first item or chart_definitions was null');
+      log.error('Created chart result had length > 0 but first item or chart_definitions was null', new Error('Unexpected null result'), {
+        operation: 'create_chart',
+        component: 'service',
+        resultLength: createdCharts.length,
+      });
       throw new Error('Failed to retrieve created chart data');
     }
 
@@ -427,7 +431,12 @@ export class RBACChartsService extends BaseRBACService {
     const updatedChartData = updatedCharts[0];
     if (!updatedChartData || !updatedChartData.chart_definitions) {
       // Extra safety: should not happen after length check
-      log.error('Updated chart result had length > 0 but first item or chart_definitions was null');
+      log.error('Updated chart result had length > 0 but first item or chart_definitions was null', new Error('Unexpected null result'), {
+        operation: 'update_chart',
+        component: 'service',
+        chartId,
+        resultLength: updatedCharts.length,
+      });
       throw new Error('Failed to retrieve updated chart data');
     }
 

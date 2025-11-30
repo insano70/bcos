@@ -40,7 +40,18 @@ interface ChartConfig {
   dataSourceId: number;
   limit?: number;
   chartType?: string;
-  [key: string]: unknown;
+  groupBy?: string;
+  colorPalette?: string;
+  stackingMode?: 'normal' | 'percentage';
+  aggregation?: 'sum' | 'avg' | 'count' | 'min' | 'max';
+  target?: number;
+  xAxis?: ChartFilter;
+  yAxis?: ChartFilter;
+  periodComparison?: {
+    enabled: boolean;
+    comparisonType: string;
+  };
+  calculatedField?: string;
 }
 
 /**

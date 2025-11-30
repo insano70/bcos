@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
-import { log, sanitizeFilters } from '@/lib/logger';
+import { log, sanitizeFilters, SLOW_THRESHOLDS } from '@/lib/logger';
 import { createRBACWorkItemWatchersService } from '@/lib/services/rbac-work-item-watchers-service';
 import type { UserContext } from '@/lib/types/rbac';
 
@@ -45,7 +45,7 @@ const getWatchersHandler = async (
         byWatchType: watchTypeCounts,
       },
       duration,
-      slow: duration > 1000,
+      slow: duration > SLOW_THRESHOLDS.API_OPERATION,
       component: 'work-items',
     });
 

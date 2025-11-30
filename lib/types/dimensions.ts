@@ -6,20 +6,40 @@
  * (e.g., location, line of business) discovered from data source metadata.
  */
 
+/**
+ * Dataset configuration for chart rendering
+ */
+export interface ChartDatasetConfig {
+  label: string;
+  data: number[];
+  backgroundColor?: string | string[];
+  borderColor?: string | string[];
+  borderWidth?: number;
+  fill?: boolean;
+  tension?: number;
+  pointRadius?: number;
+  yAxisID?: string;
+  type?: 'line' | 'bar';
+  order?: number;
+  stack?: string;
+  barPercentage?: number;
+  categoryPercentage?: number;
+}
+
+/**
+ * Chart data structure for rendering
+ */
+export interface ChartDataStructure {
+  labels: string[];
+  datasets: ChartDatasetConfig[];
+  measureType?: string;
+  colors?: readonly string[];
+}
+
 // Chart render result from batch API
 export interface ChartRenderResult {
-  chartData: {
-    labels: string[];
-    datasets: Array<{
-      label: string;
-      data: number[];
-      backgroundColor?: string | string[];
-      borderColor?: string | string[];
-      [key: string]: unknown;
-    }>;
-    [key: string]: unknown;
-  };
-  rawData: Record<string, unknown>[];
+  chartData: ChartDataStructure;
+  rawData: import('./data-rows').TableRow[];
   metadata: {
     chartType: string;
     dataSourceId: number;
@@ -115,9 +135,6 @@ export interface DimensionValuesResponse {
 /**
  * Chart configuration for dimension expansion
  * Contains the chart's data source and rendering configuration
- * 
- * Note: Properties are optional to maintain backward compatibility
- * with existing code passing Record<string, unknown>
  */
 export interface DimensionExpansionChartConfig {
   /** Data source ID for the chart */
@@ -130,7 +147,25 @@ export interface DimensionExpansionChartConfig {
   colorPalette?: string;
   /** Stacking mode for bar/area charts */
   stackingMode?: 'normal' | 'stacked' | 'percentage';
-  /** Allow additional properties for flexibility */
+  /** X-axis configuration */
+  xAxis?: import('./analytics').ChartAxisConfig;
+  /** Y-axis configuration */
+  yAxis?: import('./analytics').ChartAxisConfig;
+  /** Series configuration */
+  series?: import('./analytics').ChartSeriesConfig;
+  /** Display options */
+  options?: import('./analytics').ChartDisplayOptions;
+  /** Period comparison configuration */
+  periodComparison?: import('./analytics').PeriodComparisonConfig;
+  /** Calculated field expression */
+  calculatedField?: string;
+  /** Aggregation type for metrics */
+  aggregation?: 'sum' | 'avg' | 'count' | 'min' | 'max';
+  /** Target value for progress/number charts */
+  target?: number;
+  /** Dual axis configuration */
+  dualAxisConfig?: import('./analytics').DualAxisConfig;
+  /** @deprecated Allow additional properties for backward compatibility */
   [key: string]: unknown;
 }
 
@@ -143,15 +178,25 @@ export interface DimensionExpansionFilters {
   startDate?: string;
   /** End date for date range filter (ISO format) */
   endDate?: string;
+  /** Date range preset name */
+  dateRangePreset?: string;
   /** Practice UIDs for filtering */
   practiceUids?: number[];
+  /** Organization ID for filtering */
+  organizationId?: string;
+  /** Provider name filter */
+  providerName?: string;
   /** Measure for measure-based data sources */
   measure?: string;
   /** Frequency/time period for measure-based data sources */
   frequency?: string;
+  /** Calculated field expression */
+  calculatedField?: string;
   /** Advanced filters (field-level filtering) */
   advancedFilters?: import('./analytics').ChartFilter[];
-  /** Allow additional properties for flexibility */
+  /** No-cache flag to bypass cache */
+  nocache?: boolean;
+  /** @deprecated Allow additional properties for backward compatibility */
   [key: string]: unknown;
 }
 
@@ -167,6 +212,7 @@ export interface MultiDimensionExpansionRequest {
   dimensionColumns: string[]; // Array of dimension column names
   limit?: number;
   offset?: number; // Pagination offset (default: 0)
+  selections?: DimensionValueSelection[]; // Optional pre-selected values to filter dimension expansion
 }
 
 /**

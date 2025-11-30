@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import type {
   ChartDefinition,
   ChartFilter,
@@ -40,6 +40,69 @@ interface DashboardRowBuilderProps {
   canMoveDown: boolean;
 }
 
+/**
+ * Chart Slot Placeholder
+ * Shows chart info with a "Load Preview" button instead of auto-loading data
+ * Used in the dashboard editor to avoid loading all charts on page load
+ */
+interface ChartSlotPlaceholderProps {
+  chartName: string;
+  chartType: string;
+  onLoad: () => void;
+  isLoading: boolean;
+  height: number;
+}
+
+function ChartSlotPlaceholder({ chartName, chartType, onLoad, isLoading, height }: ChartSlotPlaceholderProps) {
+  return (
+    <div 
+      className="w-full h-full flex flex-col bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700"
+      style={{ height: `${height}px`, maxHeight: `${height}px` }}
+    >
+      {/* Mini header */}
+      <div className="px-2 py-1.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/30">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-medium text-gray-700 dark:text-gray-300 truncate max-w-[150px]" title={chartName}>
+            {chartName}
+          </span>
+          <span className="text-[10px] text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">
+            {chartType}
+          </span>
+        </div>
+      </div>
+      
+      {/* Placeholder content */}
+      <div className="flex-1 flex flex-col items-center justify-center p-2 text-center">
+        <div className="text-2xl mb-2 opacity-30">📊</div>
+        <p className="text-[10px] text-gray-500 dark:text-gray-400 mb-2">
+          Preview not loaded
+        </p>
+        <button
+          type="button"
+          onClick={onLoad}
+          disabled={isLoading}
+          className="px-2 py-1 bg-violet-500 hover:bg-violet-600 disabled:bg-violet-400 text-white text-[10px] font-medium rounded transition-colors flex items-center gap-1"
+        >
+          {isLoading ? (
+            <>
+              <div className="animate-spin rounded-full h-2.5 w-2.5 border border-white border-t-transparent" />
+              Loading...
+            </>
+          ) : (
+            <>
+              <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+              </svg>
+              Load
+            </>
+          )}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardRowBuilder({
   row,
   availableCharts,
@@ -51,6 +114,35 @@ export default function DashboardRowBuilder({
   canMoveDown,
 }: DashboardRowBuilderProps) {
   const [isExpanded, setIsExpanded] = useState(true);
+  
+  // Track which chart slots have been loaded (by chart slot id)
+  const [loadedSlotIds, setLoadedSlotIds] = useState<Set<string>>(new Set());
+  // Track which chart slots are currently loading
+  const [loadingSlotIds, setLoadingSlotIds] = useState<Set<string>>(new Set());
+
+  // Handle loading a single chart slot
+  const handleLoadSlot = useCallback((slotId: string) => {
+    // Mark as loading
+    setLoadingSlotIds(prev => new Set(prev).add(slotId));
+    
+    // Small delay to show loading state, then mark as loaded
+    setTimeout(() => {
+      setLoadedSlotIds(prev => new Set(prev).add(slotId));
+      setLoadingSlotIds(prev => {
+        const next = new Set(prev);
+        next.delete(slotId);
+        return next;
+      });
+    }, 100);
+  }, []);
+
+  // Handle loading all charts in this row
+  const handleLoadAllInRow = useCallback(() => {
+    const chartIds = row.charts.filter(c => c.chartDefinition).map(c => c.id);
+    for (const id of chartIds) {
+      handleLoadSlot(id);
+    }
+  }, [row.charts, handleLoadSlot]);
 
   const updateRowHeight = (height: number) => {
     onUpdateRow(row.id, { heightPx: height });
@@ -88,6 +180,13 @@ export default function DashboardRowBuilder({
     } else {
       onUpdateRow(row.id, { charts: [] });
     }
+    
+    // Clean up loaded state for removed chart
+    setLoadedSlotIds(prev => {
+      const next = new Set(prev);
+      next.delete(chartId);
+      return next;
+    });
   };
 
   const updateChartWidth = (chartId: string, widthPercentage: number) => {
@@ -111,6 +210,13 @@ export default function DashboardRowBuilder({
         : chart
     );
     onUpdateRow(row.id, { charts: updatedCharts });
+    
+    // Reset loaded state when chart definition changes
+    setLoadedSlotIds(prev => {
+      const next = new Set(prev);
+      next.delete(chartId);
+      return next;
+    });
   };
 
   const autoBalanceWidths = () => {
@@ -126,6 +232,9 @@ export default function DashboardRowBuilder({
   };
 
   const totalWidth = row.charts.reduce((sum, chart) => sum + chart.widthPercentage, 0);
+  const chartsWithDefinitions = row.charts.filter(c => c.chartDefinition);
+  const loadedCount = chartsWithDefinitions.filter(c => loadedSlotIds.has(c.id)).length;
+  const totalWithDefinitions = chartsWithDefinitions.length;
 
   return (
     <div className="border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 mb-4">
@@ -169,6 +278,25 @@ export default function DashboardRowBuilder({
               >
                 Width: {totalWidth}%
               </div>
+            )}
+            
+            {/* Load All in Row button */}
+            {totalWithDefinitions > 0 && loadedCount < totalWithDefinitions && (
+              <button
+                type="button"
+                onClick={handleLoadAllInRow}
+                className="text-xs px-2 py-1 bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 rounded hover:bg-violet-200 dark:hover:bg-violet-900/50 transition-colors"
+              >
+                Load All ({totalWithDefinitions - loadedCount})
+              </button>
+            )}
+            {totalWithDefinitions > 0 && loadedCount === totalWithDefinitions && (
+              <span className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                Loaded
+              </span>
             )}
           </div>
 
@@ -377,76 +505,86 @@ export default function DashboardRowBuilder({
                   >
                     {chart.chartDefinition ? (
                       <div className="w-full h-full overflow-hidden relative">
-                        {(() => {
-                          // Extract chart configuration
-                          const dataSource = chart.chartDefinition.data_source || {};
-                          const chartConfig = chart.chartDefinition.chart_config || {};
+                        {loadedSlotIds.has(chart.id) ? (
+                          (() => {
+                            // Extract chart configuration
+                            const dataSource = chart.chartDefinition.data_source || {};
+                            const chartConfig = chart.chartDefinition.chart_config || {};
 
-                          // Extract filters to get chart parameters
-                          const measureFilter = dataSource.filters?.find(
-                            (f: ChartFilter) => f.field === 'measure'
-                          );
-                          const frequencyFilter = dataSource.filters?.find(
-                            (f: ChartFilter) => f.field === 'frequency'
-                          );
-                          const practiceFilter = dataSource.filters?.find(
-                            (f: ChartFilter) => f.field === 'practice_uid'
-                          );
-                          const startDateFilter = dataSource.filters?.find(
-                            (f: ChartFilter) => f.field === 'date_index' && f.operator === 'gte'
-                          );
-                          const endDateFilter = dataSource.filters?.find(
-                            (f: ChartFilter) => f.field === 'date_index' && f.operator === 'lte'
-                          );
+                            // Extract filters to get chart parameters
+                            const measureFilter = dataSource.filters?.find(
+                              (f: ChartFilter) => f.field === 'measure'
+                            );
+                            const frequencyFilter = dataSource.filters?.find(
+                              (f: ChartFilter) => f.field === 'frequency'
+                            );
+                            const practiceFilter = dataSource.filters?.find(
+                              (f: ChartFilter) => f.field === 'practice_uid'
+                            );
+                            const startDateFilter = dataSource.filters?.find(
+                              (f: ChartFilter) => f.field === 'date_index' && f.operator === 'gte'
+                            );
+                            const endDateFilter = dataSource.filters?.find(
+                              (f: ChartFilter) => f.field === 'date_index' && f.operator === 'lte'
+                            );
 
-                          // Use responsive sizing based on container - respect configured dimensions
-                          const controlsHeight = 60; // Height of chart controls section
-                          const availableHeight = row.heightPx - controlsHeight; // Remaining height for chart
-                          const minHeight = Math.max(150, Math.min(availableHeight * 0.6, 200));
-                          const maxHeight = availableHeight; // Respect dashboard configuration
+                            // Use responsive sizing based on container - respect configured dimensions
+                            const controlsHeight = 60; // Height of chart controls section
+                            const availableHeight = row.heightPx - controlsHeight; // Remaining height for chart
+                            const minHeight = Math.max(150, Math.min(availableHeight * 0.6, 200));
+                            const maxHeight = availableHeight; // Respect dashboard configuration
 
-                          return (
-                            <div
-                              className="w-full flex flex-col"
-                              style={{
-                                height: `${availableHeight}px`,
-                                maxHeight: `${availableHeight}px`,
-                                overflow: 'hidden',
-                              }}
-                            >
-                              <AnalyticsChart
-                                chartType={chart.chartDefinition.chart_type}
-                                {...(measureFilter?.value && {
-                                  measure: measureFilter.value as MeasureType,
-                                })}
-                                {...(frequencyFilter?.value && {
-                                  frequency: frequencyFilter.value as FrequencyType,
-                                })}
-                                practice={practiceFilter?.value?.toString()}
-                                startDate={startDateFilter?.value?.toString()}
-                                endDate={endDateFilter?.value?.toString()}
-                                groupBy={chartConfig.series?.groupBy || 'provider_name'}
-                                title={chart.chartDefinition.chart_name}
-                                calculatedField={chartConfig.calculatedField}
-                                advancedFilters={dataSource.advancedFilters || []}
-                                dataSourceId={chartConfig.dataSourceId}
-                                stackingMode={chartConfig.stackingMode}
-                                colorPalette={chartConfig.colorPalette}
-                                {...(chartConfig.seriesConfigs &&
-                                chartConfig.seriesConfigs.length > 0
-                                  ? { multipleSeries: chartConfig.seriesConfigs }
-                                  : {})}
-                                {...(chartConfig.dualAxisConfig
-                                  ? { dualAxisConfig: chartConfig.dualAxisConfig }
-                                  : {})}
-                                className="w-full h-full flex-1"
-                                responsive={true}
-                                minHeight={minHeight}
-                                maxHeight={maxHeight}
-                              />
-                            </div>
-                          );
-                        })()}
+                            return (
+                              <div
+                                className="w-full flex flex-col"
+                                style={{
+                                  height: `${availableHeight}px`,
+                                  maxHeight: `${availableHeight}px`,
+                                  overflow: 'hidden',
+                                }}
+                              >
+                                <AnalyticsChart
+                                  chartType={chart.chartDefinition.chart_type}
+                                  {...(measureFilter?.value && {
+                                    measure: measureFilter.value as MeasureType,
+                                  })}
+                                  {...(frequencyFilter?.value && {
+                                    frequency: frequencyFilter.value as FrequencyType,
+                                  })}
+                                  practice={practiceFilter?.value?.toString()}
+                                  startDate={startDateFilter?.value?.toString()}
+                                  endDate={endDateFilter?.value?.toString()}
+                                  groupBy={chartConfig.series?.groupBy || 'provider_name'}
+                                  title={chart.chartDefinition.chart_name}
+                                  calculatedField={chartConfig.calculatedField}
+                                  advancedFilters={dataSource.advancedFilters || []}
+                                  dataSourceId={chartConfig.dataSourceId}
+                                  stackingMode={chartConfig.stackingMode}
+                                  colorPalette={chartConfig.colorPalette}
+                                  {...(chartConfig.seriesConfigs &&
+                                  chartConfig.seriesConfigs.length > 0
+                                    ? { multipleSeries: chartConfig.seriesConfigs }
+                                    : {})}
+                                  {...(chartConfig.dualAxisConfig
+                                    ? { dualAxisConfig: chartConfig.dualAxisConfig }
+                                    : {})}
+                                  className="w-full h-full flex-1"
+                                  responsive={true}
+                                  minHeight={minHeight}
+                                  maxHeight={maxHeight}
+                                />
+                              </div>
+                            );
+                          })()
+                        ) : (
+                          <ChartSlotPlaceholder
+                            chartName={chart.chartDefinition.chart_name}
+                            chartType={chart.chartDefinition.chart_type}
+                            onLoad={() => handleLoadSlot(chart.id)}
+                            isLoading={loadingSlotIds.has(chart.id)}
+                            height={row.heightPx - 60}
+                          />
+                        )}
                       </div>
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-gray-400 dark:text-gray-500 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded overflow-hidden">

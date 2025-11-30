@@ -57,14 +57,12 @@ export default function ManageWorkItemFieldsModal({
     setEditingField(field);
   }, []);
 
-  const handleMoveUp = useCallback(async (field: WorkItemField) => {
+  const handleMoveUp = useCallback(async (_field: WorkItemField) => {
     // TODO: Implement reordering
-    console.log('Move up:', field);
   }, []);
 
-  const handleMoveDown = useCallback(async (field: WorkItemField) => {
+  const handleMoveDown = useCallback(async (_field: WorkItemField) => {
     // TODO: Implement reordering
-    console.log('Move down:', field);
   }, []);
 
   const sortedFields = useMemo(() => {

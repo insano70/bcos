@@ -1,3 +1,14 @@
+import type {
+  ColumnCommonValues,
+  ExecutionPlan,
+  QueryErrorDetails,
+  QueryMetadata,
+  ResolutionAction,
+  ResultSample,
+  SuggestedChange,
+  TemplateVariables,
+} from './jsonb';
+
 // Table metadata (matches database schema)
 export interface TableMetadata {
   table_metadata_id: string;
@@ -39,7 +50,7 @@ export interface ColumnMetadata {
   foreign_key_column: string | null;
   is_org_filter: boolean;
   is_phi: boolean;
-  common_values: unknown;
+  common_values: ColumnCommonValues | null;
   value_format: string | null;
   example_values: string[] | null;
   min_value: string | null;
@@ -65,7 +76,7 @@ export interface QueryHistory {
   execution_time_ms: number | null;
   row_count: number | null;
   error_message: string | null;
-  error_details: unknown;
+  error_details: QueryErrorDetails | null;
   user_id: string;
   user_email: string | null;
   organization_id: string | null;
@@ -78,10 +89,10 @@ export interface QueryHistory {
   user_feedback: string | null;
   was_helpful: boolean | null;
   tables_used: string[] | null;
-  execution_plan: unknown;
-  result_sample: unknown;
+  execution_plan: ExecutionPlan | null;
+  result_sample: ResultSample | null;
   created_at: Date;
-  metadata: unknown;
+  metadata: QueryMetadata | null;
   
   // SQL editing tracking
   was_sql_edited: boolean;
@@ -98,7 +109,7 @@ export interface QueryTemplate {
   category: string | null;
   natural_language_template: string | null;
   sql_template: string | null;
-  template_variables: unknown;
+  template_variables: TemplateVariables | null;
   tags: string[] | null;
   is_public: boolean;
   usage_count: number;
@@ -141,7 +152,7 @@ export interface QueryFeedback {
     | 'relationship_added'
     | 'resolved'
     | 'wont_fix';
-  resolution_action: unknown;
+  resolution_action: ResolutionAction | null;
   resolved_at: Date | null;
   resolved_by: string | null;
   similar_query_count: number;
@@ -162,7 +173,7 @@ export interface ImprovementSuggestion {
     | 'add_example_values';
   target_type: 'table' | 'column' | 'relationship' | 'instruction';
   target_id: string | null;
-  suggested_change: unknown;
+  suggested_change: SuggestedChange;
   confidence_score: string | null;
   status: 'pending' | 'approved' | 'rejected' | 'auto_applied';
   applied_at: Date | null;
@@ -199,8 +210,11 @@ export interface ExecuteQueryParams {
   query_history_id?: string;
 }
 
+/** Single row from query result with primitive column values */
+export type QueryResultRow = Record<string, string | number | boolean | null | undefined>;
+
 export interface ExecuteQueryResult {
-  rows: unknown[];
+  rows: QueryResultRow[];
   row_count: number;
   execution_time_ms: number;
   columns: Array<{ name: string; type: string }>;
@@ -309,7 +323,8 @@ export interface ResolveFeedbackParams {
     | 'relationship_added'
     | 'resolved'
     | 'wont_fix';
-  resolution_action?: unknown;
+  /** Resolution action details (validated at runtime) */
+  resolution_action?: ResolutionAction | unknown;
 }
 
 export interface FeedbackQueryOptions {

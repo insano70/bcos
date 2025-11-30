@@ -74,3 +74,10 @@ export const passwordChangeSchema = z
 export const userParamsSchema = z.object({
   id: z.string().uuid('Invalid user ID'),
 });
+
+// Export types inferred from schemas
+export type UserCreate = z.infer<typeof userCreateSchema>;
+export type UserUpdate = z.infer<typeof userUpdateSchema>;
+export type UserQuery = z.infer<typeof userQuerySchema>;
+export type UserParams = z.infer<typeof userParamsSchema>;
+export type PasswordChange = z.infer<typeof passwordChangeSchema>;

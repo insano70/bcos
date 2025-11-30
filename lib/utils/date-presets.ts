@@ -77,63 +77,60 @@ export function calculateDateRangeFromPreset(
       };
     }
 
+    // Day-based "Last N Days" presets: Only set startDate, no endDate
+    // This allows data with future-dated records (monthly stored as end-of-month,
+    // quarterly as end-of-quarter, annual as Dec 31) to be included correctly.
     case 'last_7_days': {
-      const end = new Date(referenceDate);
       const start = new Date(referenceDate);
       start.setDate(start.getDate() - 7);
       return {
         startDate: toDateString(start),
-        endDate: toDateString(end),
+        endDate: '', // No upper bound - include all data from start date forward
       };
     }
 
     case 'last_14_days': {
-      const end = new Date(referenceDate);
       const start = new Date(referenceDate);
       start.setDate(start.getDate() - 14);
       return {
         startDate: toDateString(start),
-        endDate: toDateString(end),
+        endDate: '', // No upper bound - include all data from start date forward
       };
     }
 
     case 'last_30_days': {
-      const end = new Date(referenceDate);
       const start = new Date(referenceDate);
       start.setDate(start.getDate() - 30);
       return {
         startDate: toDateString(start),
-        endDate: toDateString(end),
+        endDate: '', // No upper bound - include all data from start date forward
       };
     }
 
     case 'last_90_days': {
-      const end = new Date(referenceDate);
       const start = new Date(referenceDate);
       start.setDate(start.getDate() - 90);
       return {
         startDate: toDateString(start),
-        endDate: toDateString(end),
+        endDate: '', // No upper bound - include all data from start date forward
       };
     }
 
     case 'last_180_days': {
-      const end = new Date(referenceDate);
       const start = new Date(referenceDate);
       start.setDate(start.getDate() - 180);
       return {
         startDate: toDateString(start),
-        endDate: toDateString(end),
+        endDate: '', // No upper bound - include all data from start date forward
       };
     }
 
     case 'last_365_days': {
-      const end = new Date(referenceDate);
       const start = new Date(referenceDate);
       start.setDate(start.getDate() - 365);
       return {
         startDate: toDateString(start),
-        endDate: toDateString(end),
+        endDate: '', // No upper bound - include all data from start date forward
       };
     }
 
@@ -210,12 +207,13 @@ export function calculateDateRangeFromPreset(
       };
     }
 
+    // Year to Date: Only set startDate (Jan 1), no endDate
+    // This allows data with future-dated records to be included correctly.
     case 'ytd': {
       const start = new Date(referenceDate.getFullYear(), 0, 1);
-      const end = new Date(referenceDate);
       return {
         startDate: toDateString(start),
-        endDate: toDateString(end),
+        endDate: '', // No upper bound - include all data from Jan 1 forward
       };
     }
 

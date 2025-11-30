@@ -4,7 +4,7 @@ import { Popover, PopoverButton, PopoverPanel, Transition } from '@headlessui/re
 import { useEffect, useState } from 'react';
 import type { DashboardUniversalFilters } from '@/hooks/use-dashboard-data';
 import { useStickyFilters } from '@/hooks/use-sticky-filters';
-import { apiClient } from '@/lib/api/client';
+import { useOrganizations } from '@/lib/hooks/use-organizations';
 import HierarchySelect from '@/components/hierarchy-select';
 
 /**
@@ -20,15 +20,6 @@ import HierarchySelect from '@/components/hierarchy-select';
  * - Apply/Clear buttons
  * - Follows standard DropdownFilter pattern
  */
-
-interface Organization extends Record<string, unknown> {
-  id?: string; // API returns 'id' field
-  organization_id?: string; // Legacy field name
-  name: string;
-  slug: string;
-  parent_organization_id?: string | null;
-  is_active?: boolean;
-}
 
 interface DatePreset {
   id: string;
@@ -61,16 +52,18 @@ const DATE_PRESETS: DatePreset[] = [
       };
     },
   },
+  // Day-based "Last N Days" presets: Only set startDate, no endDate
+  // This allows data with future-dated records (monthly stored as end-of-month,
+  // quarterly as end-of-quarter, annual as Dec 31) to be included correctly.
   {
     id: 'last_7_days',
     label: 'Last 7 Days',
     getDateRange: () => {
-      const end = new Date();
       const start = new Date();
       start.setDate(start.getDate() - 7);
       return {
         startDate: start.toISOString().split('T')[0]!,
-        endDate: end.toISOString().split('T')[0]!,
+        endDate: '', // No upper bound - include all data from start date forward
       };
     },
   },
@@ -78,12 +71,11 @@ const DATE_PRESETS: DatePreset[] = [
     id: 'last_14_days',
     label: 'Last 14 Days',
     getDateRange: () => {
-      const end = new Date();
       const start = new Date();
       start.setDate(start.getDate() - 14);
       return {
         startDate: start.toISOString().split('T')[0]!,
-        endDate: end.toISOString().split('T')[0]!,
+        endDate: '', // No upper bound - include all data from start date forward
       };
     },
   },
@@ -91,12 +83,11 @@ const DATE_PRESETS: DatePreset[] = [
     id: 'last_30_days',
     label: 'Last 30 Days',
     getDateRange: () => {
-      const end = new Date();
       const start = new Date();
       start.setDate(start.getDate() - 30);
       return {
         startDate: start.toISOString().split('T')[0]!,
-        endDate: end.toISOString().split('T')[0]!,
+        endDate: '', // No upper bound - include all data from start date forward
       };
     },
   },
@@ -104,12 +95,11 @@ const DATE_PRESETS: DatePreset[] = [
     id: 'last_90_days',
     label: 'Last 90 Days',
     getDateRange: () => {
-      const end = new Date();
       const start = new Date();
       start.setDate(start.getDate() - 90);
       return {
         startDate: start.toISOString().split('T')[0]!,
-        endDate: end.toISOString().split('T')[0]!,
+        endDate: '', // No upper bound - include all data from start date forward
       };
     },
   },
@@ -117,12 +107,11 @@ const DATE_PRESETS: DatePreset[] = [
     id: 'last_180_days',
     label: 'Last 180 Days',
     getDateRange: () => {
-      const end = new Date();
       const start = new Date();
       start.setDate(start.getDate() - 180);
       return {
         startDate: start.toISOString().split('T')[0]!,
-        endDate: end.toISOString().split('T')[0]!,
+        endDate: '', // No upper bound - include all data from start date forward
       };
     },
   },
@@ -130,12 +119,11 @@ const DATE_PRESETS: DatePreset[] = [
     id: 'last_365_days',
     label: 'Last 365 Days',
     getDateRange: () => {
-      const end = new Date();
       const start = new Date();
       start.setDate(start.getDate() - 365);
       return {
         startDate: start.toISOString().split('T')[0]!,
-        endDate: end.toISOString().split('T')[0]!,
+        endDate: '', // No upper bound - include all data from start date forward
       };
     },
   },
@@ -235,6 +223,8 @@ const DATE_PRESETS: DatePreset[] = [
     },
   },
   // Year-based periods
+  // Year to Date: Only set startDate (Jan 1), no endDate
+  // This allows data with future-dated records to be included correctly.
   {
     id: 'ytd',
     label: 'Year to Date',
@@ -243,7 +233,7 @@ const DATE_PRESETS: DatePreset[] = [
       const start = new Date(now.getFullYear(), 0, 1);
       return {
         startDate: start.toISOString().split('T')[0]!,
-        endDate: now.toISOString().split('T')[0]!,
+        endDate: '', // No upper bound - include all data from Jan 1 forward
       };
     },
   },
@@ -289,10 +279,10 @@ export default function DashboardFilterDropdown({
   align = 'right',
 }: DashboardFilterDropdownProps) {
   const { clearAll } = useStickyFilters();
+  // Use React Query hook for organizations - shared across components, cached
+  const { data: organizations = [], isLoading: loadingOrganizations } = useOrganizations();
   // Local state for filter editing (not applied until user clicks Apply)
   const [pendingFilters, setPendingFilters] = useState<DashboardUniversalFilters>(initialFilters);
-  const [organizations, setOrganizations] = useState<Organization[]>([]);
-  const [loadingOrganizations, setLoadingOrganizations] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
   // Detect mobile viewport
@@ -305,27 +295,6 @@ export default function DashboardFilterDropdown({
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
-
-  // Load organizations on mount
-  useEffect(() => {
-    loadOrganizations();
-  }, []);
-
-  const loadOrganizations = async () => {
-    try {
-      setLoadingOrganizations(true);
-      // apiClient automatically unwraps { success: true, data: [...] } to just [...]
-      const orgList = await apiClient.get<Organization[]>('/api/organizations?is_active=true');
-
-      console.log('[DashboardFilterDropdown] Loaded organizations:', orgList.length);
-      setOrganizations(orgList || []);
-    } catch (error) {
-      console.error('[DashboardFilterDropdown] Failed to load organizations:', error);
-      setOrganizations([]);
-    } finally {
-      setLoadingOrganizations(false);
-    }
-  };
 
   // Sync pending filters with initial filters when they change
   useEffect(() => {

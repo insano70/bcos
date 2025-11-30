@@ -13,7 +13,10 @@ import { getDefaultDashboardId } from '@/lib/services/default-dashboard-service'
 const getDefaultDashboardHandler = async (request: NextRequest) => {
   const startTime = Date.now();
 
-  log.info('Default dashboard query initiated');
+  log.info('Default dashboard query initiated', {
+    operation: 'get_default_dashboard',
+    component: 'analytics',
+  });
 
   try {
     // Use centralized service to get default dashboard ID
@@ -24,12 +27,17 @@ const getDefaultDashboardHandler = async (request: NextRequest) => {
     });
 
     if (!defaultDashboardId) {
-      log.info('No default dashboard configured');
+      log.info('No default dashboard configured', {
+        operation: 'get_default_dashboard',
+        component: 'analytics',
+      });
       return createSuccessResponse({ defaultDashboard: null }, 'No default dashboard configured');
     }
 
     log.info('Default dashboard found', {
       dashboardId: defaultDashboardId,
+      operation: 'get_default_dashboard',
+      component: 'analytics',
     });
 
     return createSuccessResponse(
@@ -41,7 +49,10 @@ const getDefaultDashboardHandler = async (request: NextRequest) => {
       'Default dashboard retrieved successfully'
     );
   } catch (error) {
-    log.error('Default dashboard query error', error);
+    log.error('Default dashboard query error', error, {
+      operation: 'get_default_dashboard',
+      component: 'analytics',
+    });
 
     const errorMessage =
       process.env.NODE_ENV === 'development'

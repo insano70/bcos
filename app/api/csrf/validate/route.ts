@@ -25,6 +25,8 @@ const validateTokenHandler = async (request: NextRequest) => {
   log.info('CSRF token validation request initiated', {
     endpoint: '/api/csrf/validate',
     method: 'POST',
+    operation: 'csrf_validate',
+    component: 'security',
   });
 
   try {
@@ -33,7 +35,11 @@ const validateTokenHandler = async (request: NextRequest) => {
     // Validate request body (optional)
     const validationStartTime = Date.now();
     const validatedData = await validateRequest(request, validateTokenSchema);
-    log.info('Request validation completed', { duration: Date.now() - validationStartTime });
+    log.info('Request validation completed', {
+      duration: Date.now() - validationStartTime,
+      operation: 'csrf_validate',
+      component: 'security',
+    });
 
     // Get token to validate
     const headerToken = request.headers.get('x-csrf-token');
@@ -43,6 +49,8 @@ const validateTokenHandler = async (request: NextRequest) => {
       log.info('CSRF validation request missing token', {
         hasHeaderToken: !!headerToken,
         hasBodyToken: !!validatedData.token,
+        operation: 'csrf_validate',
+        component: 'security',
       });
 
       return createSuccessResponse(
@@ -91,13 +99,19 @@ const validateTokenHandler = async (request: NextRequest) => {
         isValidToken = false;
       }
 
-      log.info('Token validation completed', { duration: Date.now() - validationStart });
+      log.info('Token validation completed', {
+        duration: Date.now() - validationStart,
+        operation: 'csrf_validate',
+        component: 'security',
+      });
 
       // Log validation result for monitoring
       if (isValidToken) {
         log.info('CSRF token validation successful', {
           tokenType: tokenType,
           validationReason,
+          operation: 'csrf_validate',
+          component: 'security',
         });
       } else {
         log.security('csrf_token_validation_failed', 'low', {
@@ -109,7 +123,11 @@ const validateTokenHandler = async (request: NextRequest) => {
       }
 
       const totalDuration = Date.now() - startTime;
-      log.info('Total validation duration', { duration: totalDuration });
+      log.info('Total validation duration', {
+        duration: totalDuration,
+        operation: 'csrf_validate',
+        component: 'security',
+      });
 
       return createSuccessResponse(
         {
@@ -123,6 +141,8 @@ const validateTokenHandler = async (request: NextRequest) => {
     } catch (validationError) {
       log.error('CSRF token validation error', validationError, {
         tokenLength: tokenToValidate.length,
+        operation: 'csrf_validate',
+        component: 'security',
       });
 
       return createSuccessResponse(
@@ -139,6 +159,8 @@ const validateTokenHandler = async (request: NextRequest) => {
     const totalDuration = Date.now() - startTime;
     log.error('CSRF validation endpoint error', error, {
       totalDuration,
+      operation: 'csrf_validate',
+      component: 'security',
     });
 
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
@@ -154,6 +176,8 @@ const healthCheckHandler = async (request: NextRequest) => {
   log.info('CSRF health check', {
     hasHeaderToken: !!headerToken,
     hasCookieToken: !!cookieToken,
+    operation: 'csrf_health_check',
+    component: 'security',
   });
 
   return createSuccessResponse(

@@ -31,7 +31,7 @@
 import type { NextRequest } from 'next/server';
 import { applyGlobalAuth, markAsPublicRoute } from '@/lib/api/middleware/global-auth';
 import { createErrorResponse } from '@/lib/api/responses/error';
-import { log } from '@/lib/logger';
+import { log, SLOW_THRESHOLDS } from '@/lib/logger';
 import type { Middleware, MiddlewareResult, RouteContext } from '../types';
 
 export class AuthMiddleware implements Middleware {
@@ -55,9 +55,14 @@ export class AuthMiddleware implements Middleware {
       return { success: true, context };
     }
 
+    // Track timing breakdown for performance analysis
+    const breakdown: Record<string, number> = {};
+
     // Apply authentication
     const endTiming = context.timingTracker.start('auth');
+    const t1 = Date.now();
     const session = await applyGlobalAuth(request);
+    breakdown.globalAuth = Date.now() - t1;
     endTiming();
 
     // Verify session and user exist
@@ -84,7 +89,9 @@ export class AuthMiddleware implements Middleware {
 
     // Success - extract userContext from session
     // applyGlobalAuth() already fetched this to avoid redundant DB queries
+    const t2 = Date.now();
     const userContext = session.userContext;
+    breakdown.contextExtract = Date.now() - t2;
 
     if (!userContext) {
       // SECURITY: This is an authentication failure, not a server error
@@ -119,10 +126,13 @@ export class AuthMiddleware implements Middleware {
       };
     }
 
-    // Log single comprehensive auth success
+    // Log single comprehensive auth success with breakdown timing
+    const authDuration = context.timingTracker.getTiming('auth') || 0;
     log.auth('auth_success', true, {
       userId: session.user.id,
-      duration: context.timingTracker.getTiming('auth'),
+      duration: authDuration,
+      breakdown,
+      slow: authDuration > SLOW_THRESHOLDS.AUTH_OPERATION,
     });
 
     // Return updated context with session and userContext

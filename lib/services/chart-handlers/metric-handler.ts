@@ -1,6 +1,6 @@
 import { log } from '@/lib/logger';
 import type { AggAppMeasure, ChartData } from '@/lib/types/analytics';
-import { MeasureAccessor } from '@/lib/types/analytics';
+import { MeasureAccessor } from '@/lib/services/analytics/measure-accessor';
 import { columnMappingService } from '../column-mapping-service';
 import { BaseChartHandler } from './base-handler';
 import { getColumnName } from './column-resolver';

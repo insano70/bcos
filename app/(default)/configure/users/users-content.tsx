@@ -12,13 +12,12 @@ import DeleteButton from '@/components/delete-button';
 import FilterButton, { type ActiveFilter, type FilterGroup } from '@/components/dropdown-filter';
 import { ProtectedComponent } from '@/components/rbac/protected-component';
 import { apiClient } from '@/lib/api/client';
+import { clientDebugLog } from '@/lib/utils/debug-client';
 import { type User, useUsers } from '@/lib/hooks/use-users';
 
 export default function UsersContent() {
   // Component rendered (client-side debug)
-  if (process.env.NODE_ENV === 'development') {
-    console.log('👥 UsersContent: Component rendered');
-  }
+  clientDebugLog.component('UsersContent: Component rendered');
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { data: users, isLoading, error, refetch } = useUsers(); // Access token handled by middleware
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
@@ -126,43 +125,33 @@ export default function UsersContent() {
   };
 
   // Auth state logging (client-side debug)
-  if (process.env.NODE_ENV === 'development') {
-    console.log('👤 UsersContent: Auth state -', {
-      isAuthenticated,
-      authLoading,
-      // Access token now handled securely server-side via httpOnly cookies
-    });
-  }
+  clientDebugLog.auth('UsersContent: Auth state', {
+    isAuthenticated,
+    authLoading,
+    // Access token now handled securely server-side via httpOnly cookies
+  });
 
   // API state logging (client-side debug)
-  if (process.env.NODE_ENV === 'development') {
-    console.log('📊 UsersContent: API state -', {
-      hasUsers: !!users,
-      isLoading,
-      hasError: !!error,
-      errorMessage: error?.message,
-    });
-  }
+  clientDebugLog.api('UsersContent: API state', {
+    hasUsers: !!users,
+    isLoading,
+    hasError: !!error,
+    errorMessage: error?.message,
+  });
 
   // Redirect to login if not authenticated
   useEffect(() => {
     // useEffect trigger logging (client-side debug)
-    if (process.env.NODE_ENV === 'development') {
-      console.log('🔄 UsersContent: useEffect triggered -', { authLoading, isAuthenticated });
-    }
+    clientDebugLog.auth('UsersContent: useEffect triggered', { authLoading, isAuthenticated });
     if (!authLoading && !isAuthenticated) {
       // Redirect logging (client-side debug)
-      if (process.env.NODE_ENV === 'development') {
-        console.log('🔄 UsersContent: Redirecting to login - no authentication');
-      }
+      clientDebugLog.auth('UsersContent: Redirecting to login - no authentication');
       const currentPath = window.location.pathname + window.location.search;
       const loginUrl = `/signin?callbackUrl=${encodeURIComponent(currentPath)}`;
       window.location.href = loginUrl;
     } else if (!authLoading && isAuthenticated) {
       // Authentication success logging (client-side debug)
-      if (process.env.NODE_ENV === 'development') {
-        console.log('✅ UsersContent: User authenticated, staying on page');
-      }
+      clientDebugLog.auth('UsersContent: User authenticated, staying on page');
     }
   }, [isAuthenticated, authLoading]);
 

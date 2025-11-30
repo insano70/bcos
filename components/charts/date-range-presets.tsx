@@ -47,17 +47,19 @@ const DATE_PRESETS: DateRangePreset[] = [
       };
     },
   },
+  // Day-based "Last N Days" presets: Only set startDate, no endDate
+  // This allows data with future-dated records (monthly stored as end-of-month,
+  // quarterly as end-of-quarter, annual as Dec 31) to be included correctly.
   {
     id: 'last_7_days',
     label: 'Last 7 Days',
     description: 'Past week',
     getDateRange: () => {
-      const end = new Date();
       const start = new Date();
       start.setDate(start.getDate() - 7);
       return {
         startDate: start.toISOString().split('T')[0]!,
-        endDate: end.toISOString().split('T')[0]!,
+        endDate: '', // No upper bound - include all data from start date forward
       };
     },
   },
@@ -66,12 +68,11 @@ const DATE_PRESETS: DateRangePreset[] = [
     label: 'Last 14 Days',
     description: 'Past 2 weeks',
     getDateRange: () => {
-      const end = new Date();
       const start = new Date();
       start.setDate(start.getDate() - 14);
       return {
         startDate: start.toISOString().split('T')[0]!,
-        endDate: end.toISOString().split('T')[0]!,
+        endDate: '', // No upper bound - include all data from start date forward
       };
     },
   },
@@ -80,12 +81,11 @@ const DATE_PRESETS: DateRangePreset[] = [
     label: 'Last 30 Days',
     description: 'Past month',
     getDateRange: () => {
-      const end = new Date();
       const start = new Date();
       start.setDate(start.getDate() - 30);
       return {
         startDate: start.toISOString().split('T')[0]!,
-        endDate: end.toISOString().split('T')[0]!,
+        endDate: '', // No upper bound - include all data from start date forward
       };
     },
   },
@@ -94,12 +94,11 @@ const DATE_PRESETS: DateRangePreset[] = [
     label: 'Last 90 Days',
     description: 'Past 3 months',
     getDateRange: () => {
-      const end = new Date();
       const start = new Date();
       start.setDate(start.getDate() - 90);
       return {
         startDate: start.toISOString().split('T')[0]!,
-        endDate: end.toISOString().split('T')[0]!,
+        endDate: '', // No upper bound - include all data from start date forward
       };
     },
   },
@@ -108,12 +107,11 @@ const DATE_PRESETS: DateRangePreset[] = [
     label: 'Last 180 Days',
     description: 'Past 6 months',
     getDateRange: () => {
-      const end = new Date();
       const start = new Date();
       start.setDate(start.getDate() - 180);
       return {
         startDate: start.toISOString().split('T')[0]!,
-        endDate: end.toISOString().split('T')[0]!,
+        endDate: '', // No upper bound - include all data from start date forward
       };
     },
   },
@@ -122,12 +120,11 @@ const DATE_PRESETS: DateRangePreset[] = [
     label: 'Last 365 Days',
     description: 'Past year',
     getDateRange: () => {
-      const end = new Date();
       const start = new Date();
       start.setDate(start.getDate() - 365);
       return {
         startDate: start.toISOString().split('T')[0]!,
-        endDate: end.toISOString().split('T')[0]!,
+        endDate: '', // No upper bound - include all data from start date forward
       };
     },
   },
@@ -233,16 +230,18 @@ const DATE_PRESETS: DateRangePreset[] = [
       };
     },
   },
+  // Year to Date: Only set startDate (Jan 1), no endDate
+  // This allows data with future-dated records to be included correctly.
   {
     id: 'ytd',
     label: 'Year to Date',
-    description: 'January 1st to today',
+    description: 'January 1st to present',
     getDateRange: () => {
       const now = new Date();
       const start = new Date(now.getFullYear(), 0, 1);
       return {
         startDate: start.toISOString().split('T')[0]!,
-        endDate: now.toISOString().split('T')[0]!,
+        endDate: '', // No upper bound - include all data from Jan 1 forward
       };
     },
   },

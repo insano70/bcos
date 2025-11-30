@@ -82,7 +82,8 @@ const expandChartHandler = async (
         ? selections?.map(s => ({ col: s.columnName, values: s.selectedValues.length }))
         : undefined,
       originalType: hasValueSelections ? 'value-level' : (isMultiDimensionRequest ? 'multi' : 'single'),
-      component: 'dimensions-api',
+      operation: 'expand_chart_by_dimension',
+      component: 'analytics',
     });
 
     // Render expanded chart using unified multi-dimension renderer
@@ -101,7 +102,8 @@ const expandChartHandler = async (
       totalQueryTime: result.metadata.totalQueryTime,
       userId: userContext.user_id,
       duration,
-      component: 'dimensions-api',
+      operation: 'expand_chart_by_dimension',
+      component: 'analytics',
     });
 
     return createSuccessResponse(result);
@@ -109,6 +111,8 @@ const expandChartHandler = async (
     log.error('Failed to expand chart by dimension', error as Error, {
       chartId: params.chartId,
       userId: userContext.user_id,
+      operation: 'expand_chart_by_dimension',
+      component: 'analytics',
     });
     return createErrorResponse('Failed to expand chart by dimension', 500);
   }

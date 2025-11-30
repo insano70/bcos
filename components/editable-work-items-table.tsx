@@ -20,6 +20,7 @@ import { useWorkItemStatuses } from '@/lib/hooks/use-work-item-statuses';
 import { useTypeRelationshipsForParent } from '@/lib/hooks/use-work-item-type-relationships';
 import { useUsers } from '@/lib/hooks/use-users';
 import { apiClient } from '@/lib/api/client';
+import { clientErrorLog } from '@/lib/utils/debug-client';
 import type { WorkItemField } from '@/lib/types/work-item-fields';
 import {
   validateCustomFields,
@@ -139,7 +140,7 @@ export default function EditableWorkItemsTable({
             setToastMessage(`Updated ${items.length} item(s) to ${status.status_name}`);
             setShowToast(true);
           } catch (error) {
-            console.error('Failed to update status:', error);
+            clientErrorLog('Failed to update status', error);
             setToastType('error');
             setToastMessage('Failed to update status');
             setShowToast(true);
@@ -413,7 +414,7 @@ export default function EditableWorkItemsTable({
       }
 
       // System error - log and show generic error message
-      console.error('Failed to update work item:', error);
+      clientErrorLog('Failed to update work item', error);
       setToastType('error');
       setToastMessage('Failed to update work item');
       setShowToast(true);
@@ -429,7 +430,7 @@ export default function EditableWorkItemsTable({
       setToastMessage('Work item deleted successfully');
       setShowToast(true);
     } catch (error) {
-      console.error('Failed to delete work item:', error);
+      clientErrorLog('Failed to delete work item', error);
       setToastType('error');
       setToastMessage('Failed to delete work item');
       setShowToast(true);
@@ -534,7 +535,7 @@ export default function EditableWorkItemsTable({
       // Return the new item ID so EditableDataTable can auto-edit it
       return newWorkItem.id;
     } catch (error) {
-      console.error('Failed to add row:', error);
+      clientErrorLog('Failed to add row', error);
       setToastType('error');
       setToastMessage('Failed to add row');
       setShowToast(true);

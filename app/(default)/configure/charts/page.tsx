@@ -13,6 +13,7 @@ import DeleteChartModal from '@/components/delete-chart-modal';
 import FilterButton, { type ActiveFilter, type FilterGroup } from '@/components/dropdown-filter';
 import Toast from '@/components/toast';
 import { apiClient } from '@/lib/api/client';
+import { clientDebugLog, clientErrorLog } from '@/lib/utils/debug-client';
 import type { ChartWithMetadata } from '@/lib/services/rbac-charts-service';
 import type { ChartDefinition, ChartDefinitionListItem } from '@/lib/types/analytics';
 
@@ -139,10 +140,10 @@ export default function ChartBuilderPage() {
 
   const _handleSaveChart = async (chartDefinition: Partial<ChartDefinition>) => {
     try {
-      console.log('💾 Saving chart definition:', chartDefinition);
+      clientDebugLog.api('Saving chart definition', chartDefinition);
 
       const result = await apiClient.post('/api/admin/analytics/charts', chartDefinition);
-      console.log('✅ Chart saved successfully:', result);
+      clientDebugLog.api('Chart saved successfully', result);
 
       // Show success toast
       setToastMessage('Chart saved successfully');
@@ -152,7 +153,7 @@ export default function ChartBuilderPage() {
       // Refresh the charts list
       await loadCharts();
     } catch (error) {
-      console.error('❌ Failed to save chart:', error);
+      clientErrorLog('Failed to save chart', error);
       setToastMessage(
         `Failed to save chart: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
@@ -165,15 +166,15 @@ export default function ChartBuilderPage() {
     setError(null);
 
     try {
-      console.log('🔍 Loading chart definitions from API...');
+      clientDebugLog.api('Loading chart definitions from API');
 
       const result = await apiClient.get<{
         charts: ChartWithMetadata[];
       }>('/api/admin/analytics/charts?limit=1000');
-      console.log('📊 Raw API Response:', result);
+      clientDebugLog.api('Raw API Response', result);
 
       const charts = result.charts || [];
-      console.log('📋 Charts data structure:', {
+      clientDebugLog.api('Charts data structure', {
         count: charts.length,
         sampleChart: charts[0],
       });
@@ -181,7 +182,7 @@ export default function ChartBuilderPage() {
       // Transform flattened API data to ChartDefinitionListItem structure
       const transformedCharts: ChartDefinitionListItem[] = (charts as ChartWithMetadata[])
         .map((item: ChartWithMetadata, index: number): ChartDefinitionListItem | null => {
-          console.log(`🔄 Transforming chart ${index}:`, item);
+          clientDebugLog.api(`Transforming chart ${index}`, item);
 
           return {
             id: item.chart_definition_id,
@@ -201,7 +202,7 @@ export default function ChartBuilderPage() {
         })
         .filter((item): item is ChartDefinitionListItem => item !== null);
 
-      console.log('✅ Transformed charts:', {
+      clientDebugLog.api('Transformed charts', {
         count: transformedCharts.length,
         sampleTransformed: transformedCharts[0],
       });
@@ -209,7 +210,7 @@ export default function ChartBuilderPage() {
       setSavedCharts(transformedCharts);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to load charts';
-      console.error('❌ Failed to load charts:', error);
+      clientErrorLog('Failed to load charts', error);
       setError(errorMessage);
       setSavedCharts([]); // Ensure we always have an array
     }
@@ -232,7 +233,7 @@ export default function ChartBuilderPage() {
       // Refresh the charts list
       await loadCharts();
     } catch (error) {
-      console.error('Failed to delete chart:', error);
+      clientErrorLog('Failed to delete chart', error);
       setToastMessage(
         `Failed to delete chart: ${error instanceof Error ? error.message : 'Unknown error'}`
       );

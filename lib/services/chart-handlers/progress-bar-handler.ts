@@ -1,7 +1,7 @@
 import { log } from '@/lib/logger';
 import { getPaletteColors } from '@/lib/services/color-palettes';
 import type { AggAppMeasure, ChartData } from '@/lib/types/analytics';
-import { MeasureAccessor } from '@/lib/types/analytics';
+import { MeasureAccessor } from '@/lib/services/analytics/measure-accessor';
 import { columnMappingService } from '../column-mapping-service';
 import { BaseChartHandler } from './base-handler';
 import { getColumnName } from './column-resolver';

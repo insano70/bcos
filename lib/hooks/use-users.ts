@@ -1,4 +1,5 @@
 import { useApiDelete, useApiPost, useApiPut, useApiQuery } from './use-api';
+import { clientDebugLog } from '@/lib/utils/debug-client';
 
 export interface User {
   id: string; // Maps to user_id in database
@@ -48,25 +49,19 @@ export interface UpdateUserData {
  * Authentication handled by middleware via httpOnly cookies
  */
 export function useUsers() {
-  // Hook called (client-side debug)
-  if (process.env.NODE_ENV === 'development') {
-    console.log('👥 useUsers: Hook called (auth handled by middleware)');
-  }
+  clientDebugLog.component('useUsers: Hook called (auth handled by middleware)');
 
   const query = useApiQuery<User[]>(['users'], '/api/users?limit=1000', {
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 10 * 60 * 1000, // 10 minutes
   });
 
-  // Query state logging (client-side debug)
-  if (process.env.NODE_ENV === 'development') {
-    console.log('👥 useUsers: Query state -', {
-      isLoading: query.isLoading,
-      hasData: !!query.data,
-      hasError: !!query.error,
-      errorMessage: query.error?.message,
-    });
-  }
+  clientDebugLog.component('useUsers: Query state', {
+    isLoading: query.isLoading,
+    hasData: !!query.data,
+    hasError: !!query.error,
+    errorMessage: query.error?.message,
+  });
 
   return query;
 }

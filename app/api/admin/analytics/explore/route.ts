@@ -16,6 +16,8 @@ const exploreHandler = async (request: NextRequest, userContext: UserContext) =>
   log.info('Analytics data exploration request initiated', {
     requestingUserId: userContext.user_id,
     isSuperAdmin: userContext.is_super_admin,
+    operation: 'explore_analytics_data',
+    component: 'analytics',
   });
 
   try {
@@ -71,12 +73,22 @@ const exploreHandler = async (request: NextRequest, userContext: UserContext) =>
   } catch (error) {
     log.error('Analytics data exploration error', error, {
       requestingUserId: userContext.user_id,
+      operation: 'explore_analytics_data',
+      component: 'analytics',
     });
 
-    log.info('Analytics explore failed', { duration: Date.now() - startTime });
+    log.info('Analytics explore failed', {
+      duration: Date.now() - startTime,
+      operation: 'explore_analytics_data',
+      component: 'analytics',
+    });
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
   } finally {
-    log.info('Analytics explore total', { duration: Date.now() - startTime });
+    log.info('Analytics explore total', {
+      duration: Date.now() - startTime,
+      operation: 'explore_analytics_data',
+      component: 'analytics',
+    });
   }
 };
 

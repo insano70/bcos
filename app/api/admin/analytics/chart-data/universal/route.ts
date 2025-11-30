@@ -165,6 +165,8 @@ const universalChartDataHandler = async (
     requestingUserId: userContext.user_id,
     currentOrganizationId: userContext.current_organization_id,
     ipAddress: clientIp,
+    operation: 'get_universal_chart_data',
+    component: 'analytics',
   });
 
   try {
@@ -180,6 +182,8 @@ const universalChartDataHandler = async (
       log.error('Universal chart data validation failed', new Error('Validation error'), {
         requestingUserId: userContext.user_id,
         validationErrors: validationResult.error.issues,
+        operation: 'get_universal_chart_data',
+        component: 'analytics',
       });
 
       return createErrorResponse(`Validation failed: ${errorDetails}`, 400, request);
@@ -202,6 +206,8 @@ const universalChartDataHandler = async (
       hasChartConfig: Boolean(validatedData.chartConfig),
       chartType: validatedData.chartConfig?.chartType,
       hasRuntimeFilters: Boolean(validatedData.runtimeFilters),
+      operation: 'get_universal_chart_data',
+      component: 'analytics',
     });
 
     // 2. Orchestrate chart data fetching and transformation
@@ -220,6 +226,8 @@ const universalChartDataHandler = async (
       orchestratorDuration,
       queryTimeMs: result.metadata.queryTimeMs,
       cacheHit: result.metadata.cacheHit,
+      operation: 'get_universal_chart_data',
+      component: 'analytics',
     });
 
     // 3. Build unified response
@@ -247,6 +255,8 @@ const universalChartDataHandler = async (
       duration,
       recordCount: result.metadata.recordCount,
       cacheHit: result.metadata.cacheHit,
+      operation: 'get_universal_chart_data',
+      component: 'analytics',
     });
 
     // 4. Return with caching headers
@@ -266,6 +276,8 @@ const universalChartDataHandler = async (
       duration,
       requestingUserId: userContext.user_id,
       currentOrganizationId: userContext.current_organization_id,
+      operation: 'get_universal_chart_data',
+      component: 'analytics',
     });
 
     // Determine appropriate HTTP status code based on error type

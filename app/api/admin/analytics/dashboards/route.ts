@@ -3,7 +3,7 @@ import { validateRequest } from '@/lib/api/middleware/validation';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
-import { log, logTemplates, sanitizeFilters } from '@/lib/logger';
+import { log, logTemplates, sanitizeFilters, SLOW_THRESHOLDS } from '@/lib/logger';
 import { createRBACDashboardsService } from '@/lib/services/dashboards';
 import type { UserContext } from '@/lib/types/rbac';
 import { dashboardCreateSchema } from '@/lib/validations/analytics';
@@ -88,7 +88,7 @@ const getDashboardsHandler = async (request: NextRequest, userContext: UserConte
         pageSize: limit || totalCount,
       },
       duration: Date.now() - startTime,
-      slow: Date.now() - startTime > 1000,
+      slow: Date.now() - startTime > SLOW_THRESHOLDS.API_OPERATION,
       component: 'analytics',
     });
 

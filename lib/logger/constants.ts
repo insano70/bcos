@@ -50,6 +50,15 @@ export const SLOW_THRESHOLDS = {
 
   /** Large Language Model calls (e.g., Bedrock) - 3000ms */
   LLM_CALL: 3000,
+
+  /** External connection tests (data source connectivity) - 5000ms */
+  EXTERNAL_CONNECTION: 5000,
+
+  /** Schema introspection operations (database metadata) - 10000ms */
+  SCHEMA_INTROSPECTION: 10000,
+
+  /** Email sending operations (SMTP, SES) - 2000ms */
+  EMAIL_OPERATION: 2000,
 } as const;
 
 /**

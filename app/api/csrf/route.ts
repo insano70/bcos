@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { publicRoute } from '@/lib/api/route-handlers';
-import { log } from '@/lib/logger';
+import { log, SLOW_THRESHOLDS } from '@/lib/logger';
 import { generateAnonymousToken, setCSRFToken } from '@/lib/security/csrf-unified';
 
 /**
@@ -17,7 +17,7 @@ import { generateAnonymousToken, setCSRFToken } from '@/lib/security/csrf-unifie
  * - Short expiration times
  */
 const getCSRFTokenHandler = async (request: NextRequest) => {
-  const _startTime = Date.now();
+  const startTime = Date.now();
 
   // Lightweight authentication check - just check if access token cookie exists and is valid
   // Don't load full user context for performance
@@ -42,29 +42,18 @@ const getCSRFTokenHandler = async (request: NextRequest) => {
     isAuthenticated = false;
   }
 
-  log.info('CSRF token request initiated', {
-    isAuthenticated,
-    userId: userId,
-  });
-
   try {
     let token: string;
-    let tokenType: string;
+    let tokenType: 'authenticated' | 'anonymous';
 
     if (isAuthenticated && userId) {
       // Authenticated user gets authenticated token
       token = await setCSRFToken(userId);
       tokenType = 'authenticated';
-
-      log.info('Authenticated CSRF token generated', {
-        userId: userId,
-      });
     } else {
       // Unauthenticated user gets anonymous token (edge-compatible)
       token = await generateAnonymousToken(request);
       tokenType = 'anonymous';
-
-      log.info('Anonymous CSRF token generated');
     }
 
     // Set cookie and return token
@@ -82,10 +71,27 @@ const getCSRFTokenHandler = async (request: NextRequest) => {
       path: '/',
     });
 
-    log.info('CSRF token issued successfully', { tokenType });
+    const duration = Date.now() - startTime;
+    log.info('CSRF token issued', {
+      operation: 'generate_csrf_token',
+      component: 'security',
+      tokenType,
+      isAuthenticated,
+      userId,
+      duration,
+      slow: duration > SLOW_THRESHOLDS.API_OPERATION,
+    });
+
     return response;
   } catch (error) {
-    log.error('CSRF token generation error', error);
+    const duration = Date.now() - startTime;
+    log.error('CSRF token generation failed', error, {
+      operation: 'generate_csrf_token',
+      component: 'security',
+      isAuthenticated,
+      userId,
+      duration,
+    });
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
   }
 };

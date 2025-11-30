@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useAuth } from '@/components/auth/rbac-auth-provider';
+import DeleteConfirmationModal from '@/components/delete-confirmation-modal';
 import DeleteWorkItemModal from '@/components/delete-work-item-modal';
 import EditWorkItemModal from '@/components/edit-work-item-modal';
 import { ProtectedComponent } from '@/components/rbac/protected-component';
@@ -39,6 +40,8 @@ export default function WorkItemDetailContent({ workItemId }: WorkItemDetailCont
     'details' | 'comments' | 'activity' | 'history' | 'watchers' | 'subItems'
   >('details');
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [isUnsavedChangesModalOpen, setIsUnsavedChangesModalOpen] = useState(false);
+  const [pendingTab, setPendingTab] = useState<typeof activeTab | null>(null);
 
   // Check if current user is watching
   const isWatching = watchers?.some((w) => w.user_id === user?.id) || false;
@@ -51,14 +54,20 @@ export default function WorkItemDetailContent({ workItemId }: WorkItemDetailCont
   // Handle tab switching with unsaved changes warning
   const handleTabChange = (newTab: typeof activeTab) => {
     if (hasUnsavedChanges && activeTab === 'subItems') {
-      const confirmed = window.confirm(
-        'You have unsaved changes in the sub-items table. Are you sure you want to leave? Your changes will be lost.'
-      );
-      if (!confirmed) {
-        return;
-      }
+      setPendingTab(newTab);
+      setIsUnsavedChangesModalOpen(true);
+      return;
     }
     setActiveTab(newTab);
+  };
+
+  // Handle confirmation to leave with unsaved changes
+  const handleConfirmLeaveWithUnsavedChanges = async () => {
+    if (pendingTab) {
+      setActiveTab(pendingTab);
+      setPendingTab(null);
+      setHasUnsavedChanges(false);
+    }
   };
 
   if (isLoading) {
@@ -391,6 +400,21 @@ export default function WorkItemDetailContent({ workItemId }: WorkItemDetailCont
         />
       )}
 
+      {/* Unsaved Changes Warning Modal */}
+      <DeleteConfirmationModal
+        isOpen={isUnsavedChangesModalOpen}
+        setIsOpen={(value) => {
+          setIsUnsavedChangesModalOpen(value);
+          if (!value) {
+            setPendingTab(null);
+          }
+        }}
+        title="Unsaved Changes"
+        itemName="sub-items table"
+        message="You have unsaved changes in the sub-items table. Are you sure you want to leave? Your changes will be lost."
+        confirmButtonText="Leave Without Saving"
+        onConfirm={handleConfirmLeaveWithUnsavedChanges}
+      />
     </div>
   );
 }

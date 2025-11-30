@@ -4,6 +4,32 @@ import { explorerQueryHistory } from '@/lib/db/schema';
 import type { UserContext } from '@/lib/types/rbac';
 import { and, desc, eq, sql, type SQL } from 'drizzle-orm';
 
+/** History entry as stored in database */
+export type HistoryEntry = typeof explorerQueryHistory.$inferSelect;
+
+/** List history result */
+export interface ListHistoryResult {
+  items: HistoryEntry[];
+  total: number;
+}
+
+/** Edit statistics result */
+export interface EditStatisticsResult {
+  overall: {
+    total_queries: number;
+    edited_queries: number;
+    edit_percentage: number;
+    avg_edits_per_query: number;
+  } | undefined;
+  top_edited_queries: Array<{
+    natural_language_query: string;
+    edit_count: number | null;
+    original_sql: string | null;
+    final_sql: string | null;
+    tables_used: string[] | null;
+  }>;
+}
+
 export interface CreateHistoryInput {
   natural_language_query: string;
   generated_sql: string;
@@ -22,7 +48,7 @@ export class ExplorerHistoryService extends BaseRBACService {
     super(userContext, db);
   }
 
-  async createHistoryEntry(input: CreateHistoryInput) {
+  async createHistoryEntry(input: CreateHistoryInput): Promise<HistoryEntry> {
     this.requireAnyPermission([
       'data-explorer:read:organization',
       'data-explorer:read:all',
@@ -55,7 +81,7 @@ export class ExplorerHistoryService extends BaseRBACService {
     return row;
   }
 
-  async updateHistoryEntry(id: string, changes: Record<string, unknown>) {
+  async updateHistoryEntry(id: string, changes: Record<string, unknown>): Promise<HistoryEntry | null> {
     this.requireAnyPermission([
       'data-explorer:read:organization',
       'data-explorer:read:all',
@@ -100,7 +126,7 @@ export class ExplorerHistoryService extends BaseRBACService {
     return row || null;
   }
 
-  async listHistory(params?: { limit?: number; offset?: number; status?: string }) {
+  async listHistory(params?: { limit?: number; offset?: number; status?: string }): Promise<ListHistoryResult> {
     this.requireAnyPermission([
       'data-explorer:read:organization',
       'data-explorer:read:all',
@@ -126,7 +152,7 @@ export class ExplorerHistoryService extends BaseRBACService {
     return { items, total: count };
   }
 
-  async getQueryById(queryId: string) {
+  async getQueryById(queryId: string): Promise<HistoryEntry | null> {
     this.requireAnyPermission([
       'data-explorer:read:organization',
       'data-explorer:read:all',
@@ -142,7 +168,7 @@ export class ExplorerHistoryService extends BaseRBACService {
     return query || null;
   }
 
-  async rateQuery(queryId: string, rating: 1 | 2 | 3 | 4 | 5, feedback?: string) {
+  async rateQuery(queryId: string, rating: 1 | 2 | 3 | 4 | 5, feedback?: string): Promise<HistoryEntry | null> {
     this.requireAnyPermission([
       'data-explorer:read:organization',
       'data-explorer:read:all',
@@ -166,7 +192,7 @@ export class ExplorerHistoryService extends BaseRBACService {
    * Get statistics on SQL edits (admin only)
    * Useful for identifying when AI-generated SQL needs improvement
    */
-  async getEditStatistics() {
+  async getEditStatistics(): Promise<EditStatisticsResult> {
     this.requirePermission('data-explorer:manage:all');
 
     if (!this.dbContext) throw new Error('Database context not initialized');

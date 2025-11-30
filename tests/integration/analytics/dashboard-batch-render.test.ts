@@ -64,7 +64,7 @@ describe('Dashboard Batch Rendering API', () => {
     testUser = await createCommittedUser({ scope: scopeId });
     const role = await createTestRole({
       name: 'analytics_reader',
-      permissions: ['analytics:read:all' as PermissionName],
+      permissions: ['dashboards:read:all' as PermissionName],
     });
     await assignRoleToUser(testUser, mapDatabaseRoleToRole(role));
 

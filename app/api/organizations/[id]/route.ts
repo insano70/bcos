@@ -21,11 +21,6 @@ const getOrganizationHandler = async (
   try {
     const { id: organizationId } = await extractRouteParams(args[0], organizationParamsSchema);
 
-    log.info('Get organization request initiated', {
-      targetOrganizationId: organizationId,
-      requestingUserId: userContext.user_id,
-    });
-
     const organizationService = createRBACOrganizationsService(userContext);
     const organization = await organizationService.getOrganizationById(organizationId);
 
@@ -33,10 +28,22 @@ const getOrganizationHandler = async (
       throw NotFoundError('Organization');
     }
 
-    log.info('Organization retrieved successfully', {
-      targetOrganizationId: organizationId,
+    // Enriched read log with organization context
+    const template = logTemplates.crud.read('organization', {
+      resourceId: organization.organization_id,
+      resourceName: organization.name,
+      userId: userContext.user_id,
+      found: true,
       duration: Date.now() - startTime,
+      metadata: {
+        slug: organization.slug,
+        isActive: organization.is_active,
+        hasParent: !!organization.parent_organization_id,
+        memberCount: organization.member_count,
+        childrenCount: organization.children_count,
+      },
     });
+    log.info(template.message, template.context);
 
     return createSuccessResponse({
       id: organization.organization_id,
@@ -52,7 +59,12 @@ const getOrganizationHandler = async (
     });
   } catch (error) {
     const duration = Date.now() - startTime;
-    log.error('Get organization failed', error, { duration });
+    log.error('Get organization failed', error, {
+      operation: 'read_organization',
+      userId: userContext.user_id,
+      duration,
+      component: 'business-logic',
+    });
 
     return createErrorResponse(
       error instanceof Error ? error.message : 'Unknown error',
@@ -143,7 +155,12 @@ const updateOrganizationHandler = async (
     );
   } catch (error) {
     const duration = Date.now() - startTime;
-    log.error('Update organization failed', error, { duration });
+    log.error('Update organization failed', error, {
+      operation: 'update_organization',
+      userId: userContext.user_id,
+      duration,
+      component: 'business-logic',
+    });
 
     return createErrorResponse(
       error instanceof Error ? error.message : 'Unknown error',
@@ -163,26 +180,45 @@ const deleteOrganizationHandler = async (
   try {
     const { id: organizationId } = await extractRouteParams(args[0], organizationParamsSchema);
 
-    log.info('Delete organization request initiated', {
-      targetOrganizationId: organizationId,
-      requestingUserId: userContext.user_id,
-    });
-
     const organizationService = createRBACOrganizationsService(userContext);
+    
+    // Get organization info BEFORE deletion for logging
+    const organization = await organizationService.getOrganizationById(organizationId);
+    if (!organization) {
+      throw NotFoundError('Organization');
+    }
+
     await organizationService.deleteOrganization(organizationId);
 
     // Invalidate organization hierarchy cache (org removed from tree)
     await rbacCache.invalidateOrganizationHierarchy();
 
-    log.info('Organization deleted successfully', {
-      targetOrganizationId: organizationId,
+    // Enriched deletion log with organization context
+    const template = logTemplates.crud.delete('organization', {
+      resourceId: organizationId,
+      resourceName: organization.name,
+      userId: userContext.user_id,
+      soft: false,
       duration: Date.now() - startTime,
+      metadata: {
+        slug: organization.slug,
+        wasActive: organization.is_active,
+        hadMembers: organization.member_count,
+        hadChildren: organization.children_count,
+        hadParent: !!organization.parent_organization_id,
+      },
     });
+    log.info(template.message, template.context);
 
     return createSuccessResponse(null, 'Organization deleted successfully');
   } catch (error) {
     const duration = Date.now() - startTime;
-    log.error('Delete organization failed', error, { duration });
+    log.error('Delete organization failed', error, {
+      operation: 'delete_organization',
+      userId: userContext.user_id,
+      duration,
+      component: 'business-logic',
+    });
 
     return createErrorResponse(
       error instanceof Error ? error.message : 'Unknown error',

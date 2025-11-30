@@ -15,7 +15,7 @@ import '@/tests/setup/integration-setup';
 import { eq } from 'drizzle-orm';
 import { createRBACDashboardsService } from '@/lib/services/dashboards';
 import type { PermissionName } from '@/lib/types/rbac';
-import { PermissionDeniedError } from '@/lib/types/rbac';
+import { PermissionDeniedError } from '@/lib/errors/rbac-errors';
 import {
   assignRoleToUser,
   createTestOrganization,
@@ -32,7 +32,7 @@ import {
 
 describe('RBAC Dashboards Service - Permission Enforcement', () => {
   describe('getDashboards', () => {
-    it('should allow listing dashboards with analytics:read:organization permission', async () => {
+    it('should allow listing dashboards with dashboards:read:organization permission', async () => {
       const user = await createTestUser();
       const org = await createTestOrganization();
       await assignUserToOrganization(user, mapDatabaseOrgToOrg(org));
@@ -40,7 +40,7 @@ describe('RBAC Dashboards Service - Permission Enforcement', () => {
       const role = await createTestRole({
         name: 'analytics_reader_org',
         organizationId: org.organization_id,
-        permissions: ['analytics:read:organization' as PermissionName],
+        permissions: ['dashboards:read:organization' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role), mapDatabaseOrgToOrg(org));
 
@@ -51,11 +51,11 @@ describe('RBAC Dashboards Service - Permission Enforcement', () => {
       expect(Array.isArray(dashboards)).toBe(true);
     });
 
-    it('should allow listing dashboards with analytics:read:all permission', async () => {
+    it('should allow listing dashboards with dashboards:read:all permission', async () => {
       const user = await createTestUser();
       const role = await createTestRole({
         name: 'analytics_reader_all',
-        permissions: ['analytics:read:all' as PermissionName],
+        permissions: ['dashboards:read:all' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -82,7 +82,7 @@ describe('RBAC Dashboards Service - Permission Enforcement', () => {
   });
 
   describe('getDashboardCount', () => {
-    it('should allow getting dashboard count with analytics:read:organization permission', async () => {
+    it('should allow getting dashboard count with dashboards:read:organization permission', async () => {
       const user = await createTestUser();
       const org = await createTestOrganization();
       await assignUserToOrganization(user, mapDatabaseOrgToOrg(org));
@@ -90,7 +90,7 @@ describe('RBAC Dashboards Service - Permission Enforcement', () => {
       const role = await createTestRole({
         name: 'analytics_reader_org',
         organizationId: org.organization_id,
-        permissions: ['analytics:read:organization' as PermissionName],
+        permissions: ['dashboards:read:organization' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role), mapDatabaseOrgToOrg(org));
 
@@ -101,11 +101,11 @@ describe('RBAC Dashboards Service - Permission Enforcement', () => {
       expect(typeof count).toBe('number');
     });
 
-    it('should allow getting dashboard count with analytics:read:all permission', async () => {
+    it('should allow getting dashboard count with dashboards:read:all permission', async () => {
       const user = await createTestUser();
       const role = await createTestRole({
         name: 'analytics_reader_all',
-        permissions: ['analytics:read:all' as PermissionName],
+        permissions: ['dashboards:read:all' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -150,7 +150,7 @@ describe('RBAC Dashboards Service - Permission Enforcement', () => {
   });
 
   describe('createDashboard', () => {
-    it('should deny creating dashboard without analytics:read:all permission', async () => {
+    it('should deny creating dashboard without dashboards:read:all permission', async () => {
       const user = await createTestUser();
       const role = await createTestRole({
         name: 'no_analytics',
@@ -169,11 +169,11 @@ describe('RBAC Dashboards Service - Permission Enforcement', () => {
       ).rejects.toThrow(PermissionDeniedError);
     });
 
-    it('should deny creating dashboard with only analytics:read:organization permission', async () => {
+    it('should deny creating dashboard with only dashboards:read:organization permission', async () => {
       const user = await createTestUser();
       const role = await createTestRole({
         name: 'analytics_reader_org',
-        permissions: ['analytics:read:organization' as PermissionName],
+        permissions: ['dashboards:read:organization' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -190,7 +190,7 @@ describe('RBAC Dashboards Service - Permission Enforcement', () => {
   });
 
   describe('updateDashboard', () => {
-    it('should deny updating dashboard without analytics:read:all permission', async () => {
+    it('should deny updating dashboard without dashboards:read:all permission', async () => {
       const user = await createTestUser();
       const role = await createTestRole({
         name: 'no_analytics',
@@ -208,11 +208,11 @@ describe('RBAC Dashboards Service - Permission Enforcement', () => {
       ).rejects.toThrow(PermissionDeniedError);
     });
 
-    it('should deny updating dashboard with only analytics:read:organization permission', async () => {
+    it('should deny updating dashboard with only dashboards:read:organization permission', async () => {
       const user = await createTestUser();
       const role = await createTestRole({
         name: 'analytics_reader_org',
-        permissions: ['analytics:read:organization' as PermissionName],
+        permissions: ['dashboards:read:organization' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -228,7 +228,7 @@ describe('RBAC Dashboards Service - Permission Enforcement', () => {
   });
 
   describe('deleteDashboard', () => {
-    it('should deny deleting dashboard without analytics:read:all permission', async () => {
+    it('should deny deleting dashboard without dashboards:read:all permission', async () => {
       const user = await createTestUser();
       const role = await createTestRole({
         name: 'no_analytics',
@@ -244,11 +244,11 @@ describe('RBAC Dashboards Service - Permission Enforcement', () => {
       );
     });
 
-    it('should deny deleting dashboard with only analytics:read:organization permission', async () => {
+    it('should deny deleting dashboard with only dashboards:read:organization permission', async () => {
       const user = await createTestUser();
       const role = await createTestRole({
         name: 'analytics_reader_org',
-        permissions: ['analytics:read:organization' as PermissionName],
+        permissions: ['dashboards:read:organization' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -262,11 +262,11 @@ describe('RBAC Dashboards Service - Permission Enforcement', () => {
   });
 
   describe('createDashboard - permission enforcement with existing data', () => {
-    it('should pass permission check with analytics:read:all before attempting database operation', async () => {
+    it('should pass permission check with dashboards:read:all before attempting database operation', async () => {
       const user = await createTestUser();
       const role = await createTestRole({
         name: 'analytics_admin',
-        permissions: ['analytics:read:all' as PermissionName],
+        permissions: ['dashboards:read:all' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -291,11 +291,11 @@ describe('RBAC Dashboards Service - Permission Enforcement', () => {
   });
 
   describe('updateDashboard - permission enforcement with existing data', () => {
-    it('should pass permission check with analytics:read:all before attempting database operation', async () => {
+    it('should pass permission check with dashboards:read:all before attempting database operation', async () => {
       const user = await createTestUser();
       const role = await createTestRole({
         name: 'analytics_admin',
-        permissions: ['analytics:read:all' as PermissionName],
+        permissions: ['dashboards:read:all' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -329,21 +329,21 @@ describe('RBAC Dashboards Service - Permission Enforcement', () => {
       const orgRole = await createTestRole({
         name: 'org_analytics_reader',
         organizationId: org.organization_id,
-        permissions: ['analytics:read:organization' as PermissionName],
+        permissions: ['dashboards:read:organization' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(orgRole), mapDatabaseOrgToOrg(org));
 
       // Assign second role with all-scoped permission
       const adminRole = await createTestRole({
         name: 'analytics_admin',
-        permissions: ['analytics:read:all' as PermissionName],
+        permissions: ['dashboards:read:all' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(adminRole));
 
       const userContext = await buildUserContext(user, org.organization_id);
       const dashboardsService = createRBACDashboardsService(userContext);
 
-      // Should succeed because user has analytics:read:all through second role
+      // Should succeed because user has dashboards:read:all through second role
       const result = await dashboardsService.getDashboards();
       expect(Array.isArray(result)).toBe(true);
 
@@ -375,15 +375,15 @@ describe('RBAC Dashboards Service - Permission Enforcement', () => {
         throw new Error('Failed to create inactive role');
       }
 
-      // Get the analytics:read:all permission
+      // Get the dashboards:read:all permission
       const [permission] = await tx
         .select()
         .from((await import('@/lib/db/rbac-schema')).permissions)
-        .where(eq((await import('@/lib/db/rbac-schema')).permissions.name, 'analytics:read:all'))
+        .where(eq((await import('@/lib/db/rbac-schema')).permissions.name, 'dashboards:read:all'))
         .limit(1);
 
       if (!permission) {
-        throw new Error('analytics:read:all permission not found in database');
+        throw new Error('dashboards:read:all permission not found in database');
       }
 
       // Assign permission to the inactive role
@@ -457,7 +457,7 @@ describe('RBAC Dashboards Service - Permission Enforcement', () => {
   });
 
   describe('permission scope validation', () => {
-    it('should require organization context for analytics:read:organization permission', async () => {
+    it('should require organization context for dashboards:read:organization permission', async () => {
       const user = await createTestUser();
       const org = await createTestOrganization();
       await assignUserToOrganization(user, mapDatabaseOrgToOrg(org));
@@ -465,7 +465,7 @@ describe('RBAC Dashboards Service - Permission Enforcement', () => {
       const role = await createTestRole({
         name: 'org_analytics_reader',
         organizationId: org.organization_id,
-        permissions: ['analytics:read:organization' as PermissionName],
+        permissions: ['dashboards:read:organization' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role), mapDatabaseOrgToOrg(org));
 

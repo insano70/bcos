@@ -50,6 +50,8 @@ const getTransitionsHandler = async (
       count: transitions.length,
       duration,
       userId: userContext.user_id,
+      operation: 'list_status_transitions',
+      component: 'work-items',
     });
 
     return createSuccessResponse({ transitions });
@@ -58,6 +60,8 @@ const getTransitionsHandler = async (
     log.error('GET /api/work-item-types/[id]/transitions failed', error, {
       duration,
       userId: userContext.user_id,
+      operation: 'list_status_transitions',
+      component: 'work-items',
     });
     return createErrorResponse(
       error instanceof Error ? error : new Error(String(error)),
@@ -103,6 +107,8 @@ const createTransitionHandler = async (
       toStatusId: validatedData.to_status_id,
       duration,
       userId: userContext.user_id,
+      operation: 'create_status_transition',
+      component: 'work-items',
     });
 
     return createSuccessResponse(newTransition);
@@ -111,6 +117,8 @@ const createTransitionHandler = async (
     log.error('POST /api/work-item-types/[id]/transitions failed', error, {
       duration,
       userId: userContext.user_id,
+      operation: 'create_status_transition',
+      component: 'work-items',
     });
     return createErrorResponse(
       error instanceof Error ? error : new Error(String(error)),

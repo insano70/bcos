@@ -6,6 +6,7 @@ import EditableTableRow from './editable-table-row';
 import PaginationClassic from './pagination-classic';
 import DeleteConfirmationModal from './delete-confirmation-modal';
 import { usePagination } from '@/lib/hooks/use-pagination';
+import { clientErrorLog } from '@/lib/utils/debug-client';
 
 // Column definition with display and edit mode support
 export interface EditableColumn<T> {
@@ -257,7 +258,7 @@ export default function EditableDataTable<T extends { id: string }>({
         }, 100);
       }
     } catch (error) {
-      console.error('Quick add failed:', error);
+      clientErrorLog('Quick add failed', error);
     } finally {
       setIsQuickAdding(false);
     }
@@ -414,8 +415,8 @@ export default function EditableDataTable<T extends { id: string }>({
         }
         setValidationErrors((prev) => new Map(prev).set(rowId, customFieldErrors));
       } else {
-        // System error - log to console
-        console.error('Save failed:', error);
+        // System error - log to client error handler
+        clientErrorLog('Save failed', error);
       }
       // Keep in edit mode on error - let parent handle error toast
     } finally {
@@ -448,7 +449,7 @@ export default function EditableDataTable<T extends { id: string }>({
     try {
       await onDelete?.(item);
     } catch (error) {
-      console.error('Delete failed:', error);
+      clientErrorLog('Delete failed', error);
     }
   };
 

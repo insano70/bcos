@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useMemo, useState } from 'react';
+import DeleteConfirmationModal from '@/components/delete-confirmation-modal';
 import RelationshipModal from '@/components/relationship-modal';
 import ModalBlank from '@/components/modal-blank';
 import {
@@ -26,6 +27,11 @@ export default function ManageRelationshipsModal({
   const [editingRelationship, setEditingRelationship] = useState<WorkItemTypeRelationship | null>(
     null
   );
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [relationshipToDelete, setRelationshipToDelete] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
 
   const {
     data: relationships,
@@ -36,22 +42,22 @@ export default function ManageRelationshipsModal({
   const deleteRelationship = useDeleteTypeRelationship();
 
   const handleDeleteRelationship = useCallback(
-    async (relationshipId: string, relationshipName: string) => {
-      if (
-        confirm(
-          `Are you sure you want to delete the "${relationshipName}" relationship? This action cannot be undone.`
-        )
-      ) {
-        try {
-          await deleteRelationship.mutateAsync(relationshipId);
-          refetch();
-        } catch (error) {
-          console.error('Failed to delete relationship:', error);
-        }
-      }
+    (relationshipId: string, relationshipName: string) => {
+      setRelationshipToDelete({ id: relationshipId, name: relationshipName });
+      setIsDeleteModalOpen(true);
     },
-    [deleteRelationship, refetch]
+    []
   );
+
+  const confirmDeleteRelationship = useCallback(async () => {
+    if (!relationshipToDelete) return;
+    try {
+      await deleteRelationship.mutateAsync(relationshipToDelete.id);
+      refetch();
+    } catch (error) {
+      console.error('Failed to delete relationship:', error);
+    }
+  }, [deleteRelationship, refetch, relationshipToDelete]);
 
   const handleEditRelationship = useCallback((relationship: WorkItemTypeRelationship) => {
     setEditingRelationship(relationship);
@@ -260,6 +266,24 @@ export default function ManageRelationshipsModal({
           }}
           parentTypeId={workItemTypeId}
           relationship={editingRelationship}
+        />
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {relationshipToDelete && (
+        <DeleteConfirmationModal
+          isOpen={isDeleteModalOpen}
+          setIsOpen={(value) => {
+            setIsDeleteModalOpen(value);
+            if (!value) {
+              setRelationshipToDelete(null);
+            }
+          }}
+          title="Delete Relationship"
+          itemName={relationshipToDelete.name}
+          message={`Are you sure you want to delete the "${relationshipToDelete.name}" relationship? This action cannot be undone.`}
+          confirmButtonText="Delete Relationship"
+          onConfirm={confirmDeleteRelationship}
         />
       )}
     </>

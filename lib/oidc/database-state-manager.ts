@@ -54,12 +54,18 @@ class DatabaseStateManager {
    */
   async registerState(state: string, nonce: string, userFingerprint?: string): Promise<void> {
     if (!state || state.length === 0) {
-      log.error('Attempted to register empty state token');
+      log.error('Attempted to register empty state token', new Error('Empty state token'), {
+        operation: 'register_oidc_state',
+        component: 'auth',
+      });
       throw new Error('Invalid state token');
     }
 
     if (!nonce || nonce.length === 0) {
-      log.error('Attempted to register empty nonce');
+      log.error('Attempted to register empty nonce', new Error('Empty nonce'), {
+        operation: 'register_oidc_state',
+        component: 'auth',
+      });
       throw new Error('Invalid nonce');
     }
 

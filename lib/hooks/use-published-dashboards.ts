@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api/client';
 
 export interface PublishedDashboard {
@@ -11,66 +11,48 @@ export interface PublishedDashboard {
   is_default?: boolean;
 }
 
+export interface UsePublishedDashboardsReturn {
+  dashboards: PublishedDashboard[];
+  defaultDashboard: PublishedDashboard | null;
+  loading: boolean;
+  error: string | null;
+  refreshDashboards: () => void;
+}
+
 /**
  * Hook to fetch and manage published dashboards for navigation
  *
+ * Uses React Query for:
+ * - Query deduplication (multiple components share single API call)
+ * - Automatic caching (5 minute stale time)
+ * - Background refetching
+ *
  * Note: Logging is handled server-side in the API route.
- * Client-side logging removed per best practices:
- * - Reduces browser bundle size
- * - Prevents PII exposure in browser console
- * - Server logs already capture all API calls
  */
-export function usePublishedDashboards() {
-  const [dashboards, setDashboards] = useState<PublishedDashboard[]>([]);
-  const [defaultDashboard, setDefaultDashboard] = useState<PublishedDashboard | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const loadPublishedDashboards = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
+export function usePublishedDashboards(): UsePublishedDashboardsReturn {
+  const query = useQuery({
+    queryKey: ['dashboards', 'published', 'active'],
+    queryFn: async () => {
       // Fetch only published and active dashboards
       // API route handles all logging server-side
       const result = await apiClient.get<{
         dashboards: PublishedDashboard[];
       }>('/api/admin/analytics/dashboards?is_published=true&is_active=true');
 
-      const publishedDashboards = result.dashboards || [];
+      return result.dashboards || [];
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes - prevents excessive refetches
+    gcTime: 10 * 60 * 1000, // 10 minutes - cache retention
+  });
 
-      // Find the default dashboard
-      const defaultDash = publishedDashboards.find((d) => d.is_default === true);
-
-      setDashboards(publishedDashboards);
-      setDefaultDashboard(defaultDash || null);
-    } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : 'Failed to load published dashboards';
-
-      // Use React error state instead of logging
-      // Server already logs the API error
-      setError(errorMessage);
-      setDashboards([]); // Ensure we have an empty array on error
-      setDefaultDashboard(null);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadPublishedDashboards();
-  }, [loadPublishedDashboards]);
-
-  const refreshDashboards = () => {
-    loadPublishedDashboards();
-  };
+  // Find the default dashboard from query data
+  const defaultDashboard = query.data?.find((d) => d.is_default === true) || null;
 
   return {
-    dashboards,
+    dashboards: query.data || [],
     defaultDashboard,
-    loading,
-    error,
-    refreshDashboards,
+    loading: query.isLoading,
+    error: query.error?.message || null,
+    refreshDashboards: () => query.refetch(),
   };
 }

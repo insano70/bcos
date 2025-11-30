@@ -128,10 +128,34 @@ export function isInClientContext(): boolean {
 }
 
 /**
+ * Server debug logger type (imported from ./debug)
+ */
+interface ServerDebugLogger {
+  auth: (message: string, data?: unknown) => void;
+  middleware: (message: string, data?: unknown) => void;
+  rbac: (message: string, data?: unknown) => void;
+  security: (message: string, data?: unknown) => void;
+  session: (message: string, data?: unknown) => void;
+  database: (message: string, data?: unknown) => void;
+  api: (message: string, data?: unknown) => void;
+  business: (message: string, data?: unknown) => void;
+  performance: (message: string, startTime?: number, data?: unknown) => void;
+  correlation: (message: string, correlationId: string, data?: unknown) => void;
+}
+
+/**
+ * Union type for debug loggers across contexts
+ */
+export type ContextualDebugLogger = typeof clientSafeDebugLog | ServerDebugLogger;
+
+/**
  * Get appropriate debug logger based on context
  * Returns client-safe logger in client contexts, can import universal logger in server contexts
+ * 
+ * Note: The server debugLog and client debugLog have different interface structures.
+ * Consumers should use the common methods (auth, middleware, rbac, security, session, performance).
  */
-export async function getContextualDebugLogger() {
+export async function getContextualDebugLogger(): Promise<ContextualDebugLogger> {
   if (isClientContext) {
     return clientSafeDebugLog;
   } else {

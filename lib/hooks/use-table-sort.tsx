@@ -7,7 +7,14 @@ interface SortConfig<T> {
   direction: 'asc' | 'desc';
 }
 
-export function useTableSort<T>(data: T[]) {
+interface UseTableSortReturn<T> {
+  sortedData: T[];
+  handleSort: (key: keyof T) => void;
+  getSortIcon: (key: keyof T) => React.ReactNode;
+  sortConfig: SortConfig<T> | null;
+}
+
+export function useTableSort<T>(data: T[]): UseTableSortReturn<T> {
   const [sortConfig, setSortConfig] = useState<SortConfig<T> | null>(null);
 
   const handleSort = (key: keyof T) => {

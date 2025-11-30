@@ -35,11 +35,13 @@ const updateColumnHandler = async (
     };
     const updated = await metadataService.updateColumnMetadata(id, updateData);
 
+    // Note: Change tracking requires getColumnById method to be added to ExplorerMetadataService
     log.info('Column metadata updated', {
       operation: 'data_explorer_update_column',
       resourceType: 'data_explorer_metadata',
       resourceId: id,
       userId: userContext.user_id,
+      fieldsUpdated: Object.keys(updateData),
       component: 'business-logic',
     });
 

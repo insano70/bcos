@@ -3,7 +3,7 @@ import { db } from '@/lib/db';
 import { user_organizations } from '@/lib/db/schema';
 import { log } from '@/lib/logger';
 import type { UserContext } from '@/lib/types/rbac';
-import { PermissionDeniedError } from '@/lib/types/rbac';
+import { PermissionDeniedError } from '@/lib/errors/rbac-errors';
 import type { UserWithOrganizations } from './rbac-users-service';
 import { createRBACUsersService } from './rbac-users-service';
 

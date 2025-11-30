@@ -4,6 +4,7 @@ import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/re
 import { useState, useEffect, useCallback } from 'react';
 import { apiClient } from '@/lib/api/client';
 import type { SchemaInstruction } from '@/lib/types/data-explorer';
+import DeleteConfirmationModal from './delete-confirmation-modal';
 import Toast from './toast';
 
 interface SchemaInstructionsModalProps {
@@ -19,6 +20,10 @@ export default function SchemaInstructionsModal({ isOpen, onClose }: SchemaInstr
   const [isEditing, setIsEditing] = useState(false);
   const [editingInstruction, setEditingInstruction] = useState<SchemaInstruction | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+
+  // Delete confirmation state
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [instructionToDelete, setInstructionToDelete] = useState<SchemaInstruction | null>(null);
 
   // Form state
   const [formTitle, setFormTitle] = useState('');
@@ -103,11 +108,16 @@ export default function SchemaInstructionsModal({ isOpen, onClose }: SchemaInstr
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this instruction?')) return;
+  const handleDeleteClick = (instruction: SchemaInstruction) => {
+    setInstructionToDelete(instruction);
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmDeleteInstruction = async () => {
+    if (!instructionToDelete) return;
 
     try {
-      await apiClient.delete(`/api/data/explorer/schema-instructions/${id}`);
+      await apiClient.delete(`/api/data/explorer/schema-instructions/${instructionToDelete.instruction_id}`);
       setToastMessage('Instruction deleted');
       setShowToast(true);
       fetchInstructions();
@@ -361,7 +371,7 @@ export default function SchemaInstructionsModal({ isOpen, onClose }: SchemaInstr
                             </button>
                             <button
                               type="button"
-                              onClick={() => handleDelete(inst.instruction_id)}
+                              onClick={() => handleDeleteClick(inst)}
                               className="text-sm text-red-600 hover:text-red-700"
                             >
                               Delete
@@ -425,6 +435,24 @@ export default function SchemaInstructionsModal({ isOpen, onClose }: SchemaInstr
       <Toast type="success" open={showToast} setOpen={setShowToast}>
         {toastMessage}
       </Toast>
+
+      {/* Delete Confirmation Modal */}
+      {instructionToDelete && (
+        <DeleteConfirmationModal
+          isOpen={isDeleteModalOpen}
+          setIsOpen={(value) => {
+            setIsDeleteModalOpen(value);
+            if (!value) {
+              setInstructionToDelete(null);
+            }
+          }}
+          title="Delete Instruction"
+          itemName={instructionToDelete.title}
+          message="Are you sure you want to delete this instruction? This action cannot be undone."
+          confirmButtonText="Delete Instruction"
+          onConfirm={confirmDeleteInstruction}
+        />
+      )}
     </>
   );
 }

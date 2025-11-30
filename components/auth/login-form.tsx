@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useId, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { apiClient } from '@/lib/api/client';
+import { clientDebugLog, clientErrorLog } from '@/lib/utils/debug-client';
 import { loginSchema } from '@/lib/validations/auth';
 import MFASetupDialog from './mfa-setup-dialog';
 import MFAVerifyDialog from './mfa-verify-dialog';
@@ -68,14 +69,14 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
 
         if (data.defaultDashboard?.dashboard_id) {
           setDefaultDashboardId(data.defaultDashboard.dashboard_id);
-          console.log('Default dashboard found', {
+          clientDebugLog.auth('Default dashboard found', {
             dashboardName: data.defaultDashboard.dashboard_name,
             dashboardId: data.defaultDashboard.dashboard_id,
           });
         }
       } catch (error) {
         // Silently fail - just use /dashboard as fallback
-        console.log('No default dashboard configured or error fetching', { error });
+        clientDebugLog.auth('No default dashboard configured or error fetching', { error });
       }
     };
 
@@ -84,7 +85,7 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
 
   // Debug MFA state changes
   useEffect(() => {
-    console.log('MFA State', {
+    clientDebugLog.auth('MFA State', {
       mfaRequired,
       mfaSetupRequired,
       hasTempToken: !!mfaTempToken,
@@ -142,7 +143,7 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
   // Redirect authenticated users away from login page
   useEffect(() => {
     if (isAuthenticated && !isSubmitting) {
-      console.log('User already authenticated, redirecting', { callbackUrl });
+      clientDebugLog.auth('User already authenticated, redirecting', { callbackUrl });
       router.push(callbackUrl);
     }
   }, [isAuthenticated, isSubmitting, callbackUrl, router]);
@@ -155,7 +156,7 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
     // 3. Form was submitting (prevents redirect on page load)
     // 4. Not currently in the middle of MFA flow (check if we ever were in MFA state)
     if (isAuthenticated && !mfaRequired && !mfaSetupRequired && isSubmitting) {
-      console.log('Login completed without MFA, redirecting', { callbackUrl });
+      clientDebugLog.auth('Login completed without MFA, redirecting', { callbackUrl });
 
       onSuccess?.();
 
@@ -232,7 +233,7 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
     try {
       setError(null);
       setIsSubmitting(true);
-      console.log('Login form submitting', { email: data.email });
+      clientDebugLog.auth('Login form submitting', { email: data.email });
 
       await login(data.email, data.password, data.remember);
 
@@ -245,7 +246,7 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
       // Keep isSubmitting true - either MFA dialog will take over, or the
       // useEffect below will detect successful login and redirect
     } catch (error) {
-      console.error('Login error', error, { email: data.email });
+      clientErrorLog('Login error', error, { email: data.email });
       const errorMessage =
         error instanceof Error ? error.message : 'An unexpected error occurred. Please try again.';
       setError(errorMessage);

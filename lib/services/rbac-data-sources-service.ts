@@ -31,7 +31,7 @@ import type {
   UpdateDataSourceData,
 } from '@/lib/types/data-sources';
 import type { UserContext } from '@/lib/types/rbac';
-import { PermissionDeniedError } from '@/lib/types/rbac';
+import { PermissionDeniedError } from '@/lib/errors/rbac-errors';
 import type { TableColumnsQueryInput } from '@/lib/validations/data-sources';
 
 /**

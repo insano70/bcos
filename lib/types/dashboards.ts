@@ -3,6 +3,19 @@
  * Shared types for dashboard services, API routes, and components
  */
 
+import type { DashboardLayout, StoredChartPosition } from './dashboard-config';
+
+/**
+ * Chart position for API input (simplified, without chart ID)
+ * The chart ID is paired via array index with chart_ids
+ */
+export interface InputChartPosition {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
 export interface CreateDashboardData {
   dashboard_name: string;
   dashboard_description?: string | undefined;
@@ -15,8 +28,8 @@ export interface CreateDashboardData {
    */
   organization_id?: string | null | undefined;
   chart_ids?: string[] | undefined;
-  chart_positions?: Record<string, unknown>[] | undefined;
-  layout_config?: Record<string, unknown> | undefined;
+  chart_positions?: InputChartPosition[] | undefined;
+  layout_config?: Partial<DashboardLayout> | undefined;
   is_active?: boolean | undefined;
   is_published?: boolean | undefined;
   is_default?: boolean | undefined;
@@ -34,8 +47,8 @@ export interface UpdateDashboardData {
    */
   organization_id?: string | null;
   chart_ids?: string[];
-  chart_positions?: Record<string, unknown>[];
-  layout_config?: Record<string, unknown>;
+  chart_positions?: InputChartPosition[];
+  layout_config?: Partial<DashboardLayout>;
   is_active?: boolean;
   is_published?: boolean;
   is_default?: boolean;
@@ -61,7 +74,7 @@ export interface DashboardWithCharts {
   dashboard_id: string;
   dashboard_name: string;
   dashboard_description: string | undefined;
-  layout_config: Record<string, unknown>;
+  layout_config: DashboardLayout;
   dashboard_category_id: number | undefined;
   organization_id: string | undefined;
   created_by: string;
@@ -91,7 +104,7 @@ export interface DashboardWithCharts {
     chart_name: string;
     chart_description: string | undefined;
     chart_type: string;
-    position_config: Record<string, unknown> | undefined;
+    position_config: StoredChartPosition | undefined;
   }[];
 }
 

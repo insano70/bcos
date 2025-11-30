@@ -1,4 +1,4 @@
-import type { Practice, PracticeAttributes, ColorStyles } from '@/lib/types/practice';
+import type { Practice, PracticeAttributes, ColorStyles, BusinessHours, DaySchedule } from '@/lib/types/practice';
 import { parseBusinessHours, parseInsurance } from '@/lib/utils/json-parser';
 import { formatBusinessHours } from '@/lib/utils/business-hours-formatter';
 import ContactForm from './contact-form';
@@ -16,14 +16,14 @@ interface ContactProps {
 }
 
 export default function Contact({ practice, attributes, colorStyles }: ContactProps) {
-  const renderBusinessHoursJSX = (hours: any) => {
+  const renderBusinessHoursJSX = (hours: BusinessHours | null) => {
     if (!hours) return null;
     
-    const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+    const days: (keyof BusinessHours)[] = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
     const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
     
     return days.map((day, index) => {
-      const schedule = hours[day];
+      const schedule: DaySchedule | undefined = hours[day];
       if (!schedule) return null;
       
       return (

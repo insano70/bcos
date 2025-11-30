@@ -14,6 +14,7 @@ import DeleteDataSourceModal from '@/components/delete-data-source-modal';
 import FilterButton, { type ActiveFilter, type FilterGroup } from '@/components/dropdown-filter';
 import { ProtectedComponent } from '@/components/rbac/protected-component';
 import Toast from '@/components/toast';
+import { clientDebugLog } from '@/lib/utils/debug-client';
 import { type DataSource, useDataSources } from '@/lib/hooks/use-data-sources';
 
 // Extend DataSource type to include id field for DataTable
@@ -21,9 +22,7 @@ type DataSourceWithId = DataSource & { id: string };
 
 export default function DataSourcesContent() {
   // Component rendered (client-side debug)
-  if (process.env.NODE_ENV === 'development') {
-    console.log('🗄️ DataSourcesContent: Component rendered');
-  }
+  clientDebugLog.component('DataSourcesContent: Component rendered');
 
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { data: response, isLoading, error, refetch } = useDataSources({ limit: 50, offset: 0 });
@@ -114,29 +113,23 @@ export default function DataSourcesContent() {
   const [toastType, setToastType] = useState<'success' | 'error'>('success');
 
   // Auth state logging (client-side debug)
-  if (process.env.NODE_ENV === 'development') {
-    console.log('👤 DataSourcesContent: Auth state -', {
-      isAuthenticated,
-      authLoading,
-    });
-  }
+  clientDebugLog.auth('DataSourcesContent: Auth state', {
+    isAuthenticated,
+    authLoading,
+  });
 
   // API state logging (client-side debug)
-  if (process.env.NODE_ENV === 'development') {
-    console.log('📊 DataSourcesContent: API state -', {
-      hasDataSources: !!dataSources,
-      dataSourceCount: dataSources.length,
-      isLoading,
-      hasError: !!error,
-      errorMessage: error?.message,
-    });
-  }
+  clientDebugLog.api('DataSourcesContent: API state', {
+    hasDataSources: !!dataSources,
+    dataSourceCount: dataSources.length,
+    isLoading,
+    hasError: !!error,
+    errorMessage: error?.message,
+  });
 
   // Redirect to login if not authenticated
   if (!authLoading && !isAuthenticated) {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('🔒 DataSourcesContent: User not authenticated, should redirect');
-    }
+    clientDebugLog.auth('DataSourcesContent: User not authenticated, should redirect');
     return null; // Let the auth provider handle the redirect
   }
 

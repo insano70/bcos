@@ -2,7 +2,7 @@
 
 import { useForm } from 'react-hook-form';
 import { useState } from 'react';
-import type { Practice, PracticeAttributes } from '@/lib/types/practice';
+import type { Practice, PracticeAttributes, ColorStyles } from '@/lib/types/practice';
 
 interface AppointmentFormData {
   first_name: string;
@@ -18,7 +18,7 @@ interface AppointmentFormData {
 interface AppointmentFormProps {
   practice: Practice;
   attributes: PracticeAttributes;
-  colorStyles?: any;
+  colorStyles?: ColorStyles;
 }
 
 export default function AppointmentForm({ practice, attributes, colorStyles }: AppointmentFormProps) {

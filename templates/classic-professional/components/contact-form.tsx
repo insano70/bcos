@@ -3,7 +3,7 @@
 import { useForm } from 'react-hook-form';
 import { useState } from 'react';
 
-import type { Practice, PracticeAttributes } from '@/lib/types/practice';
+import type { Practice, PracticeAttributes, ColorStyles } from '@/lib/types/practice';
 
 interface ContactFormData {
   name: string;
@@ -16,7 +16,7 @@ interface ContactFormData {
 interface ContactFormProps {
   practice: Practice;
   attributes: PracticeAttributes;
-  colorStyles?: any;
+  colorStyles?: ColorStyles | undefined;
 }
 
 export default function ContactForm({ practice, attributes, colorStyles }: ContactFormProps) {

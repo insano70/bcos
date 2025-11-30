@@ -378,6 +378,7 @@ describe('analytics validation schemas', () => {
       expect(result.data).toEqual({
         ...validData,
         is_published: false, // Schema adds default value
+        is_default: false, // Schema adds default value
       });
     });
 

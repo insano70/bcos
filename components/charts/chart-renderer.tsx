@@ -54,12 +54,19 @@ interface ColumnDefinition {
 }
 
 /**
+ * Raw analytics data row
+ */
+interface AnalyticsRow {
+  [key: string]: string | number | boolean | null | undefined;
+}
+
+/**
  * Chart renderer props
  */
 interface ChartRendererProps {
   chartType: string;
   data: ChartData;
-  rawData?: Record<string, unknown>[];
+  rawData?: AnalyticsRow[];
 
   // Chart-specific props
   title?: string;
@@ -85,8 +92,26 @@ interface ChartRendererProps {
   aspectRatio?: number;
   frequency?: string;
 
-  // Additional props passed through
-  [key: string]: unknown;
+  // Animation props
+  animationDuration?: number;
+
+  // Accessibility props
+  ariaLabel?: string;
+  ariaDescribedBy?: string;
+
+  // Theme props
+  theme?: 'light' | 'dark';
+
+  // Legend props
+  showLegend?: boolean;
+  legendPosition?: 'top' | 'bottom' | 'left' | 'right';
+
+  // Tooltip props
+  showTooltips?: boolean;
+
+  // Grid props
+  showGrid?: boolean;
+  gridColor?: string;
 }
 
 /**
@@ -154,7 +179,15 @@ export default function ChartRenderer({
   minHeight,
   maxHeight,
   aspectRatio,
-  ...otherProps
+  animationDuration,
+  ariaLabel,
+  ariaDescribedBy,
+  theme,
+  showLegend,
+  legendPosition,
+  showTooltips,
+  showGrid,
+  gridColor,
 }: ChartRendererProps) {
   // Get the component for this chart type
   const Component = CHART_COMPONENTS[chartType];
@@ -166,7 +199,6 @@ export default function ChartRenderer({
       typeofChartType: typeof chartType,
       availableTypes: Object.keys(CHART_COMPONENTS),
       data,
-      otherProps,
     });
     
     return (
@@ -205,7 +237,6 @@ export default function ChartRenderer({
         colorPalette={colorPalette || 'default'}
         measureType={originalMeasureType || data.measureType}
         height={height}
-        {...otherProps}
       />
     );
   }
@@ -240,12 +271,11 @@ export default function ChartRenderer({
       <AnalyticsNumberChart
         data={data}
         title={measure}
-        animationDuration={2}
+        animationDuration={animationDuration ?? 2}
         responsive={responsive}
         minHeight={minHeight}
         maxHeight={maxHeight}
         aspectRatio={aspectRatio}
-        {...otherProps}
       />
     );
   }
@@ -271,21 +301,33 @@ export default function ChartRenderer({
         minHeight={minHeight}
         maxHeight={maxHeight}
         aspectRatio={aspectRatio}
-        {...otherProps}
       />
     );
   }
 
   // Standard chart rendering (line, bar, stacked-bar, horizontal-bar, pie, doughnut, area)
   // Pass ref for export functionality
-  const chartProps = {
+  const chartProps: Record<string, unknown> = {
     ref: chartRef,
     data,
     width,
     height,
     ...(frequency && { frequency }),
     ...(stackingMode && { stackingMode }),
-    ...otherProps,
+    ...(animationDuration !== undefined && { animationDuration }),
+    ...(ariaLabel && { ariaLabel }),
+    ...(ariaDescribedBy && { ariaDescribedBy }),
+    ...(theme && { theme }),
+    ...(showLegend !== undefined && { showLegend }),
+    ...(legendPosition && { legendPosition }),
+    ...(showTooltips !== undefined && { showTooltips }),
+    ...(showGrid !== undefined && { showGrid }),
+    ...(gridColor && { gridColor }),
+    ...(responsive !== undefined && { responsive }),
+    ...(minHeight !== undefined && { minHeight }),
+    ...(maxHeight !== undefined && { maxHeight }),
+    ...(aspectRatio !== undefined && { aspectRatio }),
+    ...(colorPalette && { colorPalette }),
   };
 
   return <Component {...chartProps} />;

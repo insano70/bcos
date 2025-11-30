@@ -96,10 +96,11 @@ export async function getColumnName(
 
     return resolvedName;
   } catch (error) {
-    log.error('Failed to resolve column name', {
+    log.error('Failed to resolve column name', error instanceof Error ? error : new Error(String(error)), {
       dataSourceId,
       columnType,
-      error,
+      operation: 'resolve_column_name',
+      component: 'analytics',
     });
     return getDefaultColumnName(columnType);
   }
@@ -161,9 +162,10 @@ export async function getResolvedColumns(
 
     return resolved;
   } catch (error) {
-    log.error('Failed to resolve columns', {
+    log.error('Failed to resolve columns', error instanceof Error ? error : new Error(String(error)), {
       dataSourceId,
-      error,
+      operation: 'resolve_columns',
+      component: 'analytics',
     });
     return getDefaultColumns();
   }

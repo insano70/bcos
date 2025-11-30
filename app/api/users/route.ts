@@ -7,7 +7,7 @@ import { rbacRoute } from '@/lib/api/route-handlers';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
 import { getPagination, getSortParams } from '@/lib/api/utils/request';
 import { account_security, db } from '@/lib/db';
-import { log, logTemplates, sanitizeFilters } from '@/lib/logger';
+import { log, logTemplates, sanitizeFilters, SLOW_THRESHOLDS } from '@/lib/logger';
 import { createRBACUsersService } from '@/lib/services/rbac-users-service';
 import { createUserRolesService } from '@/lib/services/user-roles-service';
 import type { UserContext } from '@/lib/types/rbac';
@@ -123,7 +123,7 @@ const getUsersHandler = async (request: NextRequest, userContext: UserContext) =
         direction: sort.sortOrder,
       },
       duration: Date.now() - startTime,
-      slow: Date.now() - startTime > 1000,
+      slow: Date.now() - startTime > SLOW_THRESHOLDS.API_OPERATION,
       component: 'business-logic',
     });
 

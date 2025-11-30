@@ -25,12 +25,76 @@
  * ```
  */
 
+import { SLOW_THRESHOLDS } from './constants';
+
+/**
+ * Base log context with common fields
+ */
+interface BaseLogContext {
+  /** Operation being performed */
+  operation: string;
+  /** Component generating the log */
+  component: string;
+  /** Duration in milliseconds (if applicable) */
+  duration?: number | undefined;
+  /** Whether operation exceeded threshold */
+  slow?: boolean | undefined;
+}
+
+/**
+ * User-related log context
+ */
+interface UserLogContext {
+  /** User ID */
+  userId?: string | undefined;
+  /** User email (will be sanitized) */
+  email?: string | undefined;
+  /** Organization ID */
+  organizationId?: string | undefined;
+}
+
+/**
+ * Resource-related log context
+ */
+interface ResourceLogContext {
+  /** Resource type (e.g., 'work_item', 'user') */
+  resourceType?: string | undefined;
+  /** Resource identifier */
+  resourceId?: string | undefined;
+  /** Resource name for display */
+  resourceName?: string | undefined;
+}
+
+/**
+ * Security-related log context
+ */
+interface SecurityLogContext {
+  /** IP address */
+  ipAddress?: string | undefined;
+  /** User agent string */
+  userAgent?: string | undefined;
+  /** Security severity level */
+  severity?: 'low' | 'medium' | 'high' | 'critical' | 'info' | undefined;
+  /** Whether the action was blocked */
+  blocked?: boolean | undefined;
+  /** Reason for security action */
+  reason?: string | undefined;
+}
+
+/**
+ * Complete log context combining all context types
+ */
+type LogContext = BaseLogContext & UserLogContext & ResourceLogContext & SecurityLogContext & {
+  /** Additional arbitrary context fields */
+  [key: string]: string | number | boolean | null | undefined | object;
+};
+
 /**
  * Template return type - message + context object
  */
 interface LogTemplate {
   message: string;
-  context: Record<string, unknown>;
+  context: LogContext;
 }
 
 /**
@@ -71,7 +135,7 @@ export const crudTemplates = {
       organizationId: details.organizationId,
       found: details.found,
       duration: details.duration,
-      slow: details.duration > 1000,
+      slow: details.duration > SLOW_THRESHOLDS.API_OPERATION,
       component: 'business-logic',
       ...details.metadata,
     },
@@ -117,7 +181,7 @@ export const crudTemplates = {
 
       // Performance
       duration: details.duration,
-      slow: details.duration > 1000,
+      slow: details.duration > SLOW_THRESHOLDS.API_OPERATION,
 
       component: 'business-logic',
       ...details.metadata,
@@ -147,7 +211,7 @@ export const crudTemplates = {
       userId: details.userId,
       organizationId: details.organizationId,
       duration: details.duration,
-      slow: details.duration > 2000,
+      slow: details.duration > SLOW_THRESHOLDS.AUTH_OPERATION,
       component: 'business-logic',
       ...details.metadata,
     },
@@ -188,7 +252,7 @@ export const crudTemplates = {
         changedFields: Object.keys(details.changes),
 
         duration: details.duration,
-        slow: details.duration > 2000,
+        slow: details.duration > SLOW_THRESHOLDS.AUTH_OPERATION,
         component: 'business-logic',
         ...details.metadata,
       },

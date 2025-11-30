@@ -15,13 +15,22 @@ interface ExtendedDataset {
 }
 
 /**
+ * Tooltip callback configuration for Chart.js
+ */
+interface TooltipCallbacks<T extends 'bar' | 'line'> {
+  title: (this: TooltipModel<T>, tooltipItems: TooltipItem<T>[]) => string;
+  label: (this: TooltipModel<T>, tooltipItem: TooltipItem<T>) => string;
+  footer: (this: TooltipModel<T>, tooltipItems: TooltipItem<T>[]) => string[];
+}
+
+/**
  * Enhanced tooltip callback for period comparison charts
  * Works with both bar and line charts
  */
 export function createPeriodComparisonTooltipCallbacks<T extends 'bar' | 'line' = 'bar'>(
   frequency: string = 'Monthly',
   _darkMode: boolean = false
-) {
+): TooltipCallbacks<T> {
   return {
     title: function (this: TooltipModel<T>, tooltipItems: TooltipItem<T>[]) {
       // Format tooltip title based on frequency
@@ -100,7 +109,9 @@ export function createPeriodComparisonTooltipCallbacks<T extends 'bar' | 'line' 
 /**
  * Enhanced tooltip callback for horizontal bar charts with period comparison
  */
-export function createPeriodComparisonHorizontalTooltipCallbacks(_darkMode: boolean = false) {
+export function createPeriodComparisonHorizontalTooltipCallbacks(
+  _darkMode: boolean = false
+): TooltipCallbacks<'bar'> {
   return {
     title: function (this: TooltipModel<'bar'>, tooltipItems: TooltipItem<'bar'>[]) {
       // Show the category label as title
@@ -174,7 +185,9 @@ export function createPeriodComparisonHorizontalTooltipCallbacks(_darkMode: bool
 /**
  * Enhanced tooltip callback for stacked bar charts with period comparison
  */
-export function createPeriodComparisonStackedTooltipCallbacks(_darkMode: boolean = false) {
+export function createPeriodComparisonStackedTooltipCallbacks(
+  _darkMode: boolean = false
+): TooltipCallbacks<'bar'> {
   return {
     title: () => '',
     label: function (this: TooltipModel<'bar'>, tooltipItem: TooltipItem<'bar'>) {

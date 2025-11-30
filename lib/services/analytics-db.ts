@@ -5,7 +5,7 @@ import postgres from 'postgres';
 type PostgresRawParams = Parameters<postgres.Sql['unsafe']>[1];
 
 import { getAnalyticsDatabaseConfig } from '@/lib/env';
-import { log } from '@/lib/logger';
+import { log, SLOW_THRESHOLDS } from '@/lib/logger';
 
 /**
  * Analytics Database Service
@@ -132,7 +132,7 @@ export const executeAnalyticsQuery = async <T = Record<string, unknown>>(
       operation: 'execute_query',
       duration,
       rowCount: result.length,
-      slow: duration > 500,
+      slow: duration > SLOW_THRESHOLDS.DB_QUERY,
       sampleData: result.length > 0 ? result[0] : null,
       component: 'analytics-db',
     });

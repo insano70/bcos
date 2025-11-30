@@ -15,7 +15,7 @@ import { db } from '@/lib/db';
 import { chart_data_sources } from '@/lib/db/chart-config-schema';
 import { RBACDataSourcesService } from '@/lib/services/rbac-data-sources-service';
 import type { PermissionName } from '@/lib/types/rbac';
-import { PermissionDeniedError } from '@/lib/types/rbac';
+import { PermissionDeniedError } from '@/lib/errors/rbac-errors';
 import { assignRoleToUser, createTestRole } from '@/tests/factories';
 import { createTestScope, type ScopedFactoryCollection } from '@/tests/factories/base';
 import { createCommittedOrganization, createCommittedUser } from '@/tests/factories/committed';
@@ -73,7 +73,7 @@ describe('RBAC Data Sources Service - Basic Committed Tests', () => {
         name: 'ds_reader',
         permissions: [
           'data-sources:read:organization' as PermissionName,
-          'analytics:read:organization' as PermissionName,
+          'data-sources:read:organization' as PermissionName,
         ],
         organizationId: org.organization_id,
       });
@@ -126,7 +126,7 @@ describe('RBAC Data Sources Service - Basic Committed Tests', () => {
         name: 'ds_reader',
         permissions: [
           'data-sources:read:organization' as PermissionName,
-          'analytics:read:organization' as PermissionName,
+          'data-sources:read:organization' as PermissionName,
         ],
         organizationId: org.organization_id,
       });

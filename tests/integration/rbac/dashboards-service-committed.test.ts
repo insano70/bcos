@@ -21,7 +21,7 @@ import { db } from '@/lib/db';
 import { dashboards } from '@/lib/db/schema';
 import { createRBACDashboardsService } from '@/lib/services/dashboards';
 import type { PermissionName } from '@/lib/types/rbac';
-import { PermissionDeniedError } from '@/lib/types/rbac';
+import { PermissionDeniedError } from '@/lib/errors/rbac-errors';
 import { assignRoleToUser, createTestRole } from '@/tests/factories';
 import { createTestScope, type ScopedFactoryCollection } from '@/tests/factories/base';
 import {
@@ -62,12 +62,12 @@ describe('RBAC Dashboards Service - Committed Factory Tests', () => {
   });
 
   describe('getDashboards - Read Operations', () => {
-    it('should retrieve dashboards with analytics:read:all permission', async () => {
+    it('should retrieve dashboards with dashboards:read:all permission', async () => {
       // Setup: Create user with appropriate permissions
       const user = await createCommittedUser({ scope: scopeId });
       const role = await createTestRole({
-        name: 'analytics_reader',
-        permissions: ['analytics:read:all' as PermissionName],
+        name: 'dashboards_reader',
+        permissions: ['dashboards:read:all' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -97,7 +97,7 @@ describe('RBAC Dashboards Service - Committed Factory Tests', () => {
       expect(dashboardIds).toContain(dashboard2.dashboard_id);
     });
 
-    it('should deny dashboard retrieval without analytics:read permission', async () => {
+    it('should deny dashboard retrieval without dashboards:read permission', async () => {
       const user = await createCommittedUser({ scope: scopeId });
       const role = await createTestRole({
         name: 'no_permissions',
@@ -120,7 +120,7 @@ describe('RBAC Dashboards Service - Committed Factory Tests', () => {
       const role = await createTestRole({
         name: 'org_analytics_reader',
         organizationId: org1.organization_id,
-        permissions: ['analytics:read:organization' as PermissionName],
+        permissions: ['dashboards:read:organization' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role), mapDatabaseOrgToOrg(org1));
 
@@ -158,7 +158,7 @@ describe('RBAC Dashboards Service - Committed Factory Tests', () => {
       const user = await createCommittedUser({ scope: scopeId });
       const role = await createTestRole({
         name: 'analytics_reader',
-        permissions: ['analytics:read:all' as PermissionName],
+        permissions: ['dashboards:read:all' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -184,7 +184,7 @@ describe('RBAC Dashboards Service - Committed Factory Tests', () => {
       const user = await createCommittedUser({ scope: scopeId });
       const role = await createTestRole({
         name: 'analytics_reader',
-        permissions: ['analytics:read:all' as PermissionName],
+        permissions: ['dashboards:read:all' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -222,11 +222,11 @@ describe('RBAC Dashboards Service - Committed Factory Tests', () => {
   });
 
   describe('getDashboardCount - Aggregation Operations', () => {
-    it('should return accurate dashboard count with analytics:read:all', async () => {
+    it('should return accurate dashboard count with dashboards:read:all', async () => {
       const user = await createCommittedUser({ scope: scopeId });
       const role = await createTestRole({
         name: 'analytics_reader',
-        permissions: ['analytics:read:all' as PermissionName],
+        permissions: ['dashboards:read:all' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -263,7 +263,7 @@ describe('RBAC Dashboards Service - Committed Factory Tests', () => {
       const role = await createTestRole({
         name: 'org_analytics_reader',
         organizationId: org1.organization_id,
-        permissions: ['analytics:read:organization' as PermissionName],
+        permissions: ['dashboards:read:organization' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role), mapDatabaseOrgToOrg(org1));
 
@@ -294,11 +294,11 @@ describe('RBAC Dashboards Service - Committed Factory Tests', () => {
   });
 
   describe('createDashboard - Write Operations', () => {
-    it('should create dashboard with analytics:read:all permission', async () => {
+    it('should create dashboard with dashboards:create:organization permission', async () => {
       const user = await createCommittedUser({ scope: scopeId });
       const role = await createTestRole({
-        name: 'analytics_admin',
-        permissions: ['analytics:read:all' as PermissionName],
+        name: 'dashboards_admin',
+        permissions: ['dashboards:create:organization' as PermissionName, 'dashboards:read:all' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -308,7 +308,7 @@ describe('RBAC Dashboards Service - Committed Factory Tests', () => {
       const dashboardData = {
         dashboard_name: 'New Dashboard',
         dashboard_description: 'Created via service',
-        layout_config: { widgets: [] },
+        layout_config: { columns: 12, rowHeight: 100, margin: 10 },
       };
 
       const result = await dashboardsService.createDashboard(dashboardData);
@@ -324,8 +324,8 @@ describe('RBAC Dashboards Service - Committed Factory Tests', () => {
     it('should allow empty dashboard_name (validation at API layer)', async () => {
       const user = await createCommittedUser({ scope: scopeId });
       const role = await createTestRole({
-        name: 'analytics_admin',
-        permissions: ['analytics:read:all' as PermissionName],
+        name: 'dashboards_admin',
+        permissions: ['dashboards:create:organization' as PermissionName, 'dashboards:read:all' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -346,7 +346,7 @@ describe('RBAC Dashboards Service - Committed Factory Tests', () => {
       const user = await createCommittedUser({ scope: scopeId });
       const role = await createTestRole({
         name: 'reader_only',
-        permissions: ['analytics:read:organization' as PermissionName],
+        permissions: ['dashboards:read:organization' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -363,11 +363,11 @@ describe('RBAC Dashboards Service - Committed Factory Tests', () => {
   });
 
   describe('updateDashboard - Modify Operations', () => {
-    it('should update dashboard with analytics:read:all permission', async () => {
+    it('should update dashboard with dashboards:create:organization permission', async () => {
       const user = await createCommittedUser({ scope: scopeId });
       const role = await createTestRole({
-        name: 'analytics_admin',
-        permissions: ['analytics:read:all' as PermissionName],
+        name: 'dashboards_admin',
+        permissions: ['dashboards:create:organization' as PermissionName, 'dashboards:read:all' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -397,7 +397,7 @@ describe('RBAC Dashboards Service - Committed Factory Tests', () => {
       const user = await createCommittedUser({ scope: scopeId });
       const role = await createTestRole({
         name: 'reader_only',
-        permissions: ['analytics:read:organization' as PermissionName],
+        permissions: ['dashboards:read:organization' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -420,8 +420,8 @@ describe('RBAC Dashboards Service - Committed Factory Tests', () => {
     it('should throw error when updating non-existent dashboard', async () => {
       const user = await createCommittedUser({ scope: scopeId });
       const role = await createTestRole({
-        name: 'analytics_admin',
-        permissions: ['analytics:read:all' as PermissionName],
+        name: 'dashboards_admin',
+        permissions: ['dashboards:create:organization' as PermissionName, 'dashboards:read:all' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -437,11 +437,11 @@ describe('RBAC Dashboards Service - Committed Factory Tests', () => {
   });
 
   describe('deleteDashboard - Delete Operations', () => {
-    it('should delete dashboard with analytics:read:all permission', async () => {
+    it('should delete dashboard with dashboards:create:organization permission', async () => {
       const user = await createCommittedUser({ scope: scopeId });
       const role = await createTestRole({
-        name: 'analytics_admin',
-        permissions: ['analytics:read:all' as PermissionName],
+        name: 'dashboards_admin',
+        permissions: ['dashboards:create:organization' as PermissionName, 'dashboards:read:all' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -465,7 +465,7 @@ describe('RBAC Dashboards Service - Committed Factory Tests', () => {
       const user = await createCommittedUser({ scope: scopeId });
       const role = await createTestRole({
         name: 'reader_only',
-        permissions: ['analytics:read:organization' as PermissionName],
+        permissions: ['dashboards:read:organization' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -486,8 +486,8 @@ describe('RBAC Dashboards Service - Committed Factory Tests', () => {
     it('should handle deletion of non-existent dashboard gracefully', async () => {
       const user = await createCommittedUser({ scope: scopeId });
       const role = await createTestRole({
-        name: 'analytics_admin',
-        permissions: ['analytics:read:all' as PermissionName],
+        name: 'dashboards_admin',
+        permissions: ['dashboards:create:organization' as PermissionName, 'dashboards:read:all' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -510,14 +510,14 @@ describe('RBAC Dashboards Service - Committed Factory Tests', () => {
       const readRole = await createTestRole({
         name: 'org_reader',
         organizationId: org.organization_id,
-        permissions: ['analytics:read:organization' as PermissionName],
+        permissions: ['dashboards:read:organization' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(readRole), mapDatabaseOrgToOrg(org));
 
       // Assign global admin permission
       const adminRole = await createTestRole({
         name: 'global_admin',
-        permissions: ['analytics:read:all' as PermissionName],
+        permissions: ['dashboards:read:all' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(adminRole));
 
@@ -554,7 +554,7 @@ describe('RBAC Dashboards Service - Committed Factory Tests', () => {
       const role = await createTestRole({
         name: 'org1_reader',
         organizationId: org1.organization_id,
-        permissions: ['analytics:read:organization' as PermissionName],
+        permissions: ['dashboards:read:organization' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role), mapDatabaseOrgToOrg(org1));
 
@@ -583,8 +583,8 @@ describe('RBAC Dashboards Service - Committed Factory Tests', () => {
     it('should preserve layout_config JSON structure', async () => {
       const user = await createCommittedUser({ scope: scopeId });
       const role = await createTestRole({
-        name: 'analytics_admin',
-        permissions: ['analytics:read:all' as PermissionName],
+        name: 'dashboards_reader',
+        permissions: ['dashboards:read:all' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -615,8 +615,8 @@ describe('RBAC Dashboards Service - Committed Factory Tests', () => {
     it('should handle null and undefined optional fields correctly', async () => {
       const user = await createCommittedUser({ scope: scopeId });
       const role = await createTestRole({
-        name: 'analytics_admin',
-        permissions: ['analytics:read:all' as PermissionName],
+        name: 'dashboards_reader',
+        permissions: ['dashboards:read:all' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 

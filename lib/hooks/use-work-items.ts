@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api/client';
+import { clientDebugLog } from '@/lib/utils/debug-client';
 
 export interface WorkItem {
   id: string;
@@ -313,7 +314,7 @@ export function useWorkItemChildren(parentId: string | null) {
         const data = await apiClient.get<WorkItem[]>(`/api/work-items/${parentId}/children`);
         return Array.isArray(data) ? data : [];
       } catch (error) {
-        console.error('Failed to fetch work item children:', error);
+        clientDebugLog.component('Failed to fetch work item children', { error });
         return [];
       }
     },
@@ -336,7 +337,7 @@ export function useWorkItemAncestors(workItemId: string | null) {
         const data = await apiClient.get<WorkItem[]>(`/api/work-items/${workItemId}/ancestors`);
         return Array.isArray(data) ? data : [];
       } catch (error) {
-        console.error('Failed to fetch work item ancestors:', error);
+        clientDebugLog.component('Failed to fetch work item ancestors', { error });
         return [];
       }
     },

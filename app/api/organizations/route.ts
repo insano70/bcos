@@ -6,7 +6,7 @@ import { rbacRoute } from '@/lib/api/route-handlers';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
 import { getPagination, getSortParams } from '@/lib/api/utils/request';
 import { rbacCache } from '@/lib/cache';
-import { log, logTemplates, sanitizeFilters } from '@/lib/logger';
+import { log, logTemplates, sanitizeFilters, SLOW_THRESHOLDS } from '@/lib/logger';
 import { createRBACOrganizationsService } from '@/lib/services/organizations';
 import type { UserContext } from '@/lib/types/rbac';
 import { organizationCreateSchema, organizationQuerySchema } from '@/lib/validations/organization';
@@ -80,7 +80,7 @@ const getOrganizationsHandler = async (request: NextRequest, userContext: UserCo
         direction: sort.sortOrder,
       },
       duration: Date.now() - startTime,
-      slow: Date.now() - startTime > 1000,
+      slow: Date.now() - startTime > SLOW_THRESHOLDS.API_OPERATION,
       component: 'business-logic',
     });
 

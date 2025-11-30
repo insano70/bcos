@@ -150,3 +150,10 @@ export const practiceAttributesUpdateSchema = z.object({
 export const practiceParamsSchema = z.object({
   id: z.string().uuid('Invalid practice ID'),
 });
+
+// Export types inferred from schemas
+export type PracticeCreate = z.infer<typeof practiceCreateSchema>;
+export type PracticeUpdate = z.infer<typeof practiceUpdateSchema>;
+export type PracticeQuery = z.infer<typeof practiceQuerySchema>;
+export type PracticeAttributesUpdate = z.infer<typeof practiceAttributesUpdateSchema>;
+export type PracticeParams = z.infer<typeof practiceParamsSchema>;

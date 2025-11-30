@@ -154,12 +154,6 @@ export default function MFASetupDialog({
   const handleRegisterPasskey = async () => {
     try {
       // Step 1: Begin registration (get challenge from server)
-      console.log('MFA Setup - Begin Registration', {
-        hasTempToken: !!tempToken,
-        hasCsrfToken: !!csrfToken,
-        csrfTokenLength: csrfToken?.length,
-      });
-
       const beginResponse = await fetch(`${getBaseUrl()}/api/auth/mfa/register/begin`, {
         method: 'POST',
         headers: {

@@ -26,6 +26,8 @@ const postRelationshipHandler = async (
   log.info('Work item type relationship creation request initiated', {
     workItemTypeId,
     userId: userContext.user_id,
+    operation: 'create_type_relationship',
+    component: 'work-items',
   });
 
   try {
@@ -49,6 +51,8 @@ const postRelationshipHandler = async (
       parentTypeId: relationship.parent_type_id,
       childTypeId: relationship.child_type_id,
       duration,
+      operation: 'create_type_relationship',
+      component: 'work-items',
     });
 
     return NextResponse.json(relationship, { status: 201 });
@@ -59,6 +63,8 @@ const postRelationshipHandler = async (
       workItemTypeId,
       userId: userContext.user_id,
       duration,
+      operation: 'create_type_relationship',
+      component: 'work-items',
     });
 
     if (error instanceof Error) {
@@ -112,6 +118,8 @@ const getRelationshipsHandler = async (
   log.info('Work item type relationships list request initiated', {
     workItemTypeId,
     userId: userContext.user_id,
+    operation: 'list_type_relationships',
+    component: 'work-items',
   });
 
   try {
@@ -153,6 +161,8 @@ const getRelationshipsHandler = async (
       workItemTypeId,
       count: relationships.length,
       duration,
+      operation: 'list_type_relationships',
+      component: 'work-items',
     });
 
     return NextResponse.json(relationships);
@@ -163,6 +173,8 @@ const getRelationshipsHandler = async (
       workItemTypeId,
       userId: userContext.user_id,
       duration,
+      operation: 'list_type_relationships',
+      component: 'work-items',
     });
 
     if (error instanceof Error) {

@@ -96,7 +96,7 @@ export const educationSchema = z.object({
 /**
  * Safe parsing functions for practice attributes
  */
-export function parseBusinessHours(jsonString: string | null) {
+export function parseBusinessHours(jsonString: string | null): BusinessHours | null {
   return safeJsonParse(jsonString, businessHoursSchema);
 }
 

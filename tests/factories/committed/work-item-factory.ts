@@ -88,8 +88,9 @@ export interface CreateWorkItemStatusOptions extends BaseFactoryOptions {
 
   /**
    * Category of the status
+   * Valid values (per DB check constraint): 'todo', 'in_progress', 'done', 'blocked'
    */
-  statusCategory?: 'backlog' | 'in_progress' | 'completed' | 'cancelled';
+  statusCategory?: 'todo' | 'in_progress' | 'done' | 'blocked';
 
   /**
    * Whether this is the initial status
@@ -228,7 +229,7 @@ export class CommittedWorkItemStatusFactory extends BaseFactory<
     const statusData = {
       work_item_type_id: options.workItemTypeId,
       status_name: statusName,
-      status_category: options.statusCategory ?? 'backlog',
+      status_category: options.statusCategory ?? 'todo',
       is_initial: options.isInitial ?? false,
       is_final: options.isFinal ?? false,
       color: options.color ?? '#6B7280',
@@ -340,7 +341,7 @@ export async function createCommittedWorkItemType(
   const statusOptions: CreateWorkItemStatusOptions = {
     workItemTypeId: typeResult.data.work_item_type_id,
     statusName: 'To Do',
-    statusCategory: 'backlog',
+    statusCategory: 'todo',
     isInitial: true,
   };
 

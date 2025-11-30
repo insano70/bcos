@@ -9,15 +9,77 @@ import type { UserContext } from '@/lib/types/rbac';
  * Separated from CRUD operations for Single Responsibility
  */
 
+// =============================================================================
+// Return Types
+// =============================================================================
+
+export interface PracticeAnalyticsOverview {
+  overview: {
+    totalPractices: number;
+    activePractices: number;
+    newPracticesThisPeriod: number;
+    practicesWithDomains: number;
+    activationRate: number;
+    domainCompletionRate: number;
+  };
+}
+
+export interface CreationTrendDataPoint {
+  date: string;
+  count: number;
+}
+
+export interface TemplateUsageEntry {
+  templateId: string | null;
+  templateName: string | null;
+  templateSlug: string | null;
+  count: number;
+}
+
+export interface StatusDistributionEntry {
+  status: string | null;
+  count: number;
+}
+
+export interface StaffStatistics {
+  totalStaff: number;
+  averageStaffPerPractice: number;
+}
+
+export interface PracticeWithStaffCount {
+  practiceId: string;
+  practiceName: string;
+  domain: string | null;
+  staffCount: number;
+}
+
+export interface RecentPractice {
+  practiceId: string;
+  name: string;
+  domain: string | null;
+  status: string | null;
+  templateId: string | null;
+  createdAt: Date | null;
+}
+
+export interface AttributesCompletion {
+  totalWithAttributes: number;
+  withBusinessHours: number;
+  withServices: number;
+  withInsurance: number;
+  withConditions: number;
+  withColors: number;
+}
+
 export interface PracticeAnalyticsServiceInterface {
-  getPracticeAnalytics(timeframe?: string): Promise<unknown>;
-  getCreationTrends(timeframe?: string): Promise<unknown>;
-  getTemplateUsage(): Promise<unknown>;
-  getStatusDistribution(): Promise<unknown>;
-  getStaffStatistics(): Promise<unknown>;
-  getPracticesWithMostStaff(limit?: number): Promise<unknown>;
-  getRecentPractices(limit?: number): Promise<unknown>;
-  getAttributesCompletion(): Promise<unknown>;
+  getPracticeAnalytics(timeframe?: string): Promise<PracticeAnalyticsOverview>;
+  getCreationTrends(timeframe?: string): Promise<CreationTrendDataPoint[]>;
+  getTemplateUsage(): Promise<TemplateUsageEntry[]>;
+  getStatusDistribution(): Promise<StatusDistributionEntry[]>;
+  getStaffStatistics(): Promise<StaffStatistics>;
+  getPracticesWithMostStaff(limit?: number): Promise<PracticeWithStaffCount[]>;
+  getRecentPractices(limit?: number): Promise<RecentPractice[]>;
+  getAttributesCompletion(): Promise<AttributesCompletion>;
 }
 
 /**
@@ -29,7 +91,7 @@ class PracticeAnalyticsService implements PracticeAnalyticsServiceInterface {
   /**
    * Get practice analytics for admin dashboard
    */
-  async getPracticeAnalytics(timeframe: string = '30d') {
+  async getPracticeAnalytics(timeframe: string = '30d'): Promise<PracticeAnalyticsOverview> {
     const startTime = Date.now();
 
     try {
@@ -100,7 +162,7 @@ class PracticeAnalyticsService implements PracticeAnalyticsServiceInterface {
   /**
    * Get practice creation trends
    */
-  async getCreationTrends(timeframe: string = '30d') {
+  async getCreationTrends(timeframe: string = '30d'): Promise<CreationTrendDataPoint[]> {
     const startTime = Date.now();
 
     try {
@@ -144,7 +206,7 @@ class PracticeAnalyticsService implements PracticeAnalyticsServiceInterface {
   /**
    * Get template usage statistics
    */
-  async getTemplateUsage() {
+  async getTemplateUsage(): Promise<TemplateUsageEntry[]> {
     const startTime = Date.now();
 
     try {
@@ -187,7 +249,7 @@ class PracticeAnalyticsService implements PracticeAnalyticsServiceInterface {
   /**
    * Get practice status distribution
    */
-  async getStatusDistribution() {
+  async getStatusDistribution(): Promise<StatusDistributionEntry[]> {
     const startTime = Date.now();
 
     try {
@@ -227,7 +289,7 @@ class PracticeAnalyticsService implements PracticeAnalyticsServiceInterface {
   /**
    * Get staff statistics
    */
-  async getStaffStatistics() {
+  async getStaffStatistics(): Promise<StaffStatistics> {
     const startTime = Date.now();
 
     try {
@@ -271,7 +333,7 @@ class PracticeAnalyticsService implements PracticeAnalyticsServiceInterface {
   /**
    * Get practices with most staff
    */
-  async getPracticesWithMostStaff(limit: number = 10) {
+  async getPracticesWithMostStaff(limit: number = 10): Promise<PracticeWithStaffCount[]> {
     const startTime = Date.now();
 
     try {
@@ -317,7 +379,7 @@ class PracticeAnalyticsService implements PracticeAnalyticsServiceInterface {
   /**
    * Get recent practices
    */
-  async getRecentPractices(limit: number = 10) {
+  async getRecentPractices(limit: number = 10): Promise<RecentPractice[]> {
     const startTime = Date.now();
 
     try {
@@ -363,7 +425,7 @@ class PracticeAnalyticsService implements PracticeAnalyticsServiceInterface {
   /**
    * Get practice attributes completion stats
    */
-  async getAttributesCompletion() {
+  async getAttributesCompletion(): Promise<AttributesCompletion> {
     const startTime = Date.now();
 
     try {

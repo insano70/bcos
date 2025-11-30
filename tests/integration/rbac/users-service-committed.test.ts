@@ -13,7 +13,7 @@ import { nanoid } from 'nanoid';
 import { createRBACUsersService } from '@/lib/services/rbac-users-service';
 import { createUserOrganizationService } from '@/lib/services/user-organization-service';
 import type { PermissionName } from '@/lib/types/rbac';
-import { PermissionDeniedError } from '@/lib/types/rbac';
+import { PermissionDeniedError } from '@/lib/errors/rbac-errors';
 import { assignRoleToUser, createTestRole } from '@/tests/factories';
 import { createTestScope, type ScopedFactoryCollection } from '@/tests/factories/base';
 import { createCommittedOrganization, createCommittedUser } from '@/tests/factories/committed';

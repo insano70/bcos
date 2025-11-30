@@ -226,49 +226,9 @@ export interface SAMLClientOptions {
 }
 
 /**
- * SAML Error Types
- * Custom error types for SAML operations
+ * SAML Error classes have been relocated to:
+ * @see {@link @/lib/errors/saml-errors.ts}
  */
-export class SAMLConfigError extends Error {
-  constructor(
-    message: string,
-    public readonly details?: Record<string, unknown>
-  ) {
-    super(message);
-    this.name = 'SAMLConfigError';
-    Error.captureStackTrace(this, SAMLConfigError);
-  }
-}
-
-export class SAMLValidationError extends Error {
-  constructor(
-    message: string,
-    public readonly validationType:
-      | 'signature'
-      | 'issuer'
-      | 'audience'
-      | 'timestamp'
-      | 'replay'
-      | 'domain',
-    public readonly details?: Record<string, unknown>
-  ) {
-    super(message);
-    this.name = 'SAMLValidationError';
-    Error.captureStackTrace(this, SAMLValidationError);
-  }
-}
-
-export class SAMLCertificateError extends Error {
-  constructor(
-    message: string,
-    public readonly certificateType: 'idp' | 'sp',
-    public readonly details?: Record<string, unknown>
-  ) {
-    super(message);
-    this.name = 'SAMLCertificateError';
-    Error.captureStackTrace(this, SAMLCertificateError);
-  }
-}
 
 /**
  * SAML Authentication Context
@@ -355,14 +315,6 @@ export function isSAMLConfig(obj: unknown): obj is SAMLConfig {
 }
 
 /**
- * Type guard: Check if error is a SAML error
+ * Type guard for SAML errors has been relocated to:
+ * @see {@link @/lib/errors/saml-errors.ts} - isSAMLError()
  */
-export function isSAMLError(
-  error: unknown
-): error is SAMLConfigError | SAMLValidationError | SAMLCertificateError {
-  return (
-    error instanceof SAMLConfigError ||
-    error instanceof SAMLValidationError ||
-    error instanceof SAMLCertificateError
-  );
-}

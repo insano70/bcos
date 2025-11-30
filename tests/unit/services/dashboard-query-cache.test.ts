@@ -194,11 +194,23 @@ describe('generateQueryHash', () => {
       expect(hash1).toBe(hash2);
     });
 
-    it('should handle empty arrays', () => {
+    it('should treat empty arrays differently from undefined (fail-closed security)', () => {
+      const config = { dataSourceId: 1, chartType: 'line' };
+
+      // Empty array = fail-closed security (no practices allowed)
+      // Undefined = no explicit filter (uses default permissions)
+      // These SHOULD produce different hashes due to security implications
+      const hash1 = generateQueryHash(config, { practiceUids: [] });
+      const hash2 = generateQueryHash(config, { practiceUids: undefined });
+
+      expect(hash1).not.toBe(hash2);
+    });
+
+    it('should produce identical hashes for same empty arrays', () => {
       const config = { dataSourceId: 1, chartType: 'line' };
 
       const hash1 = generateQueryHash(config, { practiceUids: [] });
-      const hash2 = generateQueryHash(config, { practiceUids: undefined });
+      const hash2 = generateQueryHash(config, { practiceUids: [] });
 
       expect(hash1).toBe(hash2);
     });

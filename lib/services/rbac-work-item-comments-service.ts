@@ -4,7 +4,7 @@ import { users, work_item_comments, work_items } from '@/lib/db/schema';
 import { log } from '@/lib/logger';
 import { BaseRBACService } from '@/lib/rbac/base-service';
 import type { UserContext } from '@/lib/types/rbac';
-import { PermissionDeniedError } from '@/lib/types/rbac';
+import { PermissionDeniedError } from '@/lib/errors/rbac-errors';
 
 /**
  * Work Item Comments Service with RBAC

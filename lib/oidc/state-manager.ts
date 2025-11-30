@@ -69,7 +69,10 @@ class StateManager {
    */
   registerState(state: string): void {
     if (!state || state.length === 0) {
-      log.error('Attempted to register empty state token');
+      log.error('Attempted to register empty state token', new Error('Empty state token'), {
+        operation: 'register_oidc_state',
+        component: 'auth',
+      });
       throw new Error('Invalid state token');
     }
 

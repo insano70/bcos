@@ -5,11 +5,8 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import {
-  type AggAppMeasure,
-  type DataSourceColumnMapping,
-  MeasureAccessor,
-} from '@/lib/types/analytics';
+import type { AggAppMeasure, DataSourceColumnMapping } from '@/lib/types/analytics';
+import { MeasureAccessor } from '@/lib/services/analytics/measure-accessor';
 
 describe('MeasureAccessor', () => {
   describe('Data Source 1 (Original Schema)', () => {

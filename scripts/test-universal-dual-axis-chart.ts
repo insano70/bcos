@@ -258,6 +258,7 @@ async function testDualAxisChart() {
     console.log('-----------------------------------------------------------');
 
     try {
+      // Intentionally invalid request to test error handling
       const request4 = {
         chartConfig: {
           chartType: 'dual-axis',
@@ -271,14 +272,14 @@ async function testDualAxisChart() {
               axisPosition: 'left' as const,
             },
             secondary: {
-              // Missing measure
+              // Missing measure - intentionally invalid for testing
               chartType: 'line' as const,
               axisLabel: 'Completed',
               axisPosition: 'right' as const,
             },
           },
         },
-      };
+      } as unknown as Parameters<typeof chartDataOrchestrator.orchestrate>[0];
 
       await chartDataOrchestrator.orchestrate(request4, testUserContext);
       console.log('   ❌ Should have thrown error');
