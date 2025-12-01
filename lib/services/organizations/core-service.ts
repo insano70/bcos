@@ -148,17 +148,23 @@ class OrganizationCoreService extends BaseOrganizationsService {
         return [];
       }
 
-      // Collect all organization IDs for batched enrichment queries
-      const organizationIds = results.map((row) => row.organization_id);
+      // Conditionally get member and children counts (expensive queries)
+      // Only run when includeCounts=true (e.g., admin organization list)
+      // Default: skip enrichment for performance (e.g., dashboard filter dropdowns)
+      let memberCountMap = new Map<string, number>();
+      let childrenCountMap = new Map<string, number>();
+      let enrichmentDuration = 0;
 
-      // Get member and children counts in optimized batch query
-      // Uses CTE optimization for datasets > 50 organizations (30-40% faster)
-      const enrichmentStart = Date.now();
-      const { memberCounts: memberCountMap, childrenCounts: childrenCountMap } =
-        await getBatchEnrichmentData(organizationIds);
-      const enrichmentDuration = Date.now() - enrichmentStart;
+      if (options.includeCounts) {
+        const organizationIds = results.map((row) => row.organization_id);
+        const enrichmentStart = Date.now();
+        const enrichmentData = await getBatchEnrichmentData(organizationIds);
+        memberCountMap = enrichmentData.memberCounts;
+        childrenCountMap = enrichmentData.childrenCounts;
+        enrichmentDuration = Date.now() - enrichmentStart;
+      }
 
-      // Enhance results with batched data
+      // Enhance results with batched data (counts will be 0 if not requested)
       const enhancedResults: OrganizationWithDetails[] = [];
 
       for (const row of results) {
@@ -172,8 +178,8 @@ class OrganizationCoreService extends BaseOrganizationsService {
           created_at: row.created_at ?? new Date(),
           updated_at: row.updated_at ?? new Date(),
           deleted_at: row.deleted_at || undefined,
-          member_count: memberCountMap.get(row.organization_id) || 0,
-          children_count: childrenCountMap.get(row.organization_id) || 0,
+          member_count: options.includeCounts ? (memberCountMap.get(row.organization_id) ?? 0) : 0,
+          children_count: options.includeCounts ? (childrenCountMap.get(row.organization_id) ?? 0) : 0,
           practice_info: mapPracticeInfo(row),
         };
 
@@ -198,13 +204,15 @@ class OrganizationCoreService extends BaseOrganizationsService {
         duration,
         metadata: {
           query: { duration: queryDuration, slow: queryDuration > SLOW_THRESHOLDS.DB_QUERY },
-          enrichmentQuery: {
-            duration: enrichmentDuration,
-            slow: enrichmentDuration > SLOW_THRESHOLDS.DB_QUERY,
-            usedCTE: organizationIds.length >= 50,
-          },
+          enrichmentQuery: options.includeCounts
+            ? {
+                duration: enrichmentDuration,
+                slow: enrichmentDuration > SLOW_THRESHOLDS.DB_QUERY,
+                orgCount: results.length,
+              }
+            : { skipped: true },
           rbacScope: this.getRBACScope(),
-          batchOptimized: true,
+          includeCounts: options.includeCounts ?? false,
           component: 'core_service',
         },
       });

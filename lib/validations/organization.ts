@@ -70,6 +70,12 @@ export const organizationQuerySchema = z.object({
     .transform((val) => val === 'true')
     .optional(),
   search: z.string().max(255).optional(),
+  // Opt-in to include member_count and children_count (expensive queries)
+  // Default: false (skip enrichment for performance)
+  include_counts: z
+    .enum(['true', 'false'])
+    .transform((val) => val === 'true')
+    .optional(),
 });
 
 // Route parameter schema

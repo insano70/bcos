@@ -101,6 +101,12 @@ export interface OrganizationQueryOptions {
   include_children?: boolean | undefined;
   limit?: number | undefined;
   offset?: number | undefined;
+  /**
+   * Include member_count and children_count in response
+   * Default: false (skip expensive enrichment queries for performance)
+   * Set to true only when counts are needed (e.g., admin organization list)
+   */
+  includeCounts?: boolean | undefined;
 }
 
 // ============================================================

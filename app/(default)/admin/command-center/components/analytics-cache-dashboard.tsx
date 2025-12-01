@@ -311,7 +311,7 @@ export default function AnalyticsCacheDashboard({
       )}
 
       {/* Warming Jobs */}
-      <WarmingJobList autoRefresh={autoRefresh} refreshInterval={2000} onJobComplete={fetchStats} />
+      <WarmingJobList autoRefresh={autoRefresh} refreshInterval={10000} onJobComplete={fetchStats} />
 
       {/* Data Sources Grid */}
       <div>

@@ -35,6 +35,18 @@ export interface WarmResult {
 }
 
 /**
+ * Dimension counts captured during warming
+ * Stored in metadata for fast retrieval by getCacheStats (O(1) vs O(N) SCAN)
+ */
+export interface DimensionCounts {
+  uniqueMeasures: number;
+  uniquePractices: number;
+  uniqueProviders: number;
+  uniqueFrequencies: string[];
+  totalEntries: number;
+}
+
+/**
  * Progress callback for warming operations
  */
 export type ProgressCallback = (progress: {
@@ -156,8 +168,8 @@ export class CacheWarmingService {
         component: 'warming-service',
       });
 
-      // Group by unique combination
-      const grouped = this.groupDataByKey(allRows, datasourceId, columnMapping);
+      // Group by unique combination and collect dimension counts for metadata
+      const { grouped, dimensionCounts } = this.groupDataByKey(allRows, datasourceId, columnMapping);
 
       // Analyze group sizes to detect potential issues
       const groupSizes = Array.from(grouped.values()).map(rows => rows.length);
@@ -197,8 +209,8 @@ export class CacheWarmingService {
       // Atomic swap: RENAME shadow keys to production keys
       await this.swapShadowKeys(datasourceId);
 
-      // Set metadata
-      await this.setMetadata(datasourceId);
+      // Set metadata with dimension counts for O(1) retrieval by getCacheStats
+      await this.setMetadata(datasourceId, dimensionCounts);
 
       const duration = Date.now() - startTime;
 
@@ -272,8 +284,12 @@ export class CacheWarmingService {
     rows: Record<string, unknown>[],
     datasourceId: number,
     columnMapping: { timePeriodField: string }
-  ): Map<string, Record<string, unknown>[]> {
+  ): { grouped: Map<string, Record<string, unknown>[]>; dimensionCounts: DimensionCounts } {
     const grouped = new Map<string, Record<string, unknown>[]>();
+    const measures = new Set<string>();
+    const practices = new Set<number>();
+    const providers = new Set<number>();
+    const frequencies = new Set<string>();
     let skippedRows = 0;
 
     for (const row of rows) {
@@ -290,6 +306,14 @@ export class CacheWarmingService {
         skippedRows++;
         continue;
       }
+
+      // Collect unique dimension values for metadata
+      measures.add(measure);
+      practices.add(practiceUid);
+      if (providerUid !== null) {
+        providers.add(providerUid);
+      }
+      frequencies.add(frequency);
 
       const key = `${measure}|${practiceUid}|${providerUid}|${frequency}`;
 
@@ -321,7 +345,15 @@ export class CacheWarmingService {
       component: 'warming-service',
     });
 
-    return grouped;
+    const dimensionCounts: DimensionCounts = {
+      uniqueMeasures: measures.size,
+      uniquePractices: practices.size,
+      uniqueProviders: providers.size,
+      uniqueFrequencies: Array.from(frequencies).sort(),
+      totalEntries: grouped.size,
+    };
+
+    return { grouped, dimensionCounts };
   }
 
   /**
@@ -708,14 +740,33 @@ export class CacheWarmingService {
    *
    * @param datasourceId - Data source ID
    */
-  private async setMetadata(datasourceId: number): Promise<void> {
+  /**
+   * Set metadata for cache (warming timestamp + dimension counts)
+   *
+   * Stores dimension counts for O(1) retrieval by getCacheStats,
+   * avoiding expensive SCAN operations on index keys.
+   *
+   * @param datasourceId - Data source ID
+   * @param dimensionCounts - Unique dimension counts from grouping
+   */
+  private async setMetadata(datasourceId: number, dimensionCounts: DimensionCounts): Promise<void> {
     const metadataKey = KeyGenerator.getMetadataKey(datasourceId);
 
-    await this.client.setCached(metadataKey, [{ timestamp: new Date().toISOString() }]);
+    const metadata = {
+      timestamp: new Date().toISOString(),
+      uniqueMeasures: dimensionCounts.uniqueMeasures,
+      uniquePractices: dimensionCounts.uniquePractices,
+      uniqueProviders: dimensionCounts.uniqueProviders,
+      uniqueFrequencies: dimensionCounts.uniqueFrequencies,
+      totalEntries: dimensionCounts.totalEntries,
+    };
 
-    log.debug('Cache metadata set', {
+    await this.client.setCached(metadataKey, [metadata]);
+
+    log.debug('Cache metadata set with dimension counts', {
       datasourceId,
       metadataKey,
+      ...dimensionCounts,
       component: 'warming-service',
     });
   }

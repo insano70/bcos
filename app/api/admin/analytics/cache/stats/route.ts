@@ -25,11 +25,12 @@ import type {
 } from '@/lib/monitoring/types';
 import { chartConfigService } from '@/lib/services/chart-config-service';
 
-const analyticsCacheStatsHandler = async (request: NextRequest) => {
+const analyticsCacheStatsHandler = async (_request: NextRequest) => {
   const startTime = Date.now();
 
   try {
-    log.info('Analytics cache stats request initiated', {
+    // DEBUG level - routine polling operation
+    log.debug('Analytics cache stats request', {
       operation: 'analytics_cache_stats',
       component: 'analytics-cache-admin',
     });
@@ -118,15 +119,30 @@ const analyticsCacheStatsHandler = async (request: NextRequest) => {
 
     const duration = Date.now() - startTime;
 
-    log.info('Analytics cache stats retrieved', {
-      operation: 'analytics_cache_stats',
-      duration,
-      datasourcesTotal: dataSources.length,
-      datasourcesWarm: summary.warmDatasources,
-      totalMemoryMB: summary.totalMemoryMB,
-      overallHitRate: summary.overallCacheHitRate,
-      component: 'analytics-cache-admin',
-    });
+    // DEBUG level for routine polling - only INFO if slow (>5s) or has cold datasources
+    const hasColdDatasources = summary.coldDatasources > 0;
+    const isSlow = duration > 5000;
+
+    if (isSlow || hasColdDatasources) {
+      log.info('Analytics cache stats retrieved', {
+        operation: 'analytics_cache_stats',
+        duration,
+        datasourcesTotal: dataSources.length,
+        datasourcesWarm: summary.warmDatasources,
+        datasourcesCold: summary.coldDatasources,
+        totalMemoryMB: summary.totalMemoryMB,
+        isSlow,
+        component: 'analytics-cache-admin',
+      });
+    } else {
+      log.debug('Analytics cache stats polled', {
+        operation: 'analytics_cache_stats',
+        duration,
+        datasourcesTotal: dataSources.length,
+        datasourcesWarm: summary.warmDatasources,
+        component: 'analytics-cache-admin',
+      });
+    }
 
     return createSuccessResponse(response);
   } catch (error) {
@@ -145,7 +161,7 @@ const analyticsCacheStatsHandler = async (request: NextRequest) => {
     return createErrorResponse(
       error instanceof Error ? error : new Error(String(error)),
       500,
-      request
+      _request
     );
   }
 };

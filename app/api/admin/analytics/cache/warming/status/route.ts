@@ -34,15 +34,10 @@ interface WarmingStatusResponse {
   timestamp: string;
 }
 
-const warmingStatusHandler = async (request: NextRequest) => {
+const warmingStatusHandler = async (_request: NextRequest) => {
   const startTime = Date.now();
 
   try {
-    log.info('Warming status request initiated', {
-      operation: 'warming_status',
-      component: 'analytics-cache-admin',
-    });
-
     // Get active jobs with ETA calculation
     const activeJobs = cacheWarmingTracker.getActiveJobs();
     const activeJobsWithETA: ActiveJobWithETA[] = activeJobs.map((job) => ({
@@ -70,13 +65,25 @@ const warmingStatusHandler = async (request: NextRequest) => {
 
     const duration = Date.now() - startTime;
 
-    log.info('Warming status retrieved', {
-      operation: 'warming_status',
-      duration,
-      activeJobs: activeJobs.length,
-      recentJobs: recentJobs.length,
-      component: 'analytics-cache-admin',
-    });
+    // Only log at INFO level when there are active jobs (interesting state)
+    // Otherwise use DEBUG to reduce log noise from routine polling
+    if (activeJobs.length > 0) {
+      log.info('Warming status: active jobs in progress', {
+        operation: 'warming_status',
+        duration,
+        activeJobs: activeJobs.length,
+        recentJobs: recentJobs.length,
+        component: 'analytics-cache-admin',
+      });
+    } else {
+      log.debug('Warming status polled', {
+        operation: 'warming_status',
+        duration,
+        activeJobs: 0,
+        recentJobs: recentJobs.length,
+        component: 'analytics-cache-admin',
+      });
+    }
 
     return createSuccessResponse(response);
   } catch (error) {
@@ -95,7 +102,7 @@ const warmingStatusHandler = async (request: NextRequest) => {
     return createErrorResponse(
       error instanceof Error ? error : new Error(String(error)),
       500,
-      request
+      _request
     );
   }
 };

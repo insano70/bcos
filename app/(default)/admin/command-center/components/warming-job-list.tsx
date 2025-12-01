@@ -46,7 +46,7 @@ interface WarmingJobListProps {
 
 export default function WarmingJobList({
   autoRefresh = true,
-  refreshInterval = 2000,
+  refreshInterval = 10000, // 10 seconds - reduced from 2s to prevent log spam
   onJobComplete,
 }: WarmingJobListProps) {
   const [status, setStatus] = useState<WarmingStatusResponse | null>(null);
@@ -78,8 +78,14 @@ export default function WarmingJobList({
   useEffect(() => {
     if (!autoRefresh || refreshInterval === 0) return;
 
+    // Debug: Log the actual interval being used
+    console.log(`[WarmingJobList] Setting up polling with interval: ${refreshInterval}ms`);
+
     const interval = setInterval(fetchStatus, refreshInterval);
-    return () => clearInterval(interval);
+    return () => {
+      console.log(`[WarmingJobList] Clearing polling interval`);
+      clearInterval(interval);
+    };
   }, [autoRefresh, refreshInterval, fetchStatus]);
 
   if (!status) return null;

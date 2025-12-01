@@ -1,8 +1,10 @@
-import { log } from '@/lib/logger';
 import type { BusinessHours } from '@/lib/types/practice';
 
 /**
  * Safely parse JSON strings with fallback values
+ *
+ * Note: This utility is used in client-side template components and must not
+ * import server-side modules (like the logger which uses AsyncLocalStorage).
  */
 export function safeJsonParse<T>(jsonString: string | null | undefined | unknown, fallback: T): T {
   // If the value is null or undefined, return fallback
@@ -23,12 +25,13 @@ export function safeJsonParse<T>(jsonString: string | null | undefined | unknown
   try {
     return JSON.parse(jsonString);
   } catch (error) {
-    log.warn('Failed to parse JSON', {
-      operation: 'json_parse',
-      component: 'utils',
-      inputPreview: jsonString.substring(0, 100),
-      errorMessage: error instanceof Error ? error.message : 'Unknown parse error',
-    });
+    // Use console.warn for client-side compatibility (no server logger in Edge Runtime)
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('Failed to parse JSON:', {
+        inputPreview: jsonString.substring(0, 100),
+        errorMessage: error instanceof Error ? error.message : 'Unknown parse error',
+      });
+    }
     return fallback;
   }
 }

@@ -15,7 +15,8 @@ import { apiClient } from '@/lib/api/client';
 import { type Organization, useOrganizations } from '@/lib/hooks/use-organizations';
 
 export default function OrganizationsContent() {
-  const { data: organizations, isLoading, error, refetch } = useOrganizations();
+  // Request counts for admin list view (displays member_count column)
+  const { data: organizations, isLoading, error, refetch } = useOrganizations({ includeCounts: true });
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isManageUsersModalOpen, setIsManageUsersModalOpen] = useState(false);

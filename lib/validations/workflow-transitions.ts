@@ -6,7 +6,11 @@
  */
 
 import { z } from 'zod';
-import { log } from '@/lib/logger';
+
+/**
+ * Note: This validation module is used in client-side components and must not
+ * import server-side modules (like the logger which uses AsyncLocalStorage).
+ */
 
 /**
  * Validation rule operator types
@@ -102,11 +106,10 @@ export function parseValidationConfig(data: unknown): ValidationConfig | null {
   try {
     return validationConfigSchema.parse(data);
   } catch (error) {
-    log.warn('Failed to parse validation config', {
-      operation: 'parse_validation_config',
-      component: 'workflow',
-      error: error instanceof Error ? error.message : String(error),
-    });
+    // Use console.warn for client-side compatibility (no server logger in Edge Runtime)
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('Failed to parse validation config:', error instanceof Error ? error.message : String(error));
+    }
     return null;
   }
 }
@@ -128,11 +131,10 @@ export function parseActionConfig(data: unknown): ActionConfig | null {
   try {
     return actionConfigSchema.parse(data);
   } catch (error) {
-    log.warn('Failed to parse action config', {
-      operation: 'parse_action_config',
-      component: 'workflow',
-      error: error instanceof Error ? error.message : String(error),
-    });
+    // Use console.warn for client-side compatibility (no server logger in Edge Runtime)
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('Failed to parse action config:', error instanceof Error ? error.message : String(error));
+    }
     return null;
   }
 }

@@ -25,10 +25,12 @@ const getOrganizationsHandler = async (request: NextRequest, userContext: UserCo
     const organizationService = createRBACOrganizationsService(userContext);
 
     // Get organizations with automatic permission-based filtering (no limit - fetch all)
+    // include_counts defaults to false for performance (skip expensive member/children queries)
     const organizations = await organizationService.getOrganizations({
       search: query.search,
       is_active: query.is_active,
       parent_organization_id: query.parent_organization_id,
+      includeCounts: query.include_counts ?? false,
     });
 
     const totalCount = organizations.length; // Service already filters, so count is length

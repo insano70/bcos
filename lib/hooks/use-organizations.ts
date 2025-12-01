@@ -14,11 +14,24 @@ export interface Organization extends Record<string, unknown> {
   children_count?: number;
 }
 
-export function useOrganizations() {
+export interface UseOrganizationsOptions {
+  /**
+   * Include member_count and children_count in response
+   * Default: false (skip expensive enrichment queries for performance)
+   * Set to true only when counts are needed (e.g., admin organization list)
+   */
+  includeCounts?: boolean;
+}
+
+export function useOrganizations(options: UseOrganizationsOptions = {}) {
+  const { includeCounts = false } = options;
+
   return useQuery<Organization[], Error>({
-    queryKey: ['organizations'],
+    // Include includeCounts in query key so different options are cached separately
+    queryKey: ['organizations', { includeCounts }],
     queryFn: async () => {
-      const data = await apiClient.get<Organization[]>('/api/organizations');
+      const params = includeCounts ? '?include_counts=true' : '';
+      const data = await apiClient.get<Organization[]>(`/api/organizations${params}`);
       return data;
     },
     staleTime: 5 * 60 * 1000, // 5 minutes - prevents excessive refetches

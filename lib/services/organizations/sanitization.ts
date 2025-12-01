@@ -12,8 +12,11 @@
 /** Maximum length for search terms to prevent DoS */
 export const MAX_SEARCH_LENGTH = 200;
 
-/** Maximum number of organization IDs in batch operations */
-export const MAX_BATCH_SIZE = 1000;
+/** Maximum number of organization IDs in batch operations
+ * NOTE: Set to 2500 to accommodate large deployments. For datasets exceeding this,
+ * pagination should be implemented in the admin organizations list.
+ */
+export const MAX_BATCH_SIZE = 2500;
 
 /** Maximum pagination limit to prevent memory exhaustion */
 export const MAX_PAGINATION_LIMIT = 1000;
