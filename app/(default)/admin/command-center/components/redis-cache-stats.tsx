@@ -15,6 +15,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { apiClient } from '@/lib/api/client';
 import type { RedisStats } from '@/lib/monitoring/types';
+import { clientErrorLog } from '@/lib/utils/debug-client';
 
 interface RedisCacheStatsProps {
   autoRefresh?: boolean;
@@ -35,7 +36,7 @@ export default function RedisCacheStats({
       setStats(response as RedisStats);
       setError(null);
     } catch (err) {
-      console.error('Failed to fetch Redis stats:', err);
+      clientErrorLog('Failed to fetch Redis stats', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch Redis stats');
     } finally {
       setLoading(false);

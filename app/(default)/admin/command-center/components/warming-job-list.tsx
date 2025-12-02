@@ -9,6 +9,7 @@
 import { formatDistanceToNow } from 'date-fns';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiClient } from '@/lib/api/client';
+import { clientErrorLog } from '@/lib/utils/debug-client';
 
 interface WarmingJob {
   jobId: string;
@@ -65,7 +66,7 @@ export default function WarmingJobList({
       }
       previousActiveCountRef.current = newActiveCount;
     } catch (err) {
-      console.error('Failed to fetch warming status:', err);
+      clientErrorLog('Failed to fetch warming status', err);
     }
   }, [onJobComplete]); // Stable dependencies only
 

@@ -14,6 +14,7 @@ import ModalAction from '@/components/modal-action';
 import Toast from '@/components/toast';
 import { apiClient } from '@/lib/api/client';
 import type { AnalyticsCacheStatsResponse } from '@/lib/monitoring/types';
+import { clientErrorLog } from '@/lib/utils/debug-client';
 import AnalyticsCacheDatasourceCard from './analytics-cache-datasource-card';
 import WarmingJobList from './warming-job-list';
 
@@ -67,7 +68,7 @@ export default function AnalyticsCacheDashboard({
       setStats(response as AnalyticsCacheStatsResponse);
       setError(null);
     } catch (err) {
-      console.error('Failed to fetch analytics cache stats:', err);
+      clientErrorLog('Failed to fetch analytics cache stats', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch cache stats');
     } finally {
       setLoading(false);
@@ -96,7 +97,7 @@ export default function AnalyticsCacheDashboard({
       await new Promise((resolve) => setTimeout(resolve, 2000));
       await fetchStats();
     } catch (err) {
-      console.error('Failed to refresh datasource cache:', err);
+      clientErrorLog('Failed to refresh datasource cache', err);
       showToast('Failed to start cache warming. Please try again.', 'error');
     } finally {
       setRefreshingDs((prev) => {
@@ -120,7 +121,7 @@ export default function AnalyticsCacheDashboard({
           showToast('Cache invalidated successfully', 'success');
           await fetchStats();
         } catch (err) {
-          console.error('Failed to invalidate datasource cache:', err);
+          clientErrorLog('Failed to invalidate datasource cache', err);
           showToast('Failed to invalidate cache. Please try again.', 'error');
         }
       }
@@ -140,7 +141,7 @@ export default function AnalyticsCacheDashboard({
           await new Promise((resolve) => setTimeout(resolve, 3000));
           await fetchStats();
         } catch (err) {
-          console.error('Failed to warm all caches:', err);
+          clientErrorLog('Failed to warm all caches', err);
           showToast('Failed to start bulk cache warming. Please try again.', 'error');
         } finally {
           setLoading(false);

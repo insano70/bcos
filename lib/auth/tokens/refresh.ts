@@ -179,9 +179,30 @@ export async function refreshTokenPair(
         throw new Error('Invalid refresh token');
       }
 
-      // Check if token is blacklisted (uses Redis cache with database fallback)
-      // Note: We're inside a transaction, but the cache check happens outside tx
-      // This is acceptable because blacklist is write-once (tokens don't get un-blacklisted)
+      /**
+       * SECURITY DESIGN NOTE (HID-006): Blacklist Check Outside Transaction
+       *
+       * The blacklist check uses Redis cache with database fallback, and happens
+       * outside the PostgreSQL transaction. This creates a theoretical race condition:
+       *
+       * Timeline:
+       *   T1: Token refresh starts, begins transaction
+       *   T2: Another request revokes this token (writes to blacklist)
+       *   T3: This request checks blacklist (sees old state, not revoked)
+       *   T4: This request issues new tokens
+       *
+       * Why this is ACCEPTABLE:
+       * 1. Blacklist is write-once: tokens are never un-blacklisted
+       * 2. The race window is milliseconds (transaction duration)
+       * 3. Mitigation: Token reuse detection will catch the attack on next use
+       * 4. Access tokens are short-lived (15 min) limiting exposure
+       *
+       * Alternative (moving check inside tx) would require:
+       * - SELECT FOR UPDATE on blacklist table (performance hit)
+       * - Bypassing Redis cache (defeating the purpose of caching)
+       *
+       * The current design prioritizes performance while maintaining security.
+       */
       const blacklisted = await isTokenBlacklisted(refreshTokenId);
 
       if (blacklisted) {

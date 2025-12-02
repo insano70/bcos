@@ -338,9 +338,23 @@ export class PermissionChecker {
             return { valid: true };
           }
 
-          // For client-side permission checking, we can't do database lookups
-          // So we'll be permissive here and let server-side validation handle the real check
-          // TODO: Consider adding owned_practice_ids to UserContext for better client-side checking
+          /**
+           * SECURITY DESIGN NOTE (HID-001):
+           * For client-side permission checking, we cannot perform database lookups to verify
+           * resource ownership. We return { valid: true } here and rely on server-side API
+           * route handlers to perform the actual ownership verification.
+           *
+           * This is a PERMISSIVE client-side check by design:
+           * - Client: Shows UI elements optimistically (may show buttons user can't actually use)
+           * - Server: ALWAYS validates ownership before allowing mutations
+           *
+           * The trade-off accepts minor UI inconsistency in exchange for:
+           * - No additional network requests for permission checks
+           * - No blocking of legitimate "own" scope operations
+           * - Server-side security is never bypassed
+           *
+           * Future enhancement: Add owned_practice_ids to UserContext for better client-side checking.
+           */
           return { valid: true };
         }
         return { valid: true };

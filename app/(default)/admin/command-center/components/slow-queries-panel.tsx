@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { apiClient } from '@/lib/api/client';
 import type { SlowQueriesResponse } from '@/lib/monitoring/types';
+import { clientErrorLog } from '@/lib/utils/debug-client';
 
 interface SlowQueriesPanelProps {
   autoRefresh?: boolean;
@@ -21,7 +22,7 @@ export default function SlowQueriesPanel({
       const response = await apiClient.get('/api/admin/monitoring/slow-queries?limit=10');
       setData(response as SlowQueriesResponse);
     } catch (err) {
-      console.error('Failed to fetch slow queries:', err);
+      clientErrorLog('Failed to fetch slow queries', err);
     } finally {
       setLoading(false);
     }

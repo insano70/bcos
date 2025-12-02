@@ -16,6 +16,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { apiClient } from '@/lib/api/client';
 import type { SecurityEvent, SecurityEventsResponse } from '@/lib/monitoring/types';
 import { exportToCSV, formatDateForCSV } from '@/lib/utils/csv-export';
+import { clientErrorLog } from '@/lib/utils/debug-client';
 
 interface SecurityEventsFeedProps {
   autoRefresh?: boolean;
@@ -78,7 +79,7 @@ export default function SecurityEventsFeed({
       setData(response as SecurityEventsResponse);
       setError(null);
     } catch (err) {
-      console.error('Failed to fetch security events:', err);
+      clientErrorLog('Failed to fetch security events', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch security events');
     } finally {
       setLoading(false);

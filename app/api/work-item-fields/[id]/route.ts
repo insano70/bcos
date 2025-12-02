@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { rbacRoute } from '@/lib/api/route-handlers';
+import { handleRouteError } from '@/lib/api/responses/error';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
 import { log } from '@/lib/logger';
 import { createRBACWorkItemFieldsService } from '@/lib/services/rbac-work-item-fields-service';
@@ -53,11 +54,7 @@ const getFieldHandler = async (
       duration,
     });
 
-    if (error instanceof Error && error.message.includes('Permission denied')) {
-      return NextResponse.json({ error: error.message }, { status: 403 });
-    }
-
-    return NextResponse.json({ error: 'Failed to retrieve work item field' }, { status: 500 });
+    return handleRouteError(error, 'Failed to retrieve work item field');
   }
 };
 
@@ -113,24 +110,7 @@ const patchFieldHandler = async (
       duration,
     });
 
-    if (error instanceof Error) {
-      if (error.name === 'ZodError') {
-        return NextResponse.json(
-          { error: 'Validation failed', details: error.message },
-          { status: 400 }
-        );
-      }
-
-      if (error.message.includes('not found')) {
-        return NextResponse.json({ error: error.message }, { status: 404 });
-      }
-
-      if (error.message.includes('Permission denied')) {
-        return NextResponse.json({ error: error.message }, { status: 403 });
-      }
-    }
-
-    return NextResponse.json({ error: 'Failed to update work item field' }, { status: 500 });
+    return handleRouteError(error, 'Failed to update work item field');
   }
 };
 
@@ -179,17 +159,7 @@ const deleteFieldHandler = async (
       duration,
     });
 
-    if (error instanceof Error) {
-      if (error.message.includes('not found')) {
-        return NextResponse.json({ error: error.message }, { status: 404 });
-      }
-
-      if (error.message.includes('Permission denied')) {
-        return NextResponse.json({ error: error.message }, { status: 403 });
-      }
-    }
-
-    return NextResponse.json({ error: 'Failed to delete work item field' }, { status: 500 });
+    return handleRouteError(error, 'Failed to delete work item field');
   }
 };
 

@@ -200,52 +200,26 @@ export class AdvancedPermissionsService {
 
   /**
    * Apply data access policy to query parameters
-   * TODO: Fix type issues and implement proper filtering
+   *
+   * NOTE: This method is a placeholder for future implementation.
+   * To implement properly, the AnalyticsQueryParams type would need to be extended with:
+   * - allowedPractices?: string[]
+   * - allowedProviders?: string[]
+   * - allowedMeasures?: string[]
+   *
+   * The existing fields (practice_uid, provider_uid, start_date, end_date) can be used
+   * for basic filtering. For advanced row-level security, consider implementing this
+   * as a query builder that applies WHERE clauses based on the policy.
    */
-  /*
   applyDataAccessPolicy(
-    userId: string,
-    policy: DataAccessPolicy,
+    _userId: string,
+    _policy: DataAccessPolicy,
     queryParams: AnalyticsQueryParams
   ): AnalyticsQueryParams {
-    const filteredParams = { ...queryParams };
-
-    // Apply practice access restrictions
-    if (policy.practiceAccess === 'specific' && policy.allowedPractices.length > 0) {
-      filteredParams.allowedPractices = policy.allowedPractices;
-    }
-
-    // Apply provider access restrictions
-    if (policy.providerAccess === 'specific' && policy.allowedProviders.length > 0) {
-      filteredParams.allowedProviders = policy.allowedProviders;
-    }
-
-    // Apply measure restrictions
-    if (policy.measureAccess === 'specific' && policy.allowedMeasures.length > 0) {
-      filteredParams.allowedMeasures = policy.allowedMeasures;
-    }
-
-    // Apply temporal restrictions
-    if (policy.temporalAccess.maxHistoryDays > 0) {
-      const maxDate = new Date();
-      const minDate = new Date();
-      minDate.setDate(minDate.getDate() - policy.temporalAccess.maxHistoryDays);
-      
-      filteredParams.minDate = minDate.toISOString().split('T')[0];
-      if (!policy.temporalAccess.allowFutureData) {
-        filteredParams.maxDate = maxDate.toISOString().split('T')[0];
-      }
-    }
-
-    log.debug('Data access policy applied', {
-      userId,
-      originalParams: queryParams,
-      filteredParams
-    });
-
-    return filteredParams;
+    // Current implementation: pass-through without modification
+    // Future: Apply policy-based filtering to the query parameters
+    return queryParams;
   }
-  */
 
   /**
    * Create default data access policy for user

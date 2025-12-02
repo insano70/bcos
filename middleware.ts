@@ -32,8 +32,31 @@ function isCSRFExempt(pathname: string): boolean {
 
 // PERFORMANCE OPTIMIZATION: Token validation cache (5-minute TTL)
 // Reduces database queries by 95% while maintaining security
-// Trade-off: Up to 5-minute delay for revocation to take effect
-// Acceptable for page load auth checks; API auth uses shorter cache
+/**
+ * SECURITY DESIGN NOTE (AUTH-001): Token Validation Cache
+ *
+ * This in-memory cache stores token validation results for 5 minutes to reduce
+ * database load during page navigation and authenticated requests.
+ *
+ * TRADE-OFF: Revoked tokens may remain valid for up to 5 minutes
+ *
+ * Why this is ACCEPTABLE:
+ * 1. Page load auth is primarily for UX (showing/hiding UI elements)
+ * 2. API mutations always perform fresh token validation via rbacRoute/authRoute
+ * 3. Access tokens are short-lived (15 min) - natural expiry limits exposure
+ * 4. Critical security events can call invalidateTokenCache() for immediate revocation
+ * 5. Logout explicitly invalidates the cache entry
+ *
+ * Mitigations in place:
+ * - API auth middleware uses shorter cache (60 seconds via validateRefreshTokenWithDB)
+ * - Token reuse detection catches stolen tokens on next refresh
+ * - Session table has is_active flag checked on each database validation
+ *
+ * Alternative (no cache) would cause:
+ * - Database query on every page navigation
+ * - Significant latency increase for users
+ * - Unnecessary load on database during peak usage
+ */
 interface TokenCacheEntry {
   valid: boolean
   expires: number

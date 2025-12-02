@@ -8,6 +8,7 @@
 'use client';
 
 import React, { type ReactNode } from 'react';
+import { clientComponentError } from '@/lib/utils/debug-client';
 
 interface DashboardErrorBoundaryProps {
   children: ReactNode;
@@ -46,13 +47,12 @@ export class DashboardErrorBoundary extends React.Component<
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
-    // Client-side error logging (cannot use server logger in client components)
-    console.error('Dashboard section error caught by boundary', {
-      sectionName: this.props.sectionName || 'Unknown',
-      error: error.message,
-      stack: error.stack,
-      componentStack: errorInfo.componentStack,
-    });
+    // Client-side error logging using proper client-safe logging utility
+    clientComponentError(
+      this.props.sectionName || 'DashboardSection',
+      error,
+      { componentStack: errorInfo.componentStack }
+    );
   }
 
   handleReset = (): void => {
