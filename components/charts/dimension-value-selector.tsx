@@ -224,8 +224,8 @@ export function DimensionValueSelector({
         </div>
       ))}
 
-      {/* Action buttons - same row as dropdowns */}
-      <div className={`flex items-center gap-2 ${compact ? 'pb-0.5' : 'pb-1'}`}>
+      {/* Action buttons - same row as dropdowns, aligned to bottom */}
+      <div className="flex items-center gap-2">
         {/* Apply button */}
         {hasChanges && (
           <button

@@ -178,14 +178,14 @@ export function ValueMultiSelect({
       <div
         onClick={handleContainerClick}
         className={`
-          flex items-center gap-2 px-3 py-1.5 rounded-md border cursor-pointer
+          flex items-center gap-2 rounded-md border cursor-pointer
           bg-white dark:bg-slate-800
           ${isOpen
             ? 'border-violet-400 dark:border-violet-500 ring-1 ring-violet-400 dark:ring-violet-500'
             : 'border-slate-300 dark:border-slate-600 hover:border-slate-400 dark:hover:border-slate-500'
           }
           ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
-          ${compact ? 'px-2 py-1' : ''}
+          ${compact ? 'px-2 py-1' : 'px-3 py-1.5'}
         `}
       >
         <svg

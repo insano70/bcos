@@ -201,7 +201,8 @@ export default function ChartFullscreenModal({
           {dimension.canExpand && (
             <div className="space-y-2">
               {/* Controls row: Toggle button on left, then selector */}
-              <div className="flex items-center gap-2">
+              {/* items-end aligns all boxes to same horizontal line (labels float above) */}
+              <div className="flex items-end gap-2">
                 {/* Show/Hide Filters toggle button */}
                 <button
                   type="button"
