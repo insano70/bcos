@@ -7,15 +7,18 @@
  * - Get cached data (via indexed cache or direct Redis)
  * - Invalidate cache entries (pattern-based deletion)
  * - Cache existence checks
+ * - Track cache hit/miss metrics for health monitoring
  *
  * ARCHITECTURE:
  * - Delegates to IndexedAnalyticsCache for efficient queries
  * - Cache warming (via warming-service.ts) handles ALL cache population
  * - Query-time caching removed to prevent dual cache system conflicts
  * - Graceful degradation when Redis unavailable
+ * - Records hits/misses to MetricsCollector for system health scoring
  */
 
 import { log } from '@/lib/logger';
+import { metricsCollector } from '@/lib/monitoring/metrics-collector';
 import { getRedisClient } from '@/lib/redis';
 import { indexedAnalyticsCache } from '../indexed-analytics-cache';
 import type { CacheQueryFilters } from '../indexed-analytics-cache';
@@ -170,6 +173,9 @@ export class CacheOperations {
         const rows = await indexedAnalyticsCache.query(filters);
 
         if (rows.length > 0) {
+          // Track cache hit for health scoring
+          metricsCollector.recordCacheHit();
+
           log.info('Data source cache hit (measure-based)', {
             cacheKey: `ds:${datasourceId}:m:${components.measure}:freq:${components.frequency}`,
             cacheLevel: 0,
@@ -203,6 +209,9 @@ export class CacheOperations {
         try {
           const cached = await client.get(key);
           if (cached) {
+            // Track cache hit for health scoring
+            metricsCollector.recordCacheHit();
+
             const parsed = JSON.parse(cached) as CachedDataEntry;
             log.info('Data source cache hit (table-based)', {
               cacheKey: key,
@@ -229,6 +238,9 @@ export class CacheOperations {
         }
       }
     }
+
+    // Track cache miss for health scoring
+    metricsCollector.recordCacheMiss();
 
     log.info('Data source cache miss', {
       dataSourceId: datasourceId,

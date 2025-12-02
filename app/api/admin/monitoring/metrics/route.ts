@@ -5,9 +5,12 @@
  *
  * Returns real-time application metrics for the admin command center dashboard.
  * Combines data from:
- * - MetricsCollector (in-memory real-time metrics)
+ * - MetricsCollector (in-memory real-time metrics including cache hits/misses)
  * - Redis INFO (cache statistics)
  * - Database (security metrics)
+ *
+ * Cache hit rate is tracked from actual chart queries (via cache-operations.ts)
+ * rather than Redis global keyspace stats.
  *
  * RBAC: settings:read:all (Super Admin only)
  */
@@ -43,6 +46,7 @@ const metricsHandler = async (_request: NextRequest, userContext: UserContext) =
 
   try {
     // Get current metrics snapshot from collector
+    // This includes actual cache hit/miss tracking from chart queries
     const snapshot = metricsCollector.getSnapshot();
 
     // Get security metrics from service
@@ -50,11 +54,16 @@ const metricsHandler = async (_request: NextRequest, userContext: UserContext) =
     const cacheStats = await service.getRedisStats();
     const securityMetrics = await service.getSecurityMetrics();
 
-    // Calculate system health score
+    // Use actual cache hit rate from chart queries (tracked in cache-operations.ts)
+    // This is the real metric - how many chart queries hit cache vs went to database
+    // Falls back to 100% if no queries yet (don't penalize healthy idle state)
+    const chartCacheHitRate = snapshot.cache.total > 0 ? snapshot.cache.hitRate : 100;
+
+    // Calculate system health score using actual chart query cache hit rate
     const systemHealth = calculateHealthScore({
       errorRate: snapshot.errors.rate,
       responseTimeP95: snapshot.responseTime.p95,
-      cacheHitRate: cacheStats?.hitRate || 0,
+      cacheHitRate: chartCacheHitRate, // Actual chart query cache hit rate
       dbLatencyP95: 0, // TODO: Add DB latency tracking in Phase 4
       securityIncidents: snapshot.security.totalEvents,
     });

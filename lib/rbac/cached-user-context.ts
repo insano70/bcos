@@ -73,9 +73,16 @@ async function getRolePermissions(roleId: string, roleName: string): Promise<Per
     updated_at: p.updated_at ?? new Date(),
   }));
 
-  // Cache to Redis (fire and forget)
-  rbacCache.setRolePermissions(roleId, roleName, transformedPermissions).catch(() => {
-    // Ignore Redis cache errors
+  // Cache to Redis (fire and forget with error logging for monitoring)
+  rbacCache.setRolePermissions(roleId, roleName, transformedPermissions).catch((error) => {
+    // Log Redis cache errors for monitoring (don't crash the request)
+    log.warn('Redis cache set failed for role permissions', {
+      roleId,
+      roleName,
+      error: error instanceof Error ? error.message : String(error),
+      component: 'rbac-cache',
+      operation: 'setRolePermissions',
+    });
   });
 
   return transformedPermissions;
@@ -451,9 +458,15 @@ export async function getCachedUserContextSafe(userId: string): Promise<UserCont
       // Redis cache miss - fetch from database
       const context = await getCachedUserContext(userId);
 
-      // Cache to Redis (fire and forget)
-      rbacCache.setUserContext(userId, context).catch(() => {
-        // Ignore Redis cache errors
+      // Cache to Redis (fire and forget with error logging for monitoring)
+      rbacCache.setUserContext(userId, context).catch((error) => {
+        // Log Redis cache errors for monitoring (don't crash the request)
+        log.warn('Redis cache set failed for user context', {
+          userId,
+          error: error instanceof Error ? error.message : String(error),
+          component: 'rbac-cache',
+          operation: 'setUserContext',
+        });
       });
 
       if (isDev) {

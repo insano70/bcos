@@ -103,12 +103,26 @@ function deepSanitize(obj: unknown, path: string = 'root', errors: string[] = []
     // Skip dangerous keys
     if (DANGEROUS_KEYS.includes(key)) {
       errors.push(`Dangerous key '${key}' detected at ${path}`);
+      // SECURITY: Log prototype pollution attempt
+      log.security('prototype_pollution_attempt', 'high', {
+        action: 'dangerous_key_blocked',
+        threat: 'prototype_pollution',
+        path,
+        key,
+      });
       continue;
     }
 
     // Skip keys with special characters that might indicate injection
     if (!/^[a-zA-Z0-9_-]+$/.test(key)) {
       errors.push(`Invalid key '${key}' detected at ${path}`);
+      // SECURITY: Log suspicious key for monitoring
+      log.security('suspicious_key_detected', 'medium', {
+        action: 'invalid_key_blocked',
+        threat: 'injection_attempt',
+        path,
+        keySample: key.length > 50 ? `${key.substring(0, 50)}...` : key,
+      });
       continue;
     }
 
@@ -149,6 +163,15 @@ function sanitizeString(value: string, path: string, errors: string[]): string {
   for (const pattern of SQL_INJECTION_PATTERNS) {
     if (pattern.test(value)) {
       errors.push(`Potential SQL injection detected at ${path}`);
+      // SECURITY: Log injection attempt for monitoring and alerting
+      log.security('sql_injection_attempt', 'high', {
+        action: 'injection_blocked',
+        threat: 'sql_injection',
+        path,
+        patternMatched: pattern.toString(),
+        // Truncate value to avoid logging sensitive data
+        valueSample: value.length > 100 ? `${value.substring(0, 100)}...` : value,
+      });
       // Remove the malicious pattern but keep the rest
       value = value.replace(pattern, '');
     }
@@ -158,6 +181,14 @@ function sanitizeString(value: string, path: string, errors: string[]): string {
   for (const pattern of NOSQL_INJECTION_PATTERNS) {
     if (pattern.test(value)) {
       errors.push(`Potential NoSQL injection detected at ${path}`);
+      // SECURITY: Log injection attempt for monitoring and alerting
+      log.security('nosql_injection_attempt', 'high', {
+        action: 'injection_blocked',
+        threat: 'nosql_injection',
+        path,
+        patternMatched: pattern.toString(),
+        valueSample: value.length > 100 ? `${value.substring(0, 100)}...` : value,
+      });
       value = value.replace(pattern, '');
     }
   }
@@ -166,6 +197,14 @@ function sanitizeString(value: string, path: string, errors: string[]): string {
   for (const pattern of XSS_PATTERNS) {
     if (pattern.test(value)) {
       errors.push(`Potential XSS detected at ${path}`);
+      // SECURITY: Log XSS attempt for monitoring and alerting
+      log.security('xss_attempt', 'high', {
+        action: 'xss_blocked',
+        threat: 'cross_site_scripting',
+        path,
+        patternMatched: pattern.toString(),
+        valueSample: value.length > 100 ? `${value.substring(0, 100)}...` : value,
+      });
       value = value.replace(pattern, '');
     }
   }
@@ -174,6 +213,14 @@ function sanitizeString(value: string, path: string, errors: string[]): string {
   for (const pattern of PATH_TRAVERSAL_PATTERNS) {
     if (pattern.test(value)) {
       errors.push(`Potential path traversal detected at ${path}`);
+      // SECURITY: Log path traversal attempt for monitoring and alerting
+      log.security('path_traversal_attempt', 'medium', {
+        action: 'traversal_blocked',
+        threat: 'path_traversal',
+        path,
+        patternMatched: pattern.toString(),
+        valueSample: value.length > 100 ? `${value.substring(0, 100)}...` : value,
+      });
       value = value.replace(pattern, '');
     }
   }

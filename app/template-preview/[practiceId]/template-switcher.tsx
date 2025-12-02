@@ -10,6 +10,7 @@ import type {
   TemplateProps,
 } from '@/lib/types/practice';
 import { getTemplateDefaultColors, getPracticeCSS } from '@/lib/utils/color-utils';
+import { validateCSSColor } from '@/lib/validations/css-validation';
 
 interface TemplateSwitcherProps {
   practice: Practice;
@@ -70,11 +71,34 @@ export default function TemplateSwitcher({
 
       // Update CSS custom properties for the new template
       const defaultColors = getTemplateDefaultColors(templateSlug);
+      
+      // SECURITY: Validate all CSS colors to prevent CSS injection attacks
+      const primaryColor = attributes?.primary_color;
+      const secondaryColor = attributes?.secondary_color;
+      const accentColor = attributes?.accent_color;
+      
       const brandColors = {
-        primary: attributes?.primary_color || defaultColors.primary,
-        secondary: attributes?.secondary_color || defaultColors.secondary,
-        accent: attributes?.accent_color || defaultColors.accent,
+        primary: (primaryColor && validateCSSColor(primaryColor)) 
+          ? primaryColor 
+          : defaultColors.primary,
+        secondary: (secondaryColor && validateCSSColor(secondaryColor)) 
+          ? secondaryColor 
+          : defaultColors.secondary,
+        accent: (accentColor && validateCSSColor(accentColor)) 
+          ? accentColor 
+          : defaultColors.accent,
       };
+      
+      // Log security events for invalid colors (potential injection attempts)
+      if (primaryColor && !validateCSSColor(primaryColor)) {
+        console.error('[Security] Invalid primary color value blocked:', primaryColor.substring(0, 20));
+      }
+      if (secondaryColor && !validateCSSColor(secondaryColor)) {
+        console.error('[Security] Invalid secondary color value blocked:', secondaryColor.substring(0, 20));
+      }
+      if (accentColor && !validateCSSColor(accentColor)) {
+        console.error('[Security] Invalid accent color value blocked:', accentColor.substring(0, 20));
+      }
 
       // Inject CSS variables dynamically for client-side template switching
       const css = getPracticeCSS(brandColors);

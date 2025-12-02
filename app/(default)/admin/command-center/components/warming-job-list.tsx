@@ -78,14 +78,8 @@ export default function WarmingJobList({
   useEffect(() => {
     if (!autoRefresh || refreshInterval === 0) return;
 
-    // Debug: Log the actual interval being used
-    console.log(`[WarmingJobList] Setting up polling with interval: ${refreshInterval}ms`);
-
     const interval = setInterval(fetchStatus, refreshInterval);
-    return () => {
-      console.log(`[WarmingJobList] Clearing polling interval`);
-      clearInterval(interval);
-    };
+    return () => clearInterval(interval);
   }, [autoRefresh, refreshInterval, fetchStatus]);
 
   if (!status) return null;
