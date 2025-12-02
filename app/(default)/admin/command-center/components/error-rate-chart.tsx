@@ -11,7 +11,6 @@ import {
   Tooltip,
 } from 'chart.js';
 import type { Chart as ChartType, ChartConfiguration } from 'chart.js';
-import zoomPlugin from 'chartjs-plugin-zoom';
 import { useTheme } from 'next-themes';
 import { useEffect, useRef, useState } from 'react';
 import 'chartjs-adapter-moment';
@@ -19,6 +18,7 @@ import { chartColors } from '@/components/charts/chartjs-config';
 import { apiClient } from '@/lib/api/client';
 import type { PerformanceHistoryResponse } from '@/lib/monitoring/types';
 
+// Register Chart.js components (zoom plugin registered dynamically below)
 Chart.register(
   LineController,
   LineElement,
@@ -26,9 +26,18 @@ Chart.register(
   LinearScale,
   TimeScale,
   Tooltip,
-  Legend,
-  zoomPlugin
+  Legend
 );
+
+// Dynamically import zoom plugin to avoid SSR issues with 'window'
+let zoomPluginRegistered = false;
+async function ensureZoomPlugin() {
+  if (typeof window !== 'undefined' && !zoomPluginRegistered) {
+    const zoomPlugin = (await import('chartjs-plugin-zoom')).default;
+    Chart.register(zoomPlugin);
+    zoomPluginRegistered = true;
+  }
+}
 
 interface ErrorRateChartProps {
   category: 'standard' | 'analytics';
@@ -54,6 +63,9 @@ export default function ErrorRateChart({ category, timeRange, height = 300 }: Er
   useEffect(() => {
     const fetchData = async () => {
       try {
+        // Ensure zoom plugin is loaded before creating chart
+        await ensureZoomPlugin();
+
         const response = await apiClient.get(
           `/api/admin/monitoring/performance-history?timeRange=${timeRange}&category=${category}`
         );

@@ -250,8 +250,9 @@ export class CacheWarmingService {
     datasourceId: number,
     onProgress?: ProgressCallback
   ): Promise<WarmResult> {
-    // TODO: Implement true shadow key strategy in future iteration
-    // For now, delegate to regular warmCache
+    // NOTE: Shadow key strategy IS implemented in warmCache() - this method exists
+    // for future progress tracking during warming (streaming progress updates).
+    // Currently delegates to warmCache which handles shadow keys + atomic swap.
     log.info('Concurrent warming requested, using standard warming', {
       datasourceId,
       component: 'warming-service',

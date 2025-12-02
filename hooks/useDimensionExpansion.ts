@@ -35,28 +35,128 @@ import { createClientLogger } from '@/lib/utils/client-logger';
 const dimensionLogger = createClientLogger('DimensionExpansion');
 
 /**
- * Simple hash function for cache key generation
+ * Generate a stable hash for filter objects
+ * 
+ * Uses a proper hash algorithm that considers ALL content, not truncated base64.
+ * Keys are sorted for deterministic output regardless of object property order.
+ * 
+ * @param filters - Filter object to hash
+ * @returns Stable hash string
  */
 function hashFilters(filters: Record<string, unknown> | undefined): string {
   if (!filters) return 'no-filters';
   try {
-    return btoa(JSON.stringify(filters)).slice(0, 16);
+    // Sort keys for deterministic ordering
+    const sortedKeys = Object.keys(filters).sort();
+    const normalized: Record<string, unknown> = {};
+    
+    for (const key of sortedKeys) {
+      const value = filters[key];
+      // Sort arrays for consistency (e.g., practiceUids)
+      if (Array.isArray(value)) {
+        normalized[key] = [...value].sort();
+      } else {
+        normalized[key] = value;
+      }
+    }
+    
+    const str = JSON.stringify(normalized);
+    
+    // Simple but effective hash (djb2 algorithm)
+    let hash = 5381;
+    for (let i = 0; i < str.length; i++) {
+      hash = ((hash << 5) + hash) ^ str.charCodeAt(i);
+    }
+    
+    // Convert to base36 for shorter string, handle negative numbers
+    return (hash >>> 0).toString(36);
   } catch {
     return 'hash-error';
   }
 }
 
 /**
+ * Cache entry with timestamp for TTL support
+ */
+interface CacheEntry<T> {
+  data: T;
+  timestamp: number;
+}
+
+/**
+ * Cache TTL in milliseconds (5 minutes)
+ * Short TTL ensures dimension counts refresh when filters change,
+ * while still providing benefit for repeated opens of the same chart.
+ */
+const DIMENSION_CACHE_TTL_MS = 5 * 60 * 1000;
+
+/**
  * Global cache for dimension results to avoid redundant API calls
  * Key: `${chartDefinitionId}:${filterHash}`
+ * 
+ * Uses TTL to ensure stale data is not served when filters change.
  */
-const dimensionCache = new Map<string, ExpansionDimension[]>();
+const dimensionCache = new Map<string, CacheEntry<ExpansionDimension[]>>();
 
 /**
  * Global cache for dimension values
  * Key: `${chartDefinitionId}:${dimensionColumn}:${filterHash}`
+ * 
+ * Uses TTL to ensure stale data is not served when filters change.
  */
-const dimensionValuesCache = new Map<string, DimensionValuesResponse>();
+const dimensionValuesCache = new Map<string, CacheEntry<DimensionValuesResponse>>();
+
+/**
+ * Get cached data if not expired
+ * 
+ * @param cache - Cache Map to query
+ * @param key - Cache key
+ * @returns Cached data or null if expired/missing
+ */
+function getCachedWithTTL<T>(cache: Map<string, CacheEntry<T>>, key: string): T | null {
+  const entry = cache.get(key);
+  if (!entry) return null;
+  
+  const now = Date.now();
+  if (now - entry.timestamp > DIMENSION_CACHE_TTL_MS) {
+    // Expired - remove from cache
+    cache.delete(key);
+    return null;
+  }
+  
+  return entry.data;
+}
+
+/**
+ * Set cache data with timestamp
+ * 
+ * @param cache - Cache Map to update
+ * @param key - Cache key
+ * @param data - Data to cache
+ */
+function setCacheWithTTL<T>(cache: Map<string, CacheEntry<T>>, key: string, data: T): void {
+  cache.set(key, {
+    data,
+    timestamp: Date.now(),
+  });
+}
+
+/**
+ * Clear all dimension caches
+ * 
+ * Call this when critical filters change (e.g., organization, practice selection)
+ * to ensure fresh data is fetched.
+ * 
+ * @example
+ * // In dashboard when organization changes
+ * useEffect(() => {
+ *   clearDimensionCaches();
+ * }, [organizationId]);
+ */
+export function clearDimensionCaches(): void {
+  dimensionCache.clear();
+  dimensionValuesCache.clear();
+}
 
 /**
  * Parameters for useDimensionExpansion hook
@@ -174,9 +274,9 @@ export function useDimensionExpansion(
   const fetchAvailableDimensions = useCallback(async (bypassCache = false) => {
     if (!chartDefinitionId || !cacheKey) return;
 
-    // Check cache first (unless bypassing)
-    if (!bypassCache && dimensionCache.has(cacheKey)) {
-      const cached = dimensionCache.get(cacheKey);
+    // Check cache first (unless bypassing) - with TTL expiration
+    if (!bypassCache) {
+      const cached = getCachedWithTTL(dimensionCache, cacheKey);
       if (cached) {
         setAvailableDimensions(cached);
         lastFetchKey.current = cacheKey;
@@ -201,13 +301,14 @@ export function useDimensionExpansion(
       
       const dimensions = response.dimensions || [];
       
-      // Cache the result
-      dimensionCache.set(cacheKey, dimensions);
+      // Cache the result with TTL
+      setCacheWithTTL(dimensionCache, cacheKey, dimensions);
       lastFetchKey.current = cacheKey;
       
       setAvailableDimensions(dimensions);
-    } catch (_error) {
+    } catch {
       // Silently fail - dimensions are optional feature
+      // If fetching fails, show no dimensions but don't break the modal
       setAvailableDimensions([]);
       lastFetchKey.current = cacheKey;
     } finally {
@@ -362,9 +463,9 @@ export function useDimensionExpansion(
     const dimension = availableDimensions.find(d => d.columnName === columnName);
     if (!dimension) return;
 
-    // Check cache
+    // Check cache with TTL expiration
     const valuesCacheKey = `${cacheKey}:${columnName}`;
-    const cached = dimensionValuesCache.get(valuesCacheKey);
+    const cached = getCachedWithTTL(dimensionValuesCache, valuesCacheKey);
     if (cached) {
       // Update dimensionsWithValues with cached data
       setDimensionsWithValues(prev => {
@@ -407,8 +508,8 @@ export function useDimensionExpansion(
         { runtimeFilters: runtimeFilters || {} }
       );
 
-      // Cache the result
-      dimensionValuesCache.set(valuesCacheKey, response);
+      // Cache the result with TTL
+      setCacheWithTTL(dimensionValuesCache, valuesCacheKey, response);
 
       // Update state
       setDimensionsWithValues(prev => 

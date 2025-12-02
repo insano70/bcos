@@ -25,6 +25,7 @@ import BatchChartRenderer from './batch-chart-renderer';
 import ChartErrorBoundary from './chart-error-boundary';
 import DashboardFilterDropdown from './dashboard-filter-dropdown';
 import DashboardFilterPills from './dashboard-filter-pills';
+import { clearDimensionCaches } from '@/hooks/useDimensionExpansion';
 
 interface DashboardViewProps {
   dashboard: Dashboard;
@@ -109,6 +110,10 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
   // Handle filter changes
   const handleFilterChange = useCallback(
     (newFilters: DashboardUniversalFilters) => {
+      // Clear dimension expansion caches when filters change
+      // This ensures fresh dimension value counts are fetched
+      clearDimensionCaches();
+      
       setUniversalFilters(newFilters);
       updateUrlParams(newFilters);
       savePreferences(newFilters); // Save to localStorage
@@ -119,6 +124,9 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
   // Handle removing individual filter pill
   const handleRemoveFilter = useCallback(
     (filterKey: keyof DashboardUniversalFilters) => {
+      // Clear dimension expansion caches when filters change
+      clearDimensionCaches();
+      
       const newFilters = { ...universalFilters };
 
       // Remove the specific filter
