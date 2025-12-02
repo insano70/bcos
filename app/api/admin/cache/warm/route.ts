@@ -17,6 +17,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { rbacRoute } from '@/lib/api/route-handlers';
+import { handleRouteError } from '@/lib/api/responses/error';
 import { dataSourceCache } from '@/lib/cache';
 import { log } from '@/lib/logger';
 import type { UserContext } from '@/lib/types/rbac';
@@ -62,10 +63,7 @@ const warmCacheHandler = async (request: NextRequest, userContext: UserContext) 
     });
   } catch (error) {
     log.error('Cache warming failed via API', error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Cache warming failed' },
-      { status: 500 }
-    );
+    return handleRouteError(error, 'Cache warming failed');
   }
 };
 

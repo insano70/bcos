@@ -64,7 +64,7 @@ const metricsHandler = async (_request: NextRequest, userContext: UserContext) =
       errorRate: snapshot.errors.rate,
       responseTimeP95: snapshot.responseTime.p95,
       cacheHitRate: chartCacheHitRate, // Actual chart query cache hit rate
-      dbLatencyP95: 0, // TODO: Add DB latency tracking in Phase 4
+      dbLatencyP95: metricsCollector.getDbLatencyP95(), // Database operation latency tracking
       securityIncidents: snapshot.security.totalEvents,
     });
 
@@ -84,7 +84,7 @@ const metricsHandler = async (_request: NextRequest, userContext: UserContext) =
         },
         responseTime: {
           ...snapshot.responseTime,
-          byEndpoint: {}, // TODO: Add per-endpoint percentiles in Phase 4
+          byEndpoint: metricsCollector.getPerEndpointPercentiles(),
         },
         errors: {
           total: snapshot.errors.total,
@@ -135,7 +135,8 @@ const metricsHandler = async (_request: NextRequest, userContext: UserContext) =
 
       activeUsers: {
         current: snapshot.activeUsers.count,
-        // TODO: Track peak users in Phase 4
+        peak: metricsCollector.getPeakActiveUsers().count,
+        peakTime: metricsCollector.getPeakActiveUsers().time,
       },
     };
 

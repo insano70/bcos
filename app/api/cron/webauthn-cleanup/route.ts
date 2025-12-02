@@ -14,6 +14,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { publicRoute } from '@/lib/api/route-handlers';
+import { handleRouteError } from '@/lib/api/responses/error';
 import { runWebAuthnCleanup } from '@/lib/jobs/webauthn-cleanup';
 import { log } from '@/lib/logger';
 
@@ -69,13 +70,7 @@ const handler = async (request: NextRequest) => {
       component: 'cron',
     });
 
-    return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      },
-      { status: 500 }
-    );
+    return handleRouteError(error, 'WebAuthn cleanup cron failed');
   }
 };
 

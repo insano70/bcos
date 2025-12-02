@@ -72,6 +72,11 @@ class MetricsCollector {
   // Active users tracking (approximate)
   private activeUserIds = new Set<string>();
   private lastActiveUserReset = Date.now();
+  private peakActiveUsers = 0;
+  private peakActiveUsersTime = Date.now();
+
+  // Database latency tracking
+  private dbDurations: number[] = [];
 
   // Metadata
   private collectionStartTime = Date.now();
@@ -110,6 +115,12 @@ class MetricsCollector {
         this.lastActiveUserReset = now;
       }
       this.activeUserIds.add(userId);
+      
+      // Track peak active users
+      if (this.activeUserIds.size > this.peakActiveUsers) {
+        this.peakActiveUsers = this.activeUserIds.size;
+        this.peakActiveUsersTime = now;
+      }
     }
   }
 
@@ -219,6 +230,74 @@ class MetricsCollector {
    */
   recordFailedLogin(): void {
     this.failedLogins++;
+  }
+
+  /**
+   * Record a database operation duration
+   * 
+   * @param duration - Query duration in milliseconds
+   */
+  recordDbOperation(duration: number): void {
+    this.dbDurations.push(duration);
+    // Keep only last N samples to prevent memory growth
+    if (this.dbDurations.length > MAX_SAMPLES_PER_ENDPOINT) {
+      this.dbDurations.shift();
+    }
+  }
+
+  /**
+   * Get database latency P95
+   * 
+   * @returns P95 database latency in milliseconds, or 0 if no data
+   */
+  getDbLatencyP95(): number {
+    if (this.dbDurations.length === 0) {
+      return 0;
+    }
+    const sorted = [...this.dbDurations].sort((a, b) => a - b);
+    const p95Index = Math.floor(sorted.length * 0.95);
+    return sorted[p95Index] || 0;
+  }
+
+  /**
+   * Get per-endpoint response time percentiles for standard API
+   * 
+   * @returns Map of endpoint to percentile stats
+   */
+  getPerEndpointPercentiles(): Record<string, PercentileStats> {
+    const result: Record<string, PercentileStats> = {};
+    
+    for (const [endpoint, durations] of Array.from(this.durations.entries())) {
+      if (durations.length === 0) continue;
+      
+      const sorted = [...durations].sort((a, b) => a - b);
+      const count = sorted.length;
+      const sum = sorted.reduce((acc, val) => acc + val, 0);
+      
+      result[endpoint] = {
+        p50: sorted[Math.floor(count * 0.5)] || 0,
+        p95: sorted[Math.floor(count * 0.95)] || 0,
+        p99: sorted[Math.floor(count * 0.99)] || 0,
+        avg: Math.round(sum / count),
+        min: sorted[0] || 0,
+        max: sorted[count - 1] || 0,
+        count,
+      };
+    }
+    
+    return result;
+  }
+
+  /**
+   * Get peak active users info
+   * 
+   * @returns Peak users count and timestamp
+   */
+  getPeakActiveUsers(): { count: number; time: string } {
+    return {
+      count: this.peakActiveUsers,
+      time: new Date(this.peakActiveUsersTime).toISOString(),
+    };
   }
 
   /**
@@ -380,6 +459,13 @@ class MetricsCollector {
     this.securityEvents.clear();
     this.rateLimitBlocks = 0;
     this.failedLogins = 0;
+
+    // Reset database metrics
+    this.dbDurations = [];
+
+    // Reset peak users tracking
+    this.peakActiveUsers = this.activeUserIds.size;
+    this.peakActiveUsersTime = Date.now();
 
     // Don't reset activeUserIds - it has its own 5-minute window
     this.collectionStartTime = Date.now();

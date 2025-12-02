@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { rbacRoute } from '@/lib/api/route-handlers';
+import { handleRouteError } from '@/lib/api/responses/error';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
 import { log, sanitizeFilters, SLOW_THRESHOLDS } from '@/lib/logger';
 import { createRBACWorkItemWatchersService } from '@/lib/services/rbac-work-item-watchers-service';
@@ -57,17 +58,7 @@ const getWatchersHandler = async (
       component: 'work-items',
     });
 
-    if (error instanceof Error) {
-      if (error.message.includes('not found')) {
-        return NextResponse.json({ error: error.message }, { status: 404 });
-      }
-
-      if (error.message.includes('Permission denied') || error.message.includes('permission')) {
-        return NextResponse.json({ error: error.message }, { status: 403 });
-      }
-    }
-
-    return NextResponse.json({ error: 'Failed to retrieve work item watchers' }, { status: 500 });
+    return handleRouteError(error, 'Failed to retrieve work item watchers');
   }
 };
 

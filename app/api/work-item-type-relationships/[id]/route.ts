@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { rbacRoute } from '@/lib/api/route-handlers';
+import { handleRouteError } from '@/lib/api/responses/error';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
 import { log } from '@/lib/logger';
 import { createRBACWorkItemTypeRelationshipsService } from '@/lib/services/rbac-work-item-type-relationships-service';
@@ -50,16 +51,7 @@ const getRelationshipHandler = async (
       duration,
     });
 
-    if (error instanceof Error) {
-      if (error.message.includes('Permission denied') || error.message.includes('permission')) {
-        return NextResponse.json({ error: error.message }, { status: 403 });
-      }
-    }
-
-    return NextResponse.json(
-      { error: 'Failed to retrieve work item type relationship' },
-      { status: 500 }
-    );
+    return handleRouteError(error, 'Failed to retrieve work item type relationship');
   }
 };
 
@@ -119,27 +111,7 @@ const patchRelationshipHandler = async (
       duration,
     });
 
-    if (error instanceof Error) {
-      if (error.name === 'ZodError') {
-        return NextResponse.json(
-          { error: 'Validation failed', details: error.message },
-          { status: 400 }
-        );
-      }
-
-      if (error.message.includes('not found')) {
-        return NextResponse.json({ error: error.message }, { status: 404 });
-      }
-
-      if (error.message.includes('Permission denied') || error.message.includes('permission')) {
-        return NextResponse.json({ error: error.message }, { status: 403 });
-      }
-    }
-
-    return NextResponse.json(
-      { error: 'Failed to update work item type relationship' },
-      { status: 500 }
-    );
+    return handleRouteError(error, 'Failed to update work item type relationship');
   }
 };
 
@@ -189,20 +161,7 @@ const deleteRelationshipHandler = async (
       duration,
     });
 
-    if (error instanceof Error) {
-      if (error.message.includes('not found')) {
-        return NextResponse.json({ error: error.message }, { status: 404 });
-      }
-
-      if (error.message.includes('Permission denied') || error.message.includes('permission')) {
-        return NextResponse.json({ error: error.message }, { status: 403 });
-      }
-    }
-
-    return NextResponse.json(
-      { error: 'Failed to delete work item type relationship' },
-      { status: 500 }
-    );
+    return handleRouteError(error, 'Failed to delete work item type relationship');
   }
 };
 

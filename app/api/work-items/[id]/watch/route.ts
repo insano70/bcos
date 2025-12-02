@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { rbacRoute } from '@/lib/api/route-handlers';
+import { handleRouteError } from '@/lib/api/responses/error';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
 import { log, logTemplates } from '@/lib/logger';
 import { createRBACWorkItemWatchersService } from '@/lib/services/rbac-work-item-watchers-service';
@@ -56,21 +57,7 @@ const postWatchHandler = async (
       component: 'work-items',
     });
 
-    if (error instanceof Error) {
-      if (error.message.includes('not found')) {
-        return NextResponse.json({ error: error.message }, { status: 404 });
-      }
-
-      if (error.message.includes('already exists') || error.message.includes('already watching')) {
-        return NextResponse.json({ error: error.message }, { status: 409 });
-      }
-
-      if (error.message.includes('Permission denied') || error.message.includes('permission')) {
-        return NextResponse.json({ error: error.message }, { status: 403 });
-      }
-    }
-
-    return NextResponse.json({ error: 'Failed to watch work item' }, { status: 500 });
+    return handleRouteError(error, 'Failed to watch work item');
   }
 };
 
@@ -120,17 +107,7 @@ const deleteWatchHandler = async (
       component: 'work-items',
     });
 
-    if (error instanceof Error) {
-      if (error.message.includes('not found')) {
-        return NextResponse.json({ error: error.message }, { status: 404 });
-      }
-
-      if (error.message.includes('Permission denied') || error.message.includes('permission')) {
-        return NextResponse.json({ error: error.message }, { status: 403 });
-      }
-    }
-
-    return NextResponse.json({ error: 'Failed to unwatch work item' }, { status: 500 });
+    return handleRouteError(error, 'Failed to unwatch work item');
   }
 };
 

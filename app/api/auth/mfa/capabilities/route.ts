@@ -20,6 +20,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { publicRoute } from '@/lib/api/route-handlers';
+import { handleRouteError } from '@/lib/api/responses/error';
 import { MAX_CREDENTIALS_PER_USER } from '@/lib/auth/webauthn/constants';
 import { log } from '@/lib/logger';
 
@@ -89,12 +90,7 @@ const handler = async (request: NextRequest) => {
       component: 'auth',
     });
 
-    return NextResponse.json(
-      {
-        error: 'Failed to check WebAuthn capabilities',
-      },
-      { status: 500 }
-    );
+    return handleRouteError(error, 'Failed to check WebAuthn capabilities');
   }
 };
 

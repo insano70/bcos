@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { rbacRoute } from '@/lib/api/route-handlers';
+import { handleRouteError } from '@/lib/api/responses/error';
 import { log } from '@/lib/logger';
 import { createAttachmentFieldService } from '@/lib/services/work-items/attachment-field-service';
 import type { UserContext } from '@/lib/types/rbac';
@@ -51,11 +52,7 @@ async function handleDelete(request: NextRequest, userContext: UserContext) {
       duration: Date.now() - startTime,
     });
 
-    if (error instanceof Error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
-    }
-
-    return NextResponse.json({ error: 'Failed to delete field attachment' }, { status: 500 });
+    return handleRouteError(error, 'Failed to delete field attachment');
   }
 }
 
