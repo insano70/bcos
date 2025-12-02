@@ -1,7 +1,6 @@
 'use client';
 
-import type { ReactNode } from 'react';
-import { useEffect, useRef } from 'react';
+import { type ReactNode, memo, useEffect, useRef } from 'react';
 import type { EditableColumn } from './editable-data-table';
 
 export interface EditableTableRowProps<T extends { id: string }> {
@@ -32,7 +31,7 @@ export interface EditableTableRowProps<T extends { id: string }> {
   hasExpandable: boolean;
 }
 
-export default function EditableTableRow<T extends { id: string }>({
+function EditableTableRowComponent<T extends { id: string }>({
   item,
   columns,
   isEditing,
@@ -273,3 +272,7 @@ export default function EditableTableRow<T extends { id: string }>({
     </>
   );
 }
+
+// Memoize to prevent whole-table re-renders when only one row changes
+const EditableTableRow = memo(EditableTableRowComponent) as typeof EditableTableRowComponent;
+export default EditableTableRow;

@@ -160,8 +160,8 @@ export default function DashboardsPage() {
         sampleDashboard: dashboards[0],
       });
 
-      // API returns DashboardListItem[], no transformation needed
-      // Just validate and filter out any malformed items
+      // Transform API response to DashboardListItem format
+      // Adds 'id' field required by DataTable component
       const validDashboards: DashboardListItem[] = dashboards
         .map((item, index: number): DashboardListItem | null => {
           clientDebugLog.api(`Validating dashboard ${index}`, item);
@@ -172,7 +172,10 @@ export default function DashboardsPage() {
             return null;
           }
 
-          return item;
+          return {
+            ...item,
+            id: item.dashboard_id, // Map dashboard_id to id for DataTable compatibility
+          };
         })
         .filter((item): item is DashboardListItem => item !== null);
 

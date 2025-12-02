@@ -2,6 +2,7 @@
 
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import DeleteConfirmationModal from './delete-confirmation-modal';
+import { clientErrorLog } from '@/lib/utils/debug-client';
 
 interface DataTableDropdownAction<T> {
   label: string | ((item: T) => string);
@@ -74,7 +75,7 @@ export default function DataTableDropdown<T>({ item, actions }: DataTableDropdow
       await action.onClick(item);
       setIsOpen(false);
     } catch (error) {
-      console.error('Action failed:', error);
+      clientErrorLog('Action failed', error);
     } finally {
       setIsProcessing(false);
     }

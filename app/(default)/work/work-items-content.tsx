@@ -321,8 +321,11 @@ export default function WorkItemsContent() {
         ),
         onClick: handleDeleteWorkItem,
         variant: 'danger',
-        confirm: (w) =>
-          `Are you sure you want to delete "${w.subject}"? This action cannot be undone.`,
+        confirmModal: {
+          title: (w) => `Delete "${w.subject}"`,
+          message: 'This action cannot be undone. The work item and all associated data will be permanently removed.',
+          confirmText: 'Delete Work Item',
+        },
       },
     ],
     [handleEditWorkItem, handleDeleteWorkItem, router]
@@ -335,7 +338,11 @@ export default function WorkItemsContent() {
         label: 'Delete Selected',
         variant: 'danger',
         onClick: handleBulkDelete,
-        confirm: 'Delete all selected items? This action cannot be undone.',
+        confirmModal: {
+          title: 'Delete Selected Work Items',
+          message: 'This action cannot be undone. All selected work items and their associated data will be permanently removed.',
+          confirmText: 'Delete All Selected',
+        },
       },
     ],
     [handleBulkDelete]

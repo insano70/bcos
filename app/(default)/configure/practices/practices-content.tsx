@@ -11,9 +11,11 @@ import DateSelect, { type DateRange } from '@/components/date-select';
 import DeleteButton from '@/components/delete-button';
 import FilterButton, { type ActiveFilter, type FilterGroup } from '@/components/dropdown-filter';
 import { ProtectedComponent } from '@/components/rbac/protected-component';
+import Toast from '@/components/toast';
 import { usePracticePermissions } from '@/lib/hooks/use-permissions';
 import { usePractices } from '@/lib/hooks/use-practices';
 import type { Practice } from '@/lib/types/practice';
+import { clientErrorLog } from '@/lib/utils/debug-client';
 
 export default function PracticesContent() {
   const { data: practices, isLoading, error, refetch } = usePractices();
@@ -25,6 +27,11 @@ export default function PracticesContent() {
     endDate: null,
     period: 'All Time',
   });
+
+  // Toast state
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState<'success' | 'error'>('success');
 
   // Define filter configuration
   const filterGroups: FilterGroup[] = [
@@ -128,9 +135,14 @@ export default function PracticesContent() {
 
       // Refresh the practices list to show updated status
       refetch();
+      setToastType('success');
+      setToastMessage(`${_practice.name} has been activated`);
+      setShowToast(true);
     } catch (error) {
-      console.error('Error activating practice:', error);
-      // Could add toast notification here
+      clientErrorLog('Error activating practice', error);
+      setToastType('error');
+      setToastMessage('Failed to activate practice');
+      setShowToast(true);
     }
   };
 
@@ -447,6 +459,11 @@ export default function PracticesContent() {
           refetch();
         }}
       />
+
+      {/* Toast notifications */}
+      <Toast type={toastType} open={showToast} setOpen={setShowToast}>
+        {toastMessage}
+      </Toast>
     </div>
   );
 }

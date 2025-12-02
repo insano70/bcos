@@ -3,49 +3,25 @@
 import type { ReactNode } from 'react';
 import { useState, useEffect } from 'react';
 import EditableTableRow from './editable-table-row';
-import PaginationClassic from './pagination-classic';
 import DeleteConfirmationModal from './delete-confirmation-modal';
 import { usePagination } from '@/lib/hooks/use-pagination';
 import { clientErrorLog } from '@/lib/utils/debug-client';
+import { BaseDataTable } from './data-table/base-data-table';
+import { DataTablePagination } from './data-table/data-table-pagination';
+import { DataTableToolbar } from './data-table/data-table-toolbar';
+import type { DataTableBulkAction, DataTableColumn } from './data-table/types';
+import { DEFAULT_EDITABLE_ITEMS_PER_PAGE } from './data-table/utils';
 
-// Column definition with display and edit mode support
-export interface EditableColumn<T> {
-  key: keyof T | 'checkbox' | 'actions' | 'expand';
-  header?: string;
-  sortable?: boolean;
-  align?: 'left' | 'center' | 'right';
-  className?: string;
-  width?: string; // e.g., '200px', '30%', 'auto'
+/**
+ * Delay in milliseconds before entering edit mode after quick-add.
+ * This allows React Query to update the data before attempting to edit the new row.
+ * Without this delay, the row may not exist in the data yet.
+ */
+const QUICK_ADD_EDIT_DELAY_MS = 100;
 
-  // Display mode rendering
-  render?: (item: T) => ReactNode;
-
-  // Edit mode rendering
-  renderEdit?: (
-    item: T,
-    value: unknown,
-    onChange: (value: unknown) => void,
-    error?: string
-  ) => ReactNode;
-
-  // Field metadata
-  editable?: boolean; // Default: false for checkbox/actions, true for data columns
-  required?: boolean;
-  validate?: (value: unknown, item: T) => string | undefined; // Return error message
-}
-
-// Bulk action definition
-export interface EditableDataTableBulkAction<T> {
-  label: string;
-  icon?: ReactNode;
-  onClick: (items: T[]) => void | Promise<void>;
-  variant?: 'default' | 'danger';
-  confirmModal?: {
-    title: string;
-    message: string;
-    confirmText?: string;
-  };
-}
+// Re-export types for backward compatibility
+export type EditableColumn<T> = DataTableColumn<T>;
+export type EditableDataTableBulkAction<T> = DataTableBulkAction<T>;
 
 // Main props interface
 export interface EditableDataTableProps<T extends { id: string }> {
@@ -89,14 +65,36 @@ export interface EditableDataTableProps<T extends { id: string }> {
   // Edit mode configuration
   allowMultiEdit?: boolean; // Default: true
   unsavedChangesWarning?: boolean; // Default: true
+  /** @reserved Future feature - keyboard navigation partially implemented in row component */
   keyboardNavigation?: boolean; // Default: true
 
   // Row state overrides (for optimistic updates)
   editingRows?: Set<string>; // Row IDs in edit mode
   savingRows?: Set<string>; // Row IDs currently saving
+  /** @reserved Future feature - external error state not yet integrated */
   errorRows?: Map<string, string>; // Row ID → error message
 }
 
+/**
+ * Editable data table with inline edit/save/cancel functionality.
+ *
+ * ## Selection State Architecture
+ * Uses **LOCAL selection state** via `useState`, scoped to this component instance.
+ * This design choice enables:
+ * - Multiple editable tables on the same page without selection conflicts
+ * - Selection state tied to component lifecycle (resets on unmount)
+ * - No interference with external components like DeleteButton
+ *
+ * **For read-only tables with global selection**, use `DataTableStandard` instead.
+ *
+ * ## ID Type Constraint
+ * This component requires `id` to be `string` (not `string | number`).
+ * This is intentional: edit state tracking uses string keys in Maps/Sets,
+ * and database IDs are typically UUIDs (strings).
+ *
+ * @see DataTableStandard - For read-only tables with global selection
+ * @see useItemSelection - Hook used by DataTableStandard for global selection
+ */
 export default function EditableDataTable<T extends { id: string }>({
   title,
   data,
@@ -125,7 +123,7 @@ export default function EditableDataTable<T extends { id: string }>({
 
   // Pagination
   const pagination = usePagination(data, {
-    itemsPerPage: paginationConfig?.itemsPerPage || 50,
+    itemsPerPage: paginationConfig?.itemsPerPage || DEFAULT_EDITABLE_ITEMS_PER_PAGE,
   });
 
   // Use paginated data if pagination is enabled, otherwise use all data
@@ -174,21 +172,8 @@ export default function EditableDataTable<T extends { id: string }>({
     onUnsavedChangesChange?.(unsavedChanges.size > 0);
   }, [unsavedChanges, onUnsavedChangesChange]);
 
-  // Compute visible columns
-  const visibleColumns = columns.filter((col) => {
-    // Always show these special columns if defined
-    if (col.key === 'checkbox' || col.key === 'actions' || col.key === 'expand') {
-      return true;
-    }
-    return true; // For now, show all data columns
-  });
-
-  // Helper: Get alignment class
-  const getAlignmentClass = (align?: 'left' | 'center' | 'right') => {
-    if (align === 'center') return 'text-center justify-center';
-    if (align === 'right') return 'text-right justify-end';
-    return 'text-left';
-  };
+  // All columns are visible (column visibility feature not implemented for editable tables)
+  const visibleColumns = columns;
 
   // Helper: Check if all rows are selected
   const isAllSelected = data.length > 0 && selectedRows.size === data.length;
@@ -231,10 +216,6 @@ export default function EditableDataTable<T extends { id: string }>({
   // Get selected items for bulk actions
   const selectedItemsData = data.filter((item) => selectedRows.has(item.id));
 
-  // Determine if table has bulk actions
-  const hasBulkActions = bulkActions && bulkActions.length > 0;
-  const showBulkActions = hasBulkActions && selectedRows.size > 0;
-
   // Quick-add state
   const [isQuickAdding, setIsQuickAdding] = useState(false);
 
@@ -252,10 +233,9 @@ export default function EditableDataTable<T extends { id: string }>({
 
       // If onQuickAdd returns an item ID, automatically enter edit mode for that item
       if (newItemId && typeof newItemId === 'string') {
-        // Wait a tick for React Query to update the data
         setTimeout(() => {
           enterEditMode(newItemId);
-        }, 100);
+        }, QUICK_ADD_EDIT_DELAY_MS);
       }
     } catch (error) {
       clientErrorLog('Quick add failed', error);
@@ -277,7 +257,11 @@ export default function EditableDataTable<T extends { id: string }>({
     action.onClick(selectedItemsData);
   };
 
-  // Edit mode handlers
+  /**
+   * Enters edit mode for a row. If allowMultiEdit is false, exits edit mode
+   * for all other rows first. Auto-expands the row if expandable content exists.
+   * @param rowId - The ID of the row to edit
+   */
   const enterEditMode = (rowId: string) => {
     if (!externalEditingRows) {
       setInternalEditingRows((prev) => {
@@ -302,6 +286,10 @@ export default function EditableDataTable<T extends { id: string }>({
     }
   };
 
+  /**
+   * Exits edit mode for a row. Clears any unsaved changes and validation errors.
+   * @param rowId - The ID of the row to exit edit mode
+   */
   const exitEditMode = (rowId: string) => {
     if (!externalEditingRows) {
       setInternalEditingRows((prev) => {
@@ -324,7 +312,12 @@ export default function EditableDataTable<T extends { id: string }>({
     });
   };
 
-  // Change tracking handler
+  /**
+   * Tracks field changes for a row, storing them in unsavedChanges state.
+   * @param rowId - The ID of the row being edited
+   * @param fieldKey - The field/column key being changed
+   * @param value - The new value for the field
+   */
   const handleFieldChange = (rowId: string, fieldKey: keyof T, value: unknown) => {
     setUnsavedChanges((prev) => {
       const next = new Map(prev);
@@ -334,7 +327,13 @@ export default function EditableDataTable<T extends { id: string }>({
     });
   };
 
-  // Validation handler
+  /**
+   * Validates a row by checking required fields and running custom validators.
+   * Merges original item data with pending changes before validation.
+   * @param item - The original item data
+   * @param changes - Pending changes to be validated
+   * @returns Record of field keys to error messages (empty if valid)
+   */
   const validateRow = (item: T, changes: Partial<T>): Record<string, string> => {
     const errors: Record<string, string> = {};
     const mergedItem = { ...item, ...changes };
@@ -364,7 +363,12 @@ export default function EditableDataTable<T extends { id: string }>({
     return errors;
   };
 
-  // Save handler
+  /**
+   * Handles saving a row's changes. Validates the data, calls onSave callback,
+   * and manages saving/error states. Keeps row in edit mode if validation fails
+   * or save throws an error.
+   * @param rowId - The ID of the row to save
+   */
   const handleSave = async (rowId: string) => {
     const item = data.find((d) => d.id === rowId);
     const changes = unsavedChanges.get(rowId) || {};
@@ -431,7 +435,11 @@ export default function EditableDataTable<T extends { id: string }>({
     }
   };
 
-  // Cancel handler
+  /**
+   * Handles canceling row edits. Exits edit mode and discards unsaved changes.
+   * Calls onCancel callback if provided.
+   * @param rowId - The ID of the row to cancel
+   */
   const handleCancel = async (rowId: string) => {
     const item = data.find((d) => d.id === rowId);
     exitEditMode(rowId);
@@ -440,7 +448,11 @@ export default function EditableDataTable<T extends { id: string }>({
     }
   };
 
-  // Delete handler
+  /**
+   * Handles deleting a row. Calls onDelete callback if provided.
+   * Note: Confirmation should be handled by the parent component.
+   * @param rowId - The ID of the row to delete
+   */
   const handleDelete = async (rowId: string) => {
     const item = data.find((d) => d.id === rowId);
     if (!item) return;
@@ -455,239 +467,119 @@ export default function EditableDataTable<T extends { id: string }>({
 
   return (
     <>
-      {/* Toolbar */}
-      {(showBulkActions || onQuickAdd) && (
-        <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl px-5 py-4 mb-4">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            {showBulkActions ? (
-              <span className="text-sm text-gray-600 dark:text-gray-400">
-                {selectedRows.size} selected
-              </span>
-            ) : (
-              <div />
-            )}
-            <div className="flex items-center gap-2">
-              {/* Quick Add Button */}
-              {onQuickAdd && (
-                <button
-                  type="button"
-                  onClick={handleQuickAdd}
-                  disabled={isQuickAdding}
-                  className="btn bg-indigo-500 hover:bg-indigo-600 text-white disabled:opacity-60"
-                >
-                  {isQuickAdding ? 'Adding...' : '+ Add Row'}
-                </button>
-              )}
-              {bulkActions?.map((action) => (
-                <button
-                  key={action.label}
-                  type="button"
-                  onClick={() => handleBulkAction(action)}
-                  className={`btn-sm ${
-                    action.variant === 'danger'
-                      ? 'bg-red-500 hover:bg-red-600 text-white'
-                      : 'bg-gray-900 hover:bg-gray-800 text-gray-100'
-                  }`}
-                >
-                  {action.icon && <span className="mr-1">{action.icon}</span>}
-                  {action.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
+      <DataTableToolbar
+        onQuickAdd={onQuickAdd ? handleQuickAdd : undefined}
+        isQuickAdding={isQuickAdding}
+        bulkActions={bulkActions}
+        selectedItemsCount={selectedRows.size}
+        onBulkAction={handleBulkAction}
+      />
 
-      {/* Table */}
-      <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl relative">
-        <header className="px-5 py-4">
-          <h2 className="font-semibold text-gray-800 dark:text-gray-100">
-            {title}{' '}
-            <span className="text-gray-400 dark:text-gray-500 font-medium">{data.length}</span>
-          </h2>
-        </header>
-        <div>
-          <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
-            <table className="table-auto w-full dark:text-gray-300">
-              <thead className="text-xs font-semibold uppercase text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-900 border-t border-b border-gray-100 dark:border-gray-700/60 sticky top-0 z-20">
-                <tr>
-                  {expandable && (
-                    <th className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap w-px">
-                      <span className="sr-only">Expand</span>
-                    </th>
-                  )}
-                  {visibleColumns.map((column) => {
-                    if (column.key === 'checkbox') {
-                      return (
-                        <th
-                          key="checkbox"
-                          className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap w-px"
-                        >
-                          <div className="flex items-center">
-                            <label className="inline-flex">
-                              <span className="sr-only">Select all</span>
-                              <input
-                                className="form-checkbox"
-                                type="checkbox"
-                                onChange={(e) => handleSelectAllChange(e.target.checked)}
-                                checked={isAllSelected}
-                              />
-                            </label>
-                          </div>
-                        </th>
-                      );
-                    }
+      <BaseDataTable
+        title={title}
+        data={displayData}
+        columns={visibleColumns}
+        isLoading={isLoading}
+        emptyState={emptyState}
+        selectable={true} // Always selectable in editable table for now
+        selectionMode="multi"
+        isAllSelected={isAllSelected}
+        onSelectAll={handleSelectAllChange}
+        expandable={!!expandable}
+      >
+        {displayData.map((item) => {
+          const isExpanded = expandedRows.has(item.id);
+          const isSelected = selectedRows.has(item.id);
+          const isEditing = editingRows.has(item.id);
+          const isSaving = savingRows.has(item.id);
+          const rowChanges = unsavedChanges.get(item.id) || {};
+          const rowErrors = validationErrors.get(item.id) || {};
+          const hasUnsaved = unsavedChanges.has(item.id) && Object.keys(rowChanges).length > 0;
 
-                    if (column.key === 'actions') {
-                      return (
-                        <th
-                          key="actions"
-                          className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap w-px"
-                        >
-                          <span className="sr-only">{column.header || 'Actions'}</span>
-                        </th>
-                      );
-                    }
+          return (
+            <EditableTableRow
+              key={item.id}
+              item={item}
+              columns={visibleColumns}
+              isEditing={isEditing}
+              isSaving={isSaving}
+              hasUnsavedChanges={hasUnsaved}
+              isExpanded={isExpanded}
+              isSelected={isSelected}
+              changes={rowChanges}
+              errors={rowErrors}
+              onEdit={() => enterEditMode(item.id)}
+              onSave={() => handleSave(item.id)}
+              onCancel={() => handleCancel(item.id)}
+              onDelete={() => handleDelete(item.id)}
+              onChange={(key, value) => handleFieldChange(item.id, key, value)}
+              onToggleExpand={() => toggleRowExpansion(item.id)}
+              onToggleSelect={(checked) => handleRowSelect(item.id, checked)}
+              {...(onNavigate ? { onNavigate: () => onNavigate(item) } : {})}
+              expandableContent={
+                expandable?.render(
+                  item,
+                  isEditing,
+                  rowChanges,
+                  (key, value) => handleFieldChange(item.id, key, value),
+                  rowErrors
+                )
+              }
+              hasExpandable={Boolean(expandable)}
+            />
+          );
+        })}
+      </BaseDataTable>
 
-                    const alignClass = getAlignmentClass(column.align);
-
-                    return (
-                      <th
-                        key={String(column.key)}
-                        className={`px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap ${column.className || ''}`}
-                        style={column.width ? { width: column.width } : undefined}
-                      >
-                        <div className={`font-semibold ${alignClass}`}>{column.header}</div>
-                      </th>
-                    );
-                  })}
-                </tr>
-              </thead>
-              <tbody className="text-sm divide-y divide-gray-100 dark:divide-gray-700/60">
-                {isLoading ? (
-                  // Loading skeleton
-                  Array.from({ length: 5 }, (_, idx) => idx).map((idx) => (
-                    <tr key={`skeleton-${idx}`}>
-                      {expandable && (
-                        <td className="px-2 first:pl-5 last:pr-5 py-3">
-                          <div className="h-4 w-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
-                        </td>
-                      )}
-                      {visibleColumns.map((col) => (
-                        <td
-                          key={`skeleton-col-${idx}-${String(col.key)}`}
-                          className="px-2 first:pl-5 last:pr-5 py-3"
-                        >
-                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
-                        </td>
-                      ))}
-                    </tr>
-                  ))
-                ) : data.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={visibleColumns.length + (expandable ? 1 : 0)}
-                      className="px-2 first:pl-5 last:pr-5 py-12 text-center"
-                    >
-                      {emptyState ? (
-                        <>
-                          {emptyState.icon && <div className="mb-2">{emptyState.icon}</div>}
-                          <div className="text-gray-500 dark:text-gray-400">{emptyState.title}</div>
-                          {emptyState.description && (
-                            <p className="text-gray-600 dark:text-gray-400 text-sm mt-2">
-                              {emptyState.description}
-                            </p>
-                          )}
-                        </>
-                      ) : (
-                        <div className="text-gray-500 dark:text-gray-400">No data found</div>
-                      )}
-                    </td>
-                  </tr>
-                ) : (
-                  displayData.map((item) => {
-                    const isExpanded = expandedRows.has(item.id);
-                    const isSelected = selectedRows.has(item.id);
-                    const isEditing = editingRows.has(item.id);
-                    const isSaving = savingRows.has(item.id);
-                    const rowChanges = unsavedChanges.get(item.id) || {};
-                    const rowErrors = validationErrors.get(item.id) || {};
-                    const hasUnsaved = unsavedChanges.has(item.id) && Object.keys(rowChanges).length > 0;
-
-                    return (
-                      <EditableTableRow
-                        key={item.id}
-                        item={item}
-                        columns={visibleColumns}
-                        isEditing={isEditing}
-                        isSaving={isSaving}
-                        hasUnsavedChanges={hasUnsaved}
-                        isExpanded={isExpanded}
-                        isSelected={isSelected}
-                        changes={rowChanges}
-                        errors={rowErrors}
-                        onEdit={() => enterEditMode(item.id)}
-                        onSave={() => handleSave(item.id)}
-                        onCancel={() => handleCancel(item.id)}
-                        onDelete={() => handleDelete(item.id)}
-                        onChange={(key, value) => handleFieldChange(item.id, key, value)}
-                        onToggleExpand={() => toggleRowExpansion(item.id)}
-                        onToggleSelect={(checked) => handleRowSelect(item.id, checked)}
-                        {...(onNavigate ? { onNavigate: () => onNavigate(item) } : {})}
-                        expandableContent={
-                          expandable?.render(
-                            item,
-                            isEditing,
-                            rowChanges,
-                            (key, value) => handleFieldChange(item.id, key, value),
-                            rowErrors
-                          )
-                        }
-                        hasExpandable={Boolean(expandable)}
-                      />
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      {/* Pagination */}
-      {paginationConfig && data.length > 0 && !isLoading && (
-        <div className="mt-8">
-          <PaginationClassic
-            currentPage={pagination.currentPage}
-            totalItems={pagination.totalItems}
-            itemsPerPage={pagination.itemsPerPage}
-            startItem={pagination.startItem}
-            endItem={pagination.endItem}
-            hasPrevious={pagination.hasPrevious}
-            hasNext={pagination.hasNext}
-            onPrevious={pagination.goToPrevious}
-            onNext={pagination.goToNext}
-          />
-        </div>
-      )}
-
-      {/* Bulk Action Confirmation Modal */}
-      {pendingBulkAction?.confirmModal && (
-        <DeleteConfirmationModal
-          isOpen={bulkModalOpen}
-          setIsOpen={setBulkModalOpen}
-          title={pendingBulkAction.confirmModal.title}
-          itemName={`${selectedRows.size} item${selectedRows.size !== 1 ? 's' : ''}`}
-          message={pendingBulkAction.confirmModal.message}
-          confirmButtonText={pendingBulkAction.confirmModal.confirmText || 'Confirm'}
-          onConfirm={async () => {
-            if (pendingBulkAction) {
-              await pendingBulkAction.onClick(selectedItemsData);
-              setPendingBulkAction(null);
-            }
+      {paginationConfig && (
+        <DataTablePagination
+          pagination={{
+            ...pagination,
+            goToPrevious: pagination.goToPrevious,
+            goToNext: pagination.goToNext,
           }}
+          isLoading={isLoading}
         />
       )}
+
+      {pendingBulkAction?.confirmModal && (() => {
+        // Get first item for dynamic modal content (only used when function callbacks need it)
+        const firstItem = selectedItemsData[0];
+        return (
+          <DeleteConfirmationModal
+            isOpen={bulkModalOpen}
+            setIsOpen={setBulkModalOpen}
+            title={
+              typeof pendingBulkAction.confirmModal.title === 'function' && firstItem
+                ? pendingBulkAction.confirmModal.title(firstItem)
+                : typeof pendingBulkAction.confirmModal.title === 'string'
+                  ? pendingBulkAction.confirmModal.title
+                  : 'Confirm Action'
+            }
+            itemName={`${selectedRows.size} item${selectedRows.size !== 1 ? 's' : ''}`}
+            message={
+              typeof pendingBulkAction.confirmModal.message === 'function' && firstItem
+                ? pendingBulkAction.confirmModal.message(firstItem)
+                : typeof pendingBulkAction.confirmModal.message === 'string'
+                  ? pendingBulkAction.confirmModal.message
+                  : 'Are you sure you want to proceed?'
+            }
+            confirmButtonText={
+              typeof pendingBulkAction.confirmModal.confirmText === 'function' && firstItem
+                ? pendingBulkAction.confirmModal.confirmText(firstItem)
+                : typeof pendingBulkAction.confirmModal.confirmText === 'string'
+                  ? pendingBulkAction.confirmModal.confirmText
+                  : 'Confirm'
+            }
+            onConfirm={async () => {
+              if (pendingBulkAction) {
+                await pendingBulkAction.onClick(selectedItemsData);
+                setPendingBulkAction(null);
+              }
+            }}
+          />
+        );
+      })()}
     </>
   );
 }
