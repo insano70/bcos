@@ -3,8 +3,7 @@
 import { useState, useRef, useId } from 'react';
 import { useFeedbackAnalytics } from '@/lib/hooks/use-data-explorer';
 import ProtectedComponent from '@/components/rbac/protected-component';
-// TODO: Integrate with project's existing chart components (AnalyticsChart, etc.)
-// For now, using simple data displays until chart integration is complete
+// Note: Uses simple data displays; AnalyticsChart integration available for richer visualization
 
 export default function AnalyticsDashboardPage() {
   const [dateRange, setDateRange] = useState<{ start: string; end: string } | undefined>(undefined);

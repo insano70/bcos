@@ -1,7 +1,12 @@
 import { and, eq } from 'drizzle-orm';
-import { AuthorizationError, NotFoundError, ValidationError } from '@/lib/api/responses/error';
 import { db } from '@/lib/db';
 import { work_item_status_transitions, work_item_statuses, work_item_types } from '@/lib/db/schema';
+import {
+  DatabaseError,
+  ForbiddenError,
+  NotFoundError,
+  ValidationError,
+} from '@/lib/errors/domain-errors';
 import { log } from '@/lib/logger';
 import { BaseRBACService } from '@/lib/rbac/base-service';
 import type { UserContext } from '@/lib/types/rbac';
@@ -154,22 +159,22 @@ export class RBACWorkItemStatusTransitionsService extends BaseRBACService {
         .limit(1);
 
       if (typeResults.length === 0) {
-        throw NotFoundError('Work item type');
+        throw new NotFoundError('Work item type', data.work_item_type_id);
       }
 
       const type = typeResults[0];
       if (!type) {
-        throw NotFoundError('Work item type');
+        throw new NotFoundError('Work item type', data.work_item_type_id);
       }
 
       // Prevent creating transitions for global types
       if (type.organization_id === null) {
-        throw AuthorizationError('Cannot modify global work item types');
+        throw new ForbiddenError('Cannot modify global work item types');
       }
 
       // Verify user has access to the organization
       if (!this.canAccessOrganization(type.organization_id)) {
-        throw AuthorizationError('Access denied to this organization');
+        throw new ForbiddenError('Access denied to this organization');
       }
 
       // Verify both statuses exist and belong to this type
@@ -185,10 +190,7 @@ export class RBACWorkItemStatusTransitionsService extends BaseRBACService {
         .limit(1);
 
       if (fromStatusResults.length === 0) {
-        throw ValidationError(
-          'From status does not belong to this work item type',
-          data.from_status_id
-        );
+        throw new ValidationError('From status does not belong to this work item type');
       }
 
       const toStatusResults = await db
@@ -203,10 +205,7 @@ export class RBACWorkItemStatusTransitionsService extends BaseRBACService {
         .limit(1);
 
       if (toStatusResults.length === 0) {
-        throw ValidationError(
-          'To status does not belong to this work item type',
-          data.to_status_id
-        );
+        throw new ValidationError('To status does not belong to this work item type');
       }
 
       // Create the transition
@@ -222,7 +221,7 @@ export class RBACWorkItemStatusTransitionsService extends BaseRBACService {
 
       const result = results[0];
       if (!result) {
-        throw new Error('Failed to create transition');
+        throw new DatabaseError('Failed to create transition', 'write');
       }
 
       const duration = Date.now() - queryStart;
@@ -273,7 +272,7 @@ export class RBACWorkItemStatusTransitionsService extends BaseRBACService {
       // Get the transition and verify it exists
       const existingTransition = await this.getTransitionById(transitionId);
       if (!existingTransition) {
-        throw NotFoundError('Status transition');
+        throw new NotFoundError('Status transition', transitionId);
       }
 
       // Get the work item type to check organization ownership
@@ -287,22 +286,22 @@ export class RBACWorkItemStatusTransitionsService extends BaseRBACService {
         .limit(1);
 
       if (typeResults.length === 0) {
-        throw NotFoundError('Work item type');
+        throw new NotFoundError('Work item type', existingTransition.work_item_type_id);
       }
 
       const type = typeResults[0];
       if (!type) {
-        throw NotFoundError('Work item type');
+        throw new NotFoundError('Work item type', existingTransition.work_item_type_id);
       }
 
       // Prevent updating transitions for global types
       if (type.organization_id === null) {
-        throw AuthorizationError('Cannot modify global work item types');
+        throw new ForbiddenError('Cannot modify global work item types');
       }
 
       // Verify user has access to the organization
       if (!this.canAccessOrganization(type.organization_id)) {
-        throw AuthorizationError('Access denied to this organization');
+        throw new ForbiddenError('Access denied to this organization');
       }
 
       // Update the transition
@@ -333,7 +332,7 @@ export class RBACWorkItemStatusTransitionsService extends BaseRBACService {
 
       const result = results[0];
       if (!result) {
-        throw new Error('Failed to update transition');
+        throw new DatabaseError('Failed to update transition', 'write');
       }
 
       const duration = Date.now() - queryStart;
@@ -375,7 +374,7 @@ export class RBACWorkItemStatusTransitionsService extends BaseRBACService {
       // Get the transition and verify it exists
       const existingTransition = await this.getTransitionById(transitionId);
       if (!existingTransition) {
-        throw NotFoundError('Status transition');
+        throw new NotFoundError('Status transition', transitionId);
       }
 
       // Get the work item type to check organization ownership
@@ -389,22 +388,22 @@ export class RBACWorkItemStatusTransitionsService extends BaseRBACService {
         .limit(1);
 
       if (typeResults.length === 0) {
-        throw NotFoundError('Work item type');
+        throw new NotFoundError('Work item type', existingTransition.work_item_type_id);
       }
 
       const type = typeResults[0];
       if (!type) {
-        throw NotFoundError('Work item type');
+        throw new NotFoundError('Work item type', existingTransition.work_item_type_id);
       }
 
       // Prevent deleting transitions from global types
       if (type.organization_id === null) {
-        throw AuthorizationError('Cannot modify global work item types');
+        throw new ForbiddenError('Cannot modify global work item types');
       }
 
       // Verify user has access to the organization
       if (!this.canAccessOrganization(type.organization_id)) {
-        throw AuthorizationError('Access denied to this organization');
+        throw new ForbiddenError('Access denied to this organization');
       }
 
       // Delete the transition

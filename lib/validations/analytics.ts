@@ -256,7 +256,7 @@ export const analyticsQuerySchema = z.object({
   sort_by: z.enum(['name', 'created_at', 'updated_at']).optional(),
   sort_order: z.enum(['asc', 'desc']).optional(),
   page: z.coerce.number().int().positive().optional(),
-  limit: z.coerce.number().int().min(1).max(100).optional(),
+  limit: z.coerce.number().int().min(1).max(1000).optional(),
 });
 
 // Bulk operations schemas

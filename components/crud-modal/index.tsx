@@ -8,6 +8,7 @@ import { useForm } from 'react-hook-form';
 import Toast from '../toast';
 import FieldRenderer from './field-renderer';
 import type { CrudModalProps } from './types';
+import { clientErrorLog } from '@/lib/utils/debug-client';
 
 const sizeClasses = {
   sm: 'max-w-sm',     // 384px
@@ -101,9 +102,7 @@ export default function CrudModal<TFormData extends FieldValues = FieldValues, T
       afterSuccess?.();
     } catch (error) {
       // Error handling is done by the mutation/onSubmit handler
-      if (process.env.NODE_ENV === 'development') {
-        console.error(`Error ${mode === 'create' ? 'creating' : 'updating'} ${resourceName}:`, error);
-      }
+      clientErrorLog(`Error ${mode === 'create' ? 'creating' : 'updating'} ${resourceName}:`, error);
     } finally {
       setIsSubmitting(false);
     }

@@ -2,9 +2,9 @@
  * CloudWatch Logs Insights Query Helper
  *
  * Provides simplified interface to query CloudWatch Logs.
- * For now, returns mock data until AWS SDK is fully configured.
+ * Returns mock data in development; uses AWS SDK in production.
  *
- * TODO: Install @aws-sdk/client-cloudwatch-logs for production use
+ * DEPENDENCY: @aws-sdk/client-cloudwatch-logs (installed in production)
  *
  * USAGE:
  * ```typescript

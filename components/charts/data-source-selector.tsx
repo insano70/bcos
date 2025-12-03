@@ -3,6 +3,7 @@
 import { Menu, MenuButton, MenuItem, MenuItems, Transition } from '@headlessui/react';
 import { useEffect, useState } from 'react';
 import { apiClient } from '@/lib/api/client';
+import { clientErrorLog } from '@/lib/utils/debug-client';
 
 interface DataSource {
   id: number;
@@ -46,7 +47,7 @@ export default function DataSourceSelector({
         onDataSourceChange(response.dataSources[0]);
       }
     } catch (err) {
-      console.error('Failed to load data sources:', err);
+      clientErrorLog('Failed to load data sources:', err);
       setError(err instanceof Error ? err.message : 'Failed to load data sources');
       setDataSources([]);
     } finally {

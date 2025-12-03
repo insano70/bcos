@@ -7,6 +7,7 @@ import { and, count, eq, isNull } from 'drizzle-orm';
 import Link from 'next/link';
 import { requireServerAnyPermission } from '@/lib/auth/server-rbac';
 import { db, practices, staff_members, users } from '@/lib/db';
+import { log } from '@/lib/logger';
 
 async function getDashboardStats() {
   // SECURITY: Validate permissions BEFORE fetching aggregate statistics
@@ -42,10 +43,8 @@ async function getDashboardStats() {
       activePractices: activePracticeCount?.count || 0,
     };
   } catch (error) {
-    // Log client-side dashboard errors for debugging
-    if (process.env.NODE_ENV === 'development') {
-      console.error('Error fetching dashboard stats:', error);
-    }
+    // Log dashboard errors for debugging
+    log.error('Error fetching dashboard stats', error instanceof Error ? error : new Error(String(error)));
     return {
       totalPractices: 0,
       totalUsers: 0,

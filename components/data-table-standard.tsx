@@ -1,7 +1,6 @@
 'use client';
 
-import { type ReactNode, useCallback, useMemo, useState } from 'react';
-import DeleteConfirmationModal from './delete-confirmation-modal';
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { useItemSelection } from '@/components/utils/use-item-selection';
 import { usePagination } from '@/lib/hooks/use-pagination';
 import { useTableSort } from '@/lib/hooks/use-table-sort';
@@ -10,26 +9,15 @@ import { BaseDataTable } from './data-table/base-data-table';
 import { DataTablePagination } from './data-table/data-table-pagination';
 import { DataTableToolbar } from './data-table/data-table-toolbar';
 import { DataTableRow } from './data-table/data-table-row';
-import type { DataTableBulkAction, DataTableColumn } from './data-table/types';
+import type { DataTableBulkAction, DataTableColumn, DataTableDropdownAction } from './data-table/types';
 import { DEFAULT_ITEMS_PER_PAGE, type DensityMode } from './data-table/utils';
+import { useBulkActionModal } from './data-table/use-bulk-action-modal';
+
+/** Search input debounce delay in milliseconds to prevent excessive filtering on rapid typing */
+const SEARCH_DEBOUNCE_MS = 300;
 
 // Re-export types for backward compatibility
-export type { DataTableColumn, DataTableBulkAction };
-
-// Dropdown action definition
-export interface DataTableDropdownAction<T> {
-  label: string | ((item: T) => string);
-  icon?: ReactNode;
-  onClick: (item: T) => void | Promise<void>;
-  variant?: 'default' | 'danger';
-  confirm?: string | ((item: T) => string);
-  confirmModal?: {
-    title: string | ((item: T) => string);
-    message: string | ((item: T) => string);
-    confirmText?: string | ((item: T) => string);
-  };
-  show?: (item: T) => boolean;
-}
+export type { DataTableColumn, DataTableBulkAction, DataTableDropdownAction };
 
 // Selection mode
 export type SelectionMode = 'none' | 'single' | 'multi';
@@ -101,17 +89,24 @@ export default function DataTable<T extends { id: string | number }>({
   stickyHeader = true,
   expandable,
 }: DataTableProps<T>) {
+  // Search state: immediate value for input, debounced value for filtering
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+
+  // Debounce search query to prevent excessive filtering on rapid typing
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, SEARCH_DEBOUNCE_MS);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   // Density state
   const [density, setDensity] = useState<DensityMode>('normal');
 
   // Expanded rows state
   const [expandedRows, setExpandedRows] = useState<Set<string | number>>(new Set());
-
-  // Bulk action confirmation modal state
-  const [bulkModalOpen, setBulkModalOpen] = useState(false);
-  const [pendingBulkAction, setPendingBulkAction] = useState<DataTableBulkAction<T> | null>(null);
 
   // Use columns directly (column visibility feature removed as unused)
   const visibleColumns = initialColumns;
@@ -120,15 +115,25 @@ export default function DataTable<T extends { id: string | number }>({
   const { selectedItems, isAllSelected, handleCheckboxChange, handleSelectAllChange } =
     useItemSelection(data);
 
-  // Search filtering
+  // Determine searchable column keys (excludes checkbox, actions, and other non-data columns)
+  const searchableKeys = useMemo(() => {
+    return visibleColumns
+      .filter((col) => col.key !== 'checkbox' && col.key !== 'actions' && col.key !== 'expand')
+      .map((col) => col.key as keyof T);
+  }, [visibleColumns]);
+
+  // Search filtering (uses debounced query for performance, only searches data columns)
   const searchedData = useMemo(() => {
-    if (!searchQuery.trim()) return data;
+    if (!debouncedSearchQuery.trim()) return data;
 
     return data.filter((item) => {
-      const searchLower = searchQuery.toLowerCase();
-      return Object.values(item).some((value) => String(value).toLowerCase().includes(searchLower));
+      const searchLower = debouncedSearchQuery.toLowerCase();
+      return searchableKeys.some((key) => {
+        const value = item[key];
+        return value !== null && value !== undefined && String(value).toLowerCase().includes(searchLower);
+      });
     });
-  }, [data, searchQuery]);
+  }, [data, debouncedSearchQuery, searchableKeys]);
 
   // Sorting
   const { sortedData, handleSort, getSortIcon, sortConfig } = useTableSort(searchedData);
@@ -225,8 +230,17 @@ export default function DataTable<T extends { id: string | number }>({
     [selectionMode, handleCheckboxChange, selectedItems, dropdownActions]
   );
 
-  // Get selected items for bulk actions
-  const selectedItemsData = data.filter((item) => selectedItems.includes(item.id));
+  // Get selected items for bulk actions (memoized to prevent recalculation on every render)
+  const selectedItemsData = useMemo(
+    () => data.filter((item) => selectedItems.includes(item.id)),
+    [data, selectedItems]
+  );
+
+  // Bulk action confirmation modal hook
+  const { handleBulkAction, BulkActionModal } = useBulkActionModal({
+    selectedItems: selectedItemsData,
+    selectedCount: selectedItems.length,
+  });
 
   // Helper function to toggle row expansion
   const toggleRowExpansion = useCallback((id: string | number) => {
@@ -261,16 +275,7 @@ export default function DataTable<T extends { id: string | number }>({
         onSearchChange={setSearchQuery}
         bulkActions={bulkActions}
         selectedItemsCount={selectedItems.length}
-        onBulkAction={(action: DataTableBulkAction<T>) => {
-          // Always use modal for confirmation (confirmModal preferred, legacy confirm converted)
-          if (action.confirmModal || action.confirm) {
-            setPendingBulkAction(action);
-            setBulkModalOpen(true);
-            return;
-          }
-          // No confirmation needed - execute directly
-          action.onClick(selectedItemsData);
-        }}
+        onBulkAction={handleBulkAction}
         densityToggle={densityToggle}
         density={density}
         onDensityChange={setDensity}
@@ -296,6 +301,7 @@ export default function DataTable<T extends { id: string | number }>({
         expandable={!!expandable}
         stickyHeader={!!stickyHeader}
         density={density}
+        hasActiveFilters={!!debouncedSearchQuery.trim()}
       >
         {displayData.map((item) => (
           <DataTableRow
@@ -313,59 +319,12 @@ export default function DataTable<T extends { id: string | number }>({
 
       {paginationConfig && (
         <DataTablePagination
-          pagination={{
-            ...pagination,
-            goToPrevious: pagination.goToPrevious,
-            goToNext: pagination.goToNext,
-          }}
+          pagination={pagination}
           isLoading={isLoading}
         />
       )}
 
-      {pendingBulkAction && (pendingBulkAction.confirmModal || pendingBulkAction.confirm) && (() => {
-        // Get first item for dynamic modal content (only used when function callbacks need it)
-        const firstItem = selectedItemsData[0];
-        return (
-          <DeleteConfirmationModal
-            isOpen={bulkModalOpen}
-            setIsOpen={setBulkModalOpen}
-            title={
-              pendingBulkAction.confirmModal?.title
-                ? typeof pendingBulkAction.confirmModal.title === 'function' && firstItem
-                  ? pendingBulkAction.confirmModal.title(firstItem)
-                  : typeof pendingBulkAction.confirmModal.title === 'string'
-                    ? pendingBulkAction.confirmModal.title
-                    : 'Confirm Action'
-                : 'Confirm Action'
-            }
-            itemName={`${selectedItems.length} item${selectedItems.length !== 1 ? 's' : ''}`}
-            message={
-              pendingBulkAction.confirmModal?.message
-                ? typeof pendingBulkAction.confirmModal.message === 'function' && firstItem
-                  ? pendingBulkAction.confirmModal.message(firstItem)
-                  : typeof pendingBulkAction.confirmModal.message === 'string'
-                    ? pendingBulkAction.confirmModal.message
-                    : 'Are you sure you want to proceed?'
-                : pendingBulkAction.confirm || 'Are you sure you want to proceed?'
-            }
-            confirmButtonText={
-              pendingBulkAction.confirmModal?.confirmText
-                ? typeof pendingBulkAction.confirmModal.confirmText === 'function' && firstItem
-                  ? pendingBulkAction.confirmModal.confirmText(firstItem)
-                  : typeof pendingBulkAction.confirmModal.confirmText === 'string'
-                    ? pendingBulkAction.confirmModal.confirmText
-                    : 'Confirm'
-                : 'Confirm'
-            }
-            onConfirm={async () => {
-              if (pendingBulkAction) {
-                await pendingBulkAction.onClick(selectedItemsData);
-                setPendingBulkAction(null);
-              }
-            }}
-          />
-        );
-      })()}
+      {BulkActionModal}
     </>
   );
 }

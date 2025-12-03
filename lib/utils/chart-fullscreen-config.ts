@@ -57,6 +57,14 @@ export interface ChartOptionsParams {
  */
 export function getTimeConfig(frequency: FrequencyType): TimeConfig {
   switch (frequency) {
+    case 'Daily':
+      return {
+        unit: 'day',
+        displayFormats: {
+          day: 'DD-MMM-YY',
+        },
+        tooltipFormat: 'DD-MMM-YYYY',
+      };
     case 'Weekly':
       return {
         unit: 'week',

@@ -2,6 +2,32 @@
 
 import type { DataTableBulkAction } from './types';
 
+/** Configurable labels for i18n support */
+export interface DataTableToolbarLabels {
+    addRow?: string;
+    adding?: string;
+    selected?: (count: number) => string;
+    exportCsv?: string;
+    densityNormal?: string;
+    densityCompact?: string;
+    switchToCompact?: string;
+    switchToNormal?: string;
+    searchAriaLabel?: string;
+}
+
+/** Default English labels */
+const DEFAULT_LABELS: Required<DataTableToolbarLabels> = {
+    addRow: '+ Add Row',
+    adding: 'Adding...',
+    selected: (count) => `${count} selected`,
+    exportCsv: 'Export CSV',
+    densityNormal: 'Normal',
+    densityCompact: 'Compact',
+    switchToCompact: 'Switch to compact view',
+    switchToNormal: 'Switch to normal view',
+    searchAriaLabel: 'Search table',
+};
+
 interface DataTableToolbarProps<T> {
     // Search
     searchable?: boolean | undefined;
@@ -26,6 +52,9 @@ interface DataTableToolbarProps<T> {
     // Export
     exportable?: boolean | undefined;
     onExport?: (() => void) | undefined;
+
+    // i18n
+    labels?: DataTableToolbarLabels | undefined;
 }
 
 export function DataTableToolbar<T>({
@@ -43,7 +72,10 @@ export function DataTableToolbar<T>({
     onDensityChange,
     exportable,
     onExport,
+    labels: customLabels,
 }: DataTableToolbarProps<T>) {
+    // Merge custom labels with defaults
+    const labels = { ...DEFAULT_LABELS, ...customLabels };
     const showBulkActions = bulkActions && bulkActions.length > 0 && selectedItemsCount > 0;
 
     if (
@@ -63,7 +95,7 @@ export function DataTableToolbar<T>({
                 <div className="flex-1 min-w-[200px] max-w-md flex items-center gap-4">
                     {showBulkActions ? (
                         <span className="text-sm text-gray-600 dark:text-gray-400">
-                            {selectedItemsCount} selected
+                            {labels.selected(selectedItemsCount)}
                         </span>
                     ) : searchable ? (
                         <input
@@ -72,6 +104,7 @@ export function DataTableToolbar<T>({
                             value={searchQuery}
                             onChange={(e) => onSearchChange?.(e.target.value)}
                             className="form-input w-full"
+                            aria-label={labels.searchAriaLabel}
                         />
                     ) : (
                         <div />
@@ -88,7 +121,7 @@ export function DataTableToolbar<T>({
                             disabled={isQuickAdding}
                             className="btn bg-indigo-500 hover:bg-indigo-600 text-white disabled:opacity-60"
                         >
-                            {isQuickAdding ? 'Adding...' : '+ Add Row'}
+                            {isQuickAdding ? labels.adding : labels.addRow}
                         </button>
                     )}
 
@@ -115,7 +148,7 @@ export function DataTableToolbar<T>({
                             type="button"
                             onClick={() => onDensityChange(density === 'normal' ? 'compact' : 'normal')}
                             className="btn-sm bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 text-gray-600 dark:text-gray-300"
-                            title={density === 'normal' ? 'Switch to compact view' : 'Switch to normal view'}
+                            title={density === 'normal' ? labels.switchToCompact : labels.switchToNormal}
                         >
                             <svg className="w-4 h-4 fill-current" viewBox="0 0 16 16">
                                 {density === 'normal' ? (
@@ -133,7 +166,7 @@ export function DataTableToolbar<T>({
                                     </>
                                 )}
                             </svg>
-                            <span className="ml-2">{density === 'normal' ? 'Normal' : 'Compact'}</span>
+                            <span className="ml-2">{density === 'normal' ? labels.densityNormal : labels.densityCompact}</span>
                         </button>
                     )}
 
@@ -144,7 +177,7 @@ export function DataTableToolbar<T>({
                             onClick={onExport}
                             className="btn-sm bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 text-gray-600 dark:text-gray-300"
                         >
-                            Export CSV
+                            {labels.exportCsv}
                         </button>
                     )}
                 </div>

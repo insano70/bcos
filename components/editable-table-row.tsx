@@ -2,6 +2,31 @@
 
 import { type ReactNode, memo, useEffect, useRef } from 'react';
 import type { EditableColumn } from './editable-data-table';
+import { getDensityClasses, type DensityMode } from './data-table/utils';
+
+/** Configurable labels for i18n support */
+export interface EditableTableRowLabels {
+  edit?: string;
+  save?: string;
+  saving?: string;
+  cancel?: string;
+  delete?: string;
+  viewDetails?: string;
+  saveHint?: string;
+  cancelHint?: string;
+}
+
+/** Default English labels */
+const DEFAULT_LABELS: Required<EditableTableRowLabels> = {
+  edit: 'Edit',
+  save: 'Save',
+  saving: 'Saving...',
+  cancel: 'Cancel',
+  delete: 'Delete',
+  viewDetails: 'View details',
+  saveHint: 'Save changes (Ctrl+Enter)',
+  cancelHint: 'Discard changes (Escape)',
+};
 
 export interface EditableTableRowProps<T extends { id: string }> {
   item: T;
@@ -29,6 +54,12 @@ export interface EditableTableRowProps<T extends { id: string }> {
 
   // Show expandable toggle
   hasExpandable: boolean;
+
+  // Density mode for row padding
+  density?: DensityMode;
+
+  // Configurable labels for i18n
+  labels?: EditableTableRowLabels;
 }
 
 function EditableTableRowComponent<T extends { id: string }>({
@@ -51,9 +82,17 @@ function EditableTableRowComponent<T extends { id: string }>({
   onNavigate,
   expandableContent,
   hasExpandable,
+  density = 'normal',
+  labels: customLabels,
 }: EditableTableRowProps<T>) {
+  // Merge custom labels with defaults
+  const labels = { ...DEFAULT_LABELS, ...customLabels };
+
   // Ref for first editable input
   const firstInputRef = useRef<HTMLInputElement>(null);
+
+  // Get padding class based on density
+  const paddingClass = getDensityClasses(density);
 
   // Auto-focus first editable input when entering edit mode
   useEffect(() => {
@@ -115,7 +154,7 @@ function EditableTableRowComponent<T extends { id: string }>({
       <tr className={getRowClassName()} onKeyDown={handleKeyDown}>
         {/* Expand toggle */}
         {hasExpandable && (
-          <td className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap w-px">
+          <td className={`px-2 first:pl-5 last:pr-5 ${paddingClass} whitespace-nowrap w-px`}>
             <button
               type="button"
               onClick={onToggleExpand}
@@ -143,7 +182,7 @@ function EditableTableRowComponent<T extends { id: string }>({
             return (
               <td
                 key="checkbox"
-                className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap w-px"
+                className={`px-2 first:pl-5 last:pr-5 ${paddingClass} whitespace-nowrap w-px`}
               >
                 <div className="flex items-center">
                   <label className="inline-flex">
@@ -166,7 +205,7 @@ function EditableTableRowComponent<T extends { id: string }>({
             return (
               <td
                 key="actions"
-                className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap w-px"
+                className={`px-2 first:pl-5 last:pr-5 ${paddingClass} whitespace-nowrap w-px`}
               >
                 {isEditing ? (
                   <div className="flex items-center gap-2">
@@ -174,17 +213,19 @@ function EditableTableRowComponent<T extends { id: string }>({
                       type="button"
                       onClick={onSave}
                       disabled={isSaving}
+                      title={labels.saveHint}
                       className="btn-sm bg-indigo-500 hover:bg-indigo-600 text-white disabled:opacity-60"
                     >
-                      {isSaving ? 'Saving...' : 'Save'}
+                      {isSaving ? labels.saving : labels.save}
                     </button>
                     <button
                       type="button"
                       onClick={onCancel}
                       disabled={isSaving}
+                      title={labels.cancelHint}
                       className="btn-sm bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-gray-300 text-gray-700 dark:text-gray-300 disabled:opacity-60"
                     >
-                      Cancel
+                      {labels.cancel}
                     </button>
                   </div>
                 ) : (
@@ -194,21 +235,21 @@ function EditableTableRowComponent<T extends { id: string }>({
                       onClick={onEdit}
                       className="btn-sm bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-gray-300 text-gray-700 dark:text-gray-300"
                     >
-                      Edit
+                      {labels.edit}
                     </button>
                     <button
                       type="button"
                       onClick={onDelete}
                       className="btn-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
                     >
-                      Delete
+                      {labels.delete}
                     </button>
                     {onNavigate && (
                       <button
                         type="button"
                         onClick={onNavigate}
                         className="btn-sm bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-gray-300 text-gray-700 dark:text-gray-300"
-                        title="View details"
+                        title={labels.viewDetails}
                       >
                         →
                       </button>
@@ -229,7 +270,7 @@ function EditableTableRowComponent<T extends { id: string }>({
           return (
             <td
               key={String(column.key)}
-              className={`px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap ${column.className || ''}`}
+              className={`px-2 first:pl-5 last:pr-5 ${paddingClass} whitespace-nowrap ${column.className || ''}`}
               style={column.width ? { width: column.width } : undefined}
             >
               {isEditing && column.editable !== false ? (

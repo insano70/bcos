@@ -4,6 +4,7 @@ import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/re
 import { useEffect, useState, useCallback } from 'react';
 import { apiClient } from '@/lib/api/client';
 import type { ColumnMetadata } from '@/lib/types/data-explorer';
+import { clientErrorLog } from '@/lib/utils/debug-client';
 
 interface ViewColumnsModalProps {
   isOpen: boolean;
@@ -206,7 +207,7 @@ export default function ViewColumnsModal({
                                       await fetchColumns();
                                       setEditingColumn(null);
                                     } catch (err) {
-                                      console.error('Failed to update:', err);
+                                      clientErrorLog('Failed to update:', err);
                                     }
                                   }}
                                   className="btn-sm bg-violet-500 hover:bg-violet-600 text-white"

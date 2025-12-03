@@ -4,6 +4,7 @@ import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/re
 import { useState } from 'react';
 import { type DataSource, useIntrospectDataSource } from '@/lib/hooks/use-data-sources';
 import Toast from './toast';
+import { clientErrorLog } from '@/lib/utils/debug-client';
 
 interface IntrospectDataSourceModalProps {
   isOpen: boolean;
@@ -55,9 +56,7 @@ export default function IntrospectDataSourceModal({
       }, 2000);
     } catch (error) {
       // Log client-side introspection errors for debugging
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Error introspecting data source:', error);
-      }
+      clientErrorLog('Error introspecting data source:', error);
       setToastMessage(error instanceof Error ? error.message : 'Failed to introspect data source');
       setToastType('error');
       setShowToast(true);

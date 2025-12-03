@@ -1,6 +1,7 @@
 import { and, count, eq, isNull } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { work_item_fields, work_item_types } from '@/lib/db/schema';
+import { DatabaseError, NotFoundError } from '@/lib/errors/domain-errors';
 import { log } from '@/lib/logger';
 import { BaseRBACService } from '@/lib/rbac/base-service';
 import type { UserContext } from '@/lib/types/rbac';
@@ -168,7 +169,7 @@ export class RBACWorkItemFieldsService extends BaseRBACService {
       .limit(1);
 
     if (!workItemType) {
-      throw new Error('Work item type not found');
+      throw new NotFoundError('Work item type', fieldData.work_item_type_id);
     }
 
     // Create field
@@ -196,7 +197,7 @@ export class RBACWorkItemFieldsService extends BaseRBACService {
       .returning();
 
     if (!newField) {
-      throw new Error('Failed to create work item field');
+      throw new DatabaseError('Failed to create work item field', 'write');
     }
 
     log.info('Work item field created successfully', {
@@ -208,7 +209,7 @@ export class RBACWorkItemFieldsService extends BaseRBACService {
 
     const field = await this.getWorkItemFieldById(newField.work_item_field_id);
     if (!field) {
-      throw new Error('Failed to retrieve created field');
+      throw new DatabaseError('Failed to retrieve created field', 'read');
     }
 
     return field;
@@ -234,7 +235,7 @@ export class RBACWorkItemFieldsService extends BaseRBACService {
     // Verify field exists
     const existingField = await this.getWorkItemFieldById(fieldId);
     if (!existingField) {
-      throw new Error('Work item field not found');
+      throw new NotFoundError('Work item field', fieldId);
     }
 
     // Update field
@@ -254,7 +255,7 @@ export class RBACWorkItemFieldsService extends BaseRBACService {
       .returning();
 
     if (!updatedField) {
-      throw new Error('Failed to update work item field');
+      throw new DatabaseError('Failed to update work item field', 'write');
     }
 
     log.info('Work item field updated successfully', {
@@ -266,7 +267,7 @@ export class RBACWorkItemFieldsService extends BaseRBACService {
 
     const field = await this.getWorkItemFieldById(fieldId);
     if (!field) {
-      throw new Error('Failed to retrieve updated field');
+      throw new DatabaseError('Failed to retrieve updated field', 'read');
     }
 
     return field;
@@ -289,7 +290,7 @@ export class RBACWorkItemFieldsService extends BaseRBACService {
     // Verify field exists
     const existingField = await this.getWorkItemFieldById(fieldId);
     if (!existingField) {
-      throw new Error('Work item field not found');
+      throw new NotFoundError('Work item field', fieldId);
     }
 
     // Soft delete

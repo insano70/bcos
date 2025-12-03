@@ -9,7 +9,7 @@ import DataTable, {
 } from '@/components/data-table-standard';
 import DateSelect, { type DateRange } from '@/components/date-select';
 import DeleteButton from '@/components/delete-button';
-import DeleteChartModal from '@/components/delete-chart-modal';
+import DeleteConfirmationModal from '@/components/delete-confirmation-modal';
 import FilterButton, { type ActiveFilter, type FilterGroup } from '@/components/dropdown-filter';
 import Toast from '@/components/toast';
 import { apiClient } from '@/lib/api/client';
@@ -367,8 +367,9 @@ export default function ChartBuilderPage() {
     },
     {
       label: 'Preview Chart',
-      onClick: () => {
-        // TODO: Implement chart preview
+      onClick: (chart) => {
+        // Chart preview opens in edit mode - navigate to edit page
+        router.push(`/configure/charts/${chart.chart_definition_id}/edit`);
       },
     },
     {
@@ -483,12 +484,13 @@ export default function ChartBuilderPage() {
 
         {/* Delete Confirmation Modal */}
         {chartToDelete && (
-          <DeleteChartModal
+          <DeleteConfirmationModal
             isOpen={deleteModalOpen}
             setIsOpen={setDeleteModalOpen}
-            chartName={chartToDelete.chart_name}
-            chartId={chartToDelete.chart_definition_id}
-            onConfirm={handleDeleteConfirm}
+            title="Delete Chart"
+            itemName={chartToDelete.chart_name}
+            confirmButtonText="Delete Chart"
+            onConfirm={async () => await handleDeleteConfirm(chartToDelete.chart_definition_id)}
           />
         )}
 

@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useDeleteStaff } from '@/lib/hooks/use-staff';
 import type { StaffMember } from '@/lib/types/practice';
+import { clientErrorLog } from '@/lib/utils/debug-client';
 
 interface StaffMemberCardProps {
   staffMember: StaffMember;
@@ -39,7 +40,7 @@ export default function StaffMemberCard({
       queryClient.invalidateQueries({ queryKey: ['staff', practiceId] });
       setShowDeleteConfirm(false);
     } catch (error) {
-      console.error('Error deleting staff member:', error);
+      clientErrorLog('Error deleting staff member:', error);
     } finally {
       setIsDeleting(false);
     }

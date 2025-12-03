@@ -1,36 +1,28 @@
 import { and, asc, count, eq, isNull, or } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { organizations, users, work_item_types } from '@/lib/db/schema';
+import {
+  ConflictError,
+  DatabaseError,
+  ForbiddenError,
+  NotFoundError,
+} from '@/lib/errors/domain-errors';
 import { log } from '@/lib/logger';
 import { BaseRBACService } from '@/lib/rbac/base-service';
 import type { UserContext } from '@/lib/types/rbac';
+import type {
+  WorkItemTypeQueryOptions,
+  WorkItemTypeWithDetails,
+} from '@/lib/types/work-item-types';
+import { formatUserName } from '@/lib/utils/user-formatters';
+
+// Re-export types for consumers of this service
+export type { WorkItemTypeQueryOptions, WorkItemTypeWithDetails };
 
 /**
  * Work Item Types Service with RBAC
  * Manages work item types with automatic permission checking
  */
-
-export interface WorkItemTypeQueryOptions {
-  organization_id?: string | undefined;
-  is_active?: boolean | undefined;
-  limit?: number | undefined;
-  offset?: number | undefined;
-}
-
-export interface WorkItemTypeWithDetails {
-  work_item_type_id: string;
-  organization_id: string | null;
-  organization_name: string | null;
-  name: string;
-  description: string | null;
-  icon: string | null;
-  color: string | null;
-  is_active: boolean;
-  created_by: string | null;
-  created_by_name: string | null;
-  created_at: Date;
-  updated_at: Date;
-}
 
 export class RBACWorkItemTypesService extends BaseRBACService {
   /**
@@ -122,10 +114,7 @@ export class RBACWorkItemTypesService extends BaseRBACService {
         color: row.color,
         is_active: row.is_active,
         created_by: row.created_by,
-        created_by_name:
-          row.created_by_first_name && row.created_by_last_name
-            ? `${row.created_by_first_name} ${row.created_by_last_name}`
-            : null,
+        created_by_name: formatUserName(row.created_by_first_name, row.created_by_last_name),
         created_at: row.created_at,
         updated_at: row.updated_at,
       }));
@@ -229,10 +218,7 @@ export class RBACWorkItemTypesService extends BaseRBACService {
         color: row.color,
         is_active: row.is_active,
         created_by: row.created_by,
-        created_by_name:
-          row.created_by_first_name && row.created_by_last_name
-            ? `${row.created_by_first_name} ${row.created_by_last_name}`
-            : null,
+        created_by_name: formatUserName(row.created_by_first_name, row.created_by_last_name),
         created_at: row.created_at,
         updated_at: row.updated_at,
       };
@@ -281,7 +267,7 @@ export class RBACWorkItemTypesService extends BaseRBACService {
         .returning();
 
       if (!newType) {
-        throw new Error('Failed to create work item type');
+        throw new DatabaseError('Failed to create work item type', 'write');
       }
 
       log.info('Work item type created successfully', {
@@ -293,7 +279,7 @@ export class RBACWorkItemTypesService extends BaseRBACService {
       // Return full details
       const typeWithDetails = await this.getWorkItemTypeById(newType.work_item_type_id);
       if (!typeWithDetails) {
-        throw new Error('Failed to retrieve created work item type');
+        throw new DatabaseError('Failed to retrieve created work item type', 'read');
       }
 
       return typeWithDetails;
@@ -331,11 +317,11 @@ export class RBACWorkItemTypesService extends BaseRBACService {
     // Get existing type to check organization
     const existingType = await this.getWorkItemTypeById(typeId);
     if (!existingType) {
-      throw new Error('Work item type not found');
+      throw new NotFoundError('Work item type', typeId);
     }
 
     if (!existingType.organization_id) {
-      throw new Error('Cannot update global work item types');
+      throw new ForbiddenError('Cannot update global work item types');
     }
 
     // Check permission
@@ -364,7 +350,7 @@ export class RBACWorkItemTypesService extends BaseRBACService {
       // Return updated details
       const updatedType = await this.getWorkItemTypeById(typeId);
       if (!updatedType) {
-        throw new Error('Failed to retrieve updated work item type');
+        throw new DatabaseError('Failed to retrieve updated work item type', 'read');
       }
 
       return updatedType;
@@ -394,20 +380,21 @@ export class RBACWorkItemTypesService extends BaseRBACService {
     // Get existing type to check organization
     const existingType = await this.getWorkItemTypeById(typeId);
     if (!existingType) {
-      throw new Error('Work item type not found');
+      throw new NotFoundError('Work item type', typeId);
     }
 
-    if (!existingType.organization_id) {
-      throw new Error('Cannot delete global work item types');
+    // Check permission - for global types (no organization_id), require manage:all permission
+    if (existingType.organization_id) {
+      this.requirePermission(
+        'work-items:manage:organization',
+        undefined,
+        existingType.organization_id
+      );
+      this.requireOrganizationAccess(existingType.organization_id);
+    } else {
+      // Global types require elevated permissions
+      this.requirePermission('work-items:manage:all', undefined, undefined);
     }
-
-    // Check permission
-    this.requirePermission(
-      'work-items:manage:organization',
-      undefined,
-      existingType.organization_id
-    );
-    this.requireOrganizationAccess(existingType.organization_id);
 
     // Check if any work items exist for this type
     const { work_items } = await import('@/lib/db/schema');
@@ -419,12 +406,14 @@ export class RBACWorkItemTypesService extends BaseRBACService {
       );
 
     if (!workItemCount) {
-      throw new Error('Failed to check work item count');
+      throw new DatabaseError('Failed to check work item count', 'read');
     }
 
     if (workItemCount.count > 0) {
-      throw new Error(
-        `Cannot delete work item type with existing work items (${workItemCount.count} items found)`
+      throw new ConflictError(
+        `Cannot delete work item type with existing work items (${workItemCount.count} items found)`,
+        'state_conflict',
+        { workItemCount: workItemCount.count }
       );
     }
 

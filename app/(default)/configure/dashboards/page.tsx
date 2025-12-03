@@ -10,7 +10,7 @@ import DataTable, {
 } from '@/components/data-table-standard';
 import DateSelect, { type DateRange } from '@/components/date-select';
 import DeleteButton from '@/components/delete-button';
-import DeleteDashboardModal from '@/components/delete-dashboard-modal';
+import DeleteConfirmationModal from '@/components/delete-confirmation-modal';
 import FilterButton, { type ActiveFilter, type FilterGroup } from '@/components/dropdown-filter';
 import Toast from '@/components/toast';
 import { apiClient } from '@/lib/api/client';
@@ -624,12 +624,14 @@ export default function DashboardsPage() {
 
         {/* Delete Confirmation Modal */}
         {dashboardToDelete && (
-          <DeleteDashboardModal
+          <DeleteConfirmationModal
             isOpen={deleteModalOpen}
             setIsOpen={setDeleteModalOpen}
-            dashboardName={dashboardToDelete.dashboard_name}
-            dashboardId={dashboardToDelete.dashboard_id}
-            onConfirm={handleDeleteConfirm}
+            title="Delete Dashboard"
+            itemName={dashboardToDelete.dashboard_name}
+            message="This action cannot be undone and will remove all chart arrangements."
+            confirmButtonText="Delete Dashboard"
+            onConfirm={async () => await handleDeleteConfirm(dashboardToDelete.dashboard_id)}
           />
         )}
 

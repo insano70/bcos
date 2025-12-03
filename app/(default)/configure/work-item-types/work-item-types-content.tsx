@@ -136,7 +136,7 @@ export default function WorkItemTypesContent() {
           }),
         5 // Process 5 requests at a time to avoid server overwhelm
       );
-      refetch();
+      await refetch();
     },
     [batchPromises, refetch]
   );
@@ -151,7 +151,7 @@ export default function WorkItemTypesContent() {
           }),
         5
       );
-      refetch();
+      await refetch();
     },
     [batchPromises, refetch]
   );
@@ -159,7 +159,7 @@ export default function WorkItemTypesContent() {
   const handleBulkDelete = useCallback(
     async (items: WorkItemType[]) => {
       await batchPromises(items, (item) => apiClient.delete(`/api/work-item-types/${item.id}`), 5);
-      refetch();
+      await refetch();
     },
     [batchPromises, refetch]
   );

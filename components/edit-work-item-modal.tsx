@@ -13,6 +13,7 @@ import { useWorkItemStatuses } from '@/lib/hooks/use-work-item-statuses';
 import { useUpdateWorkItem, type WorkItem } from '@/lib/hooks/use-work-items';
 import { createSafeTextSchema } from '@/lib/validations/sanitization';
 import Toast from './toast';
+import { clientErrorLog } from '@/lib/utils/debug-client';
 
 const updateWorkItemSchema = z.object({
   subject: createSafeTextSchema(1, 500, 'Subject'),
@@ -133,9 +134,7 @@ export default function EditWorkItemModal({
         setShowToast(false);
       }, 2000);
     } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Error updating work item:', error);
-      }
+      clientErrorLog('Error updating work item:', error);
     } finally {
       setIsSubmitting(false);
     }

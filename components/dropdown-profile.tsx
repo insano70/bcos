@@ -4,6 +4,7 @@ import { Menu, MenuButton, MenuItem, MenuItems, Transition } from '@headlessui/r
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from './auth/rbac-auth-provider';
+import { clientErrorLog } from '@/lib/utils/debug-client';
 
 export default function DropdownProfile({ align }: { align?: 'left' | 'right' }) {
   const router = useRouter();
@@ -19,9 +20,7 @@ export default function DropdownProfile({ align }: { align?: 'left' | 'right' })
       router.refresh();
     } catch (error) {
       // Log client-side logout errors for debugging
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Logout error:', error);
-      }
+      clientErrorLog('Logout error:', error);
       // Force redirect even if logout fails
       router.push('/signin');
     }

@@ -2,8 +2,7 @@
 
 import { useLearningMetrics } from '@/lib/hooks/use-data-explorer';
 import ProtectedComponent from '@/components/rbac/protected-component';
-// TODO: Integrate with project's existing chart components
-// For now, using simple data displays until chart integration is complete
+// Note: Uses simple data displays; AnalyticsChart integration available for richer visualization
 
 export default function LearningMetricsPage() {
   const { data: metrics, isLoading, error } = useLearningMetrics();

@@ -11,6 +11,7 @@ import {
 } from '@/lib/services/historical-comparison';
 import type { AggAppMeasure, FrequencyType, MeasureType } from '@/lib/types/analytics';
 import AnalyticsChart from './analytics-chart';
+import { clientErrorLog } from '@/lib/utils/debug-client';
 
 interface HistoricalComparisonProps {
   measure: MeasureType;
@@ -91,7 +92,7 @@ export default function HistoricalComparisonWidget({
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to perform comparison';
       setError(errorMessage);
-      console.error('Historical comparison error:', err);
+      clientErrorLog('Historical comparison error:', err);
     } finally {
       setIsLoading(false);
     }

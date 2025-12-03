@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { useCreatePractice } from '@/lib/hooks/use-practices';
 import { useTemplates } from '@/lib/hooks/use-templates';
 import Toast from './toast';
+import { clientErrorLog } from '@/lib/utils/debug-client';
 
 // Form validation schema
 const createPracticeSchema = z.object({
@@ -96,9 +97,7 @@ export default function AddPracticeModal({ isOpen, onClose, onSuccess }: AddPrac
       }, 2000);
     } catch (error) {
       // Log client-side practice creation errors for debugging
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Error creating practice:', error);
-      }
+      clientErrorLog('Error creating practice:', error);
       // Error handling is done by the mutation
     } finally {
       setIsSubmitting(false);

@@ -11,6 +11,7 @@ import {
   useWorkItemAttachments,
   type WorkItemAttachment,
 } from '@/lib/hooks/use-work-item-attachments';
+import { clientErrorLog } from '@/lib/utils/debug-client';
 
 interface AttachmentsListProps {
   workItemId: string;
@@ -37,7 +38,7 @@ export default function AttachmentsList({ workItemId }: AttachmentsListProps) {
     try {
       await deleteMutation.mutateAsync(selectedAttachment.work_item_attachment_id);
     } catch (error) {
-      console.error('Failed to delete attachment:', error);
+      clientErrorLog('Failed to delete attachment:', error);
     } finally {
       setDeletingId(null);
       setSelectedAttachment(null);
@@ -48,7 +49,7 @@ export default function AttachmentsList({ workItemId }: AttachmentsListProps) {
     try {
       await downloadMutation.mutateAsync(attachmentId);
     } catch (error) {
-      console.error('Failed to download attachment:', error);
+      clientErrorLog('Failed to download attachment:', error);
     }
   };
 

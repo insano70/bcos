@@ -12,6 +12,7 @@ import { LinkPlugin } from '@lexical/react/LexicalLinkPlugin';
 import { HeadingNode, QuoteNode } from '@lexical/rich-text';
 import { ListNode, ListItemNode } from '@lexical/list';
 import { LinkNode, AutoLinkNode } from '@lexical/link';
+import { clientErrorLog } from '@/lib/utils/debug-client';
 import {
 	$getRoot,
 	$createParagraphNode,
@@ -88,7 +89,7 @@ function getInitialConfig(editable: boolean) {
 		theme,
 		editable,
 		onError: (error: Error) => {
-			console.error('Lexical Editor Error:', error);
+			clientErrorLog('Lexical Editor Error:', error);
 		},
 		nodes: [HeadingNode, QuoteNode, ListNode, ListItemNode, LinkNode, AutoLinkNode],
 	};

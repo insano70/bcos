@@ -1,10 +1,10 @@
 'use client';
 
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useState, type Dispatch, type SetStateAction } from 'react';
 
 interface SelectedItemsContextProps {
   selectedItems: (string | number)[];
-  setSelectedItems: (selectedItems: (string | number)[]) => void;
+  setSelectedItems: Dispatch<SetStateAction<(string | number)[]>>;
 }
 
 const SelectedItemsContext = createContext<SelectedItemsContextProps | undefined>(undefined);

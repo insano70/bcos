@@ -9,6 +9,20 @@ const DEFAULT_MAX_HEIGHT = 600;
 /** Default number of skeleton rows shown during loading */
 const DEFAULT_LOADING_SKELETON_ROWS = 5;
 
+/** Configurable labels for empty states (i18n support) */
+export interface BaseDataTableLabels {
+    noResultsTitle?: string;
+    noResultsDescription?: string;
+    noDataDefault?: string;
+}
+
+/** Default English labels */
+const DEFAULT_LABELS: Required<BaseDataTableLabels> = {
+    noResultsTitle: 'No results found',
+    noResultsDescription: 'Try adjusting your search or filter criteria',
+    noDataDefault: 'No data found',
+};
+
 interface BaseDataTableProps<T> {
     title: string;
     data: T[];
@@ -41,6 +55,10 @@ interface BaseDataTableProps<T> {
     maxHeight?: number | undefined;
     /** Number of skeleton rows to show during loading. Default: 5 */
     loadingSkeletonRows?: number | undefined;
+    /** Indicates active search/filters for contextual empty state message */
+    hasActiveFilters?: boolean | undefined;
+    /** Configurable labels for i18n support */
+    labels?: BaseDataTableLabels | undefined;
 
     // Render Props
     children: ReactNode; // The tbody content
@@ -66,8 +84,12 @@ export function BaseDataTableComponent<T>({
     density,
     maxHeight = DEFAULT_MAX_HEIGHT,
     loadingSkeletonRows = DEFAULT_LOADING_SKELETON_ROWS,
+    hasActiveFilters,
+    labels: customLabels,
     children,
 }: BaseDataTableProps<T>) {
+    // Merge custom labels with defaults
+    const labels = { ...DEFAULT_LABELS, ...customLabels };
     const scrollContainerStyle = stickyHeader ? { maxHeight: `${maxHeight}px` } : undefined;
 
     return (
@@ -125,7 +147,13 @@ export function BaseDataTableComponent<T>({
                                         colSpan={columns.length + (expandable ? 1 : 0)}
                                         className="px-2 first:pl-5 last:pr-5 py-12 text-center"
                                     >
-                                        {emptyState ? (
+                                        {hasActiveFilters ? (
+                                            // Contextual empty state when filters/search are active
+                                            <div className="text-gray-500 dark:text-gray-400">
+                                                <div className="font-medium">{labels.noResultsTitle}</div>
+                                                <p className="text-sm mt-1">{labels.noResultsDescription}</p>
+                                            </div>
+                                        ) : emptyState ? (
                                             <>
                                                 {emptyState.icon && <div className="mb-2">{emptyState.icon}</div>}
                                                 <div className="text-gray-500 dark:text-gray-400">{emptyState.title}</div>
@@ -136,7 +164,7 @@ export function BaseDataTableComponent<T>({
                                                 )}
                                             </>
                                         ) : (
-                                            <div className="text-gray-500 dark:text-gray-400">No data found</div>
+                                            <div className="text-gray-500 dark:text-gray-400">{labels.noDataDefault}</div>
                                         )}
                                     </td>
                                 </tr>

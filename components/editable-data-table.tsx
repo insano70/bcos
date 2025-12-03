@@ -1,16 +1,18 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import EditableTableRow from './editable-table-row';
 import DeleteConfirmationModal from './delete-confirmation-modal';
 import { usePagination } from '@/lib/hooks/use-pagination';
+import { useTableSort } from '@/lib/hooks/use-table-sort';
 import { clientErrorLog } from '@/lib/utils/debug-client';
 import { BaseDataTable } from './data-table/base-data-table';
 import { DataTablePagination } from './data-table/data-table-pagination';
 import { DataTableToolbar } from './data-table/data-table-toolbar';
 import type { DataTableBulkAction, DataTableColumn } from './data-table/types';
 import { DEFAULT_EDITABLE_ITEMS_PER_PAGE } from './data-table/utils';
+import { useBulkActionModal } from './data-table/use-bulk-action-modal';
 
 /**
  * Delay in milliseconds before entering edit mode after quick-add.
@@ -52,6 +54,7 @@ export interface EditableDataTableProps<T extends { id: string }> {
   bulkActions?: EditableDataTableBulkAction<T>[];
 
   // UI configuration
+  sortable?: boolean; // Enable column sorting (default: false)
   pagination?: {
     itemsPerPage?: number;
   };
@@ -107,6 +110,7 @@ export default function EditableDataTable<T extends { id: string }>({
   onUnsavedChangesChange,
   expandable,
   bulkActions,
+  sortable = false,
   pagination: paginationConfig,
   emptyState,
   isLoading = false,
@@ -121,13 +125,25 @@ export default function EditableDataTable<T extends { id: string }>({
   const [internalEditingRows, setInternalEditingRows] = useState<Set<string>>(new Set());
   const [internalSavingRows, setInternalSavingRows] = useState<Set<string>>(new Set());
 
-  // Pagination
-  const pagination = usePagination(data, {
+  // Sorting (applied before pagination)
+  const { sortedData, handleSort, getSortIcon, sortConfig } = useTableSort(data);
+
+  // Map sort direction for ARIA accessibility
+  const ariaSortDirection = sortConfig?.direction === 'asc'
+    ? 'ascending' as const
+    : sortConfig?.direction === 'desc'
+      ? 'descending' as const
+      : undefined;
+
+  // Pagination (applied to sorted data)
+  const pagination = usePagination(sortable ? sortedData : data, {
     itemsPerPage: paginationConfig?.itemsPerPage || DEFAULT_EDITABLE_ITEMS_PER_PAGE,
   });
 
-  // Use paginated data if pagination is enabled, otherwise use all data
-  const displayData = paginationConfig ? pagination.currentItems : data;
+  // Use paginated data if pagination is enabled, otherwise use sorted/unsorted data
+  const displayData = paginationConfig
+    ? pagination.currentItems
+    : (sortable ? sortedData : data);
 
   // Use external state if provided, otherwise use internal state
   const editingRows = externalEditingRows ?? internalEditingRows;
@@ -179,16 +195,16 @@ export default function EditableDataTable<T extends { id: string }>({
   const isAllSelected = data.length > 0 && selectedRows.size === data.length;
 
   // Handler: Select all toggle
-  const handleSelectAllChange = (checked: boolean) => {
+  const handleSelectAllChange = useCallback((checked: boolean) => {
     if (checked) {
       setSelectedRows(new Set(data.map((item) => item.id)));
     } else {
       setSelectedRows(new Set());
     }
-  };
+  }, [data]);
 
   // Handler: Individual row selection
-  const handleRowSelect = (rowId: string, checked: boolean) => {
+  const handleRowSelect = useCallback((rowId: string, checked: boolean) => {
     setSelectedRows((prev) => {
       const next = new Set(prev);
       if (checked) {
@@ -198,10 +214,10 @@ export default function EditableDataTable<T extends { id: string }>({
       }
       return next;
     });
-  };
+  }, []);
 
   // Handler: Toggle row expansion
-  const toggleRowExpansion = (rowId: string) => {
+  const toggleRowExpansion = useCallback((rowId: string) => {
     setExpandedRows((prev) => {
       const next = new Set(prev);
       if (next.has(rowId)) {
@@ -211,17 +227,26 @@ export default function EditableDataTable<T extends { id: string }>({
       }
       return next;
     });
-  };
+  }, []);
 
-  // Get selected items for bulk actions
-  const selectedItemsData = data.filter((item) => selectedRows.has(item.id));
+  // Get selected items for bulk actions (memoized to prevent recalculation on every render)
+  const selectedItemsData = useMemo(
+    () => data.filter((item) => selectedRows.has(item.id)),
+    [data, selectedRows]
+  );
 
   // Quick-add state
   const [isQuickAdding, setIsQuickAdding] = useState(false);
 
-  // Bulk action confirmation modal state
-  const [bulkModalOpen, setBulkModalOpen] = useState(false);
-  const [pendingBulkAction, setPendingBulkAction] = useState<EditableDataTableBulkAction<T> | null>(null);
+  // Delete confirmation modal state
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [pendingDeleteItem, setPendingDeleteItem] = useState<T | null>(null);
+
+  // Bulk action confirmation modal hook
+  const { handleBulkAction, BulkActionModal } = useBulkActionModal({
+    selectedItems: selectedItemsData,
+    selectedCount: selectedRows.size,
+  });
 
   // Quick-add handler
   const handleQuickAdd = async () => {
@@ -244,25 +269,12 @@ export default function EditableDataTable<T extends { id: string }>({
     }
   };
 
-  // Bulk action handler
-  const handleBulkAction = (action: EditableDataTableBulkAction<T>) => {
-    // Check for custom modal first (preferred)
-    if (action.confirmModal) {
-      setPendingBulkAction(action);
-      setBulkModalOpen(true);
-      return;
-    }
-
-    // Execute directly if no confirmation needed
-    action.onClick(selectedItemsData);
-  };
-
   /**
    * Enters edit mode for a row. If allowMultiEdit is false, exits edit mode
    * for all other rows first. Auto-expands the row if expandable content exists.
    * @param rowId - The ID of the row to edit
    */
-  const enterEditMode = (rowId: string) => {
+  const enterEditMode = useCallback((rowId: string) => {
     if (!externalEditingRows) {
       setInternalEditingRows((prev) => {
         // If allowMultiEdit is false, clear other editing rows
@@ -284,13 +296,13 @@ export default function EditableDataTable<T extends { id: string }>({
         return next;
       });
     }
-  };
+  }, [externalEditingRows, allowMultiEdit, expandable]);
 
   /**
    * Exits edit mode for a row. Clears any unsaved changes and validation errors.
    * @param rowId - The ID of the row to exit edit mode
    */
-  const exitEditMode = (rowId: string) => {
+  const exitEditMode = useCallback((rowId: string) => {
     if (!externalEditingRows) {
       setInternalEditingRows((prev) => {
         const next = new Set(prev);
@@ -310,7 +322,7 @@ export default function EditableDataTable<T extends { id: string }>({
       next.delete(rowId);
       return next;
     });
-  };
+  }, [externalEditingRows]);
 
   /**
    * Tracks field changes for a row, storing them in unsavedChanges state.
@@ -318,14 +330,14 @@ export default function EditableDataTable<T extends { id: string }>({
    * @param fieldKey - The field/column key being changed
    * @param value - The new value for the field
    */
-  const handleFieldChange = (rowId: string, fieldKey: keyof T, value: unknown) => {
+  const handleFieldChange = useCallback((rowId: string, fieldKey: keyof T, value: unknown) => {
     setUnsavedChanges((prev) => {
       const next = new Map(prev);
       const rowChanges = next.get(rowId) || {};
       next.set(rowId, { ...rowChanges, [fieldKey]: value });
       return next;
     });
-  };
+  }, []);
 
   /**
    * Validates a row by checking required fields and running custom validators.
@@ -334,7 +346,7 @@ export default function EditableDataTable<T extends { id: string }>({
    * @param changes - Pending changes to be validated
    * @returns Record of field keys to error messages (empty if valid)
    */
-  const validateRow = (item: T, changes: Partial<T>): Record<string, string> => {
+  const validateRow = useCallback((item: T, changes: Partial<T>): Record<string, string> => {
     const errors: Record<string, string> = {};
     const mergedItem = { ...item, ...changes };
 
@@ -361,7 +373,7 @@ export default function EditableDataTable<T extends { id: string }>({
     });
 
     return errors;
-  };
+  }, [columns]);
 
   /**
    * Handles saving a row's changes. Validates the data, calls onSave callback,
@@ -369,7 +381,7 @@ export default function EditableDataTable<T extends { id: string }>({
    * or save throws an error.
    * @param rowId - The ID of the row to save
    */
-  const handleSave = async (rowId: string) => {
+  const handleSave = useCallback(async (rowId: string) => {
     const item = data.find((d) => d.id === rowId);
     const changes = unsavedChanges.get(rowId) || {};
 
@@ -433,37 +445,47 @@ export default function EditableDataTable<T extends { id: string }>({
         });
       }
     }
-  };
+  }, [data, unsavedChanges, validateRow, externalSavingRows, onSave, exitEditMode]);
 
   /**
    * Handles canceling row edits. Exits edit mode and discards unsaved changes.
    * Calls onCancel callback if provided.
    * @param rowId - The ID of the row to cancel
    */
-  const handleCancel = async (rowId: string) => {
+  const handleCancel = useCallback((rowId: string) => {
     const item = data.find((d) => d.id === rowId);
     exitEditMode(rowId);
     if (item && onCancel) {
       onCancel(item);
     }
-  };
+  }, [data, exitEditMode, onCancel]);
 
   /**
-   * Handles deleting a row. Calls onDelete callback if provided.
-   * Note: Confirmation should be handled by the parent component.
+   * Initiates row deletion by showing confirmation modal.
    * @param rowId - The ID of the row to delete
    */
-  const handleDelete = async (rowId: string) => {
+  const handleDelete = useCallback((rowId: string) => {
     const item = data.find((d) => d.id === rowId);
     if (!item) return;
 
-    // For now, call delete directly - confirmation modal will be added later
+    setPendingDeleteItem(item);
+    setDeleteModalOpen(true);
+  }, [data]);
+
+  /**
+   * Confirms and executes the pending delete action.
+   */
+  const confirmDelete = useCallback(async () => {
+    if (!pendingDeleteItem) return;
+
     try {
-      await onDelete?.(item);
+      await onDelete?.(pendingDeleteItem);
     } catch (error) {
       clientErrorLog('Delete failed', error);
+    } finally {
+      setPendingDeleteItem(null);
     }
-  };
+  }, [pendingDeleteItem, onDelete]);
 
   return (
     <>
@@ -481,6 +503,11 @@ export default function EditableDataTable<T extends { id: string }>({
         columns={visibleColumns}
         isLoading={isLoading}
         emptyState={emptyState}
+        sortable={sortable}
+        onSort={handleSort}
+        getSortIcon={getSortIcon}
+        currentSortKey={sortConfig?.key}
+        currentSortDirection={ariaSortDirection}
         selectable={true} // Always selectable in editable table for now
         selectionMode="multi"
         isAllSelected={isAllSelected}
@@ -533,53 +560,36 @@ export default function EditableDataTable<T extends { id: string }>({
 
       {paginationConfig && (
         <DataTablePagination
-          pagination={{
-            ...pagination,
-            goToPrevious: pagination.goToPrevious,
-            goToNext: pagination.goToNext,
-          }}
+          pagination={pagination}
           isLoading={isLoading}
         />
       )}
 
-      {pendingBulkAction?.confirmModal && (() => {
-        // Get first item for dynamic modal content (only used when function callbacks need it)
-        const firstItem = selectedItemsData[0];
-        return (
-          <DeleteConfirmationModal
-            isOpen={bulkModalOpen}
-            setIsOpen={setBulkModalOpen}
-            title={
-              typeof pendingBulkAction.confirmModal.title === 'function' && firstItem
-                ? pendingBulkAction.confirmModal.title(firstItem)
-                : typeof pendingBulkAction.confirmModal.title === 'string'
-                  ? pendingBulkAction.confirmModal.title
-                  : 'Confirm Action'
+      {BulkActionModal}
+
+      {/* Delete confirmation modal */}
+      {pendingDeleteItem && (
+        <DeleteConfirmationModal
+          isOpen={deleteModalOpen}
+          setIsOpen={(open) => {
+            setDeleteModalOpen(open);
+            if (!open) {
+              setPendingDeleteItem(null);
             }
-            itemName={`${selectedRows.size} item${selectedRows.size !== 1 ? 's' : ''}`}
-            message={
-              typeof pendingBulkAction.confirmModal.message === 'function' && firstItem
-                ? pendingBulkAction.confirmModal.message(firstItem)
-                : typeof pendingBulkAction.confirmModal.message === 'string'
-                  ? pendingBulkAction.confirmModal.message
-                  : 'Are you sure you want to proceed?'
-            }
-            confirmButtonText={
-              typeof pendingBulkAction.confirmModal.confirmText === 'function' && firstItem
-                ? pendingBulkAction.confirmModal.confirmText(firstItem)
-                : typeof pendingBulkAction.confirmModal.confirmText === 'string'
-                  ? pendingBulkAction.confirmModal.confirmText
-                  : 'Confirm'
-            }
-            onConfirm={async () => {
-              if (pendingBulkAction) {
-                await pendingBulkAction.onClick(selectedItemsData);
-                setPendingBulkAction(null);
-              }
-            }}
-          />
-        );
-      })()}
+          }}
+          title="Delete Item"
+          itemName={
+            'subject' in pendingDeleteItem
+              ? String(pendingDeleteItem.subject)
+              : 'name' in pendingDeleteItem
+                ? String(pendingDeleteItem.name)
+                : pendingDeleteItem.id
+          }
+          message="This action cannot be undone. The item and all associated data will be permanently removed."
+          confirmButtonText="Delete"
+          onConfirm={confirmDelete}
+        />
+      )}
     </>
   );
 }

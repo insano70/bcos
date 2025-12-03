@@ -69,7 +69,7 @@ export type WorkItemAttachmentUpload = z.infer<typeof workItemAttachmentUploadSc
 export const workItemAttachmentQuerySchema = z.object({
   work_item_id: z.string().uuid('Invalid work item ID').optional(),
   file_type: z.string().optional(),
-  limit: z.coerce.number().int().positive().max(100).default(50).optional(),
+  limit: z.coerce.number().int().positive().max(1000).default(1000).optional(),
   offset: z.coerce.number().int().min(0).default(0).optional(),
 });
 

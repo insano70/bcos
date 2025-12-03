@@ -8,6 +8,7 @@ import {
   useSuggestionStatistics,
 } from '@/lib/hooks/use-data-explorer';
 import ProtectedComponent from '@/components/rbac/protected-component';
+import { clientErrorLog } from '@/lib/utils/debug-client';
 
 export default function SuggestionsPage() {
   const [expandedSuggestion, setExpandedSuggestion] = useState<string | null>(null);
@@ -22,7 +23,7 @@ export default function SuggestionsPage() {
       await approveSuggestion.mutateAsync({ suggestionId });
       refetch();
     } catch (error) {
-      console.error('Failed to approve suggestion:', error);
+      clientErrorLog('Failed to approve suggestion:', error);
     }
   };
 
@@ -31,7 +32,7 @@ export default function SuggestionsPage() {
       await rejectSuggestion.mutateAsync({ suggestionId });
       refetch();
     } catch (error) {
-      console.error('Failed to reject suggestion:', error);
+      clientErrorLog('Failed to reject suggestion:', error);
     }
   };
 

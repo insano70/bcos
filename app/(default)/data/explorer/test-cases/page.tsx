@@ -7,6 +7,7 @@ import {
   useGenerateTestCases,
 } from '@/lib/hooks/use-data-explorer';
 import ProtectedComponent from '@/components/rbac/protected-component';
+import { clientErrorLog } from '@/lib/utils/debug-client';
 
 export default function TestCasesPage() {
   const [expandedTestCase, setExpandedTestCase] = useState<string | null>(null);
@@ -26,7 +27,7 @@ export default function TestCasesPage() {
         [testCaseId]: { passed: result.passed, differences: result.differences },
       }));
     } catch (error) {
-      console.error('Failed to run test case:', error);
+      clientErrorLog('Failed to run test case:', error);
     } finally {
       setRunningTestId(null);
     }
@@ -37,7 +38,7 @@ export default function TestCasesPage() {
       await generateTestCases.mutateAsync({ limit: 50 });
       refetch();
     } catch (error) {
-      console.error('Failed to generate test cases:', error);
+      clientErrorLog('Failed to generate test cases:', error);
     }
   };
 

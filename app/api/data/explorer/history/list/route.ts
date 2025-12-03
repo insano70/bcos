@@ -38,8 +38,8 @@ const getHistoryHandler = async (
     });
 
     return createPaginatedResponse(items, {
-      page: Math.floor((query.offset || 0) / (query.limit || 50)) + 1,
-      limit: query.limit || 50,
+      page: Math.floor((query.offset || 0) / (query.limit || 1000)) + 1,
+      limit: query.limit || 1000,
       total,
     });
   } catch (error) {

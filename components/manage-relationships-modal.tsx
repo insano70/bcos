@@ -9,6 +9,7 @@ import {
   useTypeRelationshipsForParent,
   type WorkItemTypeRelationship,
 } from '@/lib/hooks/use-work-item-type-relationships';
+import { clientErrorLog } from '@/lib/utils/debug-client';
 
 interface ManageRelationshipsModalProps {
   isOpen: boolean;
@@ -55,7 +56,7 @@ export default function ManageRelationshipsModal({
       await deleteRelationship.mutateAsync(relationshipToDelete.id);
       refetch();
     } catch (error) {
-      console.error('Failed to delete relationship:', error);
+      clientErrorLog('Failed to delete relationship:', error);
     }
   }, [deleteRelationship, refetch, relationshipToDelete]);
 

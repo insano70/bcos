@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useSelectedItems } from '@/app/selected-items-context';
 
 /**
@@ -33,23 +33,43 @@ export const useItemSelection = <T extends { id: string | number }>(items: T[]) 
   const { selectedItems, setSelectedItems } = useSelectedItems();
   const [isAllSelected, setIsAllSelected] = useState<boolean>(false);
 
-  const handleCheckboxChange = (id: string | number, checked: boolean) => {
+  // Build a Set of valid IDs for O(1) lookup
+  const validIds = useMemo(() => new Set(items.map((item) => item.id)), [items]);
+
+  // Use ref to access current selectedItems without adding to deps
+  const selectedItemsRef = useRef(selectedItems);
+  selectedItemsRef.current = selectedItems;
+
+  // Clear stale selections when validIds changes (e.g., after deletion or filtering)
+  // Uses ref for selectedItems to avoid triggering effect when selections change
+  useEffect(() => {
+    const currentSelected = selectedItemsRef.current;
+    const validSelected = currentSelected.filter((id) => validIds.has(id));
+    
+    // Only update if we actually removed items
+    if (validSelected.length !== currentSelected.length) {
+      setSelectedItems(validSelected);
+      setIsAllSelected(false);
+    }
+  }, [validIds, setSelectedItems]);
+
+  const handleCheckboxChange = useCallback((id: string | number, checked: boolean) => {
     setIsAllSelected(false);
     if (checked) {
-      setSelectedItems([...selectedItems, id]);
+      setSelectedItems((prev) => [...prev, id]);
     } else {
-      setSelectedItems(selectedItems.filter((itemId) => itemId !== id));
+      setSelectedItems((prev) => prev.filter((itemId) => itemId !== id));
     }
-  };
+  }, [setSelectedItems]);
 
-  const handleSelectAllChange = (checked: boolean) => {
+  const handleSelectAllChange = useCallback((checked: boolean) => {
     setIsAllSelected(checked);
     if (checked) {
       setSelectedItems(items.map((item) => item.id));
     } else {
       setSelectedItems([]);
     }
-  };
+  }, [items, setSelectedItems]);
 
   return {
     selectedItems,

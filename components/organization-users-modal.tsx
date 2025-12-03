@@ -10,6 +10,7 @@ import {
 } from '@/lib/hooks/use-organizations';
 import DataTable, { type DataTableColumn } from './data-table-standard';
 import Toast from './toast';
+import { clientErrorLog } from '@/lib/utils/debug-client';
 
 interface OrganizationUsersModalProps {
   isOpen: boolean;
@@ -116,9 +117,7 @@ export default function OrganizationUsersModal({
         onSuccess?.();
       }, 2000);
     } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Error updating organization users:', error);
-      }
+      clientErrorLog('Error updating organization users:', error);
       setToastMessage('Failed to update organization users');
       setShowToast(true);
       setTimeout(() => {

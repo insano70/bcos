@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { apiClient } from '@/lib/api/client';
+import { clientErrorLog } from '@/lib/utils/debug-client';
 
 export default function DashboardRedirect() {
   const router = useRouter();
@@ -26,7 +27,7 @@ export default function DashboardRedirect() {
         }
       } catch (error) {
         // On error, show welcome page as safe fallback
-        console.error('Failed to fetch default dashboard:', error);
+        clientErrorLog('Failed to fetch default dashboard:', error);
         setShowWelcome(true);
       }
     };

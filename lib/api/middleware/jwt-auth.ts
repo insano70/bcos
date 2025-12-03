@@ -106,9 +106,11 @@ async function buildUserContextFromJWT(
 
       // RBAC information (from cache)
       roles,
-      organizations: [], // TODO: Could cache this too
+      // Note: organizations populated on-demand by specific endpoints that need them
+      organizations: [],
       accessible_organizations: [],
-      user_roles: [], // TODO: Could derive from JWT user_role_ids
+      // Note: user_roles populated on-demand; role names available in roles[] above
+      user_roles: [],
       user_organizations: [],
 
       // Current context (from JWT)

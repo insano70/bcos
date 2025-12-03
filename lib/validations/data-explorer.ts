@@ -47,7 +47,7 @@ export const tableMetadataUpdateSchema = z.object({
 
 // Query history params
 export const queryHistoryParamsSchema = z.object({
-  limit: z.coerce.number().int().min(1).max(100).default(50),
+  limit: z.coerce.number().int().min(1).max(1000).default(1000),
   offset: z.coerce.number().int().min(0).default(0),
   status: z
     .enum(['generated', 'executing', 'success', 'failed', 'cancelled'])
@@ -156,6 +156,6 @@ export const feedbackQuerySchema = z.object({
       'other',
     ])
     .optional(),
-  limit: z.coerce.number().int().min(1).max(100).default(50),
+  limit: z.coerce.number().int().min(1).max(1000).default(1000),
   offset: z.coerce.number().int().min(0).default(0),
 });

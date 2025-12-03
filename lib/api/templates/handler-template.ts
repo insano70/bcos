@@ -42,7 +42,7 @@
 
 import type { NextRequest } from 'next/server';
 import { validateQuery } from '@/lib/api/middleware/validation';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { createErrorResponse, getErrorStatusCode } from '@/lib/api/responses/error';
 import { createPaginatedResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
@@ -209,11 +209,10 @@ const get[Resource]Handler = async (
       requestingUserId: userContext.user_id
     });
 
-    // Return appropriate status code
-    const statusCode = error instanceof NotFoundError ? 404 : 500;
+    // Return appropriate status code using getErrorStatusCode utility
     return createErrorResponse(
       error instanceof Error ? error.message : 'Unknown error',
-      statusCode,
+      getErrorStatusCode(error),
       request
     );
   }
@@ -396,10 +395,9 @@ const update[Resource]Handler = async (
       requestingUserId: userContext.user_id
     });
 
-    const statusCode = error instanceof NotFoundError ? 404 : 500;
     return createErrorResponse(
       error instanceof Error ? error.message : 'Unknown error',
-      statusCode,
+      getErrorStatusCode(error),
       request
     );
   }
@@ -484,10 +482,9 @@ const delete[Resource]Handler = async (
       requestingUserId: userContext.user_id
     });
 
-    const statusCode = error instanceof NotFoundError ? 404 : 500;
     return createErrorResponse(
       error instanceof Error ? error.message : 'Unknown error',
-      statusCode,
+      getErrorStatusCode(error),
       request
     );
   }

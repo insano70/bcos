@@ -114,8 +114,8 @@ const getWorkItemsHandler = async (request: NextRequest, userContext: UserContex
       results: {
         returned: workItems.length,
         total: totalCount,
-        page: Math.floor((query.offset || 0) / (query.limit || 50)) + 1,
-        pageSize: query.limit || 50,
+        page: Math.floor((query.offset || 0) / (query.limit || 1000)) + 1,
+        pageSize: query.limit || 1000,
       },
       sort: {
         field: query.sortBy || 'created_at',
@@ -127,8 +127,8 @@ const getWorkItemsHandler = async (request: NextRequest, userContext: UserContex
     });
 
     return createPaginatedResponse(responseData, {
-      page: Math.floor((query.offset || 0) / (query.limit || 50)) + 1,
-      limit: query.limit || 50,
+      page: Math.floor((query.offset || 0) / (query.limit || 1000)) + 1,
+      limit: query.limit || 1000,
       total: totalCount,
     });
   } catch (error) {

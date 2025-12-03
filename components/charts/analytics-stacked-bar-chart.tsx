@@ -18,6 +18,7 @@ import 'chartjs-adapter-moment';
 import moment from 'moment';
 import { formatValue, formatValueCompact } from '@/lib/utils/chart-data/formatters/value-formatter';
 import { getMeasureTypeFromChart } from '@/lib/utils/type-guards';
+import { getTimeConfig } from '@/lib/utils/chart-fullscreen-config';
 
 Chart.register(BarController, BarElement, LinearScale, CategoryScale, TimeScale, Tooltip, Legend);
 
@@ -51,52 +52,6 @@ const AnalyticsStackedBarChart = forwardRef<HTMLCanvasElement, AnalyticsStackedB
       tooltipBorderColor,
     } = chartColors;
 
-    // Configure time display formats based on frequency
-    const getTimeConfig = () => {
-      switch (frequency) {
-        case 'Daily':
-          return {
-            unit: 'day',
-            displayFormats: {
-              day: 'DD-MMM-YY', // "15-Sep-25"
-            },
-            tooltipFormat: 'DD-MMM-YYYY', // "15-Sep-2025"
-          };
-        case 'Weekly':
-          return {
-            unit: 'week',
-            displayFormats: {
-              week: 'DD-MMM-YY', // "20-JUL-25"
-            },
-            tooltipFormat: 'DD-MMM-YYYY',
-          };
-        case 'Monthly':
-          return {
-            unit: 'month',
-            displayFormats: {
-              month: 'MMM YYYY', // "Jul 2025"
-            },
-            tooltipFormat: 'MMM YYYY',
-          };
-        case 'Quarterly':
-          return {
-            unit: 'quarter',
-            displayFormats: {
-              quarter: '[Q]Q YYYY', // "Q1 2025"
-            },
-            tooltipFormat: '[Q]Q YYYY',
-          };
-        default:
-          return {
-            unit: 'month',
-            displayFormats: {
-              month: 'MMM YYYY',
-            },
-            tooltipFormat: 'MMM YYYY',
-          };
-      }
-    };
-
     // Chart initialization - deferred to prevent race condition with React 19 concurrent rendering
     useEffect(() => {
       const ctx = canvas.current;
@@ -104,7 +59,7 @@ const AnalyticsStackedBarChart = forwardRef<HTMLCanvasElement, AnalyticsStackedB
       // Safety check: ensure canvas is properly mounted
       if (!ctx?.parentElement || !ctx.isConnected) return;
 
-      const _timeConfig = getTimeConfig();
+      const _timeConfig = getTimeConfig(frequency);
       const isPercentageMode = stackingMode === 'percentage';
 
       // Defer initialization until after React's layout phase (fixes race condition)

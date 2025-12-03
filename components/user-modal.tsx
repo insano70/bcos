@@ -14,6 +14,7 @@ import HierarchySelect from './hierarchy-select';
 import RoleSelector from './role-selector';
 import ResetMFAConfirmationModal from './reset-mfa-confirmation-modal';
 import Toast from './toast';
+import { clientErrorLog } from '@/lib/utils/debug-client';
 
 // Wrapper components to adapt to CustomFieldProps interface
 function OrganizationSelectAdapter({ value, onChange, error, disabled }: CustomFieldProps<UserFormData>) {
@@ -291,7 +292,7 @@ export default function UserModal({ mode, isOpen, onClose, onSuccess, user }: Us
         setShowMFAResetSuccess(false);
       }, 3000);
     } catch (error) {
-      console.error('Error resetting MFA:', error);
+      clientErrorLog('Error resetting MFA:', error);
     }
   };
 

@@ -1,5 +1,24 @@
 import type { ReactNode } from 'react';
 
+/**
+ * Action definition for dropdown menus in data table rows.
+ */
+export interface DataTableDropdownAction<T> {
+  label: string | ((item: T) => string);
+  icon?: ReactNode;
+  onClick: (item: T) => void | Promise<void>;
+  variant?: 'default' | 'danger';
+  /** @deprecated Use confirmModal instead */
+  confirm?: string | ((item: T) => string);
+  confirmModal?: {
+    title: string | ((item: T) => string);
+    message: string | ((item: T) => string);
+    confirmText?: string | ((item: T) => string);
+  };
+  /** Conditionally show/hide the action */
+  show?: (item: T) => boolean;
+}
+
 export interface DataTableColumn<T> {
   key: keyof T | 'checkbox' | 'actions' | 'expand';
   header?: string;
@@ -35,7 +54,7 @@ export interface DataTableBulkAction<T> {
     message: string | ((item: T) => string); // Support dynamic messages
     confirmText?: string | ((item: T) => string);
   };
-  // Legacy support
+  /** @deprecated Use confirmModal instead for consistent modal UX */
   confirm?: string;
 }
 

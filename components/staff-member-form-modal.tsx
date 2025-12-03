@@ -9,6 +9,7 @@ import { useCreateStaff, useUpdateStaff } from '@/lib/hooks/use-staff';
 import EducationInput from './education-input';
 import ImageUpload from './image-upload';
 import SpecialtiesInput from './specialties-input';
+import { clientErrorLog } from '@/lib/utils/debug-client';
 
 // Form validation schema
 const staffFormSchema = z.object({
@@ -123,7 +124,7 @@ export default function StaffMemberFormModal({
       onSuccess?.();
       onClose();
     } catch (error) {
-      console.error('Error creating staff member:', error);
+      clientErrorLog('Error creating staff member:', error);
     } finally {
       setIsSubmitting(false);
     }

@@ -3,6 +3,7 @@
 import { useState, useId } from 'react';
 import { useSubmitFeedback } from '@/lib/hooks/use-data-explorer';
 import type { SubmitFeedbackParams } from '@/lib/types/data-explorer';
+import { clientErrorLog } from '@/lib/utils/debug-client';
 
 interface FeedbackModalProps {
   isOpen: boolean;
@@ -53,7 +54,7 @@ export default function FeedbackModal({
       setExplanation('');
       onClose();
     } catch (error) {
-      console.error('Failed to submit feedback:', error);
+      clientErrorLog('Failed to submit feedback:', error);
     }
   };
 

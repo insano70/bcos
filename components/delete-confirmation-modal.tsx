@@ -2,6 +2,7 @@
 
 import { type ReactNode, useState } from 'react';
 import ModalBasic from './modal-basic';
+import { clientErrorLog } from '@/lib/utils/debug-client';
 
 /**
  * Generic Delete Confirmation Modal
@@ -79,7 +80,7 @@ export default function DeleteConfirmationModal({
       await onConfirm();
       setIsOpen(false);
     } catch (error) {
-      console.error('Delete failed:', error);
+      clientErrorLog('Delete failed:', error);
       // Error will be handled by parent component
     } finally {
       setIsDeleting(false);

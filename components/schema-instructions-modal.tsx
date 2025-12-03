@@ -6,6 +6,7 @@ import { apiClient } from '@/lib/api/client';
 import type { SchemaInstruction } from '@/lib/types/data-explorer';
 import DeleteConfirmationModal from './delete-confirmation-modal';
 import Toast from './toast';
+import { clientErrorLog } from '@/lib/utils/debug-client';
 
 interface SchemaInstructionsModalProps {
   isOpen: boolean;
@@ -39,7 +40,7 @@ export default function SchemaInstructionsModal({ isOpen, onClose }: SchemaInstr
       const data = await apiClient.get<SchemaInstruction[]>('/api/data/explorer/schema-instructions');
       setInstructions(data);
     } catch (error) {
-      console.error('Failed to fetch instructions:', error);
+      clientErrorLog('Failed to fetch instructions:', error);
     } finally {
       setIsLoading(false);
     }
@@ -104,7 +105,7 @@ export default function SchemaInstructionsModal({ isOpen, onClose }: SchemaInstr
       setIsCreating(false);
       fetchInstructions();
     } catch (error) {
-      console.error('Save failed:', error);
+      clientErrorLog('Save failed:', error);
     }
   };
 
@@ -122,7 +123,7 @@ export default function SchemaInstructionsModal({ isOpen, onClose }: SchemaInstr
       setShowToast(true);
       fetchInstructions();
     } catch (error) {
-      console.error('Delete failed:', error);
+      clientErrorLog('Delete failed:', error);
     }
   };
 
@@ -135,7 +136,7 @@ export default function SchemaInstructionsModal({ isOpen, onClose }: SchemaInstr
       setShowToast(true);
       fetchInstructions();
     } catch (error) {
-      console.error('Toggle failed:', error);
+      clientErrorLog('Toggle failed:', error);
     }
   };
 

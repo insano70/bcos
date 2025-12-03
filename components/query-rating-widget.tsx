@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { apiClient } from '@/lib/api/client';
+import { clientErrorLog } from '@/lib/utils/debug-client';
 
 interface QueryRatingWidgetProps {
   queryId: string;
@@ -29,7 +30,7 @@ export default function QueryRatingWidget({
       setRating(newRating);
       onRatingChange?.();
     } catch (error) {
-      console.error('Failed to rate query:', error);
+      clientErrorLog('Failed to rate query:', error);
     } finally {
       setIsSubmitting(false);
     }

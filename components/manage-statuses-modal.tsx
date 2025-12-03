@@ -15,6 +15,7 @@ import {
 } from '@/lib/hooks/use-work-item-statuses';
 import { createSafeTextSchema } from '@/lib/validations/sanitization';
 import Toast from './toast';
+import { clientErrorLog } from '@/lib/utils/debug-client';
 
 const statusSchema = z.object({
   status_name: createSafeTextSchema(1, 100, 'Status name'),
@@ -116,6 +117,7 @@ export default function ManageStatusesModal({
       } else if (editingStatusId) {
         await updateStatus.mutateAsync({
           id: editingStatusId,
+          typeId: workItemTypeId,
           data: {
             status_name: data.status_name,
             status_category: data.status_category,
@@ -131,7 +133,7 @@ export default function ManageStatusesModal({
       handleCancelEdit();
       refetch();
     } catch (error) {
-      console.error('Failed to save status:', error);
+      clientErrorLog('Failed to save status:', error);
     }
   };
 
@@ -156,7 +158,7 @@ export default function ManageStatusesModal({
       setStatusToDelete(null);
       refetch();
     } catch (error) {
-      console.error('Failed to delete status:', error);
+      clientErrorLog('Failed to delete status:', error);
     }
   };
 

@@ -3,6 +3,7 @@
 import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
 import { useState } from 'react';
 import Toast from './toast';
+import { clientErrorLog } from '@/lib/utils/debug-client';
 
 interface ViewSQLModalProps {
   isOpen: boolean;
@@ -27,7 +28,7 @@ export default function ViewSQLModal({
       setShowCopyToast(true);
       setTimeout(() => setShowCopyToast(false), 2000);
     } catch (err) {
-      console.error('Failed to copy SQL:', err);
+      clientErrorLog('Failed to copy SQL:', err);
     }
   };
 

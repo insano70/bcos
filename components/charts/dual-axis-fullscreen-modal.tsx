@@ -22,6 +22,7 @@ import type { ChartData } from '@/lib/types/analytics';
 import { formatValue, formatValueCompact } from '@/lib/utils/chart-data/formatters/value-formatter';
 import { getMeasureTypeFromChart } from '@/lib/utils/type-guards';
 import { useDimensionExpansion } from '@/hooks/useDimensionExpansion';
+import { useChartFullscreen } from '@/hooks/useChartFullscreen';
 import type {
   DimensionExpansionChartConfig,
   DimensionExpansionFilters,
@@ -58,7 +59,6 @@ export default function DualAxisFullscreenModal({
   runtimeFilters,
 }: DualAxisFullscreenModalProps) {
   const [chart, setChart] = useState<ChartType | null>(null);
-  const [mounted, setMounted] = useState(false);
   // Phase 1: Toggle between simple (dimension-level) and advanced (value-level) selection
   const [useAdvancedSelection, setUseAdvancedSelection] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -68,6 +68,9 @@ export default function DualAxisFullscreenModal({
   const darkMode = theme === 'dark';
 
   const chartTitleId = useId();
+
+  // Use shared hook for modal lifecycle (mounting, scroll lock, escape key)
+  const { mounted } = useChartFullscreen(isOpen, onClose);
 
   const dimension = useDimensionExpansion({
     chartDefinitionId,
@@ -81,7 +84,7 @@ export default function DualAxisFullscreenModal({
     canvasRef.current = element;
   };
 
-  // Handle client-side mounting for portal and register plugins
+  // Register Chart.js plugins once
   useEffect(() => {
     if (!pluginsRegistered) {
       Chart.register(
@@ -98,32 +101,7 @@ export default function DualAxisFullscreenModal({
       );
       pluginsRegistered = true;
     }
-    setMounted(true);
   }, []);
-
-  // Lock body scroll when modal is open
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden';
-      return () => {
-        document.body.style.overflow = '';
-      };
-    }
-  }, [isOpen]);
-
-  // Handle escape key
-  useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
-      }
-    };
-
-    if (isOpen) {
-      document.addEventListener('keydown', handleEscape);
-      return () => document.removeEventListener('keydown', handleEscape);
-    }
-  }, [isOpen, onClose]);
 
   // Initialize chart (reinitialize when collapsing from dimension expansion)
   useEffect(() => {

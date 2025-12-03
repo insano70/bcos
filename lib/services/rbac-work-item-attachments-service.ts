@@ -1,8 +1,11 @@
 import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { users, work_item_attachments, work_items } from '@/lib/db/schema';
+import { DatabaseError, NotFoundError } from '@/lib/errors/domain-errors';
+import { PermissionDeniedError } from '@/lib/errors/rbac-errors';
 import { log } from '@/lib/logger';
 import { BaseRBACService } from '@/lib/rbac/base-service';
+import { formatUserNameWithFallback } from '@/lib/utils/user-formatters';
 import {
   deleteFile,
   generateDownloadUrl,
@@ -11,7 +14,6 @@ import {
 } from '@/lib/s3/private-assets';
 import { FILE_SIZE_LIMITS, IMAGE_MIME_TYPES } from '@/lib/s3/private-assets/constants';
 import type { UserContext } from '@/lib/types/rbac';
-import { PermissionDeniedError } from '@/lib/errors/rbac-errors';
 
 /**
  * Work Item Attachments Service with RBAC
@@ -90,7 +92,7 @@ export class RBACWorkItemAttachmentsService extends BaseRBACService {
         )
       )
       .orderBy(desc(work_item_attachments.uploaded_at))
-      .limit(options.limit || 50)
+      .limit(options.limit || 1000)
       .offset(options.offset || 0);
 
     const duration = Date.now() - startTime;
@@ -109,10 +111,7 @@ export class RBACWorkItemAttachmentsService extends BaseRBACService {
       s3_key: result.s3_key,
       s3_bucket: result.s3_bucket,
       uploaded_by: result.uploaded_by,
-      uploaded_by_name:
-        result.uploaded_by_first_name && result.uploaded_by_last_name
-          ? `${result.uploaded_by_first_name} ${result.uploaded_by_last_name}`
-          : '',
+      uploaded_by_name: formatUserNameWithFallback(result.uploaded_by_first_name, result.uploaded_by_last_name),
       uploaded_at: result.uploaded_at || new Date(),
     }));
   }
@@ -183,10 +182,7 @@ export class RBACWorkItemAttachmentsService extends BaseRBACService {
       s3_key: attachment.s3_key,
       s3_bucket: attachment.s3_bucket,
       uploaded_by: attachment.uploaded_by,
-      uploaded_by_name:
-        attachment.uploaded_by_first_name && attachment.uploaded_by_last_name
-          ? `${attachment.uploaded_by_first_name} ${attachment.uploaded_by_last_name}`
-          : '',
+      uploaded_by_name: formatUserNameWithFallback(attachment.uploaded_by_first_name, attachment.uploaded_by_last_name),
       uploaded_at: attachment.uploaded_at || new Date(),
     };
   }
@@ -255,7 +251,7 @@ export class RBACWorkItemAttachmentsService extends BaseRBACService {
       .returning();
 
     if (!newAttachment) {
-      throw new Error('Failed to create attachment');
+      throw new DatabaseError('Failed to create attachment', 'write');
     }
 
     log.info('Work item attachment created successfully', {
@@ -272,7 +268,7 @@ export class RBACWorkItemAttachmentsService extends BaseRBACService {
       newAttachment.work_item_attachment_id
     );
     if (!attachmentWithDetails) {
-      throw new Error('Failed to retrieve created attachment');
+      throw new DatabaseError('Failed to retrieve created attachment', 'read');
     }
 
     return {
@@ -296,7 +292,7 @@ export class RBACWorkItemAttachmentsService extends BaseRBACService {
     // Get attachment details
     const attachment = await this.getAttachmentById(attachmentId);
     if (!attachment) {
-      throw new Error('Attachment not found');
+      throw new NotFoundError('Attachment', attachmentId);
     }
 
     // Generate presigned download URL with short expiration for security
@@ -328,7 +324,7 @@ export class RBACWorkItemAttachmentsService extends BaseRBACService {
     // First get the attachment to check work item permission
     const attachment = await this.getAttachmentById(attachmentId);
     if (!attachment) {
-      throw new Error('Attachment not found');
+      throw new NotFoundError('Attachment', attachmentId);
     }
 
     // Verify user has permission to update the work item (deleting attachment is an update operation)

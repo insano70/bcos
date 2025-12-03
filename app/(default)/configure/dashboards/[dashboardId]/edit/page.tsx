@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
 import RowBasedDashboardBuilder from '@/components/dashboards/row-builder';
 import { apiClient } from '@/lib/api/client';
 import type { Dashboard, DashboardChart } from '@/lib/types/analytics';
+import { clientErrorLog } from '@/lib/utils/debug-client';
 
 interface DashboardWithCharts extends Dashboard {
   charts: DashboardChart[];
@@ -52,7 +53,7 @@ export default function EditDashboardPage() {
 
       setDashboardData(fullDashboardData);
     } catch (error) {
-      console.error('❌ Failed to load dashboard for editing:', error);
+      clientErrorLog('Failed to load dashboard for editing:', error);
       setError(error instanceof Error ? error.message : 'Failed to load dashboard');
     } finally {
       setIsLoading(false);

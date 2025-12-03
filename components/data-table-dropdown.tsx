@@ -1,26 +1,9 @@
 'use client';
 
-import { type ReactNode, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import DeleteConfirmationModal from './delete-confirmation-modal';
 import { clientErrorLog } from '@/lib/utils/debug-client';
-
-interface DataTableDropdownAction<T> {
-  label: string | ((item: T) => string);
-  icon?: ReactNode;
-  onClick: (item: T) => void | Promise<void>;
-  variant?: 'default' | 'danger';
-  
-  /** @deprecated Use confirmModal instead */
-  confirm?: string | ((item: T) => string);
-  
-  confirmModal?: {
-    title: string | ((item: T) => string);
-    message: string | ((item: T) => string);
-    confirmText?: string | ((item: T) => string);
-  };
-  
-  show?: (item: T) => boolean;
-}
+import type { DataTableDropdownAction } from './data-table/types';
 
 interface DataTableDropdownProps<T> {
   item: T;

@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { apiClient } from '@/lib/api/client';
+import { clientErrorLog } from '@/lib/utils/debug-client';
 
 interface Comment {
   work_item_comment_id: string;
@@ -59,7 +60,7 @@ export default function WorkItemCommentsSection({ workItemId }: WorkItemComments
     try {
       await addComment.mutateAsync(newComment);
     } catch (error) {
-      console.error('Failed to add comment:', error);
+      clientErrorLog('Failed to add comment:', error);
     } finally {
       setIsSubmitting(false);
     }

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import type { ClinectRating, ClinectReview } from '@/lib/types/practice';
+import { clientErrorLog } from '@/lib/utils/debug-client';
 
 export interface ClinectRatingsWidgetProps {
   practiceSlug: string;
@@ -66,7 +67,7 @@ export default function ClinectRatingsWidget({
         setReviews(data.data.data || []);
       } catch (err) {
         // Reviews are optional, log but don't show error to user
-        console.error('Failed to fetch reviews:', err);
+        clientErrorLog('Failed to fetch reviews:', err);
       }
     };
 

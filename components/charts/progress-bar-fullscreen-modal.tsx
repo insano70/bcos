@@ -7,10 +7,11 @@
  * Follows same pattern as ChartFullscreenModal but adapted for progress bars.
  */
 
-import { useState, useEffect, useRef, useId } from 'react';
+import { useState, useRef, useId } from 'react';
 import { createPortal } from 'react-dom';
 import AnalyticsProgressBarChart from './analytics-progress-bar-chart';
 import { useDimensionExpansion } from '@/hooks/useDimensionExpansion';
+import { useChartFullscreen } from '@/hooks/useChartFullscreen';
 import type {
   DimensionExpansionChartConfig,
   DimensionExpansionFilters,
@@ -43,11 +44,13 @@ export default function ProgressBarFullscreenModal({
   finalChartConfig,
   runtimeFilters,
 }: ProgressBarFullscreenModalProps) {
-  const [mounted, setMounted] = useState(false);
   // Phase 1: Toggle between simple (dimension-level) and advanced (value-level) selection
   const [useAdvancedSelection, setUseAdvancedSelection] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
+
+  // Use shared hook for modal lifecycle (mounting, scroll lock, escape key)
+  const { mounted } = useChartFullscreen(isOpen, onClose);
 
   const dimension = useDimensionExpansion({
     chartDefinitionId,
@@ -55,35 +58,6 @@ export default function ProgressBarFullscreenModal({
     runtimeFilters,
     isOpen,
   });
-
-  // Handle client-side mounting for portal
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  // Lock body scroll when modal is open
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden';
-      return () => {
-        document.body.style.overflow = '';
-      };
-    }
-  }, [isOpen]);
-
-  // Handle escape key
-  useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
-      }
-    };
-
-    if (isOpen) {
-      document.addEventListener('keydown', handleEscape);
-      return () => document.removeEventListener('keydown', handleEscape);
-    }
-  }, [isOpen, onClose]);
 
   // Handle clicks outside modal
   const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {

@@ -127,7 +127,7 @@ export const workItemFieldsQuerySchema = z.object({
     .enum(['true', 'false'])
     .transform((val) => val === 'true')
     .optional(),
-  limit: z.number().int().min(1).max(100).optional(),
+  limit: z.number().int().min(1).max(1000).optional(),
   offset: z.number().int().min(0).optional(),
 });
 

@@ -1,10 +1,12 @@
 import { and, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { users, work_item_watchers, work_items } from '@/lib/db/schema';
+import { DatabaseError, NotFoundError } from '@/lib/errors/domain-errors';
+import { PermissionDeniedError } from '@/lib/errors/rbac-errors';
 import { log } from '@/lib/logger';
 import { BaseRBACService } from '@/lib/rbac/base-service';
 import type { UserContext } from '@/lib/types/rbac';
-import { PermissionDeniedError } from '@/lib/errors/rbac-errors';
+import { formatUserNameWithFallback } from '@/lib/utils/user-formatters';
 import type { WatchType } from '@/lib/validations/work-item-watchers';
 
 /**
@@ -93,10 +95,7 @@ export class RBACWorkItemWatchersService extends BaseRBACService {
       work_item_watcher_id: result.work_item_watcher_id,
       work_item_id: result.work_item_id,
       user_id: result.user_id,
-      user_name:
-        result.user_first_name && result.user_last_name
-          ? `${result.user_first_name} ${result.user_last_name}`
-          : '',
+      user_name: formatUserNameWithFallback(result.user_first_name, result.user_last_name),
       user_email: result.user_email ?? '',
       watch_type: result.watch_type ?? 'manual',
       notify_status_changes: result.notify_status_changes ?? true,
@@ -178,7 +177,7 @@ export class RBACWorkItemWatchersService extends BaseRBACService {
       });
       const watcherId = existingWatcher[0]?.work_item_watcher_id;
       if (!watcherId) {
-        throw new Error('Failed to retrieve existing watcher ID');
+        throw new DatabaseError('Failed to retrieve existing watcher ID', 'read');
       }
       return this.getWatcherById(watcherId);
     }
@@ -198,7 +197,7 @@ export class RBACWorkItemWatchersService extends BaseRBACService {
       .returning();
 
     if (!newWatcher) {
-      throw new Error('Failed to create watcher');
+      throw new DatabaseError('Failed to create watcher', 'write');
     }
 
     const duration = Date.now() - startTime;
@@ -371,22 +370,19 @@ export class RBACWorkItemWatchersService extends BaseRBACService {
       .limit(1);
 
     if (results.length === 0) {
-      throw new Error('Watcher not found');
+      throw new NotFoundError('Watcher', watcherId);
     }
 
     const result = results[0];
     if (!result) {
-      throw new Error('Watcher not found');
+      throw new NotFoundError('Watcher', watcherId);
     }
 
     return {
       work_item_watcher_id: result.work_item_watcher_id,
       work_item_id: result.work_item_id,
       user_id: result.user_id,
-      user_name:
-        result.user_first_name && result.user_last_name
-          ? `${result.user_first_name} ${result.user_last_name}`
-          : '',
+      user_name: formatUserNameWithFallback(result.user_first_name, result.user_last_name),
       user_email: result.user_email ?? '',
       watch_type: result.watch_type ?? 'manual',
       notify_status_changes: result.notify_status_changes ?? true,

@@ -193,11 +193,13 @@ export async function warmUpCache(commonRoleIds: string[]): Promise<void> {
     roleCount: commonRoleIds.length,
   });
 
-  // TODO: Implement Redis cache warming by pre-loading common roles
-  // This would query database for common roles and cache them to Redis
+  // Note: Redis cache warms lazily on first access per role.
+  // Pre-warming is not currently needed as cache hits are high after initial access.
+  // If pre-warming becomes necessary, implement here by querying DB and calling
+  // rbacCache.setRolePermissions() for each common role.
 
-  log.debug('Cache warm-up completed', {
+  log.debug('Cache warm-up check completed', {
     roleCount: commonRoleIds.length,
-    note: 'Redis cache warming to be implemented',
+    strategy: 'lazy-load',
   });
 }

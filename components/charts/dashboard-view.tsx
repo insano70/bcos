@@ -26,6 +26,7 @@ import ChartErrorBoundary from './chart-error-boundary';
 import DashboardFilterDropdown from './dashboard-filter-dropdown';
 import DashboardFilterPills from './dashboard-filter-pills';
 import { clearDimensionCaches } from '@/hooks/useDimensionExpansion';
+import { clientErrorLog } from '@/lib/utils/debug-client';
 
 interface DashboardViewProps {
   dashboard: Dashboard;
@@ -168,9 +169,7 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
 
       setAvailableCharts(charts);
     } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Failed to load chart definitions:', error);
-      }
+      clientErrorLog('Failed to load chart definitions:', error);
       setError(DASHBOARD_MESSAGES.ERRORS.CHART_DEFINITIONS_LOAD_FAILED);
     } finally {
       setIsLoadingCharts(false);

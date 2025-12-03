@@ -1,10 +1,12 @@
 import { and, desc, eq, isNull } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { users, work_item_activity, work_items } from '@/lib/db/schema';
+import { DatabaseError } from '@/lib/errors/domain-errors';
+import { PermissionDeniedError } from '@/lib/errors/rbac-errors';
 import { log } from '@/lib/logger';
 import { BaseRBACService } from '@/lib/rbac/base-service';
 import type { UserContext } from '@/lib/types/rbac';
-import { PermissionDeniedError } from '@/lib/errors/rbac-errors';
+import { formatUserNameWithFallback } from '@/lib/utils/user-formatters';
 
 /**
  * Work Item Activity Service with RBAC
@@ -84,7 +86,7 @@ export class RBACWorkItemActivityService extends BaseRBACService {
       .leftJoin(users, eq(work_item_activity.created_by, users.user_id))
       .where(and(...whereConditions))
       .orderBy(desc(work_item_activity.created_at))
-      .limit(options.limit || 50)
+      .limit(options.limit || 1000)
       .offset(options.offset || 0);
 
     const duration = Date.now() - startTime;
@@ -98,10 +100,7 @@ export class RBACWorkItemActivityService extends BaseRBACService {
       work_item_activity_id: result.work_item_activity_id,
       work_item_id: result.work_item_id,
       user_id: result.created_by,
-      user_name:
-        result.created_by_first_name && result.created_by_last_name
-          ? `${result.created_by_first_name} ${result.created_by_last_name}`
-          : '',
+      user_name: formatUserNameWithFallback(result.created_by_first_name, result.created_by_last_name),
       activity_type: result.activity_type,
       field_name: result.field_name,
       old_value: result.old_value,
@@ -141,7 +140,7 @@ export class RBACWorkItemActivityService extends BaseRBACService {
       .returning();
 
     if (!newActivity) {
-      throw new Error('Failed to create activity log entry');
+      throw new DatabaseError('Failed to create activity log entry', 'write');
     }
 
     log.info('Work item activity created successfully', {
@@ -160,7 +159,7 @@ export class RBACWorkItemActivityService extends BaseRBACService {
 
     const firstActivity = activities[0];
     if (!firstActivity) {
-      throw new Error('Failed to retrieve created activity');
+      throw new DatabaseError('Failed to retrieve created activity', 'read');
     }
 
     return firstActivity;

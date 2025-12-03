@@ -4,6 +4,7 @@ import { useState, useId } from 'react';
 import { usePendingFeedback, useResolveFeedback } from '@/lib/hooks/use-data-explorer';
 import ProtectedComponent from '@/components/rbac/protected-component';
 import type { QueryFeedback, ResolveFeedbackParams } from '@/lib/types/data-explorer';
+import { clientErrorLog } from '@/lib/utils/debug-client';
 
 export default function FeedbackDashboardPage() {
   const [selectedStatus, setSelectedStatus] = useState<QueryFeedback['resolution_status'] | 'all'>('pending');
@@ -32,7 +33,7 @@ export default function FeedbackDashboardPage() {
       setResolvingId(null);
       refetch();
     } catch (error) {
-      console.error('Failed to resolve feedback:', error);
+      clientErrorLog('Failed to resolve feedback:', error);
     }
   };
 

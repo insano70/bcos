@@ -18,6 +18,9 @@ import type { PermissionName, UserContext } from '@/lib/types/rbac';
 import type { WorkItemQueryOptions, WorkItemWithDetails } from '@/lib/types/work-items';
 import type { WorkItemQueryResult } from './query-builder';
 
+// 7. Utilities
+import { formatUserName, formatUserNameWithFallback } from '@/lib/utils/user-formatters';
+
 /**
  * Base Work Items RBAC Service
  *
@@ -188,10 +191,7 @@ export abstract class BaseWorkItemsService extends BaseRBACService {
       status_category: result.status_category || '',
       priority: result.priority || 'medium',
       assigned_to: result.assigned_to,
-      assigned_to_name:
-        result.assigned_to_first_name && result.assigned_to_last_name
-          ? `${result.assigned_to_first_name} ${result.assigned_to_last_name}`
-          : null,
+      assigned_to_name: formatUserName(result.assigned_to_first_name, result.assigned_to_last_name),
       due_date: result.due_date,
       started_at: result.started_at,
       completed_at: result.completed_at,
@@ -200,10 +200,7 @@ export abstract class BaseWorkItemsService extends BaseRBACService {
       depth: result.depth,
       path: result.path,
       created_by: result.created_by,
-      created_by_name:
-        result.created_by_first_name && result.created_by_last_name
-          ? `${result.created_by_first_name} ${result.created_by_last_name}`
-          : '',
+      created_by_name: formatUserNameWithFallback(result.created_by_first_name, result.created_by_last_name),
       created_at: result.created_at,
       updated_at: result.updated_at,
       custom_fields: customFields,

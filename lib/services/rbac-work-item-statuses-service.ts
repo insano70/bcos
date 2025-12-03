@@ -1,28 +1,25 @@
 import { and, asc, count, eq, isNull } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { work_item_statuses, work_item_types } from '@/lib/db/schema';
+import {
+  ConflictError,
+  DatabaseError,
+  ForbiddenError,
+  NotFoundError,
+} from '@/lib/errors/domain-errors';
 import { log } from '@/lib/logger';
 import { BaseRBACService } from '@/lib/rbac/base-service';
 import type { UserContext } from '@/lib/types/rbac';
+import type { WorkItemStatusWithDetails } from '@/lib/types/work-item-statuses';
+
+// Re-export types for consumers of this service
+export type { WorkItemStatusWithDetails };
 
 /**
  * Work Item Statuses Service with RBAC
  * Manages work item statuses with automatic permission checking
  * Phase 4: Status management per work item type
  */
-
-export interface WorkItemStatusWithDetails {
-  work_item_status_id: string;
-  work_item_type_id: string;
-  status_name: string;
-  status_category: string;
-  is_initial: boolean;
-  is_final: boolean;
-  color: string | null;
-  display_order: number;
-  created_at: Date;
-  updated_at: Date;
-}
 
 export class RBACWorkItemStatusesService extends BaseRBACService {
   /**
@@ -41,7 +38,7 @@ export class RBACWorkItemStatusesService extends BaseRBACService {
         .limit(1);
 
       if (!workItemType) {
-        throw new Error('Work item type not found');
+        throw new NotFoundError('Work item type', typeId);
       }
 
       // Check organization access if type is organization-scoped
@@ -115,7 +112,7 @@ export class RBACWorkItemStatusesService extends BaseRBACService {
         .limit(1);
 
       if (!workItemType) {
-        throw new Error('Work item type not found');
+        throw new NotFoundError('Work item type', result.work_item_type_id);
       }
 
       // Check organization access if type is organization-scoped
@@ -159,7 +156,7 @@ export class RBACWorkItemStatusesService extends BaseRBACService {
       .limit(1);
 
     if (!workItemType) {
-      throw new Error('Work item type not found');
+      throw new NotFoundError('Work item type', data.work_item_type_id);
     }
 
     // Check permission - only for organization-owned types
@@ -172,7 +169,7 @@ export class RBACWorkItemStatusesService extends BaseRBACService {
       this.requireOrganizationAccess(workItemType.organization_id);
     } else {
       // Global types cannot be modified
-      throw new Error('Cannot add statuses to global work item types');
+      throw new ForbiddenError('Cannot add statuses to global work item types');
     }
 
     try {
@@ -190,7 +187,7 @@ export class RBACWorkItemStatusesService extends BaseRBACService {
         .returning();
 
       if (!newStatus) {
-        throw new Error('Failed to create work item status');
+        throw new DatabaseError('Failed to create work item status', 'write');
       }
 
       log.info('Work item status created successfully', {
@@ -247,7 +244,7 @@ export class RBACWorkItemStatusesService extends BaseRBACService {
     // Get existing status and type to check permissions
     const existingStatus = await this.getStatusById(statusId);
     if (!existingStatus) {
-      throw new Error('Work item status not found');
+      throw new NotFoundError('Work item status', statusId);
     }
 
     const [workItemType] = await db
@@ -257,7 +254,7 @@ export class RBACWorkItemStatusesService extends BaseRBACService {
       .limit(1);
 
     if (!workItemType) {
-      throw new Error('Work item type not found');
+      throw new NotFoundError('Work item type', existingStatus.work_item_type_id);
     }
 
     if (workItemType.organization_id) {
@@ -268,7 +265,7 @@ export class RBACWorkItemStatusesService extends BaseRBACService {
       );
       this.requireOrganizationAccess(workItemType.organization_id);
     } else {
-      throw new Error('Cannot update statuses of global work item types');
+      throw new ForbiddenError('Cannot update statuses of global work item types');
     }
 
     try {
@@ -288,7 +285,7 @@ export class RBACWorkItemStatusesService extends BaseRBACService {
 
       const updatedStatus = await this.getStatusById(statusId);
       if (!updatedStatus) {
-        throw new Error('Failed to retrieve updated work item status');
+        throw new DatabaseError('Failed to retrieve updated work item status', 'read');
       }
 
       return updatedStatus;
@@ -316,7 +313,7 @@ export class RBACWorkItemStatusesService extends BaseRBACService {
 
     const existingStatus = await this.getStatusById(statusId);
     if (!existingStatus) {
-      throw new Error('Work item status not found');
+      throw new NotFoundError('Work item status', statusId);
     }
 
     const [workItemType] = await db
@@ -326,7 +323,7 @@ export class RBACWorkItemStatusesService extends BaseRBACService {
       .limit(1);
 
     if (!workItemType) {
-      throw new Error('Work item type not found');
+      throw new NotFoundError('Work item type', existingStatus.work_item_type_id);
     }
 
     if (workItemType.organization_id) {
@@ -337,7 +334,7 @@ export class RBACWorkItemStatusesService extends BaseRBACService {
       );
       this.requireOrganizationAccess(workItemType.organization_id);
     } else {
-      throw new Error('Cannot delete statuses from global work item types');
+      throw new ForbiddenError('Cannot delete statuses from global work item types');
     }
 
     // Check if any work items use this status
@@ -348,12 +345,14 @@ export class RBACWorkItemStatusesService extends BaseRBACService {
       .where(and(eq(work_items.status_id, statusId), isNull(work_items.deleted_at)));
 
     if (!workItemCount) {
-      throw new Error('Failed to check work item count');
+      throw new DatabaseError('Failed to check work item count', 'read');
     }
 
     if (workItemCount.count > 0) {
-      throw new Error(
-        `Cannot delete work item status with existing work items (${workItemCount.count} items found)`
+      throw new ConflictError(
+        `Cannot delete work item status with existing work items (${workItemCount.count} items found)`,
+        'state_conflict',
+        { workItemCount: workItemCount.count }
       );
     }
 

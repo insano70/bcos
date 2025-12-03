@@ -16,6 +16,7 @@
 'use client';
 
 import React, { type ReactNode } from 'react';
+import { clientErrorLog } from '@/lib/utils/debug-client';
 
 interface ChartErrorBoundaryProps {
   children: ReactNode;
@@ -58,8 +59,8 @@ export class ChartErrorBoundary extends React.Component<
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
-    // Client-side error logging (cannot use server logger in client components)
-    console.error('Chart rendering error caught by boundary', {
+    // Client-side error logging
+    clientErrorLog('Chart rendering error caught by boundary', {
       chartName: this.props.chartName || 'Unknown',
       error: error.message,
       stack: error.stack,

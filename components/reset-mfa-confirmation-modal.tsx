@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import ModalBasic from './modal-basic';
+import { clientErrorLog } from '@/lib/utils/debug-client';
 
 interface ResetMFAConfirmationModalProps {
   isOpen: boolean;
@@ -28,7 +29,7 @@ export default function ResetMFAConfirmationModal({
       await onConfirm();
       setIsOpen(false);
     } catch (error) {
-      console.error('MFA reset failed:', error);
+      clientErrorLog('MFA reset failed:', error);
       // Error will be handled by parent component
     } finally {
       setIsResetting(false);

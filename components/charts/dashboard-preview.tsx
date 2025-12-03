@@ -13,6 +13,7 @@ import type {
   MeasureType,
 } from '@/lib/types/analytics';
 import AnalyticsChart from './analytics-chart';
+import { clientErrorLog } from '@/lib/utils/debug-client';
 import DashboardFilterDropdown from './dashboard-filter-dropdown';
 
 interface DashboardConfig {
@@ -147,7 +148,7 @@ export default function DashboardPreview({
 
       setAvailableCharts(charts);
     } catch (err) {
-      console.error('Failed to load chart definitions:', err);
+      clientErrorLog('Failed to load chart definitions:', err);
       setError('Failed to load chart definitions for preview');
     } finally {
       setIsLoadingCharts(false);

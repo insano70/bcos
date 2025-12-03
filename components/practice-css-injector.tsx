@@ -1,6 +1,7 @@
 import { useStyleNonce } from '@/lib/security/nonce-context';
 import { type BrandColors, getPracticeCSS } from '@/lib/utils/color-utils';
 import { validateCSSColor } from '@/lib/validations/css-validation';
+import { clientErrorLog } from '@/lib/utils/debug-client';
 
 /**
  * Practice CSS Injector Component
@@ -34,7 +35,7 @@ export function PracticeCSSInjector({ colors, practiceId }: PracticeCSSInjectorP
   // Block injection if any color is invalid
   if (invalidColors.length > 0) {
     // Client-side logging for security events
-    console.error('[SECURITY] Invalid CSS colors detected - blocking injection', {
+    clientErrorLog('[SECURITY] Invalid CSS colors detected - blocking injection', {
       operation: 'practice_css_injection',
       practiceId,
       invalidColors,
@@ -83,7 +84,7 @@ export function ServerPracticeCSSInjector({
   // Block injection if any color is invalid
   if (invalidColors.length > 0) {
     // Server-side logging for security events
-    console.error('[SECURITY] Invalid CSS colors detected - blocking SSR injection', {
+    clientErrorLog('[SECURITY] Invalid CSS colors detected - blocking SSR injection', {
       operation: 'practice_css_injection_ssr',
       practiceId,
       invalidColors,

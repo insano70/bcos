@@ -7,6 +7,7 @@ import type {
   PeriodComparisonConfig,
 } from '@/lib/types/analytics';
 import type { ChartConfig, DataSource } from './chart-builder-core';
+import { clientErrorLog } from '@/lib/utils/debug-client';
 
 interface SchemaInfo {
   fields: Record<string, unknown>;
@@ -58,7 +59,7 @@ export async function findDataSource(
 
     return null;
   } catch (error) {
-    console.error('Failed to find data source:', error);
+    clientErrorLog('Failed to find data source:', error);
     return null;
   }
 }

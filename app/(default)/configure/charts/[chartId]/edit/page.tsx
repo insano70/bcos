@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
 import ChartBuilder from '@/components/charts/chart-builder';
 import { apiClient } from '@/lib/api/client';
 import type { ChartDefinition } from '@/lib/types/analytics';
+import { clientErrorLog } from '@/lib/utils/debug-client';
 
 export default function EditChartPage() {
   const params = useParams();
@@ -30,7 +31,7 @@ export default function EditChartPage() {
         'chart_definitions' in chartResponse ? chartResponse.chart_definitions : chartResponse;
       setChartData(fullChartData as ChartDefinition);
     } catch (error) {
-      console.error('❌ Failed to load chart for editing:', error);
+      clientErrorLog('Failed to load chart for editing:', error);
       setError(error instanceof Error ? error.message : 'Failed to load chart');
     } finally {
       setIsLoading(false);

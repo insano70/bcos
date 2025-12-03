@@ -11,6 +11,7 @@ import type {
 } from '@/lib/types/practice';
 import { getTemplateDefaultColors, getPracticeCSS } from '@/lib/utils/color-utils';
 import { validateCSSColor } from '@/lib/validations/css-validation';
+import { clientErrorLog } from '@/lib/utils/debug-client';
 
 interface TemplateSwitcherProps {
   practice: Practice;
@@ -91,13 +92,13 @@ export default function TemplateSwitcher({
       
       // Log security events for invalid colors (potential injection attempts)
       if (primaryColor && !validateCSSColor(primaryColor)) {
-        console.error('[Security] Invalid primary color value blocked:', primaryColor.substring(0, 20));
+        clientErrorLog('[Security] Invalid primary color value blocked:', primaryColor.substring(0, 20));
       }
       if (secondaryColor && !validateCSSColor(secondaryColor)) {
-        console.error('[Security] Invalid secondary color value blocked:', secondaryColor.substring(0, 20));
+        clientErrorLog('[Security] Invalid secondary color value blocked:', secondaryColor.substring(0, 20));
       }
       if (accentColor && !validateCSSColor(accentColor)) {
-        console.error('[Security] Invalid accent color value blocked:', accentColor.substring(0, 20));
+        clientErrorLog('[Security] Invalid accent color value blocked:', accentColor.substring(0, 20));
       }
 
       // Inject CSS variables dynamically for client-side template switching
@@ -114,7 +115,7 @@ export default function TemplateSwitcher({
 
       setCurrentTemplate(templateSlug);
     } catch (error) {
-      console.error('Error loading template:', error);
+      clientErrorLog('Error loading template:', error);
       // Fallback to classic-professional
       if (templateSlug !== 'classic-professional') {
         await loadTemplate('classic-professional');

@@ -1,10 +1,12 @@
 import { and, desc, eq, isNull } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { users, work_item_comments, work_items } from '@/lib/db/schema';
+import { DatabaseError, NotFoundError } from '@/lib/errors/domain-errors';
+import { PermissionDeniedError } from '@/lib/errors/rbac-errors';
 import { log } from '@/lib/logger';
 import { BaseRBACService } from '@/lib/rbac/base-service';
 import type { UserContext } from '@/lib/types/rbac';
-import { PermissionDeniedError } from '@/lib/errors/rbac-errors';
+import { formatUserNameWithFallback } from '@/lib/utils/user-formatters';
 
 /**
  * Work Item Comments Service with RBAC
@@ -78,7 +80,7 @@ export class RBACWorkItemCommentsService extends BaseRBACService {
         )
       )
       .orderBy(desc(work_item_comments.created_at))
-      .limit(options.limit || 50)
+      .limit(options.limit || 1000)
       .offset(options.offset || 0);
 
     const duration = Date.now() - startTime;
@@ -94,10 +96,7 @@ export class RBACWorkItemCommentsService extends BaseRBACService {
       parent_comment_id: result.parent_comment_id,
       comment_text: result.comment_text,
       created_by: result.created_by,
-      created_by_name:
-        result.created_by_first_name && result.created_by_last_name
-          ? `${result.created_by_first_name} ${result.created_by_last_name}`
-          : '',
+      created_by_name: formatUserNameWithFallback(result.created_by_first_name, result.created_by_last_name),
       created_at: result.created_at || new Date(),
       updated_at: result.updated_at || new Date(),
     }));
@@ -140,10 +139,7 @@ export class RBACWorkItemCommentsService extends BaseRBACService {
       parent_comment_id: result.parent_comment_id,
       comment_text: result.comment_text,
       created_by: result.created_by,
-      created_by_name:
-        result.created_by_first_name && result.created_by_last_name
-          ? `${result.created_by_first_name} ${result.created_by_last_name}`
-          : '',
+      created_by_name: formatUserNameWithFallback(result.created_by_first_name, result.created_by_last_name),
       created_at: result.created_at || new Date(),
       updated_at: result.updated_at || new Date(),
     };
@@ -178,7 +174,7 @@ export class RBACWorkItemCommentsService extends BaseRBACService {
       .returning();
 
     if (!newComment) {
-      throw new Error('Failed to create comment');
+      throw new DatabaseError('Failed to create comment', 'write');
     }
 
     log.info('Work item comment created successfully', {
@@ -213,7 +209,7 @@ export class RBACWorkItemCommentsService extends BaseRBACService {
 
     const comment = await this.getCommentById(newComment.work_item_comment_id);
     if (!comment) {
-      throw new Error('Failed to retrieve created comment');
+      throw new DatabaseError('Failed to retrieve created comment', 'read');
     }
 
     return comment;
@@ -236,7 +232,7 @@ export class RBACWorkItemCommentsService extends BaseRBACService {
     // Get the comment
     const comment = await this.getCommentById(commentId);
     if (!comment) {
-      throw new Error('Comment not found');
+      throw new NotFoundError('Comment', commentId);
     }
 
     // Check permission: user must be the creator or have admin permissions
@@ -258,7 +254,7 @@ export class RBACWorkItemCommentsService extends BaseRBACService {
       .returning();
 
     if (!updatedComment) {
-      throw new Error('Failed to update comment');
+      throw new DatabaseError('Failed to update comment', 'write');
     }
 
     log.info('Work item comment updated successfully', {
@@ -269,7 +265,7 @@ export class RBACWorkItemCommentsService extends BaseRBACService {
 
     const updatedCommentWithDetails = await this.getCommentById(commentId);
     if (!updatedCommentWithDetails) {
-      throw new Error('Failed to retrieve updated comment');
+      throw new DatabaseError('Failed to retrieve updated comment', 'read');
     }
 
     return updatedCommentWithDetails;
@@ -289,7 +285,7 @@ export class RBACWorkItemCommentsService extends BaseRBACService {
     // Get the comment
     const comment = await this.getCommentById(commentId);
     if (!comment) {
-      throw new Error('Comment not found');
+      throw new NotFoundError('Comment', commentId);
     }
 
     // Check permission: user must be the creator or have admin permissions

@@ -7,6 +7,7 @@ import {
   useWorkItemComments,
 } from '@/lib/hooks/use-work-items';
 import ModalBasic from './modal-basic';
+import { clientErrorLog } from '@/lib/utils/debug-client';
 
 interface DeleteWorkItemModalProps {
   isOpen: boolean;
@@ -54,7 +55,7 @@ export default function DeleteWorkItemModal({
       await onConfirm(workItemId);
       setIsOpen(false);
     } catch (error) {
-      console.error('Delete failed:', error);
+      clientErrorLog('Delete failed:', error);
       // Error will be handled by parent component
     } finally {
       setIsDeleting(false);

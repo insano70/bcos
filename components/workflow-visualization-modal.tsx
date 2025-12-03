@@ -13,6 +13,7 @@ import {
 } from '@/lib/hooks/use-work-item-transitions';
 import EditTransitionConfigModal from './edit-transition-config-modal';
 import Toast from './toast';
+import { clientErrorLog } from '@/lib/utils/debug-client';
 
 interface WorkflowVisualizationModalProps {
   isOpen: boolean;
@@ -84,7 +85,7 @@ export default function WorkflowVisualizationModal({
       setShowToast(true);
       refetch();
     } catch (error) {
-      console.error('Failed to toggle transition:', error);
+      clientErrorLog('Failed to toggle transition:', error);
     }
   };
 
@@ -109,7 +110,7 @@ export default function WorkflowVisualizationModal({
       setTransitionToDelete(null);
       refetch();
     } catch (error) {
-      console.error('Failed to delete transition:', error);
+      clientErrorLog('Failed to delete transition:', error);
     }
   };
 

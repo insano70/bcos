@@ -15,6 +15,7 @@ import { useActiveWorkItemTypes } from '@/lib/hooks/use-work-item-types';
 import { useCreateWorkItem, useWorkItem } from '@/lib/hooks/use-work-items';
 import { createSafeTextSchema } from '@/lib/validations/sanitization';
 import Toast from './toast';
+import { clientErrorLog } from '@/lib/utils/debug-client';
 
 const createWorkItemSchema = z.object({
   work_item_type_id: z.string().min(1, 'Work item type is required').uuid('Invalid work item type'),
@@ -229,9 +230,7 @@ export default function AddWorkItemModal({ isOpen, onClose, onSuccess, parentWor
         setShowToast(false);
       }, 2000);
     } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Error creating work item:', error);
-      }
+      clientErrorLog('Error creating work item:', error);
     } finally {
       setIsSubmitting(false);
     }

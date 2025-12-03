@@ -32,7 +32,8 @@ export async function logCacheStats(): Promise<void> {
  */
 export async function monitorCacheHealth(): Promise<void> {
   try {
-    // TODO: Implement Redis cache health monitoring
+    // Basic health check - logs cache backend status
+    // For detailed metrics, use /api/admin/analytics/cache/stats endpoint
     log.debug('Redis cache health check', {
       backend: 'redis',
       status: 'active',

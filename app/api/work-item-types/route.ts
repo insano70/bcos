@@ -69,8 +69,8 @@ const getWorkItemTypesHandler = async (request: NextRequest, userContext: UserCo
         total: totalCount,
         active: activeCount,
         inactive: inactiveCount,
-        page: Math.floor((query.offset || 0) / (query.limit || 50)) + 1,
-        pageSize: query.limit || 50,
+        page: Math.floor((query.offset || 0) / (query.limit || 1000)) + 1,
+        pageSize: query.limit || 1000,
       },
       duration,
       slow: duration > SLOW_THRESHOLDS.API_OPERATION,
@@ -78,8 +78,8 @@ const getWorkItemTypesHandler = async (request: NextRequest, userContext: UserCo
     });
 
     return createPaginatedResponse(responseData, {
-      page: Math.floor((query.offset || 0) / (query.limit || 50)) + 1,
-      limit: query.limit || 50,
+      page: Math.floor((query.offset || 0) / (query.limit || 1000)) + 1,
+      limit: query.limit || 1000,
       total: totalCount,
     });
   } catch (error) {

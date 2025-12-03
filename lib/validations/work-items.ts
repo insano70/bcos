@@ -51,9 +51,9 @@ export const workItemTypeQuerySchema = z.object({
     .optional(),
   limit: z
     .string()
-    .default('50')
+    .default('1000')
     .transform((val) => parseInt(val, 10))
-    .pipe(z.number().int().min(1).max(100)),
+    .pipe(z.number().int().min(1).max(1000)),
   offset: z
     .string()
     .default('0')
@@ -157,9 +157,9 @@ export const workItemQuerySchema = z.object({
   search: createSafeTextSchema(0, 500, 'Search').optional(),
   limit: z
     .string()
-    .default('50')
+    .default('1000')
     .transform((val) => parseInt(val, 10))
-    .pipe(z.number().int().min(1).max(100)),
+    .pipe(z.number().int().min(1).max(1000)),
   offset: z
     .string()
     .default('0')
@@ -216,9 +216,9 @@ export const workItemCommentUpdateSchema = z.object({
 export const workItemCommentQuerySchema = z.object({
   limit: z
     .string()
-    .default('50')
+    .default('1000')
     .transform((val) => parseInt(val, 10))
-    .pipe(z.number().int().min(1).max(100)),
+    .pipe(z.number().int().min(1).max(1000)),
   offset: z
     .string()
     .default('0')
@@ -251,9 +251,9 @@ export const workItemAttachmentQuerySchema = z.object({
   // Note: work_item_id comes from route params, not query params
   limit: z
     .string()
-    .default('50')
+    .default('1000')
     .transform((val) => parseInt(val, 10))
-    .pipe(z.number().int().min(1).max(100)),
+    .pipe(z.number().int().min(1).max(1000)),
   offset: z
     .string()
     .default('0')
@@ -286,9 +286,9 @@ export const workItemActivityQuerySchema = z.object({
   activity_type: z.string().optional(),
   limit: z
     .string()
-    .default('50')
+    .default('1000')
     .transform((val) => parseInt(val, 10))
-    .pipe(z.number().int().min(1).max(100)),
+    .pipe(z.number().int().min(1).max(1000)),
   offset: z
     .string()
     .default('0')
@@ -385,9 +385,9 @@ export const workItemStatusTransitionQuerySchema = z.object({
   to_status_id: z.string().uuid('Invalid to status ID').optional(),
   limit: z
     .string()
-    .default('50')
+    .default('1000')
     .transform((val) => parseInt(val, 10))
-    .pipe(z.number().int().min(1).max(100)),
+    .pipe(z.number().int().min(1).max(1000)),
   offset: z
     .string()
     .default('0')

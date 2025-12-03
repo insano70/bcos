@@ -24,6 +24,7 @@ import {
   formatValueCompact as formatChartValueCompact,
 } from '@/lib/utils/chart-data/formatters/value-formatter';
 import { createPeriodComparisonTooltipCallbacks } from '@/lib/utils/period-comparison-tooltips';
+import { getTimeConfig } from '@/lib/utils/chart-fullscreen-config';
 
 Chart.register(
   LineController,
@@ -57,52 +58,6 @@ const AnalyticsLineChart = forwardRef<HTMLCanvasElement, AnalyticsLineChartProps
     const { textColor, gridColor, tooltipBodyColor, tooltipBgColor, tooltipBorderColor } =
       chartColors;
 
-    // Configure time display formats based on frequency
-    const getTimeConfig = () => {
-      switch (frequency) {
-        case 'Daily':
-          return {
-            unit: 'day',
-            displayFormats: {
-              day: 'DD-MMM-YY', // "15-Sep-25"
-            },
-            tooltipFormat: 'DD-MMM-YYYY', // "15-Sep-2025"
-          };
-        case 'Weekly':
-          return {
-            unit: 'week',
-            displayFormats: {
-              week: 'DD-MMM-YY', // "20-JUL-25"
-            },
-            tooltipFormat: 'DD-MMM-YYYY',
-          };
-        case 'Monthly':
-          return {
-            unit: 'month',
-            displayFormats: {
-              month: 'MMM YYYY', // "Jul 2025"
-            },
-            tooltipFormat: 'MMM YYYY',
-          };
-        case 'Quarterly':
-          return {
-            unit: 'quarter',
-            displayFormats: {
-              quarter: '[Q]Q YYYY', // "Q1 2025"
-            },
-            tooltipFormat: '[Q]Q YYYY',
-          };
-        default:
-          return {
-            unit: 'month',
-            displayFormats: {
-              month: 'MMM YYYY',
-            },
-            tooltipFormat: 'MMM YYYY',
-          };
-      }
-    };
-
     // Chart initialization - deferred to prevent race condition with React 19 concurrent rendering
     useEffect(() => {
       const ctx = canvas.current;
@@ -112,7 +67,7 @@ const AnalyticsLineChart = forwardRef<HTMLCanvasElement, AnalyticsLineChartProps
         return;
       }
 
-      const _timeConfig = getTimeConfig();
+      const _timeConfig = getTimeConfig(frequency);
 
       // Defer initialization until after React's layout phase (fixes race condition)
       const rafId = requestAnimationFrame(() => {

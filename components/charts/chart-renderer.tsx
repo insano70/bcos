@@ -18,6 +18,7 @@ import AnalyticsBarChart from './analytics-bar-chart';
 import AnalyticsDualAxisChart from './analytics-dual-axis-chart';
 import AnalyticsHorizontalBarChart from './analytics-horizontal-bar-chart';
 import AnalyticsLineChart from './analytics-line-chart';
+import { clientErrorLog } from '@/lib/utils/debug-client';
 import AnalyticsNumberChart from './analytics-number-chart';
 import AnalyticsProgressBarChart from './analytics-progress-bar-chart';
 import AnalyticsStackedBarChart from './analytics-stacked-bar-chart';
@@ -194,7 +195,7 @@ export default function ChartRenderer({
 
   // Handle unsupported chart types
   if (!Component) {
-    console.error('ChartRenderer: Unsupported chart type', {
+    clientErrorLog('ChartRenderer: Unsupported chart type', {
       chartType,
       typeofChartType: typeof chartType,
       availableTypes: Object.keys(CHART_COMPONENTS),

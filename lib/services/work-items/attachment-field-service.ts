@@ -7,21 +7,22 @@ import {
   work_item_fields,
   work_items,
 } from '@/lib/db/schema';
+import { PermissionDeniedError } from '@/lib/errors/rbac-errors';
 import { log } from '@/lib/logger';
 import { BaseRBACService } from '@/lib/rbac/base-service';
 import {
   deleteFile,
+  fileExists,
   generateDownloadUrl,
   generateS3Key,
   generateUploadUrl,
   getThumbnailKey,
   isImage,
-  fileExists,
 } from '@/lib/s3/private-assets';
 import { FILE_SIZE_LIMITS, IMAGE_MIME_TYPES } from '@/lib/s3/private-assets/constants';
 import type { UserContext } from '@/lib/types/rbac';
 import type { AttachmentFieldConfig } from '@/lib/types/work-item-fields';
-import { PermissionDeniedError } from '@/lib/errors/rbac-errors';
+import { formatUserNameWithFallback } from '@/lib/utils/user-formatters';
 
 /**
  * Attachment Field Service with RBAC
@@ -119,10 +120,7 @@ export class AttachmentFieldService extends BaseRBACService {
         s3_key: result.s3_key,
         s3_bucket: result.s3_bucket,
         uploaded_by: result.uploaded_by,
-        uploaded_by_name:
-          result.uploaded_by_first_name && result.uploaded_by_last_name
-            ? `${result.uploaded_by_first_name} ${result.uploaded_by_last_name}`
-            : '',
+        uploaded_by_name: formatUserNameWithFallback(result.uploaded_by_first_name, result.uploaded_by_last_name),
         uploaded_at: result.uploaded_at || new Date(),
         is_image: isImageFile,
         has_thumbnail: false, // Will be checked lazily on demand
@@ -198,10 +196,7 @@ export class AttachmentFieldService extends BaseRBACService {
       s3_key: attachment.s3_key,
       s3_bucket: attachment.s3_bucket,
       uploaded_by: attachment.uploaded_by,
-      uploaded_by_name:
-        attachment.uploaded_by_first_name && attachment.uploaded_by_last_name
-          ? `${attachment.uploaded_by_first_name} ${attachment.uploaded_by_last_name}`
-          : '',
+      uploaded_by_name: formatUserNameWithFallback(attachment.uploaded_by_first_name, attachment.uploaded_by_last_name),
       uploaded_at: attachment.uploaded_at || new Date(),
     };
   }

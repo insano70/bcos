@@ -18,6 +18,7 @@ import type { ResponsiveChartProps } from '@/lib/types/responsive-charts';
 import ChartError from './chart-error';
 import ChartHeader from './chart-header';
 import ChartRenderer from './chart-renderer';
+import { clientErrorLog } from '@/lib/utils/debug-client';
 import ResponsiveChartContainer from './responsive-chart-container';
 
 // Lazy load fullscreen modals
@@ -255,8 +256,8 @@ function UniversalChartComponent(props: AnalyticsChartProps) {
         throw new Error(result.error || 'Export failed');
       }
     } catch (error) {
-      // Export errors are client-side only, no server logging needed
-      console.error('Chart export failed:', error);
+      // Export errors are client-side only
+      clientErrorLog('Chart export failed:', error);
     }
   };
 

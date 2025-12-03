@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { validateRequest } from '@/lib/api/middleware/validation';
-import { createErrorResponse, NotFoundError } from '@/lib/api/responses/error';
+import { createErrorResponse, getErrorStatusCode, NotFoundError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { extractRouteParams } from '@/lib/api/utils/params';
@@ -76,7 +76,7 @@ const getStatusHandler = async (
 
     return createErrorResponse(
       error instanceof Error ? error.message : 'Unknown error',
-      error instanceof NotFoundError ? 404 : 500,
+      getErrorStatusCode(error),
       request
     );
   }
@@ -192,7 +192,7 @@ const updateStatusHandler = async (
 
     return createErrorResponse(
       error instanceof Error ? error.message : 'Unknown error',
-      error instanceof NotFoundError ? 404 : 500,
+      getErrorStatusCode(error),
       request
     );
   }
@@ -258,7 +258,7 @@ const deleteStatusHandler = async (
 
     return createErrorResponse(
       error instanceof Error ? error.message : 'Unknown error',
-      error instanceof NotFoundError ? 404 : 500,
+      getErrorStatusCode(error),
       request
     );
   }

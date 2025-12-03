@@ -2,6 +2,12 @@ import { and, asc, count, eq, isNull } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { db } from '@/lib/db';
 import { work_item_type_relationships, work_item_types } from '@/lib/db/schema';
+import {
+  ConflictError,
+  DatabaseError,
+  NotFoundError,
+  ValidationError,
+} from '@/lib/errors/domain-errors';
 import { log } from '@/lib/logger';
 import { BaseRBACService } from '@/lib/rbac/base-service';
 import type { UserContext } from '@/lib/types/rbac';
@@ -305,7 +311,7 @@ export class RBACWorkItemTypeRelationshipsService extends BaseRBACService {
       .limit(1);
 
     if (!parentType) {
-      throw new Error('Parent type not found');
+      throw new NotFoundError('Parent type', data.parent_type_id);
     }
 
     // Get child type to check organization
@@ -324,12 +330,12 @@ export class RBACWorkItemTypeRelationshipsService extends BaseRBACService {
       .limit(1);
 
     if (!childType) {
-      throw new Error('Child type not found');
+      throw new NotFoundError('Child type', data.child_type_id);
     }
 
     // Both types must belong to the same organization (or both be global)
     if (parentType.organization_id !== childType.organization_id) {
-      throw new Error('Parent and child types must belong to the same organization');
+      throw new ValidationError('Parent and child types must belong to the same organization');
     }
 
     // Check permission - require manage permission for the organization
@@ -361,7 +367,10 @@ export class RBACWorkItemTypeRelationshipsService extends BaseRBACService {
       .limit(1);
 
     if (existingRelationships.length > 0) {
-      throw new Error('A relationship already exists between these parent and child types');
+      throw new ConflictError(
+        'A relationship already exists between these parent and child types',
+        'duplicate'
+      );
     }
 
     try {
@@ -381,7 +390,7 @@ export class RBACWorkItemTypeRelationshipsService extends BaseRBACService {
         .returning();
 
       if (!newRelationship) {
-        throw new Error('Failed to create work item type relationship');
+        throw new DatabaseError('Failed to create work item type relationship', 'write');
       }
 
       log.info('Work item type relationship created successfully', {
@@ -395,7 +404,7 @@ export class RBACWorkItemTypeRelationshipsService extends BaseRBACService {
         newRelationship.work_item_type_relationship_id
       );
       if (!relationshipWithDetails) {
-        throw new Error('Failed to retrieve created relationship');
+        throw new DatabaseError('Failed to retrieve created relationship', 'read');
       }
 
       return relationshipWithDetails;
@@ -436,7 +445,7 @@ export class RBACWorkItemTypeRelationshipsService extends BaseRBACService {
     // Get existing relationship
     const existingRelationship = await this.getRelationshipById(relationshipId);
     if (!existingRelationship) {
-      throw new Error('Relationship not found');
+      throw new NotFoundError('Relationship', relationshipId);
     }
 
     // Check permission based on parent type's organization
@@ -471,7 +480,7 @@ export class RBACWorkItemTypeRelationshipsService extends BaseRBACService {
       // Return updated details
       const updatedRelationship = await this.getRelationshipById(relationshipId);
       if (!updatedRelationship) {
-        throw new Error('Failed to retrieve updated relationship');
+        throw new DatabaseError('Failed to retrieve updated relationship', 'read');
       }
 
       return updatedRelationship;
@@ -500,7 +509,7 @@ export class RBACWorkItemTypeRelationshipsService extends BaseRBACService {
     // Get existing relationship
     const existingRelationship = await this.getRelationshipById(relationshipId);
     if (!existingRelationship) {
-      throw new Error('Relationship not found');
+      throw new NotFoundError('Relationship', relationshipId);
     }
 
     // Check permission based on parent type's organization

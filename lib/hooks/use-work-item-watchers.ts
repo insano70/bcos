@@ -5,6 +5,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api/client';
+import type { WorkItem } from './use-work-items';
 
 /**
  * Watcher with user details
@@ -131,17 +132,15 @@ export function useUpdateWatcherPreferences() {
 
 /**
  * Hook to fetch watched work items for current user
- * Note: This endpoint doesn't exist yet, so this is a placeholder
- * for future implementation
+ * Phase 7: Watchers and notifications
  */
 export function useWatchedWorkItems() {
-  return useQuery({
+  return useQuery<WorkItem[], Error>({
     queryKey: ['watched-work-items'],
     queryFn: async () => {
-      // TODO: Implement endpoint GET /api/work-items/watched
-      // For now, return empty array
-      return [];
+      return await apiClient.get<WorkItem[]>('/api/work-items/watched');
     },
-    enabled: false, // Disabled until endpoint is implemented
+    staleTime: 2 * 60 * 1000, // 2 minutes - watched items may change frequently
+    gcTime: 10 * 60 * 1000, // 10 minutes
   });
 }

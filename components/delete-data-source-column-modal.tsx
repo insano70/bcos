@@ -4,6 +4,7 @@ import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/re
 import { useState } from 'react';
 import { type DataSourceColumn, useDeleteDataSourceColumn } from '@/lib/hooks/use-data-sources';
 import Toast from './toast';
+import { clientErrorLog } from '@/lib/utils/debug-client';
 
 interface DeleteDataSourceColumnModalProps {
   isOpen: boolean;
@@ -57,9 +58,7 @@ export default function DeleteDataSourceColumnModal({
       }, 2000);
     } catch (error) {
       // Log client-side column deletion errors for debugging
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Error deleting column:', error);
-      }
+      clientErrorLog('Error deleting column:', error);
       setToastMessage(error instanceof Error ? error.message : 'Failed to delete column');
       setToastType('error');
       setShowToast(true);

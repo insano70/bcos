@@ -4,8 +4,9 @@ import { useCallback, useMemo, useState } from 'react';
 import DeleteConfirmationModal from '@/components/delete-confirmation-modal';
 import WorkItemFieldModal from '@/components/work-item-field-modal';
 import ModalBlank from '@/components/modal-blank';
-import { useDeleteWorkItemField, useWorkItemFields } from '@/lib/hooks/use-work-item-fields';
+import { useDeleteWorkItemField, useUpdateWorkItemField, useWorkItemFields } from '@/lib/hooks/use-work-item-fields';
 import type { WorkItemField } from '@/lib/types/work-item-fields';
+import { clientErrorLog } from '@/lib/utils/debug-client';
 
 interface ManageWorkItemFieldsModalProps {
   isOpen: boolean;
@@ -35,6 +36,7 @@ export default function ManageWorkItemFieldsModal({
   });
 
   const deleteField = useDeleteWorkItemField();
+  const updateField = useUpdateWorkItemField();
 
   const handleDeleteClick = useCallback((field: WorkItemField) => {
     setFieldToDelete(field);
@@ -49,7 +51,7 @@ export default function ManageWorkItemFieldsModal({
       refetch();
       setFieldToDelete(null);
     } catch (error) {
-      console.error('Failed to delete field:', error);
+      clientErrorLog('Failed to delete field:', error);
     }
   }, [fieldToDelete, deleteField, refetch]);
 
@@ -57,18 +59,60 @@ export default function ManageWorkItemFieldsModal({
     setEditingField(field);
   }, []);
 
-  const handleMoveUp = useCallback(async (_field: WorkItemField) => {
-    // TODO: Implement reordering
-  }, []);
-
-  const handleMoveDown = useCallback(async (_field: WorkItemField) => {
-    // TODO: Implement reordering
-  }, []);
-
   const sortedFields = useMemo(() => {
     if (!fields) return [];
     return [...fields].sort((a, b) => a.display_order - b.display_order);
   }, [fields]);
+
+  const handleMoveUp = useCallback(async (field: WorkItemField) => {
+    const currentIndex = sortedFields.findIndex(f => f.work_item_field_id === field.work_item_field_id);
+    if (currentIndex <= 0) return;
+
+    const previousField = sortedFields[currentIndex - 1];
+    if (!previousField) return;
+
+    try {
+      // Swap display_order values
+      await Promise.all([
+        updateField.mutateAsync({
+          fieldId: field.work_item_field_id,
+          data: { display_order: previousField.display_order },
+        }),
+        updateField.mutateAsync({
+          fieldId: previousField.work_item_field_id,
+          data: { display_order: field.display_order },
+        }),
+      ]);
+      refetch();
+    } catch (error) {
+      clientErrorLog('Failed to reorder field:', error);
+    }
+  }, [sortedFields, updateField, refetch]);
+
+  const handleMoveDown = useCallback(async (field: WorkItemField) => {
+    const currentIndex = sortedFields.findIndex(f => f.work_item_field_id === field.work_item_field_id);
+    if (currentIndex < 0 || currentIndex >= sortedFields.length - 1) return;
+
+    const nextField = sortedFields[currentIndex + 1];
+    if (!nextField) return;
+
+    try {
+      // Swap display_order values
+      await Promise.all([
+        updateField.mutateAsync({
+          fieldId: field.work_item_field_id,
+          data: { display_order: nextField.display_order },
+        }),
+        updateField.mutateAsync({
+          fieldId: nextField.work_item_field_id,
+          data: { display_order: field.display_order },
+        }),
+      ]);
+      refetch();
+    } catch (error) {
+      clientErrorLog('Failed to reorder field:', error);
+    }
+  }, [sortedFields, updateField, refetch]);
 
   const getFieldTypeLabel = (fieldType: string) => {
     const labels: Record<string, string> = {

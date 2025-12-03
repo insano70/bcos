@@ -6,6 +6,7 @@ import { useReorderStaff, useStaff } from '@/lib/hooks/use-staff';
 import type { StaffMember } from '@/lib/types/practice';
 import StaffMemberCard from './staff-member-card';
 import StaffMemberFormModal from './staff-member-form-modal';
+import { clientErrorLog } from '@/lib/utils/debug-client';
 
 interface StaffListEmbeddedProps {
   practiceId: string;
@@ -59,7 +60,7 @@ export default function StaffListEmbedded({ practiceId }: StaffListEmbeddedProps
       // Refresh staff list
       queryClient.invalidateQueries({ queryKey: ['staff', practiceId] });
     } catch (error) {
-      console.error('Error reordering staff:', error);
+      clientErrorLog('Error reordering staff:', error);
     }
   };
 

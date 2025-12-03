@@ -4,6 +4,8 @@ import { useMemo } from 'react';
 import AttachmentFieldRenderer from '@/components/attachment-field-renderer';
 import DateInput from '@/components/inputs/date-input';
 import DateTimeInput from '@/components/inputs/datetime-input';
+import UserPicker from '@/components/user-picker';
+import { useUsers } from '@/lib/hooks/use-users';
 import type { WorkItemField } from '@/lib/types/work-item-fields';
 
 interface DynamicFieldRendererProps {
@@ -21,6 +23,9 @@ export default function DynamicFieldRenderer({
   errors = {},
   workItemId,
 }: DynamicFieldRendererProps) {
+  // Fetch users for user_picker fields (cached with 5min staleTime, so minimal overhead)
+  const { data: users = [] } = useUsers();
+
   // Sort fields by display order
   const sortedFields = useMemo(() => {
     return [...fields]
@@ -176,7 +181,6 @@ export default function DynamicFieldRenderer({
         );
 
       case 'user_picker':
-        // TODO: Implement user picker with search
         return (
           <div key={field.work_item_field_id}>
             <label className="block text-sm font-medium mb-1" htmlFor={fieldId}>
@@ -186,17 +190,15 @@ export default function DynamicFieldRenderer({
             {field.field_description && (
               <p className="text-xs text-gray-500 mb-2">{field.field_description}</p>
             )}
-            <input
-              id={fieldId}
-              type="text"
-              className={`form-input w-full ${error ? 'border-red-500' : ''}`}
-              placeholder="User ID (UUID)"
-              value={(value as string) || ''}
-              onChange={(e) => onChange(field.work_item_field_id, e.target.value)}
+            <UserPicker
+              users={users}
+              value={(value as string) || undefined}
+              onChange={(userId) => onChange(field.work_item_field_id, userId || '')}
+              placeholder={`Select ${field.field_label.toLowerCase()}`}
               required={field.is_required_on_creation}
+              error={error}
+              allowClear={!field.is_required_on_creation}
             />
-            <p className="text-xs text-gray-500 mt-1">Enter a user UUID</p>
-            {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
           </div>
         );
 

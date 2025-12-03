@@ -1,6 +1,7 @@
 'use client';
 
 import type { ChangeEvent } from 'react';
+import { clientErrorLog } from '@/lib/utils/debug-client';
 
 /**
  * DateTimeInput Component
@@ -73,7 +74,7 @@ export default function DateTimeInput({
       onChange(isoDateTime);
     } catch (error) {
       // Invalid date - emit null
-      console.error('Invalid datetime value:', localDateTime, error);
+      clientErrorLog('Invalid datetime value:', localDateTime, error);
       onChange(null);
     }
   };
