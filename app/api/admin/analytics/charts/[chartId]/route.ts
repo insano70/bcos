@@ -89,6 +89,11 @@ const updateChartHandler = async (
       chart_config: validatedData.chart_config,
       chart_category_id: validatedData.chart_category_id ?? undefined,
       is_active: validatedData.is_active,
+      // Drill-down configuration
+      drill_down_enabled: validatedData.drill_down_enabled,
+      drill_down_type: validatedData.drill_down_type,
+      drill_down_target_chart_id: validatedData.drill_down_target_chart_id,
+      drill_down_button_label: validatedData.drill_down_button_label,
     };
 
     const updatedChart = await chartsService.updateChart(params.chartId, updateData);

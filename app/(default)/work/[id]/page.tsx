@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { WorkItemErrorBoundary } from '@/components/work-items/work-item-error-boundary';
 import WorkItemDetailContent from './work-item-detail-content';
 
 export const metadata: Metadata = {
@@ -14,5 +15,9 @@ interface WorkItemDetailPageProps {
 
 export default async function WorkItemDetailPage({ params }: WorkItemDetailPageProps) {
   const { id } = await params;
-  return <WorkItemDetailContent workItemId={id} />;
+  return (
+    <WorkItemErrorBoundary context="Work Item Details">
+      <WorkItemDetailContent workItemId={id} />
+    </WorkItemErrorBoundary>
+  );
 }

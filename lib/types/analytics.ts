@@ -256,6 +256,11 @@ export interface ChartDefinition {
   data_source: ChartDataSourceConfig;
   chart_config: ChartConfig;
   access_control?: ChartAccessControl;
+  // Drill-down configuration
+  drill_down_enabled?: boolean;
+  drill_down_type?: 'filter' | 'navigate' | 'swap' | null;
+  drill_down_target_chart_id?: string | null;
+  drill_down_button_label?: string;
 }
 
 /**

@@ -59,6 +59,13 @@ export const chart_definitions = pgTable(
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow(),
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow(),
     is_active: boolean('is_active').default(true),
+
+    // Drill-down configuration
+    // Enables users to click chart elements and filter/navigate/swap charts
+    drill_down_enabled: boolean('drill_down_enabled').default(false),
+    drill_down_type: text('drill_down_type'), // 'filter' | 'navigate' | 'swap'
+    drill_down_target_chart_id: uuid('drill_down_target_chart_id'), // Self-ref FK added below
+    drill_down_button_label: text('drill_down_button_label').default('Drill Down'),
   },
   (table) => ({
     chartNameIdx: index('idx_chart_definitions_name').on(table.chart_name),

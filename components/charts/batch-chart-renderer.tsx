@@ -21,12 +21,19 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { GlassCard } from '@/components/ui/glass-card';
+import { useChartDrillDown } from '@/hooks/useChartDrillDown';
+import { useIsMobile } from '@/hooks/useIsMobile';
+import { buildDrillDownConfig } from '@/lib/services/drill-down';
+import type { DrillDownFilter, DrillDownResult } from '@/lib/types/drill-down';
+import { createChartClickHandler, getPrimaryFieldFromConfig, getSeriesFieldFromConfig } from '@/lib/utils/chart-click-handler';
+import { filterChartDataClientSide, canFilterClientSide } from '@/lib/utils/chart-data-filter';
 import ChartError from './chart-error';
 import ChartHeader from './chart-header';
 import ChartRenderer from './chart-renderer';
 import ResponsiveChartContainer from './responsive-chart-container';
+import { DrillDownIcon } from './drill-down-icon';
 
 // Lazy load fullscreen modals (like AnalyticsChart)
 const ChartFullscreenModal = dynamic(() => import('./chart-fullscreen-modal'), {
@@ -41,12 +48,18 @@ const ProgressBarFullscreenModal = dynamic(() => import('./progress-bar-fullscre
   ssr: false,
 });
 
+const DrillDownModal = dynamic(() => import('./drill-down-modal'), {
+  ssr: false,
+});
+
 /**
  * Chart render result from batch API
  * Re-exported from mappers for consistency across the codebase
  */
 import type { BatchChartData } from '@/lib/services/dashboard-rendering/mappers';
 export type { BatchChartData };
+
+// DrillDownFilter type is now imported from '@/lib/types/drill-down'
 
 /**
  * BatchChartRenderer props
@@ -65,6 +78,11 @@ interface BatchChartRendererProps {
     chart_name: string;
     chart_type: string;
     chart_config?: Record<string, unknown>;
+    // Drill-down configuration
+    drill_down_enabled?: boolean;
+    drill_down_type?: string | null;
+    drill_down_target_chart_id?: string | null;
+    drill_down_button_label?: string;
   };
 
   /**
@@ -105,6 +123,12 @@ interface BatchChartRendererProps {
    * Hide chart header (for dimension expansion where outer container has header)
    */
   hideHeader?: boolean;
+
+  /**
+   * Callback for 'swap' drill-down type
+   * Called when user triggers swap to replace this chart with target chart
+   */
+  onChartSwap?: (sourceChartId: string, targetChartId: string) => void;
 }
 
 /**
@@ -138,6 +162,7 @@ export default function BatchChartRenderer({
   onExport,
   chartDefinitionId,
   hideHeader = false,
+  onChartSwap,
 }: BatchChartRendererProps) {
   // Hooks must be called before any conditional returns
   // Chart ref for export functionality (like AnalyticsChart)
@@ -147,6 +172,186 @@ export default function BatchChartRenderer({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isDualAxisFullscreen, setIsDualAxisFullscreen] = useState(false);
   const [isProgressBarFullscreen, setIsProgressBarFullscreen] = useState(false);
+
+  // Drill-down state
+  const [drillDownModalOpen, setDrillDownModalOpen] = useState(false);
+  const [drillDownFilters, setDrillDownFilters] = useState<DrillDownFilter[] | undefined>();
+  
+  // Local filter state for 'filter' drill-down type (supports multiple filters for multi-series)
+  const [localFilters, setLocalFilters] = useState<DrillDownFilter[] | null>(null);
+  const [filteredChartData, setFilteredChartData] = useState<BatchChartData | null>(null);
+  const [isLoadingFilter, setIsLoadingFilter] = useState(false);
+
+  // Build drill-down config from chart definition
+  const drillDownConfig = buildDrillDownConfig({
+    drill_down_enabled: chartDefinition.drill_down_enabled ?? null,
+    drill_down_type: chartDefinition.drill_down_type ?? null,
+    drill_down_target_chart_id: chartDefinition.drill_down_target_chart_id ?? null,
+    drill_down_button_label: chartDefinition.drill_down_button_label ?? null,
+  });
+
+  // Handle drill-down execution
+  const handleDrillDownExecute = useCallback((result: DrillDownResult) => {
+    if (result.type === 'filter' && result.filters && result.filters.length > 0) {
+      // Apply local filter(s) to current chart (supports multi-series)
+      setLocalFilters(result.filters);
+    } else if (result.type === 'navigate' && result.targetChartId) {
+      setDrillDownFilters(result.targetFilters);
+      setDrillDownModalOpen(true);
+    } else if (result.type === 'swap' && result.targetChartId && onChartSwap) {
+      // Swap current chart with target chart
+      onChartSwap(chartDefinition.chart_definition_id, result.targetChartId);
+    }
+  }, [chartDefinition.chart_definition_id, onChartSwap]);
+
+  // Detect mobile for drill-down UX (mobile shows icon, desktop executes immediately)
+  const isMobile = useIsMobile();
+
+  // Drill-down hook
+  const drillDown = useChartDrillDown({
+    drillDownConfig,
+    onDrillDownExecute: handleDrillDownExecute,
+    immediateExecute: !isMobile, // Desktop: click executes immediately
+    currentFilters: localFilters ?? undefined, // Don't drill-down to same value
+  });
+
+  // Clear local filters and revert to original chart
+  const clearLocalFilters = useCallback(() => {
+    setLocalFilters(null);
+    setFilteredChartData(null);
+  }, []);
+
+  // Handle refresh button - clears filters if filtered, otherwise calls onRetry
+  const handleRefresh = useCallback(() => {
+    if (localFilters && localFilters.length > 0) {
+      clearLocalFilters();
+    } else if (onRetry) {
+      onRetry();
+    }
+  }, [localFilters, clearLocalFilters, onRetry]);
+
+  // Apply filters when localFilters change
+  // OPTIMIZED: Use client-side filtering when possible (instant, no network call)
+  // Falls back to server-side only when client-side can't handle the filter
+  useEffect(() => {
+    if (!localFilters || localFilters.length === 0) {
+      setFilteredChartData(null);
+      return;
+    }
+
+    // Try client-side filtering first (instant, no network roundtrip)
+    if (canFilterClientSide(chartData, localFilters)) {
+      const filtered = filterChartDataClientSide(chartData, localFilters);
+      setFilteredChartData(filtered);
+      setIsLoadingFilter(false);
+      return;
+    }
+
+    // Fallback to server-side filtering for complex cases
+    // (e.g., date filters that need re-aggregation)
+    const fetchFilteredData = async () => {
+      setIsLoadingFilter(true);
+      try {
+        // Import dynamically to avoid circular dependencies
+        const { apiClient } = await import('@/lib/api/client');
+        const { orchestrationResultToBatchChartData } = await import(
+          '@/lib/services/dashboard-rendering/mappers'
+        );
+
+        // Build advanced filters from local filters array
+        const advancedFilters = localFilters.map((f) => ({
+          field: f.field,
+          operator: 'eq',
+          value: f.value,
+        }));
+
+        // Build runtime filters including measure/frequency from original chart data
+        const runtimeFilters: Record<string, unknown> = {
+          advancedFilters,
+        };
+        
+        // Include measure and frequency if present (required for measure-based data sources)
+        if (chartData.metadata.measure) {
+          runtimeFilters.measure = chartData.metadata.measure;
+        }
+        if (chartData.metadata.frequency) {
+          runtimeFilters.frequency = chartData.metadata.frequency;
+        }
+
+        // Fetch chart data with drill-down filter(s) applied
+        const response = await apiClient.post<{
+          chartData: BatchChartData['chartData'];
+          rawData: BatchChartData['rawData'];
+          columns?: BatchChartData['columns'];
+          formattedData?: BatchChartData['formattedData'];
+          metadata: BatchChartData['metadata'];
+        }>('/api/admin/analytics/chart-data/universal', {
+          chartDefinitionId: chartDefinition.chart_definition_id,
+          runtimeFilters,
+        });
+
+        // Convert to BatchChartData format
+        const configForMapper: {
+          measure?: string;
+          frequency?: string;
+          groupBy?: string;
+          finalChartConfig?: Record<string, unknown>;
+          runtimeFilters?: Record<string, unknown>;
+        } = {
+          runtimeFilters,
+        };
+        if (chartData.metadata.measure) configForMapper.measure = chartData.metadata.measure;
+        if (chartData.metadata.frequency) configForMapper.frequency = chartData.metadata.frequency;
+        if (chartData.metadata.groupBy) configForMapper.groupBy = chartData.metadata.groupBy;
+        if (chartDefinition.chart_config) configForMapper.finalChartConfig = chartDefinition.chart_config;
+
+        const batchData = orchestrationResultToBatchChartData(
+          {
+            chartData: response.chartData,
+            rawData: response.rawData,
+            ...(response.columns && { columns: response.columns }),
+            ...(response.formattedData && { formattedData: response.formattedData }),
+            metadata: response.metadata,
+          },
+          configForMapper
+        );
+
+        setFilteredChartData(batchData);
+      } catch {
+        // On error, fall back to original data
+        setFilteredChartData(null);
+        setLocalFilters(null);
+      } finally {
+        setIsLoadingFilter(false);
+      }
+    };
+
+    void fetchFilteredData();
+  }, [localFilters, chartDefinition.chart_definition_id, chartDefinition.chart_config, chartData]);
+
+  // Use filtered data if available, otherwise original data
+  const activeChartData = filteredChartData ?? chartData;
+
+  // Create Chart.js click handler for drill-down (memoized to prevent chart re-renders)
+  const chartJsOnClick = useMemo(() => {
+    if (!drillDownConfig.enabled) {
+      return undefined;
+    }
+    // Get the primary field from chart config (groupBy or date)
+    const chartConfig = chartDefinition.chart_config || {};
+    const primaryField = getPrimaryFieldFromConfig(chartConfig as { groupBy?: string; x_axis?: { field?: string } });
+    // Get the series field for multi-series charts
+    const seriesField = getSeriesFieldFromConfig(chartConfig as { seriesConfigs?: Array<{ groupBy?: string }>; series?: { groupBy?: string } });
+    
+    // Build handler params (exactOptionalPropertyTypes compliance)
+    const handlerParams: Parameters<typeof createChartClickHandler>[0] = {
+      onElementClick: drillDown.handleElementClick,
+      primaryField,
+      ...(seriesField ? { seriesField } : {}),
+    };
+    
+    return createChartClickHandler(handlerParams);
+  }, [drillDownConfig.enabled, chartDefinition.chart_config, drillDown.handleElementClick]);
 
   // Show error state if provided
   if (error) {
@@ -200,28 +405,28 @@ export default function BatchChartRenderer({
 
     // Default export behavior
     if (format === 'csv') {
-      // Export raw data as CSV
-      const csv = convertToCSV(chartData.rawData);
+      // Export raw data as CSV (use active data which may be filtered)
+      const csv = convertToCSV(activeChartData.rawData);
       downloadCSV(csv, `${chartDefinition.chart_name}.csv`);
     }
     // PNG/PDF export handled by chart component internally
   };
 
   return (
-    <GlassCard className={`flex flex-col ${className}`}>
+    <GlassCard className={`flex flex-col relative ${className}`}>
       {/* Chart Header - Hidden for dimension expansion (outer container has header) */}
       {!hideHeader && (
         <ChartHeader
           title={
             <>
               {chartDefinition.chart_name}
-              {process.env.NODE_ENV === 'development' && chartData.metadata.cacheHit && (
+              {process.env.NODE_ENV === 'development' && activeChartData.metadata.cacheHit && (
                 <span className="text-[0.65rem] ml-1 opacity-40">⚡</span>
               )}
             </>
           }
           onExport={handleExport}
-          onRefresh={onRetry || (() => {})}
+          onRefresh={handleRefresh}
           {...((chartDefinition.chart_type === 'bar' ||
             chartDefinition.chart_type === 'stacked-bar' ||
             chartDefinition.chart_type === 'horizontal-bar') && {
@@ -236,6 +441,14 @@ export default function BatchChartRenderer({
         />
       )}
 
+
+      {/* Loading overlay when fetching filtered data */}
+      {isLoadingFilter && (
+        <div className="absolute inset-0 bg-white/50 dark:bg-gray-900/50 flex items-center justify-center z-10 rounded-xl">
+          <div className="w-6 h-6 border-2 border-violet-600 border-t-transparent rounded-full animate-spin" />
+        </div>
+      )}
+
       {/* Chart Content - Match AnalyticsChart structure exactly */}
       <div className={`flex-1 ${hideHeader ? 'p-1' : 'p-2'}`}>
         {responsive ? (
@@ -245,18 +458,18 @@ export default function BatchChartRenderer({
             className="w-full h-full"
           >
             <ChartRenderer
-              chartType={chartData.metadata.chartType}
-              data={chartData.chartData}
-              rawData={chartData.rawData}
-              {...(chartData.columns && { columns: chartData.columns })}
-              {...(chartData.formattedData && { formattedData: chartData.formattedData })}
+              chartType={activeChartData.metadata.chartType}
+              data={activeChartData.chartData}
+              rawData={activeChartData.rawData}
+              {...(activeChartData.columns && { columns: activeChartData.columns })}
+              {...(activeChartData.formattedData && { formattedData: activeChartData.formattedData })}
               chartRef={chartRef}
               width={chartWidth}
               height={chartHeight}
               title={chartDefinition.chart_name}
-              {...(chartData.metadata.measure && { measure: chartData.metadata.measure })}
-              {...(chartData.metadata.frequency && { frequency: chartData.metadata.frequency })}
-              {...(chartData.metadata.groupBy && { groupBy: chartData.metadata.groupBy })}
+              {...(activeChartData.metadata.measure && { measure: activeChartData.metadata.measure })}
+              {...(activeChartData.metadata.frequency && { frequency: activeChartData.metadata.frequency })}
+              {...(activeChartData.metadata.groupBy && { groupBy: activeChartData.metadata.groupBy })}
               {...(colorPalette && { colorPalette })}
               {...(stackingMode && { stackingMode })}
               {...(dualAxisConfig && { dualAxisConfig })}
@@ -269,22 +482,23 @@ export default function BatchChartRenderer({
               responsive={responsive}
               minHeight={minHeight}
               maxHeight={maxHeight}
+              {...(chartJsOnClick && { chartJsOnClick })}
             />
           </ResponsiveChartContainer>
         ) : (
           <ChartRenderer
-            chartType={chartData.metadata.chartType}
-            data={chartData.chartData}
-            rawData={chartData.rawData}
-            {...(chartData.columns && { columns: chartData.columns })}
-            {...(chartData.formattedData && { formattedData: chartData.formattedData })}
+            chartType={activeChartData.metadata.chartType}
+            data={activeChartData.chartData}
+            rawData={activeChartData.rawData}
+            {...(activeChartData.columns && { columns: activeChartData.columns })}
+            {...(activeChartData.formattedData && { formattedData: activeChartData.formattedData })}
             chartRef={chartRef}
             width={chartWidth}
             height={chartHeight}
             title={chartDefinition.chart_name}
-            {...(chartData.metadata.measure && { measure: chartData.metadata.measure })}
-            {...(chartData.metadata.frequency && { frequency: chartData.metadata.frequency })}
-            {...(chartData.metadata.groupBy && { groupBy: chartData.metadata.groupBy })}
+            {...(activeChartData.metadata.measure && { measure: activeChartData.metadata.measure })}
+            {...(activeChartData.metadata.frequency && { frequency: activeChartData.metadata.frequency })}
+            {...(activeChartData.metadata.groupBy && { groupBy: activeChartData.metadata.groupBy })}
             {...(colorPalette && { colorPalette })}
             {...(stackingMode && { stackingMode })}
             {...(dualAxisConfig && { dualAxisConfig })}
@@ -294,6 +508,7 @@ export default function BatchChartRenderer({
             {...(aggregation && { aggregation })}
             {...(advancedFilters && { advancedFilters })}
             {...(dataSourceId && { dataSourceId })}
+            {...(chartJsOnClick && { chartJsOnClick })}
           />
         )}
       </div>
@@ -307,31 +522,32 @@ export default function BatchChartRenderer({
             isOpen={isFullscreen}
             onClose={() => setIsFullscreen(false)}
             chartTitle={chartDefinition.chart_name}
-            chartData={chartData.chartData}
+            chartData={activeChartData.chartData}
             chartType={chartDefinition.chart_type as 'bar' | 'stacked-bar' | 'horizontal-bar'}
-            frequency={chartData.metadata.frequency || 'Monthly'}
+            frequency={activeChartData.metadata.frequency || 'Monthly'}
             {...(stackingMode && { stackingMode: stackingMode as 'normal' | 'percentage' })}
             {...(chartDefinitionId && { chartDefinitionId })}
-            {...(chartData.finalChartConfig && { finalChartConfig: chartData.finalChartConfig })}
-            {...(chartData.runtimeFilters && { runtimeFilters: chartData.runtimeFilters })}
+            {...(activeChartData.finalChartConfig && { finalChartConfig: activeChartData.finalChartConfig })}
+            {...(activeChartData.runtimeFilters && { runtimeFilters: activeChartData.runtimeFilters })}
+            {...(drillDownConfig.enabled && { drillDownConfig, onDrillDownExecute: handleDrillDownExecute })}
           />
         )}
 
       {/* Dual-Axis Fullscreen Modal */}
       {isDualAxisFullscreen &&
         chartDefinition.chart_type === 'dual-axis' &&
-        chartData.chartData &&
+        activeChartData.chartData &&
         dualAxisConfig && (
           <DualAxisFullscreenModal
             isOpen={isDualAxisFullscreen}
             onClose={() => setIsDualAxisFullscreen(false)}
             chartTitle={chartDefinition.chart_name}
-            chartData={chartData.chartData}
+            chartData={activeChartData.chartData}
             primaryAxisLabel={dualAxisConfig.primary.axisLabel}
             secondaryAxisLabel={dualAxisConfig.secondary.axisLabel}
             {...(chartDefinitionId && { chartDefinitionId })}
-            {...(chartData.finalChartConfig && { finalChartConfig: chartData.finalChartConfig })}
-            {...(chartData.runtimeFilters && { runtimeFilters: chartData.runtimeFilters })}
+            {...(activeChartData.finalChartConfig && { finalChartConfig: activeChartData.finalChartConfig })}
+            {...(activeChartData.runtimeFilters && { runtimeFilters: activeChartData.runtimeFilters })}
           />
         )}
 
@@ -342,21 +558,43 @@ export default function BatchChartRenderer({
           onClose={() => setIsProgressBarFullscreen(false)}
           chartTitle={chartDefinition.chart_name}
           data={
-            // Extract progress bar data from chartData
-            chartData.chartData.labels.map((label: string | Date, index: number) => ({
+            // Extract progress bar data from activeChartData
+            activeChartData.chartData.labels.map((label: string | Date, index: number) => ({
               label: String(label),
-              value: (chartData.chartData.datasets[0]?.rawValues?.[index] ?? 0) as number,
-              percentage: (chartData.chartData.datasets[0]?.data[index] ?? 0) as number,
+              value: (activeChartData.chartData.datasets[0]?.rawValues?.[index] ?? 0) as number,
+              percentage: (activeChartData.chartData.datasets[0]?.data[index] ?? 0) as number,
             }))
           }
           {...(colorPalette && { colorPalette })}
           // Use originalMeasureType for raw values, not the top-level measureType which is always 'percentage'
-          {...(chartData.chartData.datasets[0]?.originalMeasureType && {
-            measureType: chartData.chartData.datasets[0].originalMeasureType as string,
+          {...(activeChartData.chartData.datasets[0]?.originalMeasureType && {
+            measureType: activeChartData.chartData.datasets[0].originalMeasureType as string,
           })}
           {...(chartDefinitionId && { chartDefinitionId })}
-          {...(chartData.finalChartConfig && { finalChartConfig: chartData.finalChartConfig })}
-          {...(chartData.runtimeFilters && { runtimeFilters: chartData.runtimeFilters })}
+          {...(activeChartData.finalChartConfig && { finalChartConfig: activeChartData.finalChartConfig })}
+          {...(activeChartData.runtimeFilters && { runtimeFilters: activeChartData.runtimeFilters })}
+        />
+      )}
+
+      {/* Drill-Down Icon - Mobile only (desktop executes immediately on click) */}
+      {drillDownConfig.enabled && isMobile && (
+        <DrillDownIcon
+          isVisible={drillDown.showDrillDownIcon}
+          position={drillDown.iconPosition}
+          label={drillDownConfig.buttonLabel}
+          onClick={drillDown.executeDrillDown}
+          onDismiss={drillDown.dismissIcon}
+        />
+      )}
+
+      {/* Drill-Down Modal - For navigate type */}
+      {drillDownModalOpen && drillDownConfig.targetChartId && (
+        <DrillDownModal
+          isOpen={drillDownModalOpen}
+          onClose={() => setDrillDownModalOpen(false)}
+          sourceChartName={chartDefinition.chart_name}
+          targetChartId={drillDownConfig.targetChartId}
+          {...(drillDownFilters && drillDownFilters.length > 0 ? { appliedFilters: drillDownFilters } : {})}
         />
       )}
     </GlassCard>

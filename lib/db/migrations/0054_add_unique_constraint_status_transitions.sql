@@ -10,3 +10,4 @@ ALTER TABLE "work_item_status_transitions"
 ADD CONSTRAINT "uq_transition_type_from_to"
 UNIQUE ("work_item_type_id", "from_status_id", "to_status_id");
 
+

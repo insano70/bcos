@@ -1,6 +1,6 @@
 'use client';
 
-import type { ChartTypeRegistry, TooltipItem } from 'chart.js';
+import type { ActiveElement, ChartEvent, ChartTypeRegistry, TooltipItem } from 'chart.js';
 import {
   CategoryScale,
   Chart,
@@ -38,16 +38,32 @@ Chart.register(
   Legend
 );
 
+/**
+ * Check if chart is safe to update (not destroyed, canvas context valid)
+ */
+function isChartSafeToUpdate(chart: Chart<'line'> | null): chart is Chart<'line'> {
+  if (!chart) return false;
+  try {
+    // Check if canvas and context are still valid
+    return !!(chart.canvas && chart.ctx);
+  } catch {
+    return false;
+  }
+}
+
 interface AnalyticsLineChartProps {
   data: ChartData;
   width: number;
   height: number;
   frequency?: string; // For time axis configuration
+  /** Chart.js onClick handler for drill-down functionality */
+  chartJsOnClick?: (event: ChartEvent, elements: ActiveElement[], chart: Chart) => void;
 }
 
 const AnalyticsLineChart = forwardRef<HTMLCanvasElement, AnalyticsLineChartProps>(
-  function AnalyticsLineChart({ data, width, height, frequency = 'Monthly' }, ref) {
+  function AnalyticsLineChart({ data, width, height, frequency = 'Monthly', chartJsOnClick }, ref) {
     const [chart, setChart] = useState<Chart<'line'> | null>(null);
+    const chartRef = useRef<Chart<'line'> | null>(null); // Ref for cleanup (avoids stale closure)
     const canvas = useRef<HTMLCanvasElement>(null);
     const legend = useRef<HTMLUListElement>(null);
 
@@ -77,6 +93,12 @@ const AnalyticsLineChart = forwardRef<HTMLCanvasElement, AnalyticsLineChartProps
           if (!ctx.isConnected) {
             console.warn('[AnalyticsLineChart] Canvas disconnected during initialization deferral');
             return;
+          }
+
+          // Destroy existing chart if any (prevents canvas reuse error)
+          if (chartRef.current) {
+            chartRef.current.destroy();
+            chartRef.current = null;
           }
 
           const newChart = new Chart(ctx, {
@@ -198,6 +220,8 @@ const AnalyticsLineChart = forwardRef<HTMLCanvasElement, AnalyticsLineChartProps
               maintainAspectRatio: false,
               responsive: false, // Disable Chart.js responsive mode (we handle it manually below)
               resizeDelay: 200,
+              // Drill-down click handler
+              ...(chartJsOnClick && { onClick: chartJsOnClick }),
             },
             plugins: [
               {
@@ -300,6 +324,7 @@ const AnalyticsLineChart = forwardRef<HTMLCanvasElement, AnalyticsLineChartProps
             ],
           });
 
+          chartRef.current = newChart as Chart<'line'>;
           setChart(newChart as Chart<'line'>);
         });
       });
@@ -307,53 +332,55 @@ const AnalyticsLineChart = forwardRef<HTMLCanvasElement, AnalyticsLineChartProps
       return () => {
         // Clean up animation frame if component unmounts during deferral
         cancelAnimationFrame(rafId);
-        // Destroy chart synchronously to prevent canvas reuse errors
-        if (chart) {
-          chart.destroy();
+        // Destroy chart using ref (avoids stale closure issue)
+        if (chartRef.current) {
+          chartRef.current.destroy();
+          chartRef.current = null;
         }
       };
-    }, [frequency]); // Keep frequency dependency for re-initialization
+    }, [frequency, chartJsOnClick]); // Keep frequency dependency for re-initialization
 
     // Update data when it changes (without recreating chart)
     useEffect(() => {
-      if (!chart || !canvas.current?.isConnected) return;
+      if (!isChartSafeToUpdate(chartRef.current) || !canvas.current?.isConnected) return;
 
       // Type cast needed because ChartData from analytics types is more flexible than Chart.js types
-      chart.data = data as typeof chart.data;
-      chart.update('none'); // Skip animation for data updates
-    }, [chart, data]);
+      chartRef.current.data = data as typeof chartRef.current.data;
+      chartRef.current.update('none'); // Skip animation for data updates
+    }, [chart, data]); // Keep chart dep to trigger on chart changes
 
     useEffect(() => {
-      if (!chart || !canvas.current) return;
+      const currentChart = chartRef.current;
+      if (!isChartSafeToUpdate(currentChart) || !canvas.current) return;
 
       // Update theme colors
       if (darkMode) {
-        chart.options.scales!.x!.ticks!.color = textColor.dark;
-        chart.options.scales!.y!.ticks!.color = textColor.dark;
-        chart.options.scales!.y!.grid!.color = gridColor.dark;
-        chart.options.plugins!.tooltip!.bodyColor = tooltipBodyColor.dark;
-        chart.options.plugins!.tooltip!.backgroundColor = tooltipBgColor.dark;
-        chart.options.plugins!.tooltip!.borderColor = tooltipBorderColor.dark;
-        if (chart.options.plugins!.legend!.labels) {
-          chart.options.plugins!.legend!.labels.color = textColor.dark;
+        currentChart.options.scales!.x!.ticks!.color = textColor.dark;
+        currentChart.options.scales!.y!.ticks!.color = textColor.dark;
+        currentChart.options.scales!.y!.grid!.color = gridColor.dark;
+        currentChart.options.plugins!.tooltip!.bodyColor = tooltipBodyColor.dark;
+        currentChart.options.plugins!.tooltip!.backgroundColor = tooltipBgColor.dark;
+        currentChart.options.plugins!.tooltip!.borderColor = tooltipBorderColor.dark;
+        if (currentChart.options.plugins!.legend!.labels) {
+          currentChart.options.plugins!.legend!.labels.color = textColor.dark;
         }
       } else {
-        chart.options.scales!.x!.ticks!.color = textColor.light;
-        chart.options.scales!.y!.ticks!.color = textColor.light;
-        chart.options.scales!.y!.grid!.color = gridColor.light;
-        chart.options.plugins!.tooltip!.bodyColor = tooltipBodyColor.light;
-        chart.options.plugins!.tooltip!.backgroundColor = tooltipBgColor.light;
-        chart.options.plugins!.tooltip!.borderColor = tooltipBorderColor.light;
-        if (chart.options.plugins!.legend!.labels) {
-          chart.options.plugins!.legend!.labels.color = textColor.light;
+        currentChart.options.scales!.x!.ticks!.color = textColor.light;
+        currentChart.options.scales!.y!.ticks!.color = textColor.light;
+        currentChart.options.scales!.y!.grid!.color = gridColor.light;
+        currentChart.options.plugins!.tooltip!.bodyColor = tooltipBodyColor.light;
+        currentChart.options.plugins!.tooltip!.backgroundColor = tooltipBgColor.light;
+        currentChart.options.plugins!.tooltip!.borderColor = tooltipBorderColor.light;
+        if (currentChart.options.plugins!.legend!.labels) {
+          currentChart.options.plugins!.legend!.labels.color = textColor.light;
         }
       }
-      chart.update('none');
-    }, [theme]);
+      currentChart.update('none');
+    }, [theme, chart]); // Add chart dep to re-run when chart is ready
 
     // Manual responsive handling (replaces Chart.js responsive mode - preserves responsive design!)
     useEffect(() => {
-      if (!chart || !canvas.current?.isConnected) return;
+      if (!isChartSafeToUpdate(chartRef.current) || !canvas.current?.isConnected) return;
 
       // Observe parent container for size changes
       const container = canvas.current.parentElement;
@@ -362,8 +389,9 @@ const AnalyticsLineChart = forwardRef<HTMLCanvasElement, AnalyticsLineChartProps
       const resizeObserver = new ResizeObserver(() => {
         // Defer resize to next frame for safety
         requestAnimationFrame(() => {
-          if (chart && canvas.current?.isConnected) {
-            chart.resize();
+          // Use helper to verify chart is safe to update
+          if (isChartSafeToUpdate(chartRef.current) && canvas.current?.isConnected) {
+            chartRef.current.resize();
           }
         });
       });
@@ -371,14 +399,14 @@ const AnalyticsLineChart = forwardRef<HTMLCanvasElement, AnalyticsLineChartProps
       resizeObserver.observe(container);
 
       return () => resizeObserver.disconnect();
-    }, [chart]);
+    }, [chart]); // Keep chart dep to re-setup observer when chart changes
 
     // Handle explicit width/height prop changes
     useEffect(() => {
-      if (!chart || !canvas.current?.isConnected) return;
+      if (!isChartSafeToUpdate(chartRef.current) || !canvas.current?.isConnected) return;
 
-      chart.resize();
-    }, [chart, width, height]);
+      chartRef.current.resize();
+    }, [chart, width, height]); // Keep chart dep to trigger on chart changes
 
     return (
       <div className="w-full h-full flex flex-col">

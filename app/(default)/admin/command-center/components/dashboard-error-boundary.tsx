@@ -8,6 +8,7 @@
 'use client';
 
 import React, { type ReactNode } from 'react';
+import { ErrorDisplay } from '@/components/error-display';
 import { clientComponentError } from '@/lib/utils/debug-client';
 
 interface DashboardErrorBoundaryProps {
@@ -68,59 +69,15 @@ export class DashboardErrorBoundary extends React.Component<
         return this.props.fallback;
       }
 
+      // Default fallback UI using shared ErrorDisplay component
       return (
-        <div
-          role="alert"
-          aria-live="assertive"
-          className="flex flex-col items-center justify-center min-h-[200px] bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-6"
-        >
-          <div className="text-center">
-            <svg
-              aria-hidden="true"
-              className="w-12 h-12 text-red-600 dark:text-red-400 mx-auto mb-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
-              />
-            </svg>
-
-            <h3 className="text-lg font-semibold text-red-800 dark:text-red-200 mb-2">
-              {this.props.sectionName
-                ? `${this.props.sectionName} Failed to Load`
-                : 'Section Failed to Load'}
-            </h3>
-
-            <p className="text-sm text-red-600 dark:text-red-400 mb-4 max-w-md">
-              {process.env.NODE_ENV === 'development' && this.state.error ? (
-                <span className="font-mono text-xs block">{this.state.error.message}</span>
-              ) : (
-                'An error occurred. Please try refreshing.'
-              )}
-            </p>
-
-            <button
-              type="button"
-              onClick={this.handleReset}
-              className="inline-flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors duration-200"
-            >
-              <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                />
-              </svg>
-              Try Again
-            </button>
-          </div>
-        </div>
+        <ErrorDisplay
+          variant="card"
+          error={this.state.error}
+          title={this.props.sectionName || 'Section'}
+          onRetry={this.handleReset}
+          className="min-h-[200px]"
+        />
       );
     }
 

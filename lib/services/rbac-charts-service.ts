@@ -19,6 +19,11 @@ export interface CreateChartData {
   chart_config?: Record<string, unknown> | undefined;
   chart_category_id?: number | undefined;
   is_active?: boolean | undefined;
+  // Drill-down configuration
+  drill_down_enabled?: boolean | undefined;
+  drill_down_type?: string | null | undefined;
+  drill_down_target_chart_id?: string | null | undefined;
+  drill_down_button_label?: string | undefined;
 }
 
 export interface UpdateChartData {
@@ -29,6 +34,11 @@ export interface UpdateChartData {
   chart_config?: Record<string, unknown> | undefined;
   chart_category_id?: number | undefined;
   is_active?: boolean | undefined;
+  // Drill-down configuration
+  drill_down_enabled?: boolean | undefined;
+  drill_down_type?: string | null | undefined;
+  drill_down_target_chart_id?: string | null | undefined;
+  drill_down_button_label?: string | undefined;
 }
 
 export interface ChartQueryOptions {
@@ -52,6 +62,11 @@ export interface ChartWithMetadata {
   created_at: string;
   updated_at: string;
   is_active: boolean;
+  // Drill-down configuration
+  drill_down_enabled?: boolean;
+  drill_down_type?: string | null;
+  drill_down_target_chart_id?: string | null;
+  drill_down_button_label?: string;
   category:
     | {
         chart_category_id: number;
@@ -132,6 +147,11 @@ export class RBACChartsService extends BaseRBACService {
         created_at: def.created_at?.toISOString() || new Date().toISOString(),
         updated_at: def.updated_at?.toISOString() || new Date().toISOString(),
         is_active: def.is_active ?? true,
+        // Drill-down configuration
+        drill_down_enabled: def.drill_down_enabled ?? false,
+        drill_down_type: def.drill_down_type ?? null,
+        drill_down_target_chart_id: def.drill_down_target_chart_id ?? null,
+        drill_down_button_label: def.drill_down_button_label ?? 'Drill Down',
         category: chart.chart_categories
           ? {
               chart_category_id: chart.chart_categories.chart_category_id,
@@ -228,6 +248,11 @@ export class RBACChartsService extends BaseRBACService {
       created_at: chartDef.created_at?.toISOString() || new Date().toISOString(),
       updated_at: chartDef.updated_at?.toISOString() || new Date().toISOString(),
       is_active: chartDef.is_active ?? true,
+      // Drill-down configuration
+      drill_down_enabled: chartDef.drill_down_enabled ?? false,
+      drill_down_type: chartDef.drill_down_type ?? null,
+      drill_down_target_chart_id: chartDef.drill_down_target_chart_id ?? null,
+      drill_down_button_label: chartDef.drill_down_button_label ?? 'Drill Down',
       category: chart.chart_categories
         ? {
             chart_category_id: chart.chart_categories.chart_category_id,
@@ -282,6 +307,11 @@ export class RBACChartsService extends BaseRBACService {
         chart_category_id: chartData.chart_category_id || null,
         created_by: this.userContext.user_id,
         is_active: chartData.is_active ?? true,
+        // Drill-down configuration
+        drill_down_enabled: chartData.drill_down_enabled ?? false,
+        drill_down_type: chartData.drill_down_type ?? null,
+        drill_down_target_chart_id: chartData.drill_down_target_chart_id ?? null,
+        drill_down_button_label: chartData.drill_down_button_label ?? 'Drill Down',
       })
       .returning();
 
@@ -337,6 +367,11 @@ export class RBACChartsService extends BaseRBACService {
       created_at: createdChartDef.created_at?.toISOString() || new Date().toISOString(),
       updated_at: createdChartDef.updated_at?.toISOString() || new Date().toISOString(),
       is_active: createdChartDef.is_active ?? true,
+      // Drill-down configuration
+      drill_down_enabled: createdChartDef.drill_down_enabled ?? false,
+      drill_down_type: createdChartDef.drill_down_type ?? null,
+      drill_down_target_chart_id: createdChartDef.drill_down_target_chart_id ?? null,
+      drill_down_button_label: createdChartDef.drill_down_button_label ?? 'Drill Down',
       category: createdChart.chart_categories
         ? {
             chart_category_id: createdChart.chart_categories.chart_category_id,
@@ -391,6 +426,16 @@ export class RBACChartsService extends BaseRBACService {
       if (updateData.chart_category_id !== undefined)
         updateFields.chart_category_id = updateData.chart_category_id;
       if (updateData.is_active !== undefined) updateFields.is_active = updateData.is_active;
+
+      // Drill-down configuration
+      if (updateData.drill_down_enabled !== undefined)
+        updateFields.drill_down_enabled = updateData.drill_down_enabled;
+      if (updateData.drill_down_type !== undefined)
+        updateFields.drill_down_type = updateData.drill_down_type;
+      if (updateData.drill_down_target_chart_id !== undefined)
+        updateFields.drill_down_target_chart_id = updateData.drill_down_target_chart_id;
+      if (updateData.drill_down_button_label !== undefined)
+        updateFields.drill_down_button_label = updateData.drill_down_button_label;
 
       // Update the chart
       const [updatedChart] = await tx
@@ -453,6 +498,11 @@ export class RBACChartsService extends BaseRBACService {
       created_at: updatedChartDef.created_at?.toISOString() || new Date().toISOString(),
       updated_at: updatedChartDef.updated_at?.toISOString() || new Date().toISOString(),
       is_active: updatedChartDef.is_active ?? true,
+      // Drill-down configuration
+      drill_down_enabled: updatedChartDef.drill_down_enabled ?? false,
+      drill_down_type: updatedChartDef.drill_down_type ?? null,
+      drill_down_target_chart_id: updatedChartDef.drill_down_target_chart_id ?? null,
+      drill_down_button_label: updatedChartDef.drill_down_button_label ?? 'Drill Down',
       category: updatedChartData.chart_categories
         ? {
             chart_category_id: updatedChartData.chart_categories.chart_category_id,

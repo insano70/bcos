@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { SelectedItemsProvider } from '@/app/selected-items-context';
+import { WorkItemErrorBoundary } from '@/components/work-items/work-item-error-boundary';
 import WorkItemsContent from './work-items-content';
 
 export const metadata: Metadata = {
@@ -10,7 +11,9 @@ export const metadata: Metadata = {
 export default function WorkItemsPage() {
   return (
     <SelectedItemsProvider>
-      <WorkItemsContent />
+      <WorkItemErrorBoundary context="Work Items List">
+        <WorkItemsContent />
+      </WorkItemErrorBoundary>
     </SelectedItemsProvider>
   );
 }

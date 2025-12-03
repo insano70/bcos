@@ -18,6 +18,7 @@ import { apiClient } from '@/lib/api/client';
 import type { AtRiskUser, MonitoringMetrics } from '@/lib/monitoring/types';
 import ActiveUsersKPI from './components/active-users-kpi';
 import AtRiskUsersPanel from './components/at-risk-users-panel';
+import { DashboardErrorBoundary } from './components/dashboard-error-boundary';
 import EndpointPerformanceTable from './components/endpoint-performance-table';
 import ErrorLogPanel from './components/error-log-panel';
 import ErrorRateChart from './components/error-rate-chart';
@@ -250,53 +251,65 @@ export default function CommandCenterPage() {
         {metrics && (
           <div className="space-y-6">
             {/* Row 1: KPI Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
-              <SystemHealthKPI systemHealth={metrics.systemHealth} />
-              <ActiveUsersKPI activeUsers={metrics.activeUsers} />
-              <ErrorRateKPI
-                errorRate={metrics.performance.errors.rate}
-                total={metrics.performance.errors.total}
-              />
-              <ResponseTimeKPI p95={metrics.performance.responseTime.p95} />
-              <SecurityStatusKPI security={metrics.security} />
-            </div>
+            <DashboardErrorBoundary sectionName="KPI Dashboard">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+                <SystemHealthKPI systemHealth={metrics.systemHealth} />
+                <ActiveUsersKPI activeUsers={metrics.activeUsers} />
+                <ErrorRateKPI
+                  errorRate={metrics.performance.errors.rate}
+                  total={metrics.performance.errors.total}
+                />
+                <ResponseTimeKPI p95={metrics.performance.responseTime.p95} />
+                <SecurityStatusKPI security={metrics.security} />
+              </div>
+            </DashboardErrorBoundary>
 
             {/* Row 2: Performance Charts */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <PerformanceChart category="standard" timeRange={globalTimeRange} height={350} />
-              <ErrorRateChart category="standard" timeRange={globalTimeRange} height={350} />
-            </div>
+            <DashboardErrorBoundary sectionName="Performance Charts">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <PerformanceChart category="standard" timeRange={globalTimeRange} height={350} />
+                <ErrorRateChart category="standard" timeRange={globalTimeRange} height={350} />
+              </div>
+            </DashboardErrorBoundary>
 
             {/* Row 2.5: Performance Tables */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <EndpointPerformanceTable metrics={metrics} />
-              <ErrorLogPanel
-                autoRefresh={autoRefresh}
-                refreshInterval={refreshInterval}
-                timeRange={globalTimeRange}
-              />
-            </div>
+            <DashboardErrorBoundary sectionName="Performance Tables">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <EndpointPerformanceTable metrics={metrics} />
+                <ErrorLogPanel
+                  autoRefresh={autoRefresh}
+                  refreshInterval={refreshInterval}
+                  timeRange={globalTimeRange}
+                />
+              </div>
+            </DashboardErrorBoundary>
 
             {/* Row 3: Cache & Database */}
-            <div className="grid grid-cols-1 gap-6">
-              <RedisAdminTabs autoRefresh={autoRefresh} refreshInterval={refreshInterval} />
-            </div>
+            <DashboardErrorBoundary sectionName="Redis Cache">
+              <div className="grid grid-cols-1 gap-6">
+                <RedisAdminTabs autoRefresh={autoRefresh} refreshInterval={refreshInterval} />
+              </div>
+            </DashboardErrorBoundary>
 
             {/* Row 3.5: Slow Queries */}
-            <div className="grid grid-cols-1 gap-6">
-              <SlowQueriesPanel autoRefresh={autoRefresh} refreshInterval={refreshInterval} />
-            </div>
+            <DashboardErrorBoundary sectionName="Slow Queries">
+              <div className="grid grid-cols-1 gap-6">
+                <SlowQueriesPanel autoRefresh={autoRefresh} refreshInterval={refreshInterval} />
+              </div>
+            </DashboardErrorBoundary>
 
             {/* Row 4: Security Monitoring */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <SecurityEventsFeed autoRefresh={autoRefresh} refreshInterval={refreshInterval} />
-              <AtRiskUsersPanel
-                autoRefresh={autoRefresh}
-                refreshInterval={refreshInterval}
-                onViewUser={handleViewUser}
-                key={refreshTrigger}
-              />
-            </div>
+            <DashboardErrorBoundary sectionName="Security Monitoring">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <SecurityEventsFeed autoRefresh={autoRefresh} refreshInterval={refreshInterval} />
+                <AtRiskUsersPanel
+                  autoRefresh={autoRefresh}
+                  refreshInterval={refreshInterval}
+                  onViewUser={handleViewUser}
+                  key={refreshTrigger}
+                />
+              </div>
+            </DashboardErrorBoundary>
 
             {/* User Detail Modal */}
             <UserDetailModal

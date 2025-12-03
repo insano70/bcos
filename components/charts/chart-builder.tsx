@@ -18,6 +18,7 @@ import type {
 import ChartBuilderAdvanced from './chart-builder-advanced';
 // Import the new focused components
 import ChartBuilderCore, { type ChartConfig, type DataSource } from './chart-builder-core';
+import ChartBuilderDrillDown, { type DrillDownConfig } from './chart-builder-drill-down';
 import ChartBuilderPreview from './chart-builder-preview';
 import ChartBuilderSchema from './chart-builder-schema';
 import {
@@ -114,6 +115,14 @@ export default function FunctionalChartBuilder({
   const [isSaving, setIsSaving] = useState(false);
   const [previewKey, setPreviewKey] = useState(0);
 
+  // Drill-down configuration state
+  const [drillDownConfig, setDrillDownConfig] = useState<DrillDownConfig>({
+    drill_down_enabled: false,
+    drill_down_type: null,
+    drill_down_target_chart_id: null,
+    drill_down_button_label: 'Drill Down',
+  });
+
   // Toast notifications
   const { toast, showToast, setToastOpen } = useToast();
 
@@ -145,6 +154,20 @@ export default function FunctionalChartBuilder({
         ...parsedConfig,
         selectedDataSource: savedDataSource,
       }));
+
+      // Populate drill-down config if editing
+      const editChart = editingChart as {
+        drill_down_enabled?: boolean;
+        drill_down_type?: string | null;
+        drill_down_target_chart_id?: string | null;
+        drill_down_button_label?: string;
+      };
+      setDrillDownConfig({
+        drill_down_enabled: editChart.drill_down_enabled ?? false,
+        drill_down_type: (editChart.drill_down_type as 'filter' | 'navigate' | 'swap' | null) ?? null,
+        drill_down_target_chart_id: editChart.drill_down_target_chart_id ?? null,
+        drill_down_button_label: editChart.drill_down_button_label ?? 'Drill Down',
+      });
     };
 
     populateEditForm();
@@ -325,11 +348,21 @@ export default function FunctionalChartBuilder({
 
     setIsSaving(true);
     try {
-      const payload = buildChartPayload(
+      const basePayload = buildChartPayload(
         chartConfig,
         chartConfig.selectedDataSource,
         selectedDatePreset
       );
+
+      // Add drill-down configuration to payload
+      const payload = {
+        ...basePayload,
+        drill_down_enabled: drillDownConfig.drill_down_enabled,
+        drill_down_type: drillDownConfig.drill_down_type,
+        drill_down_target_chart_id: drillDownConfig.drill_down_target_chart_id,
+        drill_down_button_label: drillDownConfig.drill_down_button_label,
+      };
+
       const url = isEditMode
         ? `/api/admin/analytics/charts/${editingChart?.chart_definition_id}`
         : '/api/admin/analytics/charts';
@@ -428,6 +461,14 @@ export default function FunctionalChartBuilder({
                 removeSeries={removeSeries}
               />
             )}
+
+            {/* Drill-Down Configuration */}
+            <ChartBuilderDrillDown
+              chartDefinitionId={editingChart?.chart_definition_id}
+              config={drillDownConfig}
+              onChange={(updates) => setDrillDownConfig((prev) => ({ ...prev, ...updates }))}
+              isSaved={isEditMode}
+            />
 
             {schemaInfo && (
               <div className="flex justify-end">

@@ -140,6 +140,9 @@ export const chartCategoryParamsSchema = z.object({
   categoryId: integerIdSchema,
 });
 
+// Drill-down type enum for validation
+const drillDownTypeSchema = z.enum(['filter', 'navigate', 'swap']);
+
 // Chart Definition Schemas
 export const chartDefinitionCreateSchema = z.object({
   chart_name: nameSchema,
@@ -168,6 +171,12 @@ export const chartDefinitionCreateSchema = z.object({
   ]),
   query_config: dataSourceConfigSchema.optional(), // Properly typed query configuration
   is_active: z.boolean().default(true),
+
+  // Drill-down configuration
+  drill_down_enabled: z.boolean().optional(),
+  drill_down_type: drillDownTypeSchema.nullable().optional(),
+  drill_down_target_chart_id: uuidSchema.nullable().optional(),
+  drill_down_button_label: z.string().max(50, 'Button label too long').optional(),
 });
 
 export const chartDefinitionUpdateSchema = chartDefinitionCreateSchema.partial();
@@ -347,3 +356,4 @@ export type DataSource = z.infer<typeof dataSourceSchema>;
 export type ChartDataRequest = z.infer<typeof chartDataRequestSchema>;
 export type DashboardUniversalFilters = z.infer<typeof dashboardUniversalFiltersSchema>;
 export type DashboardRenderRequest = z.infer<typeof dashboardRenderRequestSchema>;
+export type DrillDownType = z.infer<typeof drillDownTypeSchema>;

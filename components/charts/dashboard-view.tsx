@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from 'next/navigation';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { RotateCcw } from 'lucide-react';
 import {
   useDashboardData,
   type DashboardUniversalFilters,
@@ -26,12 +27,17 @@ import ChartErrorBoundary from './chart-error-boundary';
 import DashboardFilterDropdown from './dashboard-filter-dropdown';
 import DashboardFilterPills from './dashboard-filter-pills';
 import { clearDimensionCaches } from '@/hooks/useDimensionExpansion';
-import { clientErrorLog } from '@/lib/utils/debug-client';
+import { clientDebugLog, clientErrorLog } from '@/lib/utils/debug-client';
 
 interface DashboardViewProps {
   dashboard: Dashboard;
   dashboardCharts: DashboardChart[];
 }
+
+/**
+ * Track swapped charts: originalChartId -> targetChartId
+ */
+type SwappedChartsMap = Map<string, string>;
 
 export default function DashboardView({ dashboard, dashboardCharts }: DashboardViewProps) {
   const searchParams = useSearchParams();
@@ -40,6 +46,9 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
   const [availableCharts, setAvailableCharts] = useState<ChartDefinition[]>([]);
   const [isLoadingCharts, setIsLoadingCharts] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Track which charts have been swapped via drill-down
+  const [swappedCharts, setSwappedCharts] = useState<SwappedChartsMap>(new Map());
 
   // Dashboard configuration
   const filterConfig = dashboard.layout_config?.filterConfig;
@@ -120,6 +129,31 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
       savePreferences(newFilters); // Save to localStorage
     },
     [updateUrlParams, savePreferences]
+  );
+
+  // Handle chart swap drill-down
+  const handleChartSwap = useCallback(
+    (sourceChartId: string, targetChartId: string) => {
+      clientDebugLog.component('Dashboard chart swap', { sourceChartId, targetChartId });
+      setSwappedCharts((prev) => {
+        const next = new Map(prev);
+        next.set(sourceChartId, targetChartId);
+        return next;
+      });
+    },
+    []
+  );
+
+  // Handle reverting a swapped chart back to original
+  const handleRevertSwap = useCallback(
+    (sourceChartId: string) => {
+      setSwappedCharts((prev) => {
+        const next = new Map(prev);
+        next.delete(sourceChartId);
+        return next;
+      });
+    },
+    []
   );
 
   // Handle removing individual filter pill
@@ -430,8 +464,20 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
           }
 
           // Use pre-extracted configs from memoized dashboardConfig
-          const chartDef = dashboardChart.chartDefinition;
-          const chartConfig = dashboardChart.chartConfig;
+          const originalChartDef = dashboardChart.chartDefinition;
+          const originalChartConfig = dashboardChart.chartConfig;
+
+          // Check if this chart has been swapped via drill-down
+          const swappedToChartId = swappedCharts.get(dashboardChart.chartDefinitionId);
+          const isSwapped = !!swappedToChartId;
+
+          // Determine which chart to render (original or swapped)
+          const swappedChartDef = isSwapped 
+            ? availableCharts.find((c) => c.chart_definition_id === swappedToChartId)
+            : null;
+          
+          const chartDef = swappedChartDef ?? originalChartDef;
+          const chartConfig = swappedChartDef?.chart_config ?? originalChartConfig;
 
           // Use responsive sizing that respects dashboard configuration
           const baseHeight = dashboardChart.position.h * DASHBOARD_LAYOUT.CHART.HEIGHT_MULTIPLIER;
@@ -440,8 +486,10 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
           // Determine responsive column span classes
           const colSpanClass = getResponsiveColSpan(dashboardChart.position.w);
 
-          // Get batch data for this chart
-          const batchChartData = batchData?.charts[dashboardChart.chartDefinitionId];
+          // Get batch data for the chart being rendered
+          // For swapped charts, we need to fetch data from a different source
+          const chartIdForData = isSwapped && swappedToChartId ? swappedToChartId : dashboardChart.chartDefinitionId;
+          const batchChartData = batchData?.charts[chartIdForData];
 
           // Skip chart if no data returned from batch API
           if (!batchChartData) {
@@ -454,7 +502,16 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
                   <div>
                     <div className="text-2xl mb-2">⚠️</div>
                     <p className="text-sm">{DASHBOARD_MESSAGES.ERRORS.CHART_DATA_UNAVAILABLE}</p>
-                    <p className="text-xs">ID: {dashboardChart.chartDefinitionId.slice(0, 8)}...</p>
+                    <p className="text-xs">ID: {chartIdForData.slice(0, 8)}...</p>
+                    {isSwapped && (
+                      <button
+                        type="button"
+                        onClick={() => handleRevertSwap(dashboardChart.chartDefinitionId)}
+                        className="mt-2 text-xs text-violet-600 hover:text-violet-800 dark:text-violet-400"
+                      >
+                        Revert to original chart
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -464,7 +521,7 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
           return (
             <div
               key={dashboardChart.id}
-              className={`${colSpanClass} flex flex-col`}
+              className={`${colSpanClass} flex flex-col relative`}
               style={{
                 marginBottom: `${dashboardConfig.layout.margin}px`,
                 height: `${containerHeight}px`,
@@ -472,6 +529,22 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
                 overflow: 'hidden',
               }}
             >
+              {/* Swap indicator with revert button */}
+              {isSwapped && (
+                <div className="absolute top-0 right-0 z-10 flex items-center gap-1 px-2 py-1 bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200 text-xs rounded-bl-lg rounded-tr-xl">
+                  <span className="hidden sm:inline">Swapped from: {originalChartDef.chart_name.slice(0, 15)}...</span>
+                  <button
+                    type="button"
+                    onClick={() => handleRevertSwap(dashboardChart.chartDefinitionId)}
+                    className="p-0.5 hover:bg-amber-200 dark:hover:bg-amber-800 rounded transition-colors"
+                    title="Revert to original chart"
+                    aria-label="Revert to original chart"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+
               {/* Chart with dimension expansion support (via fullscreen modals) - wrap with error boundary */}
               <ChartErrorBoundary chartName={chartDef.chart_name}>
                 <BatchChartRenderer
@@ -482,12 +555,18 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
                     chart_name: chartDef.chart_name,
                     chart_type: chartDef.chart_type,
                     chart_config: chartConfig,
+                    // Pass drill-down config from chart definition (only if defined)
+                    ...(chartDef.drill_down_enabled !== undefined && { drill_down_enabled: chartDef.drill_down_enabled }),
+                    ...(chartDef.drill_down_type !== undefined && { drill_down_type: chartDef.drill_down_type }),
+                    ...(chartDef.drill_down_target_chart_id !== undefined && { drill_down_target_chart_id: chartDef.drill_down_target_chart_id }),
+                    ...(chartDef.drill_down_button_label !== undefined && { drill_down_button_label: chartDef.drill_down_button_label }),
                   }}
                   position={dashboardChart.position}
                   className="w-full h-full flex-1"
                   responsive={true}
                   minHeight={DASHBOARD_LAYOUT.CHART.MIN_HEIGHT_WITH_PADDING}
                   maxHeight={containerHeight - DASHBOARD_LAYOUT.CHART.HEIGHT_PADDING}
+                  onChartSwap={handleChartSwap}
                   {...((chartDef.chart_type === 'bar' ||
                     chartDef.chart_type === 'stacked-bar' ||
                     chartDef.chart_type === 'horizontal-bar' ||

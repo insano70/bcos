@@ -1,6 +1,6 @@
 'use client';
 
-import type { ChartTypeRegistry, TooltipItem } from 'chart.js';
+import type { ActiveElement, ChartEvent, ChartTypeRegistry, TooltipItem } from 'chart.js';
 import {
   BarController,
   BarElement,
@@ -19,15 +19,31 @@ import { createPeriodComparisonHorizontalTooltipCallbacks } from '@/lib/utils/pe
 
 Chart.register(BarController, BarElement, LinearScale, CategoryScale, Tooltip, Legend);
 
+/**
+ * Check if chart is safe to update (not destroyed, canvas context valid)
+ */
+function isChartSafeToUpdate(chart: Chart | null): chart is Chart {
+  if (!chart) return false;
+  try {
+    // Check if canvas and context are still valid
+    return !!(chart.canvas && chart.ctx);
+  } catch {
+    return false;
+  }
+}
+
 interface AnalyticsHorizontalBarChartProps {
   data: ChartData;
   width: number;
   height: number;
+  /** Chart.js onClick handler for drill-down functionality */
+  chartJsOnClick?: (event: ChartEvent, elements: ActiveElement[], chart: Chart) => void;
 }
 
 const AnalyticsHorizontalBarChart = forwardRef<HTMLCanvasElement, AnalyticsHorizontalBarChartProps>(
-  function AnalyticsHorizontalBarChart({ data, width, height }, ref) {
+  function AnalyticsHorizontalBarChart({ data, width, height, chartJsOnClick }, ref) {
     const [chart, setChart] = useState<Chart | null>(null);
+    const chartRef = useRef<Chart | null>(null); // Ref for cleanup (avoids stale closure)
     const canvas = useRef<HTMLCanvasElement>(null);
     const legend = useRef<HTMLUListElement>(null);
 
@@ -53,6 +69,12 @@ const AnalyticsHorizontalBarChart = forwardRef<HTMLCanvasElement, AnalyticsHoriz
           if (!ctx.isConnected) {
             console.warn('[AnalyticsHorizontalBarChart] Canvas disconnected during initialization deferral');
             return;
+          }
+
+          // Destroy existing chart if any (prevents canvas reuse error)
+          if (chartRef.current) {
+            chartRef.current.destroy();
+            chartRef.current = null;
           }
 
       const newChart = new Chart(ctx, {
@@ -158,6 +180,8 @@ const AnalyticsHorizontalBarChart = forwardRef<HTMLCanvasElement, AnalyticsHoriz
           maintainAspectRatio: false,
           responsive: false, // Disable Chart.js responsive mode (we handle it manually below)
           resizeDelay: 200,
+          // Drill-down click handler
+          ...(chartJsOnClick && { onClick: chartJsOnClick }),
         },
         plugins: [
           {
@@ -254,6 +278,7 @@ const AnalyticsHorizontalBarChart = forwardRef<HTMLCanvasElement, AnalyticsHoriz
       });
 
           // Type cast needed for Chart.js union type compatibility
+          chartRef.current = newChart as Chart<keyof ChartTypeRegistry>;
           setChart(newChart as Chart<keyof ChartTypeRegistry>);
         });
       });
@@ -261,57 +286,58 @@ const AnalyticsHorizontalBarChart = forwardRef<HTMLCanvasElement, AnalyticsHoriz
       return () => {
         // Clean up animation frame if component unmounts during deferral
         cancelAnimationFrame(rafId);
-        // Destroy chart synchronously to prevent canvas reuse errors
-        if (chart) {
+        // Destroy chart using ref (avoids stale closure issue)
+        if (chartRef.current) {
           try {
-            chart.destroy();
-          } catch (error) {
+            chartRef.current.destroy();
+            chartRef.current = null;
+          } catch {
             // Ignore errors during cleanup
-            console.warn('Chart cleanup warning:', error);
           }
         }
       };
-    }, []); // Only initialize once
+    }, [chartJsOnClick]); // Re-initialize when onClick handler changes
 
     // Update data when it changes (without recreating chart)
     useEffect(() => {
-      if (!chart || !canvas.current?.isConnected) return;
+      if (!isChartSafeToUpdate(chartRef.current) || !canvas.current?.isConnected) return;
 
-      chart.data = data;
-      chart.update('none'); // Skip animation for data updates
-    }, [chart, data]);
+      chartRef.current.data = data;
+      chartRef.current.update('none'); // Skip animation for data updates
+    }, [chart, data]); // Keep chart dep to trigger on chart changes
 
     useEffect(() => {
-      if (!chart || !canvas.current) return;
+      const currentChart = chartRef.current;
+      if (!isChartSafeToUpdate(currentChart) || !canvas.current) return;
 
       // Update theme colors
       if (darkMode) {
-        chart.options.scales!.x!.ticks!.color = textColor.dark;
-        chart.options.scales!.y!.ticks!.color = textColor.dark;
-        chart.options.scales!.x!.grid!.color = gridColor.dark;
-        chart.options.plugins!.tooltip!.bodyColor = tooltipBodyColor.dark;
-        chart.options.plugins!.tooltip!.backgroundColor = tooltipBgColor.dark;
-        chart.options.plugins!.tooltip!.borderColor = tooltipBorderColor.dark;
-        if (chart.options.plugins!.legend!.labels) {
-          chart.options.plugins!.legend!.labels.color = textColor.dark;
+        currentChart.options.scales!.x!.ticks!.color = textColor.dark;
+        currentChart.options.scales!.y!.ticks!.color = textColor.dark;
+        currentChart.options.scales!.x!.grid!.color = gridColor.dark;
+        currentChart.options.plugins!.tooltip!.bodyColor = tooltipBodyColor.dark;
+        currentChart.options.plugins!.tooltip!.backgroundColor = tooltipBgColor.dark;
+        currentChart.options.plugins!.tooltip!.borderColor = tooltipBorderColor.dark;
+        if (currentChart.options.plugins!.legend!.labels) {
+          currentChart.options.plugins!.legend!.labels.color = textColor.dark;
         }
       } else {
-        chart.options.scales!.x!.ticks!.color = textColor.light;
-        chart.options.scales!.y!.ticks!.color = textColor.light;
-        chart.options.scales!.x!.grid!.color = gridColor.light;
-        chart.options.plugins!.tooltip!.bodyColor = tooltipBodyColor.light;
-        chart.options.plugins!.tooltip!.backgroundColor = tooltipBgColor.light;
-        chart.options.plugins!.tooltip!.borderColor = tooltipBorderColor.light;
-        if (chart.options.plugins!.legend!.labels) {
-          chart.options.plugins!.legend!.labels.color = textColor.light;
+        currentChart.options.scales!.x!.ticks!.color = textColor.light;
+        currentChart.options.scales!.y!.ticks!.color = textColor.light;
+        currentChart.options.scales!.x!.grid!.color = gridColor.light;
+        currentChart.options.plugins!.tooltip!.bodyColor = tooltipBodyColor.light;
+        currentChart.options.plugins!.tooltip!.backgroundColor = tooltipBgColor.light;
+        currentChart.options.plugins!.tooltip!.borderColor = tooltipBorderColor.light;
+        if (currentChart.options.plugins!.legend!.labels) {
+          currentChart.options.plugins!.legend!.labels.color = textColor.light;
         }
       }
-      chart.update('none');
-    }, [theme]);
+      currentChart.update('none');
+    }, [theme, chart]); // Add chart dep to re-run when chart is ready
 
     // Manual responsive handling (replaces Chart.js responsive mode - preserves responsive design!)
     useEffect(() => {
-      if (!chart || !canvas.current?.isConnected) return;
+      if (!isChartSafeToUpdate(chartRef.current) || !canvas.current?.isConnected) return;
 
       // Observe parent container for size changes
       const container = canvas.current.parentElement;
@@ -320,13 +346,9 @@ const AnalyticsHorizontalBarChart = forwardRef<HTMLCanvasElement, AnalyticsHoriz
       const resizeObserver = new ResizeObserver(() => {
         // Defer resize to next frame for safety
         requestAnimationFrame(() => {
-          if (chart && canvas.current?.isConnected) {
-            try {
-              chart.resize();
-            } catch (error) {
-              // Ignore resize errors if chart is being unmounted
-              console.warn('Chart resize warning:', error);
-            }
+          // Use helper to verify chart is safe to update
+          if (isChartSafeToUpdate(chartRef.current) && canvas.current?.isConnected) {
+            chartRef.current.resize();
           }
         });
       });
@@ -334,19 +356,14 @@ const AnalyticsHorizontalBarChart = forwardRef<HTMLCanvasElement, AnalyticsHoriz
       resizeObserver.observe(container);
 
       return () => resizeObserver.disconnect();
-    }, [chart]);
+    }, [chart]); // Keep chart dep to re-setup observer when chart changes
 
     // Handle explicit width/height prop changes
     useEffect(() => {
-      if (!chart || !canvas.current?.isConnected) return;
+      if (!isChartSafeToUpdate(chartRef.current) || !canvas.current?.isConnected) return;
 
-      try {
-        chart.resize();
-      } catch (error) {
-        // Ignore resize errors if chart is being unmounted
-        console.warn('Chart resize warning:', error);
-      }
-    }, [chart, width, height]);
+      chartRef.current.resize();
+    }, [chart, width, height]); // Keep chart dep to trigger on chart changes
 
     return (
       <div className="w-full h-full flex flex-col">

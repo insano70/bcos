@@ -13,6 +13,7 @@
  * - Type-safe dispatch with TypeScript
  */
 
+import type { Chart, ChartEvent, ActiveElement } from 'chart.js';
 import type { ChartData, DualAxisConfig } from '@/lib/types/analytics';
 import AnalyticsBarChart from './analytics-bar-chart';
 import AnalyticsDualAxisChart from './analytics-dual-axis-chart';
@@ -113,6 +114,9 @@ interface ChartRendererProps {
   // Grid props
   showGrid?: boolean;
   gridColor?: string;
+
+  // Click handler for drill-down functionality
+  chartJsOnClick?: (event: ChartEvent, elements: ActiveElement[], chart: Chart) => void;
 }
 
 /**
@@ -189,6 +193,7 @@ export default function ChartRenderer({
   showTooltips,
   showGrid,
   gridColor,
+  chartJsOnClick,
 }: ChartRendererProps) {
   // Get the component for this chart type
   const Component = CHART_COMPONENTS[chartType];
@@ -329,6 +334,8 @@ export default function ChartRenderer({
     ...(maxHeight !== undefined && { maxHeight }),
     ...(aspectRatio !== undefined && { aspectRatio }),
     ...(colorPalette && { colorPalette }),
+    // Drill-down click handler
+    ...(chartJsOnClick && { chartJsOnClick }),
   };
 
   return <Component {...chartProps} />;

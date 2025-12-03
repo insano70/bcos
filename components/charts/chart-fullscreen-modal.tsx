@@ -17,25 +17,30 @@
 import { useId, useRef, useMemo, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTheme } from 'next-themes';
-import type { Chart, ChartTypeRegistry } from 'chart.js';
+import type { Chart, ChartTypeRegistry, ChartEvent, ActiveElement } from 'chart.js';
 import type { ChartData } from '@/lib/types/analytics';
 import type {
   DimensionExpansionChartConfig,
   DimensionExpansionFilters,
 } from '@/lib/types/dimensions';
+import type { DrillDownConfig, DrillDownResult } from '@/lib/types/drill-down';
 import { useChartFullscreen } from '@/hooks/useChartFullscreen';
 import { useDimensionExpansion } from '@/hooks/useDimensionExpansion';
 import { useChartInstance } from '@/hooks/useChartInstance';
+import { useChartDrillDown } from '@/hooks/useChartDrillDown';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import {
   buildChartOptions,
   type FullscreenChartType,
   type StackingMode,
 } from '@/lib/utils/chart-fullscreen-config';
 import { createPeriodComparisonHtmlLegend } from '@/lib/utils/period-comparison-legend';
+import { createChartClickHandler, getPrimaryFieldFromConfig, getSeriesFieldFromConfig } from '@/lib/utils/chart-click-handler';
 import ChartLegend from './ChartLegend';
 import { DimensionCheckboxes } from './dimension-checkboxes';
 import { DimensionValueSelector } from './dimension-value-selector';
 import DimensionComparisonView from './dimension-comparison-view';
+import { DrillDownIcon } from './drill-down-icon';
 import 'chartjs-adapter-moment';
 
 /**
@@ -53,6 +58,9 @@ interface ChartFullscreenModalProps {
   // For dimension expansion: configs from batch API
   finalChartConfig?: DimensionExpansionChartConfig;
   runtimeFilters?: DimensionExpansionFilters;
+  // Drill-down support
+  drillDownConfig?: DrillDownConfig;
+  onDrillDownExecute?: (result: DrillDownResult) => void;
 }
 
 /**
@@ -72,6 +80,8 @@ export default function ChartFullscreenModal({
   chartDefinitionId,
   finalChartConfig,
   runtimeFilters,
+  drillDownConfig,
+  onDrillDownExecute,
 }: ChartFullscreenModalProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const legendRef = useRef<HTMLUListElement>(null);
@@ -81,8 +91,18 @@ export default function ChartFullscreenModal({
   // Phase 1: Toggle between simple (dimension-level) and advanced (value-level) selection
   const [useAdvancedSelection, setUseAdvancedSelection] = useState(false);
 
+  // Mobile detection for drill-down UX
+  const isMobile = useIsMobile();
+
   // Use custom hooks for separation of concerns
   const { mounted } = useChartFullscreen(isOpen, onClose);
+
+  // Drill-down hook (only when config provided)
+  const drillDown = useChartDrillDown({
+    drillDownConfig: drillDownConfig ?? null,
+    onDrillDownExecute,
+    immediateExecute: !isMobile,
+  });
 
   const dimension = useDimensionExpansion({
     chartDefinitionId,
@@ -91,8 +111,24 @@ export default function ChartFullscreenModal({
     isOpen,
   });
 
+  // Create Chart.js click handler for drill-down
+  const chartJsOnClick = useMemo(() => {
+    if (!drillDownConfig?.enabled) {
+      return undefined;
+    }
+    const configForField = finalChartConfig as { groupBy?: string; x_axis?: { field?: string }; seriesConfigs?: Array<{ groupBy?: string }>; series?: { groupBy?: string } } | undefined;
+    const primaryField = getPrimaryFieldFromConfig(configForField);
+    const seriesField = getSeriesFieldFromConfig(configForField);
+    
+    return createChartClickHandler({
+      onElementClick: drillDown.handleElementClick,
+      primaryField,
+      ...(seriesField ? { seriesField } : {}),
+    });
+  }, [drillDownConfig?.enabled, finalChartConfig, drillDown.handleElementClick]);
+
   // Build chart options using pure functions
-  const chartOptions = useMemo(
+  const baseChartOptions = useMemo(
     () =>
       buildChartOptions({
         chartType,
@@ -103,6 +139,17 @@ export default function ChartFullscreenModal({
       }),
     [chartType, chartData, frequency, stackingMode, theme]
   );
+
+  // Merge drill-down click handler into options
+  const chartOptions = useMemo(() => {
+    if (!chartJsOnClick) {
+      return baseChartOptions;
+    }
+    return {
+      ...baseChartOptions,
+      onClick: chartJsOnClick as (event: ChartEvent, elements: ActiveElement[], chart: Chart) => void,
+    };
+  }, [baseChartOptions, chartJsOnClick]);
 
   // Manage Chart.js instance
   const { chart, resetZoom } = useChartInstance({
@@ -308,6 +355,17 @@ export default function ChartFullscreenModal({
                   chartData={chartData}
                   hasPeriodComparison={hasPeriodComparison}
                   frequency={frequency}
+                />
+              )}
+
+              {/* Drill-Down Icon - Mobile only */}
+              {drillDownConfig?.enabled && isMobile && (
+                <DrillDownIcon
+                  isVisible={drillDown.showDrillDownIcon}
+                  position={drillDown.iconPosition}
+                  label={drillDownConfig.buttonLabel}
+                  onClick={drillDown.executeDrillDown}
+                  onDismiss={drillDown.dismissIcon}
                 />
               )}
             </>
