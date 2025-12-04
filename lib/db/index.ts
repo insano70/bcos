@@ -8,6 +8,15 @@ import postgres from 'postgres';
 import { getDatabaseConfig } from '@/lib/env';
 import { log } from '@/lib/logger';
 
+/**
+ * Database context type - can be either the main db instance or a transaction
+ * Use this type when a function needs to accept either db or tx
+ *
+ * Uses Pick to extract only the query methods we need, which are common
+ * to both the database instance and transaction objects.
+ */
+export type DbContext = Pick<ReturnType<typeof drizzle>, 'select' | 'insert' | 'update' | 'delete'>;
+
 // Extend globalThis to include our database connection
 declare global {
   // eslint-disable-next-line no-var
@@ -47,8 +56,10 @@ export const getDb = () => {
       }),
     });
 
+    // Disable Drizzle's built-in logger - it outputs every query to console
+    // which is too verbose. Use our structured logging system instead.
     globalThis.dbInstance = drizzle(globalThis.dbClient, {
-      logger: process.env.NODE_ENV === 'development',
+      logger: false,
     });
   }
 
@@ -114,6 +125,17 @@ export const closeDb = async () => {
 // Cleanup on process termination (only in Node.js runtime, not Edge)
 // Note: Event handlers removed entirely - Next.js manages process lifecycle
 // Database connections will be closed automatically by postgres.js when process exits
+// Registering handlers here causes issues with Next.js worker processes
+
+export * from './analytics-schema';
+export * from './audit-schema';
+export * from './chart-config-schema';
+export * from './csrf-schema';
+export * from './rbac-schema';
+export * from './refresh-token-schema';
+// Re-export all schemas
+export * from './schema';
+
 // Registering handlers here causes issues with Next.js worker processes
 
 export * from './analytics-schema';

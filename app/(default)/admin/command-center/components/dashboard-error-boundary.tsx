@@ -15,6 +15,7 @@ interface DashboardErrorBoundaryProps {
   children: ReactNode;
   sectionName?: string | undefined;
   fallback?: ReactNode | undefined;
+  onError?: ((error: Error, errorInfo: React.ErrorInfo) => void) | undefined;
 }
 
 interface DashboardErrorBoundaryState {
@@ -54,6 +55,11 @@ export class DashboardErrorBoundary extends React.Component<
       error,
       { componentStack: errorInfo.componentStack }
     );
+
+    // Call custom error handler if provided
+    if (this.props.onError) {
+      this.props.onError(error, errorInfo);
+    }
   }
 
   handleReset = (): void => {

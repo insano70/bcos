@@ -23,7 +23,7 @@
 
 import React, { type ReactNode } from 'react';
 import { ErrorDisplay } from '@/components/error-display';
-import { clientErrorLog } from '@/lib/utils/debug-client';
+import { clientComponentError } from '@/lib/utils/debug-client';
 
 interface PageErrorBoundaryProps {
   children: ReactNode;
@@ -46,7 +46,6 @@ interface PageErrorBoundaryProps {
 interface PageErrorBoundaryState {
   hasError: boolean;
   error: Error | null;
-  errorInfo: React.ErrorInfo | null;
 }
 
 /**
@@ -64,7 +63,6 @@ export class PageErrorBoundary extends React.Component<
     this.state = {
       hasError: false,
       error: null,
-      errorInfo: null,
     };
   }
 
@@ -77,18 +75,12 @@ export class PageErrorBoundary extends React.Component<
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
-    // Client-side error logging
-    clientErrorLog('Page rendering error caught by boundary', {
-      context: this.props.context || 'Unknown',
-      error: error.message,
-      stack: error.stack,
-      componentStack: errorInfo.componentStack,
-    });
-
-    // Update state with error info
-    this.setState({
-      errorInfo,
-    });
+    // Client-side error logging using specialized component error logger
+    clientComponentError(
+      this.props.context || 'PageErrorBoundary',
+      error,
+      { componentStack: errorInfo.componentStack }
+    );
 
     // Call custom error handler if provided
     if (this.props.onError) {
@@ -106,7 +98,6 @@ export class PageErrorBoundary extends React.Component<
     this.setState({
       hasError: false,
       error: null,
-      errorInfo: null,
     });
   };
 

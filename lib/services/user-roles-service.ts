@@ -1,5 +1,5 @@
 import { and, eq, inArray } from 'drizzle-orm';
-import { db } from '@/lib/db';
+import { db, type DbContext } from '@/lib/db';
 import { roles, user_roles } from '@/lib/db/rbac-schema';
 import { log, logTemplates, SLOW_THRESHOLDS } from '@/lib/logger';
 import type { UserContext } from '@/lib/types/rbac';
@@ -50,7 +50,7 @@ export interface UserRole {
  */
 export interface UserRolesServiceInterface {
   getUserRoles(userId: string): Promise<UserRole[]>;
-  assignRolesToUser(userId: string, roleIds: string[]): Promise<void>;
+  assignRolesToUser(userId: string, roleIds: string[], tx?: DbContext): Promise<void>;
   removeRolesFromUser(userId: string, roleIds: string[]): Promise<void>;
   batchGetUserRoles(userIds: string[]): Promise<Map<string, UserRole[]>>;
 }
@@ -202,16 +202,23 @@ class UserRolesService implements UserRolesServiceInterface {
   /**
    * Assign roles to a user
    * Replaces all existing roles with new set
+   *
+   * @param userId - The user ID to assign roles to
+   * @param roleIds - Array of role IDs to assign
+   * @param tx - Optional transaction context. If provided, operations run within
+   *             the caller's transaction for atomicity. If not provided, creates
+   *             its own transaction.
    */
-  async assignRolesToUser(userId: string, roleIds: string[]): Promise<void> {
+  async assignRolesToUser(userId: string, roleIds: string[], tx?: DbContext): Promise<void> {
     const startTime = Date.now();
 
     try {
       this.requirePermission('users:update:organization', userId);
 
-      await db.transaction(async (tx) => {
+      // Helper function to perform the role assignment
+      const performRoleAssignment = async (dbCtx: DbContext) => {
         // Deactivate all current roles for this user
-        await tx.update(user_roles).set({ is_active: false }).where(eq(user_roles.user_id, userId));
+        await dbCtx.update(user_roles).set({ is_active: false }).where(eq(user_roles.user_id, userId));
 
         // Add the new roles
         if (roleIds.length > 0) {
@@ -223,9 +230,18 @@ class UserRolesService implements UserRolesServiceInterface {
             is_active: true,
           }));
 
-          await tx.insert(user_roles).values(roleAssignments);
+          await dbCtx.insert(user_roles).values(roleAssignments);
         }
-      });
+      };
+
+      // If transaction provided, use it; otherwise create our own
+      if (tx) {
+        await performRoleAssignment(tx);
+      } else {
+        await db.transaction(async (newTx) => {
+          await performRoleAssignment(newTx);
+        });
+      }
 
       const duration = Date.now() - startTime;
 

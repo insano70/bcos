@@ -11,6 +11,7 @@
  */
 
 import { useEffect } from 'react';
+import { AlertCircle, RefreshCcw } from 'lucide-react';
 
 interface GlobalErrorProps {
   error: Error & { digest?: string };
@@ -28,25 +29,15 @@ export default function GlobalError({ error, reset }: GlobalErrorProps) {
   return (
     <html lang="en">
       <body className="font-sans antialiased bg-gray-100 dark:bg-gray-900 text-gray-600 dark:text-gray-400">
-        <div className="min-h-screen flex items-center justify-center px-4">
+        <div role="alert" aria-live="assertive" className="min-h-screen flex items-center justify-center px-4">
           <div className="max-w-md w-full space-y-8 text-center">
             {/* Error Icon */}
             <div className="flex justify-center">
               <div className="rounded-full bg-red-100 dark:bg-red-900/20 p-4">
-                <svg
+                <AlertCircle
                   className="w-16 h-16 text-red-600 dark:text-red-400"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
                   aria-hidden="true"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                  />
-                </svg>
+                />
               </div>
             </div>
 
@@ -81,19 +72,7 @@ export default function GlobalError({ error, reset }: GlobalErrorProps) {
                 onClick={reset}
                 className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 font-medium rounded-lg hover:bg-gray-800 dark:hover:bg-white transition-colors"
               >
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                  />
-                </svg>
+                <RefreshCcw className="w-5 h-5" />
                 Try Again
               </button>
               <a
@@ -114,5 +93,3 @@ export default function GlobalError({ error, reset }: GlobalErrorProps) {
     </html>
   );
 }
-
-

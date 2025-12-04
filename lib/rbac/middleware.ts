@@ -368,7 +368,13 @@ export function withRBAC<T extends unknown[]>(
         if (existingSession?.user?.id) {
           const enhanced = await enhanceSessionWithRBAC(existingSession);
           if (!enhanced) {
-            return createErrorResponse('Failed to load user context', 500, request) as Response;
+            // User context load failure is an auth issue (session invalid), not a server error
+            log.security('user_context_load_failed', 'medium', {
+              userId: existingSession.user.id,
+              sessionId: existingSession.sessionId,
+              action: 'returning_401_for_login_redirect',
+            });
+            return createErrorResponse('Session invalid - please sign in again', 401, request) as Response;
           }
           userContext = enhanced.userContext;
         } else {

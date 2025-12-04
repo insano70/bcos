@@ -44,7 +44,8 @@
     "db:validate": "tsx scripts/validate-migrations.ts",
     "db:psql": "./lib/db/db-utils.sh",
     "db:check": "./lib/db/db-utils.sh -c 'SELECT current_database();'",
-    "db:backfill:account-security": "tsx --env-file=.env.local scripts/backfill-account-security.ts"
+    "db:backfill:account-security": "tsx --env-file=.env.local scripts/backfill-account-security.ts",
+    "report-card:generate": "tsx --env-file=.env.local scripts/generate-report-card-stats.ts"
   },
   "dependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.943.0",

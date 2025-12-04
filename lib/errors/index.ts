@@ -1,10 +1,32 @@
 /**
  * Error Exports
  *
- * Central export for all error types and utilities
+ * Central export for all error types and utilities.
+ *
+ * This module provides CLASS-BASED errors for throwing in business logic.
+ * Use these when you need `instanceof` checks or proper error inheritance.
+ *
+ * For API RESPONSE generation, use `@/lib/api/responses/error` instead.
+ *
+ * Error Hierarchy:
+ * - API Errors (api-errors.ts): Simple typed errors with statusCode
+ * - Domain Errors (domain-errors.ts): Rich typed errors with codes and details
+ *
+ * @example
+ * ```typescript
+ * import { NotFoundError, ValidationError } from '@/lib/errors';
+ *
+ * // Throw in service
+ * throw new NotFoundError('User not found');
+ *
+ * // Catch and check
+ * if (error instanceof ValidationError) {
+ *   // Handle validation error
+ * }
+ * ```
  */
 
-// API Errors (original simple error classes)
+// API Errors (simple error classes with statusCode)
 export {
   APIError,
   AuthenticationError,

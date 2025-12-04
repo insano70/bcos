@@ -107,6 +107,15 @@ export {
   explorerImprovementSuggestions,
 } from './explorer-schema';
 
+// Report Card tables
+export {
+  report_card_statistics,
+  report_card_trends,
+  practice_size_buckets,
+  report_card_measures,
+  report_card_results,
+} from './report-card-schema';
+
 // System users (admins who manage the platform)
 export const users = pgTable(
   'users',

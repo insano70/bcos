@@ -76,8 +76,15 @@ class AuthCacheService extends CacheService {
     const blacklisted = await this.checkBlacklistInDatabase(jti);
 
     // Cache the result (fire and forget)
+    // Silent failure is intentional - cache write shouldn't block blacklist check
     const ttl = blacklisted ? this.BLACKLIST_CONFIRMED_TTL : this.BLACKLIST_CHECK_TTL;
-    this.set(key, { blacklisted, cachedAt: Date.now() }, { ttl }).catch(() => {});
+    this.set(key, { blacklisted, cachedAt: Date.now() }, { ttl }).catch((e) => {
+      log.debug('Blacklist cache write failed (non-blocking)', {
+        component: 'auth-cache',
+        jti: jti.substring(0, 8),
+        error: e instanceof Error ? e.message : String(e),
+      });
+    });
 
     return blacklisted;
   }
@@ -117,12 +124,19 @@ class AuthCacheService extends CacheService {
     });
 
     // Update cache (fire and forget)
+    // Silent failure is intentional - database is source of truth, cache is optional
     const key = this.buildKey('token', 'blacklist', jti);
     this.set(
       key,
       { blacklisted: true, cachedAt: Date.now() },
       { ttl: this.BLACKLIST_CONFIRMED_TTL }
-    ).catch(() => {});
+    ).catch((e) => {
+      log.debug('Blacklist cache update failed (non-blocking)', {
+        component: 'auth-cache',
+        jti: jti.substring(0, 8),
+        error: e instanceof Error ? e.message : String(e),
+      });
+    });
 
     log.info('Token added to blacklist', {
       component: 'auth-cache',
@@ -153,7 +167,14 @@ class AuthCacheService extends CacheService {
 
     if (user) {
       // Cache for 5 minutes (fire and forget)
-      this.set(key, user, { ttl: this.USER_DATA_TTL }).catch(() => {});
+      // Silent failure is intentional - database is source of truth, cache is optional
+      this.set(key, user, { ttl: this.USER_DATA_TTL }).catch((e) => {
+        log.debug('User cache write failed (non-blocking)', {
+          component: 'auth-cache',
+          userId,
+          error: e instanceof Error ? e.message : String(e),
+        });
+      });
     }
 
     return user;

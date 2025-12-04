@@ -108,7 +108,14 @@ export abstract class CacheService<T = unknown> {
         );
 
         // Delete corrupted cache entry (fire and forget)
-        client.del(key).catch(() => {});
+        // Silent failure is intentional - cache cleanup shouldn't block the request
+        client.del(key).catch((e) => {
+          log.debug('Cache delete failed (non-blocking)', {
+            component: 'cache',
+            key,
+            error: e instanceof Error ? e.message : String(e),
+          });
+        });
 
         // Return null to trigger fallback
         return null;

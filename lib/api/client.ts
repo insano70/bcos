@@ -251,7 +251,10 @@ class ApiClient {
     // Clear auth context if available
     if (this.authContext?.logout) {
       // Don't await this as it might fail, just clear local state
-      this.authContext.logout().catch(() => {});
+      // Silent failure is intentional - logout errors shouldn't block redirect
+      this.authContext.logout().catch((e) => {
+        apiClientLogger.log('Logout cleanup failed (non-blocking)', { error: e });
+      });
     }
 
     // Get current path for redirect after login

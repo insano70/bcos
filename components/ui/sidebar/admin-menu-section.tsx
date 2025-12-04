@@ -165,6 +165,17 @@ export function AdminMenuSection() {
                         </SidebarLink>
                       </li>
                     </ProtectedComponent>
+
+                    {/* Report Card - Protected by Analytics RBAC */}
+                    <ProtectedComponent permission="analytics:read:all">
+                      <li className="mb-1 last:mb-0">
+                        <SidebarLink href="/admin/report-card">
+                          <span className="text-sm font-medium lg:opacity-0 lg:sidebar-expanded:opacity-100 2xl:opacity-100 duration-200">
+                            Report Card
+                          </span>
+                        </SidebarLink>
+                      </li>
+                    </ProtectedComponent>
                   </ul>
                 </div>
               </>

@@ -1,3 +1,4 @@
+
 -- ============================================================================
 -- Migration: Drop Unused dual_axis_config Column
 -- Description: Remove unused dual_axis_config column from chart_definitions

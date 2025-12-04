@@ -1,6 +1,31 @@
 /**
  * Custom API Error Classes
- * Provides properly typed errors with appropriate HTTP status codes
+ *
+ * Provides properly typed error classes with appropriate HTTP status codes.
+ * These are CLASS-BASED errors designed for throwing and catching with `instanceof`.
+ *
+ * USE THIS MODULE WHEN:
+ * - You need to throw typed errors in services/business logic
+ * - You want to use `instanceof` checks for error handling
+ * - You need the `isOperational` flag to distinguish expected vs programming errors
+ *
+ * FOR API RESPONSES:
+ * Use `@/lib/api/responses/error` instead, which provides:
+ * - `createErrorResponse()` for generating HTTP responses
+ * - Factory functions for quick error response creation
+ * - `handleRouteError()` for catch blocks in route handlers
+ *
+ * @example
+ * ```typescript
+ * // Throwing a typed error (use this module)
+ * import { NotFoundError } from '@/lib/errors';
+ * throw new NotFoundError('User not found');
+ *
+ * // Catching and checking type
+ * if (error instanceof NotFoundError) {
+ *   // Handle 404 case
+ * }
+ * ```
  */
 
 /**

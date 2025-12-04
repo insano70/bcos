@@ -121,6 +121,8 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
       'Your account is not authorized for this application. Contact your administrator.',
     user_inactive: 'Your account has been deactivated. Contact your administrator.',
     oidc_callback_failed: 'Microsoft sign-in failed. Please try again or use email and password.',
+    auth_context_failed: 'We encountered an issue with your session. Please sign in again.',
+    session_invalid: 'Your session has expired. Please sign in again.',
   };
 
   const form = useForm({

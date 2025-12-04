@@ -232,6 +232,20 @@
       "when": 1764730042853,
       "tag": "0032_ambiguous_harrier",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1764812648587,
+      "tag": "0033_broken_wendell_rand",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1764849858995,
+      "tag": "0034_sloppy_selene",
+      "breakpoints": true
     }
   ]
 }

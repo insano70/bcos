@@ -36,8 +36,10 @@ export const getAnalyticsDb = () => {
       ssl: 'require',
     });
 
+    // Disable Drizzle's built-in logger - it outputs full query results
+    // which can be thousands of rows. Use our structured logging instead.
     analyticsDb = drizzle(analyticsConnection, {
-      logger: process.env.NODE_ENV === 'development',
+      logger: false,
     });
   }
 
@@ -133,7 +135,6 @@ export const executeAnalyticsQuery = async <T = Record<string, unknown>>(
       duration,
       rowCount: result.length,
       slow: duration > SLOW_THRESHOLDS.DB_QUERY,
-      sampleData: result.length > 0 ? result[0] : null,
       component: 'analytics-db',
     });
 
@@ -175,3 +176,4 @@ export const closeAnalyticsDb = async () => {
 // Note: Event handlers removed entirely - Next.js manages process lifecycle
 // Database connections will be closed automatically by postgres.js when process exits
 // Registering handlers here causes issues with Next.js worker processes
+

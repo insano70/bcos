@@ -224,7 +224,14 @@ export async function getUserByEmail(email: string): Promise<User | null> {
   }
 
   // Cache for future lookups (fire and forget)
-  userLookupCache.setUserByEmail(normalizedEmail, user).catch(() => {});
+  // Silent failure is intentional - database is source of truth, cache is optional
+  userLookupCache.setUserByEmail(normalizedEmail, user).catch((e) => {
+    log.debug('User lookup cache write failed (non-blocking)', {
+      component: 'auth',
+      email: normalizedEmail.replace(/(.{2}).*@/, '$1***@'),
+      error: e instanceof Error ? e.message : String(e),
+    });
+  });
 
   log.debug('user lookup cache miss - database query executed', {
     operation: 'get_user_by_email',

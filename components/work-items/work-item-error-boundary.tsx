@@ -15,7 +15,7 @@
 
 import React, { type ReactNode } from 'react';
 import { ErrorDisplay } from '@/components/error-display';
-import { clientErrorLog } from '@/lib/utils/debug-client';
+import { clientComponentError } from '@/lib/utils/debug-client';
 
 interface WorkItemErrorBoundaryProps {
   children: ReactNode;
@@ -27,7 +27,6 @@ interface WorkItemErrorBoundaryProps {
 interface WorkItemErrorBoundaryState {
   hasError: boolean;
   error: Error | null;
-  errorInfo: React.ErrorInfo | null;
 }
 
 /**
@@ -45,7 +44,6 @@ export class WorkItemErrorBoundary extends React.Component<
     this.state = {
       hasError: false,
       error: null,
-      errorInfo: null,
     };
   }
 
@@ -58,18 +56,12 @@ export class WorkItemErrorBoundary extends React.Component<
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
-    // Client-side error logging
-    clientErrorLog('Work item rendering error caught by boundary', {
-      context: this.props.context || 'Unknown',
-      error: error.message,
-      stack: error.stack,
-      componentStack: errorInfo.componentStack,
-    });
-
-    // Update state with error info
-    this.setState({
-      errorInfo,
-    });
+    // Client-side error logging using specialized component error logger
+    clientComponentError(
+      this.props.context || 'WorkItemErrorBoundary',
+      error,
+      { componentStack: errorInfo.componentStack }
+    );
 
     // Call custom error handler if provided
     if (this.props.onError) {
@@ -82,7 +74,6 @@ export class WorkItemErrorBoundary extends React.Component<
     this.setState({
       hasError: false,
       error: null,
-      errorInfo: null,
     });
   };
 

@@ -1,6 +1,6 @@
 import { and, count, eq } from 'drizzle-orm';
 import { ensureSecurityRecord, hashPassword } from '@/lib/auth/security';
-import { account_security, db } from '@/lib/db';
+import { account_security, db, type DbContext } from '@/lib/db';
 import { user_organizations, users } from '@/lib/db/schema';
 import { webauthn_credentials } from '@/lib/db/webauthn-schema';
 import { calculateChanges, log, logTemplates, SLOW_THRESHOLDS } from '@/lib/logger';
@@ -487,7 +487,6 @@ class RBACUsersService implements UsersServiceInterface {
       // Execute user update and role assignment as atomic transaction
       await db.transaction(async (tx) => {
         // Extract role_ids before passing to database (users table doesn't have this column)
-        // biome-ignore lint/correctness/noUnusedVariables: role_ids extracted to prevent passing to users table, used after transaction
         const { role_ids, ...userFieldsOnly } = updateData;
 
         // Prepare update data for users table only
@@ -539,16 +538,14 @@ class RBACUsersService implements UsersServiceInterface {
             .where(eq(account_security.user_id, userId));
         }
 
-        // Update roles if provided (handled outside transaction due to service dependency)
-        // Note: Role assignment must happen after user update but within same request context
+        // Update user roles if provided - now within the same transaction for atomicity
+        if (role_ids !== undefined) {
+          const rolesService = createUserRolesService(this.userContext);
+          await rolesService.assignRolesToUser(userId, role_ids, tx as DbContext);
+        }
+
         return user;
       });
-
-      // Update user roles if provided (after transaction to avoid service injection complexity)
-      if (updateData.role_ids !== undefined) {
-        const rolesService = createUserRolesService(this.userContext);
-        await rolesService.assignRolesToUser(userId, updateData.role_ids);
-      }
 
       // Return updated user with organization info
       const userWithOrgs = await this.getUserById(userId);

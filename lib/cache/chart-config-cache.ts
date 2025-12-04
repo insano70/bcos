@@ -284,7 +284,14 @@ class ChartConfigCacheService extends CacheService {
       if (palette.max_colors !== null) cachedPalette.maxColors = palette.max_colors;
 
       // Cache for 24 hours (fire and forget)
-      this.set(key, cachedPalette, { ttl: this.defaultTTL }).catch(() => {});
+      // Silent failure is intentional - database is source of truth, cache is optional
+      this.set(key, cachedPalette, { ttl: this.defaultTTL }).catch((e) => {
+        log.debug('Color palette cache write failed (non-blocking)', {
+          component: 'chart-config-cache',
+          paletteId: palette.palette_id,
+          error: e instanceof Error ? e.message : String(e),
+        });
+      });
 
       return cachedPalette;
     } catch (error) {

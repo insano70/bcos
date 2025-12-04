@@ -1,3 +1,31 @@
+/**
+ * API Error Response Utilities
+ *
+ * Provides utilities for creating standardized API error responses.
+ * These are FACTORY FUNCTIONS designed for route handlers.
+ *
+ * USE THIS MODULE WHEN:
+ * - Creating HTTP error responses in API route handlers
+ * - You need `createErrorResponse()` to generate Response objects
+ * - Using `handleRouteError()` in catch blocks
+ *
+ * FOR THROWING TYPED ERRORS:
+ * Use `@/lib/errors/api-errors` instead, which provides:
+ * - Class-based errors that support `instanceof` checks
+ * - The `isOperational` flag for error classification
+ * - Proper error subclasses (ValidationError, AuthenticationError, etc.)
+ *
+ * @example
+ * ```typescript
+ * // In a route handler catch block (use this module)
+ * import { createErrorResponse, NotFoundError } from '@/lib/api/responses/error';
+ * return createErrorResponse(NotFoundError('User'), 404, request);
+ *
+ * // Or use handleRouteError for automatic status detection
+ * return handleRouteError(error, 'Failed to fetch user', request);
+ * ```
+ */
+
 export interface ErrorResponse {
   success: false;
   error: string;
