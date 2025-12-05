@@ -364,7 +364,7 @@ export default function ReportCardView() {
           <div className="text-sm text-slate-500 dark:text-slate-400">
             Generated:{' '}
             {new Date(reportCard.generated_at).toLocaleDateString('en-US', {
-              month: 'short',
+              month: 'long',
               day: 'numeric',
               year: 'numeric',
               hour: '2-digit',

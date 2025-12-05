@@ -113,9 +113,12 @@ class ReportCardCacheService extends CacheService<ReportCard> {
     try {
       if (resourceType === 'all') {
         // Invalidate all report card caches
-        await this.delPattern(`${this.namespace}:*`);
+        // IMPORTANT: Use wildcard prefix (*) because ioredis keyPrefix is NOT
+        // automatically applied to SCAN patterns. Without this, SCAN won't find keys.
+        const deletedCount = await this.delPattern(`*${this.namespace}:*`);
         log.info('Report card cache invalidated', {
           type: 'all',
+          deletedCount,
           component: 'report-card-cache',
         });
         return;
@@ -157,9 +160,11 @@ class ReportCardCacheService extends CacheService<ReportCard> {
       }
 
       // Invalidate all for the resource type
-      await this.delPattern(`${this.namespace}:${resourceType}:*`);
+      // IMPORTANT: Use wildcard prefix (*) for SCAN pattern matching
+      const deletedCount = await this.delPattern(`*${this.namespace}:${resourceType}:*`);
       log.info('Report card cache invalidated', {
         type: resourceType,
+        deletedCount,
         component: 'report-card-cache',
       });
     } catch (error) {

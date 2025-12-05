@@ -18,11 +18,11 @@ interface MonthSelectorProps {
 }
 
 /**
- * Format month string for display
+ * Format month string for display (full month name)
  */
 function formatMonthLabel(monthStr: string): string {
   const date = new Date(`${monthStr}T00:00:00`);
-  return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+  return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 }
 
 /**

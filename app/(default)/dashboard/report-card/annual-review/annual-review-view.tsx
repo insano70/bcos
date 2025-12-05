@@ -461,7 +461,7 @@ export default function AnnualReviewView() {
             >
               <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4 flex items-center gap-2">
                 <BarChart3 className="w-5 h-5 text-violet-500" />
-                Measure Performance: {review.currentYear - 1} vs {review.currentYear}
+                Monthly Performance: {review.currentYear - 1} vs {review.currentYear}
               </h2>
 
               <div className="overflow-x-auto">
@@ -576,10 +576,10 @@ export default function AnnualReviewView() {
                       </div>
                       {/* Month label */}
                       <div className="mt-2 text-xs font-medium text-slate-600 dark:text-slate-400">
-                        {month.monthLabel.split(' ')[0]?.slice(0, 3)}
+                        {month.monthLabel.split(' ')[0]}
                       </div>
                       <div className="text-[10px] text-slate-400 dark:text-slate-500">
-                        {month.monthLabel.split(' ')[1]?.slice(2)}
+                        {month.monthLabel.split(' ')[1]}
                       </div>
                     </motion.div>
                   );

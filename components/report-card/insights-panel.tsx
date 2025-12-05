@@ -142,7 +142,7 @@ export default function InsightsPanel({
               Key Insights
             </h3>
             <p className="text-sm text-slate-500 dark:text-slate-400">
-              AI-generated observations and recommendations
+              Observations and recommendations
             </p>
           </div>
         </div>

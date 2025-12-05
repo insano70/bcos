@@ -144,6 +144,7 @@ export function isHigherBetter(measureName: string): boolean {
  */
 export function getReportCardMonth(): {
   monthName: string;
+  /** @deprecated Use monthName instead - abbreviations are not preferred */
   shortMonth: string;
   year: number;
   monthYear: string;
@@ -152,12 +153,11 @@ export function getReportCardMonth(): {
   const now = new Date();
   const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
   const monthName = lastMonth.toLocaleString('en-US', { month: 'long' });
-  const shortMonth = lastMonth.toLocaleString('en-US', { month: 'short' });
   const year = lastMonth.getFullYear();
 
   return {
     monthName,
-    shortMonth,
+    shortMonth: monthName, // Now returns full month name for backward compatibility
     year,
     monthYear: `${monthName} ${year}`,
     date: lastMonth,
@@ -179,7 +179,7 @@ export function getLastFullMonth(): { monthName: string; year: number; monthYear
  * 
  * @param reportCardMonth - The report card month to calculate from
  * @param monthsBack - Number of months to go back (3, 6, or 9)
- * @returns Object with month range description
+ * @returns Object with month range description using full month names
  */
 export function getPriorMonthsRange(reportCardMonth: Date, monthsBack: number): {
   startMonth: string;
@@ -187,15 +187,15 @@ export function getPriorMonthsRange(reportCardMonth: Date, monthsBack: number): 
   rangeLabel: string;
 } {
   // Prior months are the months BEFORE the report card month
-  // e.g., for November with 3 months back: Aug, Sep, Oct
+  // e.g., for November with 3 months back: August, September, October
   const endDate = new Date(reportCardMonth);
-  endDate.setMonth(endDate.getMonth() - 1); // Oct (month before Nov)
+  endDate.setMonth(endDate.getMonth() - 1); // October (month before November)
   
   const startDate = new Date(reportCardMonth);
-  startDate.setMonth(startDate.getMonth() - monthsBack); // Aug (3 months before Nov)
+  startDate.setMonth(startDate.getMonth() - monthsBack); // August (3 months before November)
   
-  const startMonth = startDate.toLocaleString('en-US', { month: 'short' });
-  const endMonth = endDate.toLocaleString('en-US', { month: 'short' });
+  const startMonth = startDate.toLocaleString('en-US', { month: 'long' });
+  const endMonth = endDate.toLocaleString('en-US', { month: 'long' });
   
   return {
     startMonth,
