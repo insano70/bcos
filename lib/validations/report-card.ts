@@ -151,6 +151,10 @@ export const generateRequestSchema = z.object({
   force: z.boolean().default(false),
   /** When true, clears all report card data before regenerating */
   reset: z.boolean().default(false),
+  /** When true, generates report cards for all historical months */
+  historical: z.boolean().default(false),
+  /** Number of historical months to generate (default 24) */
+  historicalMonths: z.coerce.number().int().min(1).max(36).default(24),
 });
 
 // =============================================================================

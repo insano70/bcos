@@ -21,7 +21,6 @@ import { TrendAnalysisError } from '@/lib/errors/report-card-errors';
 import {
   TREND_PERIODS,
   TREND_THRESHOLDS,
-  REPORT_CARD_LIMITS,
   type TrendPeriod,
   type TrendDirection,
 } from '@/lib/constants/report-card';

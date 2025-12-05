@@ -1,6 +1,6 @@
 {
-  "id": "66df353e-6db9-440b-ba7c-de87d083fc6a",
-  "prevId": "4b395d17-c95f-4af4-8f90-b76954436e83",
+  "id": "4e6f7233-1748-4c7c-89bf-107e3a78de90",
+  "prevId": "b1db1c4a-8fea-41db-a196-313b5d6bd489",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -5819,6 +5819,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "report_card_month": {
+          "name": "report_card_month",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
         "generated_at": {
           "name": "generated_at",
           "type": "timestamp with time zone",
@@ -5917,6 +5923,42 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "idx_report_card_results_month": {
+          "name": "idx_report_card_results_month",
+          "columns": [
+            {
+              "expression": "report_card_month",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_report_card_results_practice_month": {
+          "name": "idx_report_card_results_practice_month",
+          "columns": [
+            {
+              "expression": "practice_uid",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "report_card_month",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -5935,7 +5977,16 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "uq_report_card_practice_month": {
+          "name": "uq_report_card_practice_month",
+          "nullsNotDistinct": false,
+          "columns": [
+            "practice_uid",
+            "report_card_month"
+          ]
+        }
+      },
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false

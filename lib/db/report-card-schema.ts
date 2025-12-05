@@ -1,5 +1,6 @@
 import {
   boolean,
+  date,
   decimal,
   index,
   integer,
@@ -145,7 +146,10 @@ export const report_card_measures = pgTable(
 
 /**
  * Generated report cards with overall scores and insights
- * Stores the final report card output for each practice
+ * Stores monthly report card snapshots for each practice.
+ * 
+ * report_card_month: The month this report card is for (first day of month).
+ * This enables historical viewing - one report card per practice per month.
  */
 export const report_card_results = pgTable(
   'report_card_results',
@@ -155,6 +159,8 @@ export const report_card_results = pgTable(
     organization_id: uuid('organization_id').references(() => organizations.organization_id, {
       onDelete: 'set null',
     }),
+    /** The month this report card represents (first day of month, e.g., 2025-11-01) */
+    report_card_month: date('report_card_month').notNull(),
     generated_at: timestamp('generated_at', { withTimezone: true }).defaultNow(),
     overall_score: decimal('overall_score', { precision: 5, scale: 2 }), // 0-100
     size_bucket: varchar('size_bucket', { length: 20 }),
@@ -167,5 +173,15 @@ export const report_card_results = pgTable(
     generatedIdx: index('idx_report_card_results_generated').on(table.generated_at),
     bucketIdx: index('idx_report_card_results_bucket').on(table.size_bucket),
     orgIdx: index('idx_report_card_results_org').on(table.organization_id),
+    monthIdx: index('idx_report_card_results_month').on(table.report_card_month),
+    practiceMonthIdx: index('idx_report_card_results_practice_month').on(
+      table.practice_uid,
+      table.report_card_month
+    ),
+    /** One report card per practice per month */
+    uniquePracticeMonth: unique('uq_report_card_practice_month').on(
+      table.practice_uid,
+      table.report_card_month
+    ),
   })
 );

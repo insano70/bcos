@@ -56,7 +56,7 @@ export class PracticeSizingService {
 
         return {
           practicesProcessed: 0,
-          bucketCounts: { small: 0, medium: 0, large: 0, xlarge: 0 },
+          bucketCounts: { small: 0, medium: 0, large: 0, xlarge: 0, xxlarge: 0 },
           duration: Date.now() - startTime,
         };
       }
@@ -75,7 +75,7 @@ export class PracticeSizingService {
       );
 
       // Assign buckets using charge-based thresholds and track counts
-      const bucketCounts = { small: 0, medium: 0, large: 0, xlarge: 0 };
+      const bucketCounts = { small: 0, medium: 0, large: 0, xlarge: 0, xxlarge: 0 };
 
       for (const practice of sortedCharges) {
         // Calculate percentile within the filtered active practices
@@ -119,10 +119,21 @@ export class PracticeSizingService {
 
   /**
    * Get average monthly charges for each practice
-   * Uses case-insensitive matching for measure name
+   * Uses only the LAST 12 MONTHS of data for accurate current sizing.
+   * Uses case-insensitive matching for measure name.
+   * 
+   * IMPORTANT: Using all historical data caused inaccurate sizing because:
+   * - Growing practices appeared smaller (old low-volume months diluted average)
+   * - Shrinking practices appeared larger (old high-volume months inflated average)
    */
   private async getPracticeCharges(): Promise<PracticeChargesData[]> {
+    // Calculate cutoff date for last 12 months
+    const cutoffDate = new Date();
+    cutoffDate.setMonth(cutoffDate.getMonth() - 12);
+    cutoffDate.setDate(1); // First day of month
+    
     // Calculate average of charges measure for each practice (case-insensitive)
+    // Only include data from the last 12 months for accurate current sizing
     const result = await db
       .select({
         practice_uid: report_card_statistics.practice_uid,
@@ -130,10 +141,21 @@ export class PracticeSizingService {
         avg_value: sql<string>`AVG(CAST(${report_card_statistics.value} AS DECIMAL))`.as(
           'avg_value'
         ),
+        month_count: sql<number>`COUNT(*)`.as('month_count'),
       })
       .from(report_card_statistics)
-      .where(sql`LOWER(${report_card_statistics.measure_name}) = LOWER(${SIZING_MEASURE})`)
+      .where(
+        sql`LOWER(${report_card_statistics.measure_name}) = LOWER(${SIZING_MEASURE})
+            AND ${report_card_statistics.period_date} >= ${cutoffDate.toISOString()}`
+      )
       .groupBy(report_card_statistics.practice_uid, report_card_statistics.organization_id);
+
+    log.info('Calculated practice charges using last 12 months', {
+      operation: 'get_practice_charges',
+      practiceCount: result.length,
+      cutoffDate: cutoffDate.toISOString().split('T')[0],
+      component: 'report-card',
+    });
 
     return result.map((r) => ({
       practiceUid: r.practice_uid,
@@ -155,13 +177,17 @@ export class PracticeSizingService {
   /**
    * Determine size bucket based on annualized charge thresholds
    *
-   * Thresholds based on actual data distribution analysis:
-   * - XLarge: > $100M annual charges (~18% of practices)
-   * - Large: $40M - $100M (~33% of practices)
-   * - Medium: $15M - $40M (~26% of practices)
-   * - Small: < $15M (~23% of practices)
+   * Thresholds based on last 12 months data distribution:
+   * - XXLarge: > $90M annual charges (~10% of practices) - industry giants
+   * - XLarge: $46M - $90M (~14% of practices) - large practices
+   * - Large: $25M - $46M (~20% of practices)
+   * - Medium: $10M - $25M (~22% of practices)
+   * - Small: < $10M (~23% of practices)
    */
   private determineBucketByCharges(annualizedCharges: number): SizeBucket {
+    if (annualizedCharges >= CHARGE_BASED_THRESHOLDS.xlarge_max) {
+      return 'xxlarge';
+    }
     if (annualizedCharges >= CHARGE_BASED_THRESHOLDS.large_max) {
       return 'xlarge';
     }
@@ -266,6 +292,7 @@ export class PracticeSizingService {
       medium: 0,
       large: 0,
       xlarge: 0,
+      xxlarge: 0,
     };
 
     for (const row of result) {
@@ -285,7 +312,8 @@ export class PracticeSizingService {
       small: `Annual charges < $${(CHARGE_BASED_THRESHOLDS.small_max / 1_000_000).toFixed(0)}M`,
       medium: `Annual charges $${(CHARGE_BASED_THRESHOLDS.small_max / 1_000_000).toFixed(0)}M - $${(CHARGE_BASED_THRESHOLDS.medium_max / 1_000_000).toFixed(0)}M`,
       large: `Annual charges $${(CHARGE_BASED_THRESHOLDS.medium_max / 1_000_000).toFixed(0)}M - $${(CHARGE_BASED_THRESHOLDS.large_max / 1_000_000).toFixed(0)}M`,
-      xlarge: `Annual charges > $${(CHARGE_BASED_THRESHOLDS.large_max / 1_000_000).toFixed(0)}M`,
+      xlarge: `Annual charges $${(CHARGE_BASED_THRESHOLDS.large_max / 1_000_000).toFixed(0)}M - $${(CHARGE_BASED_THRESHOLDS.xlarge_max / 1_000_000).toFixed(0)}M`,
+      xxlarge: `Annual charges > $${(CHARGE_BASED_THRESHOLDS.xlarge_max / 1_000_000).toFixed(0)}M`,
     };
   }
 }

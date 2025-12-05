@@ -50,7 +50,8 @@ function getTrendDisplay(trend: TrendDirection, percentage: number): {
 /**
  * Get percentile color based on value
  */
-function getPercentileColor(percentile: number): string {
+function getPercentileColor(percentile: number | null): string {
+  if (percentile === null) return 'text-slate-400';
   if (percentile >= 75) return 'text-emerald-600';
   if (percentile >= 50) return 'text-amber-600';
   if (percentile >= 25) return 'text-orange-600';
@@ -60,7 +61,8 @@ function getPercentileColor(percentile: number): string {
 /**
  * Get percentile label
  */
-function getPercentileLabel(percentile: number): string {
+function getPercentileLabel(percentile: number | null): string {
+  if (percentile === null) return 'N/A';
   if (percentile >= 90) return 'Top 10%';
   if (percentile >= 75) return 'Top 25%';
   if (percentile >= 50) return 'Above Median';
@@ -78,7 +80,15 @@ function formatMeasureName(name: string): string {
 /**
  * Percentile position bar
  */
-function PercentileBar({ percentile }: { percentile: number }) {
+function PercentileBar({ percentile }: { percentile: number | null }) {
+  if (percentile === null) {
+    return (
+      <div className="relative h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden flex items-center justify-center">
+        <span className="text-[8px] text-slate-400">Insufficient peer data</span>
+      </div>
+    );
+  }
+
   const position = Math.max(0, Math.min(100, percentile));
 
   return (
@@ -153,7 +163,7 @@ function MeasureRow({
               {formatMeasureValue(measure.value, name)}
             </span>
             <span className={`text-xs ml-2 ${percentileColor}`}>
-              {Math.round(measure.percentile)}th
+              {measure.percentile !== null ? `${Math.round(measure.percentile)}th` : 'N/A'}
             </span>
           </div>
           {isExpanded ? (
@@ -214,7 +224,7 @@ function MeasureRow({
             <div className="flex justify-between text-xs text-slate-500 mb-1">
               <span>Your position among peers</span>
               <span className={percentileColor}>
-                {Math.round(measure.percentile)}th percentile
+                {measure.percentile !== null ? `${Math.round(measure.percentile)}th percentile` : 'N/A'}
               </span>
             </div>
             <PercentileBar percentile={measure.percentile} />
@@ -237,9 +247,12 @@ export default function MeasureBreakdown({
   const { monthYear, shortMonth } = getReportCardMonth();
 
   // Sort by percentile (lowest first to highlight areas for improvement)
-  const sortedMeasures = [...measures].sort(
-    ([, a], [, b]) => a.percentile - b.percentile
-  );
+  // Null percentiles go to the end
+  const sortedMeasures = [...measures].sort(([, a], [, b]) => {
+    const aPercentile = a.percentile ?? 101; // Null values sort last
+    const bPercentile = b.percentile ?? 101;
+    return aPercentile - bPercentile;
+  });
 
   return (
     <motion.div

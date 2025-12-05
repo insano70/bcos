@@ -38,8 +38,9 @@ export type TrendPeriod = (typeof TREND_PERIODS)[number];
 
 /**
  * Size bucket definitions
+ * Ordered from smallest to largest
  */
-export const SIZE_BUCKETS = ['small', 'medium', 'large', 'xlarge'] as const;
+export const SIZE_BUCKETS = ['small', 'medium', 'large', 'xlarge', 'xxlarge'] as const;
 export type SizeBucket = (typeof SIZE_BUCKETS)[number];
 
 /**
@@ -62,23 +63,26 @@ export const DEFAULT_PERCENTILE_THRESHOLDS = {
 
 /**
  * Charge-based thresholds for size bucket assignment
- * Based on actual charge distribution analysis (YTD 2025):
- * - 107 practices with > $100K annual charges
- * - Natural breaks in the data at $15M, $40M, and $100M
+ * Based on actual charge distribution analysis (last 12 months):
+ * - Uses recent performance to accurately reflect current practice size
+ * - Thresholds set to create meaningful peer comparison groups
  *
- * Distribution:
- * - XLarge (> $100M): ~18% of practices
- * - Large ($40M - $100M): ~33% of practices
- * - Medium ($15M - $40M): ~26% of practices
- * - Small (< $15M): ~23% of practices
+ * Distribution (approximate):
+ * - XXLarge (> $90M): ~10% of practices (13) - industry giants
+ * - XLarge ($46M - $90M): ~14% of practices (18) - large practices
+ * - Large ($25M - $46M): ~20% of practices (26)
+ * - Medium ($10M - $25M): ~22% of practices (28)
+ * - Small (< $10M): ~23% of practices (29)
  */
 export const CHARGE_BASED_THRESHOLDS = {
   /** Annual charges threshold for Small → Medium */
-  small_max: 15_000_000, // $15M
+  small_max: 10_000_000, // $10M
   /** Annual charges threshold for Medium → Large */
-  medium_max: 40_000_000, // $40M
+  medium_max: 25_000_000, // $25M
   /** Annual charges threshold for Large → XLarge */
-  large_max: 100_000_000, // $100M
+  large_max: 46_000_000, // $46M
+  /** Annual charges threshold for XLarge → XXLarge */
+  xlarge_max: 90_000_000, // $90M
   /** Minimum annual charges to be included in sizing (exclude inactive practices) */
   minimum_charges: 100_000, // $100K
 } as const;

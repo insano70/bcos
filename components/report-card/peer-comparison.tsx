@@ -1,11 +1,14 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Users, ArrowUp, ArrowDown, Minus, ChevronDown, Loader2 } from 'lucide-react';
+import { Users, ArrowUp, ArrowDown, Minus, ChevronDown, Loader2, AlertTriangle } from 'lucide-react';
 import type { PeerComparison, MeasureScore } from '@/lib/types/report-card';
 import type { SizeBucket } from '@/lib/constants/report-card';
 import { SIZE_BUCKETS } from '@/lib/constants/report-card';
 import { formatMeasureValue, isHigherBetter, getReportCardMonth } from '@/lib/utils/format-value';
+
+/** Minimum number of peers required for meaningful comparison */
+const MIN_PEERS_FOR_COMPARISON = 2;
 
 interface PeerComparisonPanelProps {
   comparison: PeerComparison;
@@ -32,6 +35,8 @@ function formatSizeBucket(bucket: SizeBucket): string {
       return 'Large';
     case 'xlarge':
       return 'Extra Large';
+    case 'xxlarge':
+      return 'Enterprise';
     default:
       return bucket;
   }
@@ -153,18 +158,30 @@ function MeasureCard({
   practiceValue,
   peerAverage,
   percentileRank,
+  peerCount,
   percentiles,
   index,
 }: {
   measure: string;
   practiceValue: number;
   peerAverage: number;
-  percentileRank: number;
+  percentileRank: number | null;
+  peerCount: number;
   percentiles: { p25: number; p50: number; p75: number };
   index: number;
 }) {
   const higherBetter = isHigherBetter(measure);
-  const indicator = getComparisonIndicator(practiceValue, peerAverage, higherBetter);
+  const hasInsufficientPeers = peerCount < MIN_PEERS_FOR_COMPARISON;
+  const indicator = hasInsufficientPeers 
+    ? {
+        icon: <AlertTriangle className="w-5 h-5" />,
+        color: 'text-amber-600',
+        bgColor: 'bg-amber-100 dark:bg-amber-900/30',
+        label: 'Limited peer data',
+        isGood: true,
+        percentDiff: 0,
+      }
+    : getComparisonIndicator(practiceValue, peerAverage, higherBetter);
   const difference = practiceValue - peerAverage;
 
   return (
@@ -187,6 +204,17 @@ function MeasureCard({
         </div>
       </div>
 
+      {/* Insufficient peers warning */}
+      {hasInsufficientPeers && (
+        <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+          <p className="text-sm text-amber-700 dark:text-amber-400">
+            <AlertTriangle className="w-4 h-4 inline mr-1.5" />
+            Only {peerCount} peer{peerCount !== 1 ? 's' : ''} in this size group. 
+            Percentile rankings require at least {MIN_PEERS_FOR_COMPARISON} peers for meaningful comparison.
+          </p>
+        </div>
+      )}
+
       {/* Values Grid */}
       <div className="grid grid-cols-3 gap-4 mb-6">
         <div className="text-center p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
@@ -201,8 +229,8 @@ function MeasureCard({
           <span className="text-xs text-slate-500 dark:text-slate-400 block mb-1">
             Peer Average
           </span>
-          <span className="text-xl font-bold text-slate-600 dark:text-slate-400">
-            {formatMeasureValue(peerAverage, measure)}
+          <span className={`text-xl font-bold ${hasInsufficientPeers ? 'text-slate-400' : 'text-slate-600 dark:text-slate-400'}`}>
+            {hasInsufficientPeers ? 'N/A' : formatMeasureValue(peerAverage, measure)}
           </span>
         </div>
         <div className="text-center p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
@@ -210,10 +238,14 @@ function MeasureCard({
             Difference
           </span>
           <span
-            className={`text-xl font-bold ${indicator.isGood ? 'text-emerald-600' : 'text-rose-600'}`}
+            className={`text-xl font-bold ${hasInsufficientPeers ? 'text-slate-400' : (indicator.isGood ? 'text-emerald-600' : 'text-rose-600')}`}
           >
-            {difference >= 0 ? '+' : ''}
-            {formatMeasureValue(difference, measure)}
+            {hasInsufficientPeers ? 'N/A' : (
+              <>
+                {difference >= 0 ? '+' : ''}
+                {formatMeasureValue(difference, measure)}
+              </>
+            )}
           </span>
         </div>
       </div>
@@ -222,38 +254,51 @@ function MeasureCard({
       <div className="mb-2">
         <div className="flex items-center justify-between text-sm mb-1">
           <span className="text-slate-500 dark:text-slate-400">Your Percentile Rank</span>
-          <span className="font-semibold text-violet-600 dark:text-violet-400">
-            {Math.round(percentileRank)}th percentile
+          <span className={`font-semibold ${hasInsufficientPeers ? 'text-slate-400' : 'text-violet-600 dark:text-violet-400'}`}>
+            {percentileRank !== null ? `${Math.round(percentileRank)}th percentile` : 'N/A'}
           </span>
         </div>
-        <PercentileBar percentileRank={percentileRank} />
+        {!hasInsufficientPeers && percentileRank !== null && (
+          <PercentileBar percentileRank={percentileRank} />
+        )}
+        {hasInsufficientPeers && (
+          <div className="h-3 mt-3 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center">
+            <span className="text-[10px] text-slate-400">Insufficient data</span>
+          </div>
+        )}
       </div>
 
       {/* Peer Distribution */}
       <div className="mt-8 pt-4 border-t border-slate-100 dark:border-slate-800">
         <span className="text-xs text-slate-500 dark:text-slate-400 block mb-2">
-          Peer Distribution
+          Peer Distribution {peerCount > 0 && `(${peerCount} peer${peerCount !== 1 ? 's' : ''})`}
         </span>
-        <div className="flex justify-between text-xs">
-          <div className="text-center">
-            <span className="text-slate-400 block">25th</span>
-            <span className="font-medium text-slate-600 dark:text-slate-300">
-              {formatMeasureValue(percentiles.p25, measure)}
-            </span>
+        {hasInsufficientPeers ? (
+          <p className="text-xs text-slate-400 italic">
+            Distribution data unavailable with limited peers
+          </p>
+        ) : (
+          <div className="flex justify-between text-xs">
+            <div className="text-center">
+              <span className="text-slate-400 block">25th</span>
+              <span className="font-medium text-slate-600 dark:text-slate-300">
+                {formatMeasureValue(percentiles.p25, measure)}
+              </span>
+            </div>
+            <div className="text-center">
+              <span className="text-slate-400 block">Median</span>
+              <span className="font-medium text-slate-600 dark:text-slate-300">
+                {formatMeasureValue(percentiles.p50, measure)}
+              </span>
+            </div>
+            <div className="text-center">
+              <span className="text-slate-400 block">75th</span>
+              <span className="font-medium text-slate-600 dark:text-slate-300">
+                {formatMeasureValue(percentiles.p75, measure)}
+              </span>
+            </div>
           </div>
-          <div className="text-center">
-            <span className="text-slate-400 block">Median</span>
-            <span className="font-medium text-slate-600 dark:text-slate-300">
-              {formatMeasureValue(percentiles.p50, measure)}
-            </span>
-          </div>
-          <div className="text-center">
-            <span className="text-slate-400 block">75th</span>
-            <span className="font-medium text-slate-600 dark:text-slate-300">
-              {formatMeasureValue(percentiles.p75, measure)}
-            </span>
-          </div>
-        </div>
+        )}
       </div>
     </motion.div>
   );
@@ -309,13 +354,26 @@ function BucketSelector({
       </div>
 
       {/* Practice count badge */}
-      <div className="flex items-center gap-2 px-3 py-2 bg-slate-100 dark:bg-slate-800 rounded-lg">
+      <div className={`flex items-center gap-2 px-3 py-2 rounded-lg ${
+        practiceCount <= MIN_PEERS_FOR_COMPARISON 
+          ? 'bg-amber-100 dark:bg-amber-900/30' 
+          : 'bg-slate-100 dark:bg-slate-800'
+      }`}>
         {isLoading ? (
           <Loader2 className="w-4 h-4 text-slate-400 animate-spin" />
         ) : (
-          <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
-            {practiceCount} practice{practiceCount !== 1 ? 's' : ''}
-          </span>
+          <>
+            {practiceCount <= MIN_PEERS_FOR_COMPARISON && (
+              <AlertTriangle className="w-4 h-4 text-amber-600" />
+            )}
+            <span className={`text-sm font-medium ${
+              practiceCount <= MIN_PEERS_FOR_COMPARISON
+                ? 'text-amber-700 dark:text-amber-400'
+                : 'text-slate-600 dark:text-slate-400'
+            }`}>
+              {practiceCount} practice{practiceCount !== 1 ? 's' : ''}
+            </span>
+          </>
         )}
       </div>
 
@@ -385,8 +443,9 @@ export default function PeerComparisonPanel({
           {measures.map((measure, index) => {
             const practiceValue = practiceValues[measure] ?? 0;
             const peerAverage = comparison.averages[measure] ?? 0;
-            const percentileRank =
-              measureScores?.[measure]?.percentile ?? practiceScores[measure] ?? 50;
+            const measureScore = measureScores?.[measure];
+            const percentileRank = measureScore?.percentile ?? practiceScores[measure] ?? null;
+            const peerCount = measureScore?.peer_count ?? comparison.practice_count - 1;
             const percentiles = comparison.percentiles[measure] ?? {
               p25: 0,
               p50: 0,
@@ -400,6 +459,7 @@ export default function PeerComparisonPanel({
                 practiceValue={practiceValue}
                 peerAverage={peerAverage}
                 percentileRank={percentileRank}
+                peerCount={peerCount}
                 percentiles={percentiles}
                 index={index}
               />

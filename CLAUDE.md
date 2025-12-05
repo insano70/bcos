@@ -17,6 +17,7 @@ This file provides guidance to Claude Code when working with this repository.
 - **NEVER** skip hooks (`--no-verify`, `--no-gpg-sign`) unless explicitly requested
 - **DO NOT** interact with git unless explicitly instructed
 - **DO NOT** commit work without being told to do so
+- **DO NOT** manually generate DDL migrations, always use drizzle-kit generate
 - **Violation = Critical Safety Failure**
 
 **Hook Failure Response (MANDATORY):**
@@ -415,9 +416,8 @@ pnpm test:run         # Run once and exit
 pnpm test:watch       # Watch mode
 
 # Database
-pnpm db:migrate       # Run pending migrations
-pnpm db:generate      # Generate migration from schema
-pnpm db:push          # Push schema (dev only)
+pnpm drizzle-kit migrate     # Run pending migrations
+pnpm drizzle-kit generate    # Generate migration from schema
 
 # Build
 pnpm build            # Production build

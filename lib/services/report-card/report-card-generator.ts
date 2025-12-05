@@ -3,13 +3,15 @@
  *
  * Generates weighted scores, percentile rankings, and insights
  * for practice report cards.
+ * 
+ * Stores monthly snapshots identified by report_card_month.
+ * Supports historical generation for backfilling past months.
  */
 
-import { eq, and, desc, inArray } from 'drizzle-orm';
+import { eq, and, desc, inArray, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import {
   report_card_statistics,
-  report_card_trends,
   report_card_measures,
   report_card_results,
   practice_size_buckets,
@@ -29,14 +31,56 @@ import type {
 } from './types';
 
 /**
+ * Get the report card month (first day of last month)
+ * Report cards are always for the previous complete month.
+ * Returns ISO date string (YYYY-MM-DD)
+ */
+function getReportCardMonth(): string {
+  const now = new Date();
+  const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  return formatMonthString(lastMonth);
+}
+
+/**
+ * Format a date as YYYY-MM-DD (first of month)
+ */
+function formatMonthString(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  return `${year}-${month}-01`;
+}
+
+/**
+ * Get the last N months as an array of date strings
+ * @param months - Number of months to go back
+ * @returns Array of month strings (e.g., ["2025-10-01", "2025-09-01", ...])
+ */
+function getHistoricalMonths(months: number): string[] {
+  const result: string[] = [];
+  const now = new Date();
+  
+  for (let i = 1; i <= months; i++) {
+    const targetMonth = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    result.push(formatMonthString(targetMonth));
+  }
+  
+  return result;
+}
+
+/**
  * Report Card Generator Service
  *
  * Generates comprehensive report cards with weighted scores and insights.
  * Does not require RBAC context as it's designed for CLI/cron use.
+ * Supports historical generation for backfilling past months.
  */
 export class ReportCardGeneratorService {
   /**
    * Generate report cards for all practices or a specific practice
+   * 
+   * @param options.historical - If true, generates for all historical months
+   * @param options.historicalMonths - Number of months to generate (default 24)
+   * @param options.targetMonth - Specific month to generate (e.g., "2024-01-01")
    */
   async generateAll(options: GenerationOptions = {}): Promise<GenerationResult> {
     const startTime = Date.now();
@@ -57,11 +101,32 @@ export class ReportCardGeneratorService {
         practices = result.map((r) => r.practice_uid);
       }
 
+      // Determine which months to generate
+      let monthsToGenerate: string[];
+      
+      if (options.historical) {
+        const numMonths = options.historicalMonths || 24;
+        monthsToGenerate = getHistoricalMonths(numMonths);
+        log.info('Historical generation mode', {
+          operation: 'generate_report_cards',
+          monthsToGenerate: monthsToGenerate.length,
+          firstMonth: monthsToGenerate[monthsToGenerate.length - 1],
+          lastMonth: monthsToGenerate[0],
+          component: 'report-card',
+        });
+      } else if (options.targetMonth) {
+        monthsToGenerate = [options.targetMonth];
+      } else {
+        monthsToGenerate = [getReportCardMonth()];
+      }
+
       log.info('Starting report card generation', {
         operation: 'generate_report_cards',
         practiceCount: practices.length,
+        monthCount: monthsToGenerate.length,
         practiceUid: options.practiceUid || 'all',
         force: options.force,
+        historical: options.historical || false,
         component: 'report-card',
       });
 
@@ -83,24 +148,35 @@ export class ReportCardGeneratorService {
         };
       }
 
-      // Generate report card for each practice
-      for (const practiceUid of practices) {
-        try {
-          const card = await this.generateForPractice(practiceUid, measures, options.force);
+      // Generate report cards for each practice and each month
+      for (const targetMonth of monthsToGenerate) {
+        for (const practiceUid of practices) {
+          try {
+            const card = await this.generateForPractice(
+              practiceUid, 
+              measures, 
+              options.force || options.historical, // Force for historical
+              targetMonth
+            );
 
-          if (card) {
-            cardsGenerated++;
-            practiceSet.add(practiceUid);
+            if (card) {
+              cardsGenerated++;
+              practiceSet.add(practiceUid);
+            }
+          } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            const errorCode = error instanceof InsufficientDataError ? 'INSUFFICIENT_DATA' : 'GENERATION_FAILED';
+
+            // Only log first few errors per practice to avoid spam
+            const practiceErrors = errors.filter(e => e.practiceUid === practiceUid);
+            if (practiceErrors.length < 3) {
+              errors.push({
+                practiceUid,
+                error: `[${targetMonth}] ${errorMessage}`,
+                code: errorCode,
+              });
+            }
           }
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-          const errorCode = error instanceof InsufficientDataError ? 'INSUFFICIENT_DATA' : 'GENERATION_FAILED';
-
-          errors.push({
-            practiceUid,
-            error: errorMessage,
-            code: errorCode,
-          });
         }
       }
 
@@ -110,6 +186,7 @@ export class ReportCardGeneratorService {
         operation: 'generate_report_cards',
         practicesProcessed: practiceSet.size,
         cardsGenerated,
+        monthsProcessed: monthsToGenerate.length,
         errorCount: errors.length,
         duration,
         slow: duration > SLOW_THRESHOLDS.API_OPERATION,
@@ -117,7 +194,7 @@ export class ReportCardGeneratorService {
       });
 
       return {
-        success: errors.length === 0,
+        success: cardsGenerated > 0,
         practicesProcessed: practiceSet.size,
         cardsGenerated,
         errors,
@@ -134,17 +211,22 @@ export class ReportCardGeneratorService {
   }
 
   /**
-   * Generate report card for a single practice
+   * Generate report card for a single practice for a specific month
    * @param practiceUid - Practice UID to generate report card for
    * @param measures - Optional measures config (will fetch if not provided)
-   * @param force - Force regeneration even if recent report card exists
+   * @param force - Force regeneration even if recent report card exists for this month
+   * @param targetMonth - Target month (YYYY-MM-DD), defaults to last month
    */
   async generateForPractice(
     practiceUid: number,
     measures?: MeasureConfig[],
-    force?: boolean
+    force?: boolean,
+    targetMonth?: string
   ): Promise<ReportCard | null> {
-    // Check if recent report card exists (skip if not forcing)
+    // Get the report card month we're generating for
+    const reportCardMonth = targetMonth || getReportCardMonth();
+
+    // Check if report card exists for this month (skip if not forcing)
     if (!force) {
       const staleThreshold = new Date();
       staleThreshold.setHours(staleThreshold.getHours() - REPORT_CARD_LIMITS.STALE_THRESHOLD_HOURS);
@@ -155,19 +237,16 @@ export class ReportCardGeneratorService {
           generated_at: report_card_results.generated_at,
         })
         .from(report_card_results)
-        .where(eq(report_card_results.practice_uid, practiceUid))
-        .orderBy(desc(report_card_results.generated_at))
+        .where(
+          and(
+            eq(report_card_results.practice_uid, practiceUid),
+            eq(report_card_results.report_card_month, reportCardMonth)
+          )
+        )
         .limit(1);
 
       if (existing?.generated_at && existing.generated_at > staleThreshold) {
-        // Recent report card exists, skip regeneration
-        log.info('Skipping report card generation - recent card exists', {
-          operation: 'generate_report_card',
-          practiceUid,
-          existingCardId: existing.result_id,
-          generatedAt: existing.generated_at.toISOString(),
-          component: 'report-card',
-        });
+        // Recent report card exists for this month, skip regeneration
         return null;
       }
     }
@@ -193,12 +272,17 @@ export class ReportCardGeneratorService {
     const sizeBucket = sizeResult.size_bucket as SizeBucket;
     const percentileRank = parseFloat(sizeResult.percentile || '0');
 
-    // Calculate scores for each measure
+    // Calculate scores for each measure using data as of the target month
     const measureScores: Record<string, MeasureScore> = {};
     const scoringResults: MeasureScoringResult[] = [];
 
     for (const measure of activeMeasures) {
-      const scoring = await this.scoreMeasure(practiceUid, measure, sizeBucket);
+      const scoring = await this.scoreMeasureForMonth(
+        practiceUid, 
+        measure, 
+        sizeBucket,
+        reportCardMonth
+      );
 
       if (scoring) {
         scoringResults.push(scoring);
@@ -209,12 +293,13 @@ export class ReportCardGeneratorService {
           trend_percentage: scoring.trendPercentage,
           percentile: scoring.percentileRank,
           peer_average: scoring.peerAverage,
+          peer_count: scoring.peerCount,
         };
       }
     }
 
     if (scoringResults.length === 0) {
-      throw new InsufficientDataError(practiceUid, 'No measure scores could be calculated');
+      throw new InsufficientDataError(practiceUid, `No measure scores for ${reportCardMonth}`);
     }
 
     // Calculate overall weighted score
@@ -236,6 +321,7 @@ export class ReportCardGeneratorService {
     const reportCard = await this.saveReportCard({
       practiceUid,
       organizationId,
+      reportCardMonth,
       overallScore,
       sizeBucket,
       percentileRank,
@@ -247,78 +333,183 @@ export class ReportCardGeneratorService {
   }
 
   /**
-   * Score a single measure for a practice
+   * Score a single measure for a practice for a specific month
+   * Uses data from that month, not the latest data
    */
-  private async scoreMeasure(
+  private async scoreMeasureForMonth(
     practiceUid: number,
     measure: MeasureConfig,
-    sizeBucket: SizeBucket
+    sizeBucket: SizeBucket,
+    targetMonth: string
   ): Promise<MeasureScoringResult | null> {
-    // Get latest statistics for this measure
-    const [latestStat] = await db
-      .select({ value: report_card_statistics.value })
+    // Get statistics for the target month
+    // Match month by comparing the period_date's year-month
+    const targetDate = new Date(targetMonth);
+    const monthStart = new Date(targetDate.getFullYear(), targetDate.getMonth(), 1);
+    const monthEnd = new Date(targetDate.getFullYear(), targetDate.getMonth() + 1, 1);
+
+    const [monthStat] = await db
+      .select({ 
+        value: report_card_statistics.value,
+        period_date: report_card_statistics.period_date,
+      })
       .from(report_card_statistics)
       .where(
         and(
           eq(report_card_statistics.practice_uid, practiceUid),
-          eq(report_card_statistics.measure_name, measure.measure_name)
+          eq(report_card_statistics.measure_name, measure.measure_name),
+          sql`${report_card_statistics.period_date} >= ${monthStart.toISOString()}`,
+          sql`${report_card_statistics.period_date} < ${monthEnd.toISOString()}`
         )
       )
-      .orderBy(desc(report_card_statistics.period_date))
       .limit(1);
 
-    if (!latestStat) {
+    if (!monthStat) {
       return null;
     }
 
-    const rawValue = parseFloat(latestStat.value);
+    const rawValue = parseFloat(monthStat.value);
 
-    // Get peer statistics for percentile calculation
-    const peerData = await this.getPeerStatistics(measure.measure_name, sizeBucket);
+    // Get peer statistics for the same month (excluding current practice for true peer comparison)
+    const peerData = await this.getPeerStatisticsForMonth(
+      measure.measure_name, 
+      sizeBucket,
+      targetMonth,
+      practiceUid  // Exclude self from peer comparison
+    );
 
-    // Calculate percentile rank
-    const percentileRank = this.calculatePercentile(rawValue, peerData.values, measure.higher_is_better);
+    // Calculate percentile rank (will be null if insufficient peers)
+    // Minimum 2 peers required for meaningful percentile
+    const percentileRank = peerData.peerCount >= 2 
+      ? this.calculatePercentile(rawValue, peerData.values, measure.higher_is_better)
+      : null;
 
-    // Get trend for this measure
-    const [trendResult] = await db
-      .select({
-        trend_direction: report_card_trends.trend_direction,
-        trend_percentage: report_card_trends.trend_percentage,
-      })
-      .from(report_card_trends)
-      .where(
-        and(
-          eq(report_card_trends.practice_uid, practiceUid),
-          eq(report_card_trends.measure_name, measure.measure_name),
-          eq(report_card_trends.trend_period, '3_month')
-        )
-      )
-      .limit(1);
-
-    const trend = (trendResult?.trend_direction as TrendDirection) || 'stable';
-    const trendPercentage = parseFloat(trendResult?.trend_percentage || '0');
+    // Calculate trend by comparing to prior 3 months
+    const trendData = await this.calculateTrendForMonth(
+      practiceUid,
+      measure.measure_name,
+      targetMonth,
+      measure.higher_is_better
+    );
 
     // Normalize score to 0-100 scale
-    const normalizedScore = this.normalizeScore(percentileRank, trend, measure.higher_is_better);
+    // When percentile is null (insufficient peers), use 50 as neutral baseline
+    const effectivePercentile = percentileRank ?? 50;
+    const normalizedScore = this.normalizeScore(effectivePercentile, trendData.direction, measure.higher_is_better);
 
     return {
       measureName: measure.measure_name,
       rawValue,
       normalizedScore,
-      percentileRank,
+      percentileRank: percentileRank ?? null,  // Preserve null to indicate insufficient data
       peerAverage: peerData.average,
-      trend,
-      trendPercentage,
+      peerCount: peerData.peerCount,  // Include peer count for UI to show warnings
+      trend: trendData.direction,
+      trendPercentage: trendData.percentage,
     };
   }
 
   /**
-   * Get peer statistics for a measure within a size bucket
+   * Calculate trend for a measure by comparing target month to prior 3 months average
    */
-  private async getPeerStatistics(
+  private async calculateTrendForMonth(
+    practiceUid: number,
     measureName: string,
-    sizeBucket: SizeBucket
-  ): Promise<{ values: number[]; average: number }> {
+    targetMonth: string,
+    higherIsBetter: boolean
+  ): Promise<{ direction: TrendDirection; percentage: number }> {
+    const targetDate = new Date(targetMonth);
+    
+    // Get prior 3 months
+    const priorMonths: Date[] = [];
+    for (let i = 1; i <= 3; i++) {
+      priorMonths.push(new Date(targetDate.getFullYear(), targetDate.getMonth() - i, 1));
+    }
+
+    // Get values for prior months
+    const priorStats = await db
+      .select({ 
+        value: report_card_statistics.value,
+        period_date: report_card_statistics.period_date,
+      })
+      .from(report_card_statistics)
+      .where(
+        and(
+          eq(report_card_statistics.practice_uid, practiceUid),
+          eq(report_card_statistics.measure_name, measureName),
+          sql`${report_card_statistics.period_date} >= ${priorMonths[2]?.toISOString() || priorMonths[0]?.toISOString()}`,
+          sql`${report_card_statistics.period_date} < ${targetDate.toISOString()}`
+        )
+      );
+
+    if (priorStats.length === 0) {
+      return { direction: 'stable', percentage: 0 };
+    }
+
+    // Get target month value
+    const targetMonthStart = new Date(targetDate.getFullYear(), targetDate.getMonth(), 1);
+    const targetMonthEnd = new Date(targetDate.getFullYear(), targetDate.getMonth() + 1, 1);
+    
+    const [targetStat] = await db
+      .select({ value: report_card_statistics.value })
+      .from(report_card_statistics)
+      .where(
+        and(
+          eq(report_card_statistics.practice_uid, practiceUid),
+          eq(report_card_statistics.measure_name, measureName),
+          sql`${report_card_statistics.period_date} >= ${targetMonthStart.toISOString()}`,
+          sql`${report_card_statistics.period_date} < ${targetMonthEnd.toISOString()}`
+        )
+      )
+      .limit(1);
+
+    if (!targetStat) {
+      return { direction: 'stable', percentage: 0 };
+    }
+
+    const targetValue = parseFloat(targetStat.value);
+    const priorValues = priorStats.map(s => parseFloat(s.value));
+    const priorAvg = priorValues.reduce((sum, v) => sum + v, 0) / priorValues.length;
+
+    if (priorAvg === 0) {
+      return { direction: 'stable', percentage: 0 };
+    }
+
+    const percentChange = ((targetValue - priorAvg) / priorAvg) * 100;
+    // Cap at ±99999.99 to prevent overflow
+    const cappedPercentChange = Math.max(-99999.99, Math.min(99999.99, percentChange));
+
+    // Determine direction based on higherIsBetter
+    let direction: TrendDirection = 'stable';
+    if (Math.abs(cappedPercentChange) >= 5) {
+      const isPositive = cappedPercentChange > 0;
+      if (higherIsBetter) {
+        direction = isPositive ? 'improving' : 'declining';
+      } else {
+        direction = isPositive ? 'declining' : 'improving';
+      }
+    }
+
+    return { 
+      direction, 
+      percentage: Math.round(cappedPercentChange * 100) / 100 
+    };
+  }
+
+  /**
+   * Get peer statistics for a measure within a size bucket for a specific month
+   * 
+   * @param measureName - The measure to get stats for
+   * @param sizeBucket - The size bucket to compare against
+   * @param targetMonth - The month to get stats for
+   * @param excludePracticeUid - Optional practice to exclude from peer pool (typically the current practice)
+   */
+  private async getPeerStatisticsForMonth(
+    measureName: string,
+    sizeBucket: SizeBucket,
+    targetMonth: string,
+    excludePracticeUid?: number
+  ): Promise<{ values: number[]; average: number; peerCount: number }> {
     // Get practices in the same size bucket
     const peerPractices = await db
       .select({ practice_uid: practice_size_buckets.practice_uid })
@@ -326,26 +517,37 @@ export class ReportCardGeneratorService {
       .where(eq(practice_size_buckets.size_bucket, sizeBucket));
 
     if (peerPractices.length === 0) {
-      return { values: [], average: 0 };
+      return { values: [], average: 0, peerCount: 0 };
     }
 
-    const practiceUids = peerPractices.map((p) => p.practice_uid);
+    // Exclude the current practice from the peer pool to get true peer comparison
+    const practiceUids = peerPractices
+      .map((p) => p.practice_uid)
+      .filter((uid) => uid !== excludePracticeUid);
 
-    // Get latest value for each peer practice
+    if (practiceUids.length === 0) {
+      // Only the current practice is in the bucket
+      return { values: [], average: 0, peerCount: 0 };
+    }
+
+    // Get value for each peer practice for the target month
+    const targetDate = new Date(targetMonth);
+    const monthStart = new Date(targetDate.getFullYear(), targetDate.getMonth(), 1);
+    const monthEnd = new Date(targetDate.getFullYear(), targetDate.getMonth() + 1, 1);
+
     const peerStats = await db
-      .selectDistinctOn([report_card_statistics.practice_uid], {
+      .select({
+        practice_uid: report_card_statistics.practice_uid,
         value: report_card_statistics.value,
       })
       .from(report_card_statistics)
       .where(
         and(
           inArray(report_card_statistics.practice_uid, practiceUids),
-          eq(report_card_statistics.measure_name, measureName)
+          eq(report_card_statistics.measure_name, measureName),
+          sql`${report_card_statistics.period_date} >= ${monthStart.toISOString()}`,
+          sql`${report_card_statistics.period_date} < ${monthEnd.toISOString()}`
         )
-      )
-      .orderBy(
-        report_card_statistics.practice_uid,
-        desc(report_card_statistics.period_date)
       );
 
     const values = peerStats.map((s) => parseFloat(s.value));
@@ -353,7 +555,7 @@ export class ReportCardGeneratorService {
       ? values.reduce((sum, v) => sum + v, 0) / values.length
       : 0;
 
-    return { values, average };
+    return { values, average, peerCount: values.length };
   }
 
   /**
@@ -445,8 +647,11 @@ export class ReportCardGeneratorService {
     const top = sorted[0];
     if (top) {
       const topMeasure = measures.find((m) => m.measure_name === top.measureName);
+      const percentileText = top.percentileRank !== null 
+        ? ` (${Math.round(top.percentileRank)}th percentile)` 
+        : '';
       insights.push(
-        `Strongest performance in ${topMeasure?.display_name ?? top.measureName} (${Math.round(top.percentileRank)}th percentile)`
+        `Strongest performance in ${topMeasure?.display_name ?? top.measureName}${percentileText}`
       );
     }
 
@@ -454,8 +659,11 @@ export class ReportCardGeneratorService {
       const bottom = sorted[sorted.length - 1];
       if (bottom && bottom.normalizedScore < 50) {
         const bottomMeasure = measures.find((m) => m.measure_name === bottom.measureName);
+        const percentileText = bottom.percentileRank !== null 
+          ? ` (${Math.round(bottom.percentileRank)}th percentile)` 
+          : '';
         insights.push(
-          `Opportunity for improvement in ${bottomMeasure?.display_name ?? bottom.measureName} (${Math.round(bottom.percentileRank)}th percentile)`
+          `Opportunity for improvement in ${bottomMeasure?.display_name ?? bottom.measureName}${percentileText}`
         );
       }
     }
@@ -489,28 +697,37 @@ export class ReportCardGeneratorService {
 
   /**
    * Save report card to database
+   * 
+   * Stores one report card per practice per month (report_card_month).
+   * If a report card exists for the same practice/month, it updates it.
+   * Otherwise, inserts a new record.
    */
   private async saveReportCard(data: {
     practiceUid: number;
     organizationId: string | null;
+    reportCardMonth: string;
     overallScore: number;
     sizeBucket: SizeBucket;
     percentileRank: number;
     insights: string[];
     measureScores: Record<string, MeasureScore>;
   }): Promise<ReportCard> {
-    // Check for existing report card
+    // Check for existing report card for this practice AND month
     const [existing] = await db
       .select({ result_id: report_card_results.result_id })
       .from(report_card_results)
-      .where(eq(report_card_results.practice_uid, data.practiceUid))
-      .orderBy(desc(report_card_results.generated_at))
+      .where(
+        and(
+          eq(report_card_results.practice_uid, data.practiceUid),
+          eq(report_card_results.report_card_month, data.reportCardMonth)
+        )
+      )
       .limit(1);
 
     let resultId: string;
 
     if (existing) {
-      // Update existing report card
+      // Update existing report card for this month
       await db
         .update(report_card_results)
         .set({
@@ -526,12 +743,13 @@ export class ReportCardGeneratorService {
 
       resultId = existing.result_id;
     } else {
-      // Insert new report card
+      // Insert new report card for this month
       const [inserted] = await db
         .insert(report_card_results)
         .values({
           practice_uid: data.practiceUid,
           organization_id: data.organizationId,
+          report_card_month: data.reportCardMonth,
           overall_score: String(data.overallScore),
           size_bucket: data.sizeBucket,
           percentile_rank: String(data.percentileRank),
@@ -551,6 +769,7 @@ export class ReportCardGeneratorService {
       result_id: resultId,
       practice_uid: data.practiceUid,
       organization_id: data.organizationId,
+      report_card_month: data.reportCardMonth,
       generated_at: new Date().toISOString(),
       overall_score: data.overallScore,
       size_bucket: data.sizeBucket,

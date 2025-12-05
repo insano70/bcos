@@ -2,35 +2,33 @@
 
 import { motion, useSpring, useTransform } from 'framer-motion';
 import { useEffect, useState } from 'react';
+import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import type { SizeBucket } from '@/lib/constants/report-card';
-import { GRADE_THRESHOLDS } from '@/lib/constants/report-card';
+import type { PreviousMonthSummary } from '@/lib/types/report-card';
+import { applyGradeFloor, getLetterGrade as getGrade, getGradeColor } from '@/lib/utils/format-value';
+import ScoreHelpTooltip from './score-help-tooltip';
 
 interface OverallScoreCardProps {
   score: number;
   sizeBucket: SizeBucket;
   percentileRank: number;
   reportCardMonth?: string; // e.g., "November 2025"
+  previousMonth?: PreviousMonthSummary | null | undefined;
   className?: string;
 }
 
 /**
- * Apply grade floor - ensures minimum C- grade
- * Raw scores below 70 are displayed as 70 (C-)
+ * Get letter grade with color from score (0-100)
+ * Wraps the shared utility to return both letter and color
  */
-function applyFloor(rawScore: number): number {
-  return Math.max(GRADE_THRESHOLDS.FLOOR, rawScore);
-}
-
-/**
- * Get letter grade from score (0-100)
- * Uses floored score - no D's or F's
- */
-function getLetterGrade(rawScore: number): { letter: string; color: string } {
-  const score = applyFloor(rawScore);
-  if (score >= 90) return { letter: 'A', color: 'text-emerald-500' };
-  if (score >= 80) return { letter: 'B', color: 'text-teal-500' };
-  // C range (70-79) - this is now the minimum
-  return { letter: 'C', color: 'text-amber-500' };
+function getLetterGradeWithColor(rawScore: number): { letter: string; color: string } {
+  const grade = getGrade(rawScore);
+  // Extract base letter (A, B, C)
+  const baseLetter = grade.charAt(0);
+  return { 
+    letter: baseLetter, 
+    color: getGradeColor(grade)
+  };
 }
 
 /**
@@ -38,7 +36,7 @@ function getLetterGrade(rawScore: number): { letter: string; color: string } {
  * Uses floored score
  */
 function getGradeModifier(rawScore: number): string {
-  const score = applyFloor(rawScore);
+  const score = applyGradeFloor(rawScore);
   const remainder = score % 10;
   if (score >= 100) return '+';
   if (remainder >= 7) return '+';
@@ -51,7 +49,7 @@ function getGradeModifier(rawScore: number): string {
  * Uses floored score for consistent visuals
  */
 function getScoreGradient(rawScore: number): string {
-  const score = applyFloor(rawScore);
+  const score = applyGradeFloor(rawScore);
   if (score >= 90) return 'from-emerald-500/10 to-emerald-600/5';
   if (score >= 80) return 'from-teal-500/10 to-teal-600/5';
   // C range gradient for 70-79 (minimum)
@@ -63,7 +61,7 @@ function getScoreGradient(rawScore: number): string {
  * Uses floored score
  */
 function getRingColor(rawScore: number): string {
-  const score = applyFloor(rawScore);
+  const score = applyGradeFloor(rawScore);
   if (score >= 90) return 'stroke-emerald-500';
   if (score >= 80) return 'stroke-teal-500';
   // C range (minimum)
@@ -83,6 +81,8 @@ function formatSizeBucket(bucket: SizeBucket): string {
       return 'Large Practice';
     case 'xlarge':
       return 'Extra Large Practice';
+    case 'xxlarge':
+      return 'Enterprise Practice';
     default:
       return 'Practice';
   }
@@ -94,13 +94,15 @@ function formatSizeBucket(bucket: SizeBucket): string {
 function getSizeBucketDescription(bucket: SizeBucket): string {
   switch (bucket) {
     case 'small':
-      return '< $15M annual charges';
+      return '< $10M annual charges';
     case 'medium':
-      return '$15M - $40M annual charges';
+      return '$10M - $25M annual charges';
     case 'large':
-      return '$40M - $100M annual charges';
+      return '$25M - $46M annual charges';
     case 'xlarge':
-      return '> $100M annual charges';
+      return '$46M - $90M annual charges';
+    case 'xxlarge':
+      return '> $90M annual charges';
     default:
       return '';
   }
@@ -135,7 +137,7 @@ function AnimatedScore({ value, duration = 1.5 }: { value: number; duration?: nu
  * Uses floored score for visual display
  */
 function ScoreRing({ score, size = 200 }: { score: number; size?: number }) {
-  const displayScore = applyFloor(score);
+  const displayScore = applyGradeFloor(score);
   const strokeWidth = 12;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
@@ -176,18 +178,36 @@ function ScoreRing({ score, size = 200 }: { score: number; size?: number }) {
  * Overall Score Card Component
  * Displays the practice's overall score with a letter grade and percentile rank
  * Score is floored at C- (70) - no practice gets D or F
+ * Optionally shows previous month's grade for comparison
  */
 export default function OverallScoreCard({
   score,
   sizeBucket,
   percentileRank,
   reportCardMonth,
+  previousMonth,
   className = '',
 }: OverallScoreCardProps) {
-  const displayScore = applyFloor(score);
-  const { letter, color } = getLetterGrade(score);
+  const displayScore = applyGradeFloor(score);
+  const { letter, color } = getLetterGradeWithColor(score);
   const modifier = getGradeModifier(score);
   const gradient = getScoreGradient(score);
+
+  // Calculate change indicator
+  const getChangeIndicator = () => {
+    if (!previousMonth) return null;
+    
+    const change = previousMonth.scoreChange;
+    if (Math.abs(change) < 0.5) {
+      return { icon: <Minus className="w-4 h-4" />, color: 'text-slate-500', text: 'Same as' };
+    }
+    if (change > 0) {
+      return { icon: <TrendingUp className="w-4 h-4" />, color: 'text-emerald-500', text: `+${change.toFixed(1)} from` };
+    }
+    return { icon: <TrendingDown className="w-4 h-4" />, color: 'text-rose-500', text: `${change.toFixed(1)} from` };
+  };
+
+  const changeIndicator = getChangeIndicator();
 
   return (
     <motion.div
@@ -202,9 +222,12 @@ export default function OverallScoreCard({
       </div>
 
       <div className="relative z-10">
-        <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-300 mb-1">
-          {reportCardMonth ? `${reportCardMonth} Report Card` : 'Practice Report Card'}
-        </h3>
+        <div className="flex items-center gap-2 mb-1">
+          <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-300">
+            {reportCardMonth ? `${reportCardMonth} Report Card` : 'Practice Report Card'}
+          </h3>
+          <ScoreHelpTooltip />
+        </div>
         {reportCardMonth && (
           <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
             Performance snapshot for {reportCardMonth}
@@ -225,6 +248,26 @@ export default function OverallScoreCard({
               </span>
             </div>
           </div>
+
+          {/* Previous Month Comparison */}
+          {previousMonth && changeIndicator && (
+            <motion.div
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.3, duration: 0.4 }}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/50 dark:bg-slate-800/50 border border-slate-200/50 dark:border-slate-700/50"
+            >
+              <span className={changeIndicator.color}>{changeIndicator.icon}</span>
+              <div className="text-sm">
+                <span className={`font-medium ${changeIndicator.color}`}>
+                  {changeIndicator.text}
+                </span>
+                <span className="text-slate-600 dark:text-slate-400 ml-1">
+                  {previousMonth.month} ({previousMonth.grade})
+                </span>
+              </div>
+            </motion.div>
+          )}
 
           {/* Details */}
           <div className="flex-1 text-center sm:text-left">

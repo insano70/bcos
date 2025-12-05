@@ -49,6 +49,12 @@ export interface SizingOptions {
 export interface GenerationOptions {
   practiceUid?: number | undefined;
   force?: boolean | undefined;
+  /** Target month for historical generation (e.g., "2024-01-01") */
+  targetMonth?: string | undefined;
+  /** Generate for all historical months (last N months) */
+  historical?: boolean | undefined;
+  /** Number of historical months to generate (default 24) */
+  historicalMonths?: number | undefined;
 }
 
 /**
@@ -69,8 +75,11 @@ export interface MeasureScoringResult {
   measureName: string;
   rawValue: number;
   normalizedScore: number;
-  percentileRank: number;
+  /** Percentile rank (0-100) or null if insufficient peers (<2) */
+  percentileRank: number | null;
   peerAverage: number;
+  /** Number of peers used for comparison (excludes current practice) */
+  peerCount: number;
   trend: 'improving' | 'declining' | 'stable';
   trendPercentage: number;
 }

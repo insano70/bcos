@@ -46,13 +46,19 @@ const generateReportCardsHandler = async (
       return createErrorResponse(`Validation failed: ${errorDetails}`, 400, request);
     }
 
-    const { practiceUid, force, reset } = validationResult.data;
+    const { practiceUid, force, reset, historical, historicalMonths } = validationResult.data;
+
+    // If reset is true, default to historical generation for full data rebuild
+    const useHistorical = historical || reset;
+    const monthsToGenerate = historicalMonths;
 
     log.info('Starting report card generation', {
       operation: 'generate_report_cards',
       practiceUid: practiceUid ?? 'all',
       force,
       reset,
+      historical: useHistorical,
+      historicalMonths: useHistorical ? monthsToGenerate : undefined,
       userId: userContext.user_id,
       component: 'report-card',
     });
@@ -93,8 +99,16 @@ const generateReportCardsHandler = async (
     // Step 3: Assign size buckets
     const sizingResult = await practiceSizer.assignBuckets();
 
-    // Step 4: Generate report cards
-    const generateResult = await reportCardGenerator.generateAll({ practiceUid });
+    // Step 4: Generate report cards (historical if reset or explicitly requested)
+    const generateResult = await reportCardGenerator.generateAll({ 
+      practiceUid,
+      force: force || reset,
+      historical: useHistorical,
+      historicalMonths: useHistorical ? monthsToGenerate : undefined,
+    });
+
+    // Always invalidate cache after generation to ensure fresh data is shown
+    await reportCardCache.invalidate('all');
 
     const duration = Date.now() - startTime;
 

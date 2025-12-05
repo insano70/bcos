@@ -14,6 +14,9 @@ import type {
   MeasureCreateInput,
   MeasureUpdateInput,
   GenerationResult,
+  PreviousMonthSummary,
+  GradeHistoryEntry,
+  AnnualReview,
 } from '@/lib/types/report-card';
 import type { TrendPeriod, SizeBucket } from '@/lib/constants/report-card';
 
@@ -23,12 +26,21 @@ import type { TrendPeriod, SizeBucket } from '@/lib/constants/report-card';
 
 /**
  * Hook for fetching a practice's report card
+ * Includes previous month summary for comparison display
+ * 
+ * @param practiceUid - Practice UID to fetch report card for
+ * @param month - Optional month in YYYY-MM-DD format to fetch specific month's report card
  */
-export function useReportCard(practiceUid: number | undefined) {
-  const url = practiceUid ? `/api/admin/report-card/${practiceUid}` : '';
+export function useReportCard(practiceUid: number | undefined, month?: string) {
+  const queryParams = month ? `?month=${month}` : '';
+  const url = practiceUid ? `/api/admin/report-card/${practiceUid}${queryParams}` : '';
 
-  return useApiQuery<{ reportCard: ReportCard }>(
-    practiceUid ? ['report-card', practiceUid] : ['report-card', 'none'],
+  return useApiQuery<{
+    reportCard: ReportCard;
+    previousMonth: PreviousMonthSummary | null;
+    availableMonths: string[];
+  }>(
+    practiceUid ? ['report-card', practiceUid, month || 'latest'] : ['report-card', 'none'],
     url,
     {
       enabled: !!practiceUid,
@@ -87,6 +99,44 @@ export function usePeerComparison(sizeBucket?: SizeBucket) {
     url,
     {
       staleTime: 2 * 60 * 1000, // 2 minutes - peer stats can change when buckets are recalculated
+    }
+  );
+}
+
+/**
+ * Hook for fetching grade history (last N months of report cards)
+ */
+export function useGradeHistory(practiceUid: number | undefined, limit: number = 12) {
+  const queryParams = limit !== 12 ? `?limit=${limit}` : '';
+  const url = practiceUid ? `/api/admin/report-card/${practiceUid}/history${queryParams}` : '';
+
+  return useApiQuery<{ history: GradeHistoryEntry[] }>(
+    practiceUid
+      ? ['report-card-history', practiceUid, limit]
+      : ['report-card-history', 'none'],
+    url,
+    {
+      enabled: !!practiceUid,
+      staleTime: 5 * 60 * 1000, // 5 minutes
+    }
+  );
+}
+
+/**
+ * Hook for fetching annual review data
+ * Returns year-over-year comparison, trends, and forecasts
+ */
+export function useAnnualReview(practiceUid: number | undefined) {
+  const url = practiceUid ? `/api/admin/report-card/${practiceUid}/annual-review` : '';
+
+  return useApiQuery<{ review: AnnualReview }>(
+    practiceUid
+      ? ['report-card-annual-review', practiceUid]
+      : ['report-card-annual-review', 'none'],
+    url,
+    {
+      enabled: !!practiceUid,
+      staleTime: 10 * 60 * 1000, // 10 minutes (annual data changes less frequently)
     }
   );
 }

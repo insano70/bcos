@@ -7,6 +7,7 @@ import {
   useReportCard,
   useTrends,
   usePeerComparison,
+  useGradeHistory,
 } from '@/lib/hooks/use-report-card';
 import { useOrganizations } from '@/lib/hooks/use-organizations';
 import HierarchySelect from '@/components/hierarchy-select';
@@ -17,9 +18,12 @@ import {
   TrendChart,
   PeerComparisonPanel,
   InsightsPanel,
+  GradeHistoryTable,
+  MonthSelector,
 } from '@/components/report-card';
 import { getReportCardMonth } from '@/lib/utils/format-value';
-import { FileText, RefreshCcw, Building2 } from 'lucide-react';
+import Link from 'next/link';
+import { FileText, RefreshCcw, Building2, Calendar } from 'lucide-react';
 
 /**
  * Report Card View Component
@@ -30,6 +34,7 @@ export default function ReportCardView() {
   const { userContext, isLoading: authLoading } = useAuth();
   const [selectedPracticeUid, setSelectedPracticeUid] = useState<number | undefined>(undefined);
   const [selectedOrgId, setSelectedOrgId] = useState<string | undefined>(undefined);
+  const [selectedMonth, setSelectedMonth] = useState<string | undefined>(undefined);
   const [trendPeriod, setTrendPeriod] = useState<TrendPeriod>('3_month');
   const [selectedPeerBucket, setSelectedPeerBucket] = useState<SizeBucket | undefined>(undefined);
 
@@ -105,7 +110,7 @@ export default function ReportCardView() {
     isLoading: isLoadingReportCard,
     error: reportCardError,
     refetch: refetchReportCard,
-  } = useReportCard(selectedPracticeUid);
+  } = useReportCard(selectedPracticeUid, selectedMonth);
 
   const { data: trendsData, isLoading: isLoadingTrends } = useTrends(
     selectedPracticeUid,
@@ -120,26 +125,54 @@ export default function ReportCardView() {
     effectivePeerBucket
   );
 
+  // Fetch grade history (last 12 months)
+  const { data: historyData, isLoading: isLoadingHistory } = useGradeHistory(
+    selectedPracticeUid,
+    12
+  );
+
   const reportCard = reportCardData?.reportCard;
+  const previousMonth = reportCardData?.previousMonth;
+  const availableMonths = reportCardData?.availableMonths || [];
   const trends = trendsData?.trends || [];
   const peerComparison = peerData?.comparison;
+  const gradeHistory = historyData?.history || [];
 
   const isLoading = authLoading || isLoadingReportCard || isLoadingTrends || isLoadingPeer;
 
-  // Reset peer bucket selection when practice changes (so it defaults to new practice's bucket)
+  // Reset peer bucket and month selection when practice changes
   // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally reset on practice change only
   useEffect(() => {
     setSelectedPeerBucket(undefined);
+    setSelectedMonth(undefined);
   }, [selectedPracticeUid]);
 
-  // Render organization selector for super users
+  // Determine if organization selector should be shown
+  // Only show when user has multiple organizations to choose from
+  const showOrgSelector = useMemo(() => {
+    // Super users: show if there are multiple organizations
+    if (canViewAll) {
+      return allOrganizations.length > 1;
+    }
+    // Regular users: show if they have access to multiple organizations
+    return (userContext?.organizations?.length ?? 0) > 1;
+  }, [canViewAll, allOrganizations.length, userContext?.organizations?.length]);
+
+  // Render organization selector only when there are multiple orgs to choose from
   const renderFilters = () => {
-    if (!canViewAll) return null;
+    if (!showOrgSelector) return null;
 
     // Get selected org name for display
     const selectedOrgName = selectedOrgId 
       ? allOrganizations.find((o) => o.id === selectedOrgId)?.name 
       : null;
+
+    // Determine which orgs to show in the selector
+    const selectableOrgs = canViewAll 
+      ? allOrganizations 
+      : allOrganizations.filter((org) => 
+          userContext?.organizations?.some((userOrg) => userOrg.organization_id === org.id)
+        );
 
     return (
       <div className="flex flex-wrap items-center gap-4 mb-6 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700">
@@ -151,7 +184,7 @@ export default function ReportCardView() {
         {/* Organization selector */}
         <div className="w-72">
           <HierarchySelect
-            items={allOrganizations}
+            items={selectableOrgs}
             value={selectedOrgId}
             onChange={(id) => setSelectedOrgId(id as string | undefined)}
             idField="id"
@@ -162,7 +195,7 @@ export default function ReportCardView() {
             disabled={loadingOrgs}
             showSearch
             allowClear
-            rootLabel="All Organizations"
+            rootLabel={canViewAll ? 'All Organizations' : 'My Organizations'}
           />
         </div>
 
@@ -296,22 +329,48 @@ export default function ReportCardView() {
       {/* Header */}
       <div className="sm:flex sm:justify-between sm:items-center mb-8">
         <div className="mb-4 sm:mb-0">
-          <h1 className="text-2xl md:text-3xl text-slate-800 dark:text-slate-100 font-bold">
-            {reportCardMonth} Report Card
-          </h1>
-          <p className="text-slate-600 dark:text-slate-400">
-            How your practice performed in {reportCardMonthInfo.monthName}
+          <div className="flex items-center gap-4 flex-wrap">
+            <h1 className="text-2xl md:text-3xl text-slate-800 dark:text-slate-100 font-bold">
+              {selectedMonth 
+                ? `${new Date(`${selectedMonth}T00:00:00`).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })} Report Card`
+                : `${reportCardMonth} Report Card`
+              }
+            </h1>
+            {/* Month Selector - only show if multiple months available */}
+            {availableMonths.length > 1 && (
+              <MonthSelector
+                availableMonths={availableMonths}
+                selectedMonth={selectedMonth}
+                onMonthChange={setSelectedMonth}
+                isLoading={isLoadingReportCard}
+              />
+            )}
+          </div>
+          <p className="text-slate-600 dark:text-slate-400 mt-1">
+            {selectedMonth 
+              ? `Historical report card from ${new Date(`${selectedMonth}T00:00:00`).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`
+              : `How your practice performed in ${reportCardMonthInfo.monthName}`
+            }
           </p>
         </div>
-        <div className="text-sm text-slate-500 dark:text-slate-400">
-          Generated:{' '}
-          {new Date(reportCard.generated_at).toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-          })}
+        <div className="flex items-center gap-4">
+          <Link
+            href="/dashboard/report-card/annual-review"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400 hover:bg-violet-100 dark:hover:bg-violet-900/30 transition-colors text-sm font-medium"
+          >
+            <Calendar className="w-4 h-4" />
+            Annual Review
+          </Link>
+          <div className="text-sm text-slate-500 dark:text-slate-400">
+            Generated:{' '}
+            {new Date(reportCard.generated_at).toLocaleDateString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+            })}
+          </div>
         </div>
       </div>
 
@@ -327,7 +386,11 @@ export default function ReportCardView() {
               score={reportCard.overall_score}
               sizeBucket={reportCard.size_bucket}
               percentileRank={reportCard.percentile_rank}
-              reportCardMonth={reportCardMonth}
+              reportCardMonth={selectedMonth 
+                ? new Date(`${selectedMonth}T00:00:00`).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+                : reportCardMonth
+              }
+              previousMonth={previousMonth}
             />
           </div>
 
@@ -367,6 +430,14 @@ export default function ReportCardView() {
               />
             </div>
           )}
+
+          {/* Grade History Table - Full width */}
+          <div className="lg:col-span-12">
+            <GradeHistoryTable
+              history={gradeHistory}
+              isLoading={isLoadingHistory}
+            />
+          </div>
         </div>
       </ChartErrorBoundary>
     </div>

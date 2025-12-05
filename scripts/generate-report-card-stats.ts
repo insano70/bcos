@@ -38,6 +38,8 @@ const { values } = parseArgs({
     'skip-sizing': { type: 'boolean', default: false },
     'skip-generate': { type: 'boolean', default: false },
     reset: { type: 'boolean', default: false },
+    historical: { type: 'boolean', default: false },
+    months: { type: 'string', default: '24' },
     help: { type: 'boolean', short: 'h', default: false },
   },
 });
@@ -55,6 +57,8 @@ Options:
   --force            Regenerate even if recent stats exist
   --dry-run          Preview without saving to database
   --reset            Clear all report card data before generating
+  --historical       Generate report cards for all historical months
+  --months <num>     Number of historical months to generate (default: 24)
   --skip-collect     Skip statistics collection step
   --skip-trends      Skip trend analysis step
   --skip-sizing      Skip practice sizing step
@@ -62,7 +66,7 @@ Options:
   -h, --help         Show this help message
 
 Examples:
-  # Generate stats for all practices
+  # Generate stats for all practices (current month only)
   pnpm report-card:generate --all
 
   # Generate stats for practice 114 only
@@ -73,6 +77,15 @@ Examples:
 
   # Clear all data and regenerate
   pnpm report-card:generate --reset --all
+
+  # Generate historical report cards for last 24 months
+  pnpm report-card:generate --all --historical
+
+  # Generate historical report cards for last 12 months
+  pnpm report-card:generate --all --historical --months 12
+
+  # Full reset + historical generation (recommended for initial setup)
+  pnpm report-card:generate --reset --all --historical
 
   # Preview what would be generated
   pnpm report-card:generate --all --dry-run
@@ -153,10 +166,14 @@ async function main(): Promise<void> {
       }
     }
 
+    const historicalMonths = parseInt(values.months || '24', 10);
+    
     logger.info('Starting report card statistics generation', {
       practiceUid: practiceUid ?? 'all',
       force: values.force,
       dryRun: isDryRun,
+      historical: values.historical,
+      historicalMonths: values.historical ? historicalMonths : undefined,
     });
 
     // Step 1: Collect statistics from analytics DB
@@ -226,25 +243,40 @@ async function main(): Promise<void> {
 
     // Step 4: Generate report cards
     if (!values['skip-generate']) {
-      logger.info('Step 4/5: Generating report cards...');
+      if (values.historical) {
+        logger.info(`Step 4/5: Generating historical report cards for ${historicalMonths} months...`);
+      } else {
+        logger.info('Step 4/5: Generating report cards...');
+      }
 
       if (!isDryRun) {
-        const generateResult = await reportCardGenerator.generateAll({ practiceUid });
+        const generateResult = await reportCardGenerator.generateAll({ 
+          practiceUid,
+          force: values.force || values.historical, // Force for historical
+          historical: values.historical,
+          historicalMonths: values.historical ? historicalMonths : undefined,
+        });
+        
         logger.success(`Generated ${generateResult.cardsGenerated} report cards`, {
           practicesProcessed: generateResult.practicesProcessed,
           errors: generateResult.errors.length,
           duration: `${generateResult.duration}ms`,
         });
 
-        // Log any errors
+        // Log any errors (limit to first 10)
         if (generateResult.errors.length > 0) {
-          logger.warn('Some report cards failed to generate:');
-          for (const error of generateResult.errors) {
+          const errorCount = generateResult.errors.length;
+          const displayErrors = generateResult.errors.slice(0, 10);
+          logger.warn(`Some report cards failed to generate (${errorCount} total):`);
+          for (const error of displayErrors) {
             logger.warn(`  Practice ${error.practiceUid}: ${error.error}`);
+          }
+          if (errorCount > 10) {
+            logger.warn(`  ... and ${errorCount - 10} more errors`);
           }
         }
       } else {
-        logger.info('  [DRY RUN] Would generate report cards');
+        logger.info(`  [DRY RUN] Would generate report cards${values.historical ? ` for ${historicalMonths} months` : ''}`);
       }
     } else {
       logger.info('Step 4/5: Skipping report card generation (--skip-generate)');

@@ -204,4 +204,91 @@ export function getPriorMonthsRange(reportCardMonth: Date, monthsBack: number): 
   };
 }
 
+// =============================================================================
+// Grade Utilities (Shared)
+// =============================================================================
+
+/** Grade floor - minimum score is 70 (C-) */
+const GRADE_FLOOR = 70;
+
+/**
+ * Apply grade floor - ensures minimum C- grade
+ * Scores below 70 are floored to 70 (C-)
+ * 
+ * @param rawScore - The raw score (0-100)
+ * @returns Score floored to minimum of 70
+ */
+export function applyGradeFloor(rawScore: number): number {
+  return Math.max(GRADE_FLOOR, rawScore);
+}
+
+/**
+ * Get letter grade from score (0-100)
+ * Uses floored score - no D's or F's, minimum is C-
+ * 
+ * Grade scale:
+ * - 97-100: A+
+ * - 93-96: A
+ * - 90-92: A-
+ * - 87-89: B+
+ * - 83-86: B
+ * - 80-82: B-
+ * - 77-79: C+
+ * - 73-76: C
+ * - 70-72: C- (minimum)
+ * 
+ * @param rawScore - The raw score (0-100)
+ * @returns Letter grade string (e.g., "A+", "B", "C-")
+ */
+export function getLetterGrade(rawScore: number): string {
+  const score = applyGradeFloor(rawScore);
+  
+  if (score >= 97) return 'A+';
+  if (score >= 93) return 'A';
+  if (score >= 90) return 'A-';
+  if (score >= 87) return 'B+';
+  if (score >= 83) return 'B';
+  if (score >= 80) return 'B-';
+  if (score >= 77) return 'C+';
+  if (score >= 73) return 'C';
+  return 'C-';
+}
+
+/**
+ * Get color class for a grade
+ * 
+ * @param grade - Letter grade string
+ * @returns Tailwind color class
+ */
+export function getGradeColor(grade: string): string {
+  if (grade.startsWith('A')) return 'text-emerald-500';
+  if (grade.startsWith('B')) return 'text-teal-500';
+  return 'text-amber-500';
+}
+
+/**
+ * Get background color class for a grade
+ * 
+ * @param grade - Letter grade string
+ * @returns Tailwind background color class
+ */
+export function getGradeBgColor(grade: string): string {
+  if (grade.startsWith('A')) return 'bg-emerald-500/10';
+  if (grade.startsWith('B')) return 'bg-teal-500/10';
+  return 'bg-amber-500/10';
+}
+
+/**
+ * Compare two grades
+ * 
+ * @param grade1 - First grade
+ * @param grade2 - Second grade
+ * @returns Positive if grade1 > grade2, negative if grade1 < grade2, 0 if equal
+ */
+export function compareGrades(grade1: string, grade2: string): number {
+  const gradeOrder = ['C-', 'C', 'C+', 'B-', 'B', 'B+', 'A-', 'A', 'A+'];
+  const idx1 = gradeOrder.indexOf(grade1);
+  const idx2 = gradeOrder.indexOf(grade2);
+  return idx1 - idx2;
+}
 

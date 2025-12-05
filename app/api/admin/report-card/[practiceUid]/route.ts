@@ -7,10 +7,18 @@ import { createRBACReportCardService } from '@/lib/services/report-card';
 import type { UserContext } from '@/lib/types/rbac';
 import { reportCardParamsSchema } from '@/lib/validations/report-card';
 import { ReportCardNotFoundError } from '@/lib/errors/report-card-errors';
+import { z } from 'zod';
 
 /**
  * Report Card API - Get report card for a practice
+ * 
+ * Supports optional `month` query param to fetch a specific month's report card.
+ * If no month is provided, returns the latest report card.
  */
+
+const reportCardQuerySchema = z.object({
+  month: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Month must be in YYYY-MM-DD format').optional(),
+});
 
 const getReportCardHandler = async (
   request: NextRequest,
@@ -18,8 +26,9 @@ const getReportCardHandler = async (
   ...args: unknown[]
 ) => {
   const startTime = Date.now();
-  const { params } = args[0] as { params: { practiceUid: string } };
-  const practiceUid = params.practiceUid;
+  const { params } = args[0] as { params: Promise<{ practiceUid: string }> };
+  const resolvedParams = await params;
+  const practiceUid = resolvedParams.practiceUid;
 
   try {
     // Validate params
@@ -29,11 +38,30 @@ const getReportCardHandler = async (
       return createErrorResponse('Invalid practice UID', 400, request);
     }
 
-    const practiceUidNum = parseInt(validationResult.data.practiceUid, 10);
+    // Parse optional month query param
+    const { searchParams } = new URL(request.url);
+    const queryResult = reportCardQuerySchema.safeParse({
+      month: searchParams.get('month') || undefined,
+    });
 
-    // Get report card
+    const practiceUidNum = parseInt(validationResult.data.practiceUid, 10);
+    const month = queryResult.success ? queryResult.data.month : undefined;
+
     const service = createRBACReportCardService(userContext);
-    const reportCard = await service.getReportCard(practiceUidNum);
+
+    // Get report card - either by specific month or latest
+    const reportCard = month
+      ? await service.getReportCardByMonth(practiceUidNum, month)
+      : await service.getReportCard(practiceUidNum);
+
+    // Get previous month summary for comparison
+    const previousMonth = await service.getPreviousMonthSummary(
+      practiceUidNum,
+      reportCard.report_card_month
+    );
+
+    // Get available months for month selector
+    const availableMonths = await service.getAvailableMonths(practiceUidNum, 6);
 
     const duration = Date.now() - startTime;
 
@@ -44,10 +72,10 @@ const getReportCardHandler = async (
       found: true,
     });
 
-    log.info(template.message, { ...template.context, component: 'report-card' });
+    log.info(template.message, { ...template.context, component: 'report-card', month });
 
     return createSuccessResponse(
-      { reportCard },
+      { reportCard, previousMonth, availableMonths },
       'Report card retrieved successfully'
     );
   } catch (error) {
