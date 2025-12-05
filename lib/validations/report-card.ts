@@ -31,7 +31,7 @@ export const reportCardParamsSchema = z.object({
  * Query parameters for peer comparison
  */
 export const peerComparisonQuerySchema = z.object({
-  bucket: z.enum(['small', 'medium', 'large', 'xlarge']).optional(),
+  bucket: z.enum(['small', 'medium', 'large', 'xlarge', 'xxlarge']).optional(),
 });
 
 // =============================================================================

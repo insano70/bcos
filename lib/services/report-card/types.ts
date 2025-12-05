@@ -141,3 +141,58 @@ export interface MeasureStatisticsRow {
   date_value: string;
   numeric_value: number | string;
 }
+
+// ============================================================================
+// Preloaded Data Types for Bulk Operations
+// ============================================================================
+
+/**
+ * Preloaded size bucket data for all practices
+ * Key: practice_uid
+ */
+export type SizeBucketMap = Map<number, {
+  size_bucket: string;
+  percentile: number;
+  organization_id: string | null;
+}>;
+
+/**
+ * Preloaded organization mappings
+ * Key: practice_uid, Value: organization_id
+ */
+export type OrganizationMap = Map<number, string | null>;
+
+/**
+ * Preloaded statistics for a month
+ * Key: `${practice_uid}:${measure_name}`, Value: numeric value
+ */
+export type MonthStatisticsMap = Map<string, number>;
+
+/**
+ * Preloaded peer statistics for comparison
+ * Key: `${size_bucket}:${measure_name}`
+ */
+export type PeerStatisticsMap = Map<string, {
+  values: number[];
+  average: number;
+  peerCount: number;
+  practiceValues: Map<number, number>; // practice_uid -> value
+}>;
+
+/**
+ * Preloaded trend data for practices
+ * Key: `${practice_uid}:${measure_name}`, Value: array of {date, value}
+ */
+export type TrendDataMap = Map<string, Array<{ date: Date; value: number }>>;
+
+/**
+ * Preloaded data bundle passed to generation methods
+ */
+export interface PreloadedData {
+  sizeBuckets: SizeBucketMap;
+  organizations: OrganizationMap;
+  monthStatistics: MonthStatisticsMap;
+  peerStatistics: PeerStatisticsMap;
+  trendData: TrendDataMap;
+  measures: import('@/lib/types/report-card').MeasureConfig[];
+}

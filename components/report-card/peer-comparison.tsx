@@ -10,15 +10,25 @@ import { formatMeasureValue, isHigherBetter, getReportCardMonth } from '@/lib/ut
 /** Minimum number of peers required for meaningful comparison */
 const MIN_PEERS_FOR_COMPARISON = 2;
 
+/**
+ * Props for the PeerComparisonPanel component
+ */
 interface PeerComparisonPanelProps {
+  /** Peer comparison data including averages and percentile distributions */
   comparison: PeerComparison;
+  /** Raw metric values for the practice (e.g., actual charges in dollars) */
   practiceValues: Record<string, number>;
-  practiceScores: Record<string, number>;
+  /** Full measure score data including raw values, percentiles, and peer info */
   measureScores?: Record<string, MeasureScore>;
+  /** The practice's assigned size bucket */
   practiceBucket: SizeBucket;
+  /** Currently selected bucket for comparison (defaults to practiceBucket) */
   selectedBucket?: SizeBucket | undefined;
+  /** Callback when user changes the comparison bucket */
   onBucketChange?: (bucket: SizeBucket | undefined) => void;
+  /** Whether peer data is currently loading */
   isLoadingPeer?: boolean;
+  /** Additional CSS classes */
   className?: string;
 }
 
@@ -394,7 +404,6 @@ function BucketSelector({
 export default function PeerComparisonPanel({
   comparison,
   practiceValues,
-  practiceScores,
   measureScores,
   practiceBucket,
   selectedBucket,
@@ -402,7 +411,9 @@ export default function PeerComparisonPanel({
   isLoadingPeer,
   className = '',
 }: PeerComparisonPanelProps) {
-  const measures = Object.keys(comparison.averages);
+  // Use practice's measure scores as source of truth, not peer averages
+  // This ensures measures display even when peer bucket has no data
+  const measures = Object.keys(measureScores || {});
   const { monthYear } = getReportCardMonth();
   const effectiveBucket = selectedBucket ?? practiceBucket;
 
@@ -444,7 +455,9 @@ export default function PeerComparisonPanel({
             const practiceValue = practiceValues[measure] ?? 0;
             const peerAverage = comparison.averages[measure] ?? 0;
             const measureScore = measureScores?.[measure];
-            const percentileRank = measureScore?.percentile ?? practiceScores[measure] ?? null;
+            // Use percentile from measure score, null indicates insufficient peers
+            const percentileRank = measureScore?.percentile ?? null;
+            // Use peer_count from measure score; if not available, estimate from comparison
             const peerCount = measureScore?.peer_count ?? comparison.practice_count - 1;
             const percentiles = comparison.percentiles[measure] ?? {
               p25: 0,

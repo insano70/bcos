@@ -232,9 +232,26 @@ export class TrendAnalysisService {
   /**
    * Calculate trend from pre-fetched statistics
    * 
-   * NEW LOGIC:
-   * - Report Card Month value vs Average of prior X months
-   * - e.g., 3 Month Trend: Nov vs Avg(Aug, Sep, Oct)
+   * Compares the Report Card Month value against the average of the prior X months.
+   * 
+   * @param practiceUid - The practice to calculate trend for
+   * @param measureName - The measure being analyzed
+   * @param trendPeriod - Period to analyze ('3_month', '6_month', '9_month')
+   * @param stats - Pre-fetched statistics for the practice/measure
+   * @returns TrendCalculation with direction and percentage, or null if insufficient data
+   * 
+   * @example
+   * // If today is December 2025, Report Card Month is November 2025
+   * // For 3_month trend: Nov value vs Avg(Aug, Sep, Oct)
+   * // If Nov = $100K and Avg(Aug-Oct) = $80K:
+   * // percentageChange = (100-80)/80 * 100 = +25%
+   * // direction = 'improving' (since ≥5%)
+   * 
+   * @remarks
+   * - Returns null if Report Card Month has no data
+   * - Returns null if fewer than 1 prior month has data
+   * - Returns null if prior average is 0 (avoid division by zero)
+   * - Percentage change is capped at ±99999.99 for database storage
    */
   private calculateTrendFromStats(
     practiceUid: number,

@@ -142,6 +142,24 @@ export const GRADE_THRESHOLDS = {
 } as const;
 
 /**
+ * Score transformation constants
+ * 
+ * Used to transform raw percentile (0-100) to grading scale (70-100):
+ * - Formula: FLOOR + (percentile / 100) * RANGE
+ * - 0th percentile → 70 (C-)
+ * - 50th percentile → 85 (B-)
+ * - 100th percentile → 100 (A+)
+ */
+export const SCORE_TRANSFORMATION = {
+  /** Minimum score (C-) */
+  FLOOR: 70,
+  /** Score range above floor */
+  RANGE: 30,
+  /** Trend bonus/penalty for improving/declining */
+  TREND_ADJUSTMENT: 3,
+} as const;
+
+/**
  * Apply the grade floor to a raw score
  * Note: With the new scoring transformation, scores should already be 70+
  * This is a safety net for edge cases

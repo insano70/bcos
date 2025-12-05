@@ -312,15 +312,12 @@ export default function ReportCardView() {
     );
   }
 
-  // Extract practice values and scores for peer comparison
+  // Extract practice values for peer comparison
   // Values = actual raw values (e.g., $150,000 in charges)
-  // Scores = normalized 0-100 scores for percentile positioning
   const practiceValues: Record<string, number> = {};
-  const practiceScores: Record<string, number> = {};
   if (reportCard.measure_scores) {
     for (const [measureName, scoreData] of Object.entries(reportCard.measure_scores)) {
       practiceValues[measureName] = scoreData.value;
-      practiceScores[measureName] = scoreData.score;
     }
   }
 
@@ -421,7 +418,6 @@ export default function ReportCardView() {
               <PeerComparisonPanel
                 comparison={peerComparison}
                 practiceValues={practiceValues}
-                practiceScores={practiceScores}
                 measureScores={reportCard.measure_scores}
                 practiceBucket={reportCard.size_bucket}
                 selectedBucket={effectivePeerBucket}

@@ -8,17 +8,18 @@
  * Supports historical generation for backfilling past months.
  */
 
-import { eq, and, desc, inArray, sql } from 'drizzle-orm';
+import { eq, and, desc, inArray, sql, gte, lt } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import {
   report_card_statistics,
   report_card_measures,
   report_card_results,
   practice_size_buckets,
+  organizations,
 } from '@/lib/db/schema';
 import { log, SLOW_THRESHOLDS } from '@/lib/logger';
 import { InsufficientDataError } from '@/lib/errors/report-card-errors';
-import { GRADE_THRESHOLDS, REPORT_CARD_LIMITS, type SizeBucket, type TrendDirection } from '@/lib/constants/report-card';
+import { REPORT_CARD_LIMITS, SCORE_TRANSFORMATION, type SizeBucket, type TrendDirection } from '@/lib/constants/report-card';
 import type {
   ReportCard,
   MeasureScore,
@@ -28,6 +29,12 @@ import type {
 import type {
   GenerationOptions,
   MeasureScoringResult,
+  SizeBucketMap,
+  OrganizationMap,
+  MonthStatisticsMap,
+  PeerStatisticsMap,
+  TrendDataMap,
+  PreloadedData,
 } from './types';
 
 /**
@@ -78,6 +85,10 @@ export class ReportCardGeneratorService {
   /**
    * Generate report cards for all practices or a specific practice
    * 
+   * OPTIMIZED: Uses bulk data loading to minimize database queries.
+   * Previous: ~25 queries per practice (N+1 pattern)
+   * Current: ~10 bulk queries total + 1 bulk upsert per month
+   * 
    * @param options.historical - If true, generates for all historical months
    * @param options.historicalMonths - Number of months to generate (default 24)
    * @param options.targetMonth - Specific month to generate (e.g., "2024-01-01")
@@ -120,7 +131,7 @@ export class ReportCardGeneratorService {
         monthsToGenerate = [getReportCardMonth()];
       }
 
-      log.info('Starting report card generation', {
+      log.info('Starting optimized report card generation', {
         operation: 'generate_report_cards',
         practiceCount: practices.length,
         monthCount: monthsToGenerate.length,
@@ -130,7 +141,7 @@ export class ReportCardGeneratorService {
         component: 'report-card',
       });
 
-      // Get active measures configuration
+      // Get active measures configuration (1 query)
       const measures = await this.getActiveMeasures();
 
       if (measures.length === 0) {
@@ -148,36 +159,64 @@ export class ReportCardGeneratorService {
         };
       }
 
-      // Generate report cards for each practice and each month
+      // BULK PRELOAD: Size buckets for all practices (1 query)
+      const sizeBuckets = await this.preloadSizeBuckets(practices);
+      
+      // BULK PRELOAD: Organization mappings (1 query)
+      const organizationMap = await this.preloadOrganizations(practices);
+
+      log.info('Preloaded base data', {
+        operation: 'generate_report_cards',
+        sizeBucketsLoaded: sizeBuckets.size,
+        organizationsLoaded: organizationMap.size,
+        component: 'report-card',
+      });
+
+      // Process each month
       for (const targetMonth of monthsToGenerate) {
-        for (const practiceUid of practices) {
-          try {
-            const card = await this.generateForPractice(
-              practiceUid, 
-              measures, 
-              options.force || options.historical, // Force for historical
-              targetMonth
-            );
+        const monthStartTime = Date.now();
+        
+        // BULK PRELOAD: Month statistics for all practices (1 query per month)
+        const monthStats = await this.preloadMonthStatistics(practices, measures, targetMonth);
+        
+        // BULK PRELOAD: Peer statistics by bucket (1 query per month)
+        const peerStats = await this.preloadPeerStatistics(measures, targetMonth);
+        
+        // BULK PRELOAD: Trend data for all practices (1 query per month)
+        const trendData = await this.preloadTrendData(practices, measures, targetMonth);
 
-            if (card) {
-              cardsGenerated++;
-              practiceSet.add(practiceUid);
-            }
-          } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-            const errorCode = error instanceof InsufficientDataError ? 'INSUFFICIENT_DATA' : 'GENERATION_FAILED';
+        // Bundle preloaded data
+        const preloadedData: PreloadedData = {
+          sizeBuckets,
+          organizations: organizationMap,
+          monthStatistics: monthStats,
+          peerStatistics: peerStats,
+          trendData,
+          measures,
+        };
 
-            // Only log first few errors per practice to avoid spam
-            const practiceErrors = errors.filter(e => e.practiceUid === practiceUid);
-            if (practiceErrors.length < 3) {
-              errors.push({
-                practiceUid,
-                error: `[${targetMonth}] ${errorMessage}`,
-                code: errorCode,
-              });
-            }
-          }
+        // Generate report cards for all practices using preloaded data
+        const monthResults = await this.generateForMonthBulk(
+          practices,
+          targetMonth,
+          preloadedData,
+          options.force ?? options.historical ?? false,
+          errors
+        );
+
+        cardsGenerated += monthResults.generated;
+        for (const uid of monthResults.processedPractices) {
+          practiceSet.add(uid);
         }
+
+        const monthDuration = Date.now() - monthStartTime;
+        log.debug('Completed month generation', {
+          operation: 'generate_report_cards',
+          month: targetMonth,
+          generated: monthResults.generated,
+          duration: monthDuration,
+          component: 'report-card',
+        });
       }
 
       const duration = Date.now() - startTime;
@@ -208,6 +247,560 @@ export class ReportCardGeneratorService {
       });
       throw error;
     }
+  }
+
+  // ============================================================================
+  // BULK PRELOAD METHODS - Minimize database queries
+  // ============================================================================
+
+  /**
+   * Preload size buckets for all practices in a single query
+   */
+  private async preloadSizeBuckets(practices: number[]): Promise<SizeBucketMap> {
+    const map: SizeBucketMap = new Map();
+    
+    if (practices.length === 0) return map;
+
+    const results = await db
+      .select({
+        practice_uid: practice_size_buckets.practice_uid,
+        size_bucket: practice_size_buckets.size_bucket,
+        percentile: practice_size_buckets.percentile,
+        organization_id: practice_size_buckets.organization_id,
+      })
+      .from(practice_size_buckets)
+      .where(inArray(practice_size_buckets.practice_uid, practices));
+
+    for (const r of results) {
+      map.set(r.practice_uid, {
+        size_bucket: r.size_bucket,
+        percentile: parseFloat(r.percentile || '0'),
+        organization_id: r.organization_id,
+      });
+    }
+
+    return map;
+  }
+
+  /**
+   * Preload organization mappings for all practices in a single query
+   * 
+   * Organization linkage is optional for report card generation.
+   * Practices without org mappings will have null organization_id.
+   * 
+   * @throws Error only if the database query itself fails (connection issues)
+   */
+  private async preloadOrganizations(practices: number[]): Promise<OrganizationMap> {
+    const map: OrganizationMap = new Map();
+    
+    if (practices.length === 0) return map;
+
+    const orgs = await db
+      .select({
+        organization_id: organizations.organization_id,
+        practice_uids: organizations.practice_uids,
+      })
+      .from(organizations)
+      .where(eq(organizations.is_active, true));
+
+    for (const org of orgs) {
+      if (org.practice_uids && Array.isArray(org.practice_uids)) {
+        for (const practiceUid of org.practice_uids) {
+          if (practices.includes(practiceUid)) {
+            map.set(practiceUid, org.organization_id);
+          }
+        }
+      }
+    }
+
+    // Track practices without org mapping (this is expected for some practices)
+    let unmappedCount = 0;
+    for (const practiceUid of practices) {
+      if (!map.has(practiceUid)) {
+        map.set(practiceUid, null);
+        unmappedCount++;
+      }
+    }
+
+    if (unmappedCount > 0) {
+      log.debug('Some practices have no organization mapping', {
+        operation: 'preload_organizations',
+        totalPractices: practices.length,
+        unmappedCount,
+        component: 'report-card',
+      });
+    }
+
+    return map;
+  }
+
+  /**
+   * Preload month statistics for all practices/measures in a single query
+   */
+  private async preloadMonthStatistics(
+    practices: number[],
+    measures: MeasureConfig[],
+    targetMonth: string
+  ): Promise<MonthStatisticsMap> {
+    const map: MonthStatisticsMap = new Map();
+    
+    if (practices.length === 0 || measures.length === 0) return map;
+
+    const targetDate = new Date(targetMonth);
+    const monthStart = new Date(targetDate.getFullYear(), targetDate.getMonth(), 1);
+    const monthEnd = new Date(targetDate.getFullYear(), targetDate.getMonth() + 1, 1);
+
+    const measureNames = measures.map(m => m.measure_name);
+
+    const stats = await db
+      .select({
+        practice_uid: report_card_statistics.practice_uid,
+        measure_name: report_card_statistics.measure_name,
+        value: report_card_statistics.value,
+      })
+      .from(report_card_statistics)
+      .where(
+        and(
+          inArray(report_card_statistics.practice_uid, practices),
+          inArray(report_card_statistics.measure_name, measureNames),
+          gte(report_card_statistics.period_date, monthStart),
+          lt(report_card_statistics.period_date, monthEnd)
+        )
+      );
+
+    for (const stat of stats) {
+      const key = `${stat.practice_uid}:${stat.measure_name}`;
+      map.set(key, parseFloat(stat.value));
+    }
+
+    return map;
+  }
+
+  /**
+   * Preload peer statistics for all buckets/measures in a single query
+   * Groups practices by size bucket and calculates peer averages
+   */
+  private async preloadPeerStatistics(
+    measures: MeasureConfig[],
+    targetMonth: string
+  ): Promise<PeerStatisticsMap> {
+    const map: PeerStatisticsMap = new Map();
+    
+    if (measures.length === 0) return map;
+
+    const targetDate = new Date(targetMonth);
+    const monthStart = new Date(targetDate.getFullYear(), targetDate.getMonth(), 1);
+    const monthEnd = new Date(targetDate.getFullYear(), targetDate.getMonth() + 1, 1);
+
+    const measureNames = measures.map(m => m.measure_name);
+
+    // Join statistics with size buckets to get bucket-grouped data
+    const stats = await db
+      .select({
+        practice_uid: report_card_statistics.practice_uid,
+        measure_name: report_card_statistics.measure_name,
+        value: report_card_statistics.value,
+        size_bucket: practice_size_buckets.size_bucket,
+      })
+      .from(report_card_statistics)
+      .innerJoin(
+        practice_size_buckets,
+        eq(report_card_statistics.practice_uid, practice_size_buckets.practice_uid)
+      )
+      .where(
+        and(
+          inArray(report_card_statistics.measure_name, measureNames),
+          gte(report_card_statistics.period_date, monthStart),
+          lt(report_card_statistics.period_date, monthEnd)
+        )
+      );
+
+    // Group by bucket:measure and calculate statistics
+    const groupedData = new Map<string, { values: number[]; practiceValues: Map<number, number> }>();
+
+    for (const stat of stats) {
+      const key = `${stat.size_bucket}:${stat.measure_name}`;
+      const value = parseFloat(stat.value);
+
+      if (!groupedData.has(key)) {
+        groupedData.set(key, { values: [], practiceValues: new Map() });
+      }
+      
+      const group = groupedData.get(key);
+      if (group) {
+        group.values.push(value);
+        group.practiceValues.set(stat.practice_uid, value);
+      }
+    }
+
+    // Calculate averages and peer counts
+    for (const [key, data] of Array.from(groupedData.entries())) {
+      const average = data.values.length > 0
+        ? data.values.reduce((sum: number, v: number) => sum + v, 0) / data.values.length
+        : 0;
+
+      map.set(key, {
+        values: data.values,
+        average,
+        peerCount: data.values.length,
+        practiceValues: data.practiceValues,
+      });
+    }
+
+    return map;
+  }
+
+  /**
+   * Preload trend data (prior 3 months) for all practices/measures in a single query
+   */
+  private async preloadTrendData(
+    practices: number[],
+    measures: MeasureConfig[],
+    targetMonth: string
+  ): Promise<TrendDataMap> {
+    const map: TrendDataMap = new Map();
+    
+    if (practices.length === 0 || measures.length === 0) return map;
+
+    const targetDate = new Date(targetMonth);
+    // Get 4 months of data: target month + 3 prior months
+    const trendStart = new Date(targetDate.getFullYear(), targetDate.getMonth() - 3, 1);
+    const monthEnd = new Date(targetDate.getFullYear(), targetDate.getMonth() + 1, 1);
+
+    const measureNames = measures.map(m => m.measure_name);
+
+    const stats = await db
+      .select({
+        practice_uid: report_card_statistics.practice_uid,
+        measure_name: report_card_statistics.measure_name,
+        period_date: report_card_statistics.period_date,
+        value: report_card_statistics.value,
+      })
+      .from(report_card_statistics)
+      .where(
+        and(
+          inArray(report_card_statistics.practice_uid, practices),
+          inArray(report_card_statistics.measure_name, measureNames),
+          gte(report_card_statistics.period_date, trendStart),
+          lt(report_card_statistics.period_date, monthEnd)
+        )
+      )
+      .orderBy(report_card_statistics.period_date);
+
+    for (const stat of stats) {
+      const key = `${stat.practice_uid}:${stat.measure_name}`;
+      
+      if (!map.has(key)) {
+        map.set(key, []);
+      }
+      
+      map.get(key)?.push({
+        date: stat.period_date,
+        value: parseFloat(stat.value),
+      });
+    }
+
+    return map;
+  }
+
+  // ============================================================================
+  // BULK GENERATION METHODS
+  // ============================================================================
+
+  /**
+   * Generate report cards for all practices in a month using preloaded data
+   * Uses bulk upsert for saving
+   */
+  private async generateForMonthBulk(
+    practices: number[],
+    targetMonth: string,
+    preloadedData: PreloadedData,
+    _force: boolean,
+    errors: GenerationResult['errors']
+  ): Promise<{ generated: number; processedPractices: number[] }> {
+    const reportCards: Array<{
+      practice_uid: number;
+      organization_id: string | null;
+      report_card_month: string;
+      overall_score: string;
+      size_bucket: string;
+      percentile_rank: string;
+      insights: string[];
+      measure_scores: Record<string, MeasureScore>;
+    }> = [];
+    const processedPractices: number[] = [];
+
+    for (const practiceUid of practices) {
+      try {
+        const card = this.generateForPracticeWithPreloadedData(
+          practiceUid,
+          targetMonth,
+          preloadedData
+        );
+
+        if (card) {
+          reportCards.push(card);
+          processedPractices.push(practiceUid);
+        }
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        const errorCode = error instanceof InsufficientDataError ? 'INSUFFICIENT_DATA' : 'GENERATION_FAILED';
+
+        // Only log first few errors per practice to avoid spam
+        const practiceErrors = errors.filter(e => e.practiceUid === practiceUid);
+        if (practiceErrors.length < 3) {
+          errors.push({
+            practiceUid,
+            error: `[${targetMonth}] ${errorMessage}`,
+            code: errorCode,
+          });
+        }
+      }
+    }
+
+    // Bulk upsert all report cards for this month
+    if (reportCards.length > 0) {
+      await db
+        .insert(report_card_results)
+        .values(reportCards)
+        .onConflictDoUpdate({
+          target: [report_card_results.practice_uid, report_card_results.report_card_month],
+          set: {
+            overall_score: sql`EXCLUDED.overall_score`,
+            size_bucket: sql`EXCLUDED.size_bucket`,
+            percentile_rank: sql`EXCLUDED.percentile_rank`,
+            insights: sql`EXCLUDED.insights`,
+            measure_scores: sql`EXCLUDED.measure_scores`,
+            organization_id: sql`EXCLUDED.organization_id`,
+            generated_at: new Date(),
+          },
+        });
+    }
+
+    return { generated: reportCards.length, processedPractices };
+  }
+
+  /**
+   * Generate report card for a single practice using preloaded data
+   * No database queries - all data comes from preloaded maps
+   */
+  private generateForPracticeWithPreloadedData(
+    practiceUid: number,
+    targetMonth: string,
+    preloadedData: PreloadedData
+  ): {
+    practice_uid: number;
+    organization_id: string | null;
+    report_card_month: string;
+    overall_score: string;
+    size_bucket: string;
+    percentile_rank: string;
+    insights: string[];
+    measure_scores: Record<string, MeasureScore>;
+  } | null {
+    const { sizeBuckets, organizations, monthStatistics, peerStatistics, trendData, measures } = preloadedData;
+
+    // Get practice size bucket
+    const sizeBucketData = sizeBuckets.get(practiceUid);
+    if (!sizeBucketData) {
+      throw new InsufficientDataError(practiceUid, 'Practice size bucket not assigned');
+    }
+
+    const sizeBucket = sizeBucketData.size_bucket as SizeBucket;
+    const percentileRank = sizeBucketData.percentile;
+    const organizationId = organizations.get(practiceUid) ?? null;
+
+    // Calculate scores for each measure
+    const measureScores: Record<string, MeasureScore> = {};
+    const scoringResults: MeasureScoringResult[] = [];
+
+    for (const measure of measures) {
+      const scoring = this.scoreMeasureWithPreloadedData(
+        practiceUid,
+        measure,
+        sizeBucket,
+        targetMonth,
+        monthStatistics,
+        peerStatistics,
+        trendData
+      );
+
+      if (scoring) {
+        scoringResults.push(scoring);
+        measureScores[measure.measure_name] = {
+          score: scoring.normalizedScore,
+          value: scoring.rawValue,
+          trend: scoring.trend,
+          trend_percentage: scoring.trendPercentage,
+          percentile: scoring.percentileRank,
+          peer_average: scoring.peerAverage,
+          peer_count: scoring.peerCount,
+        };
+      }
+    }
+
+    if (scoringResults.length === 0) {
+      throw new InsufficientDataError(practiceUid, `No measure scores for ${targetMonth}`);
+    }
+
+    // Calculate overall weighted score
+    const overallScore = this.calculateOverallScore(scoringResults, measures);
+
+    // Generate insights
+    const insights = this.generateInsights(scoringResults, measures);
+
+    return {
+      practice_uid: practiceUid,
+      organization_id: organizationId,
+      report_card_month: targetMonth,
+      overall_score: String(overallScore),
+      size_bucket: sizeBucket,
+      percentile_rank: String(percentileRank),
+      insights,
+      measure_scores: measureScores,
+    };
+  }
+
+  /**
+   * Score a measure using preloaded data - no database queries
+   */
+  private scoreMeasureWithPreloadedData(
+    practiceUid: number,
+    measure: MeasureConfig,
+    sizeBucket: SizeBucket,
+    targetMonth: string,
+    monthStats: MonthStatisticsMap,
+    peerStats: PeerStatisticsMap,
+    trendDataMap: TrendDataMap
+  ): MeasureScoringResult | null {
+    // Get practice's value for this measure/month
+    const statsKey = `${practiceUid}:${measure.measure_name}`;
+    const rawValue = monthStats.get(statsKey);
+
+    if (rawValue === undefined) {
+      return null;
+    }
+
+    // Get peer statistics (excluding current practice)
+    const peerKey = `${sizeBucket}:${measure.measure_name}`;
+    const peerData = peerStats.get(peerKey);
+
+    // Calculate peer values excluding current practice
+    let peerValues: number[] = [];
+    let peerAverage = 0;
+    let peerCount = 0;
+
+    if (peerData) {
+      // Build values array excluding current practice
+      peerValues = [];
+      for (const [uid, val] of Array.from(peerData.practiceValues.entries())) {
+        if (uid !== practiceUid) {
+          peerValues.push(val);
+        }
+      }
+      
+      peerCount = peerValues.length;
+      peerAverage = peerCount > 0
+        ? peerValues.reduce((sum: number, v: number) => sum + v, 0) / peerCount
+        : 0;
+    }
+
+    // Calculate percentile rank (null if insufficient peers)
+    const percentileRank = peerCount >= 2
+      ? this.calculatePercentile(rawValue, peerValues, measure.higher_is_better)
+      : null;
+
+    // Calculate trend from preloaded data
+    const trendResult = this.calculateTrendWithPreloadedData(
+      practiceUid,
+      measure,
+      targetMonth,
+      trendDataMap
+    );
+
+    // Normalize score
+    const effectivePercentile = percentileRank ?? 50;
+    const normalizedScore = this.normalizeScore(effectivePercentile, trendResult.direction, measure.higher_is_better);
+
+    return {
+      measureName: measure.measure_name,
+      rawValue,
+      normalizedScore,
+      percentileRank: percentileRank ?? null,
+      peerAverage,
+      peerCount,
+      trend: trendResult.direction,
+      trendPercentage: trendResult.percentage,
+    };
+  }
+
+  /**
+   * Calculate trend using preloaded data - no database queries
+   */
+  private calculateTrendWithPreloadedData(
+    practiceUid: number,
+    measure: MeasureConfig,
+    targetMonth: string,
+    trendDataMap: TrendDataMap
+  ): { direction: TrendDirection; percentage: number } {
+    const key = `${practiceUid}:${measure.measure_name}`;
+    const data = trendDataMap.get(key);
+
+    if (!data || data.length === 0) {
+      return { direction: 'stable', percentage: 0 };
+    }
+
+    const targetDate = new Date(targetMonth);
+    const targetMonthStart = targetDate.getTime();
+    const targetMonthEnd = new Date(targetDate.getFullYear(), targetDate.getMonth() + 1, 1).getTime();
+
+    // Find target month value
+    const targetValue = data.find(d => {
+      const t = d.date.getTime();
+      return t >= targetMonthStart && t < targetMonthEnd;
+    })?.value;
+
+    if (targetValue === undefined) {
+      return { direction: 'stable', percentage: 0 };
+    }
+
+    // Find prior 3 months values
+    const priorEnd = targetDate.getTime();
+    const priorStart = new Date(targetDate.getFullYear(), targetDate.getMonth() - 3, 1).getTime();
+
+    const priorValues = data.filter(d => {
+      const t = d.date.getTime();
+      return t >= priorStart && t < priorEnd;
+    }).map(d => d.value);
+
+    if (priorValues.length === 0) {
+      return { direction: 'stable', percentage: 0 };
+    }
+
+    const priorAvg = priorValues.reduce((sum, v) => sum + v, 0) / priorValues.length;
+
+    if (priorAvg === 0) {
+      return { direction: 'stable', percentage: 0 };
+    }
+
+    const percentChange = ((targetValue - priorAvg) / priorAvg) * 100;
+    const cappedPercentChange = Math.max(-99999.99, Math.min(99999.99, percentChange));
+
+    // Determine direction based on higherIsBetter
+    let direction: TrendDirection = 'stable';
+    if (Math.abs(cappedPercentChange) >= 5) {
+      const isPositive = cappedPercentChange > 0;
+      if (measure.higher_is_better) {
+        direction = isPositive ? 'improving' : 'declining';
+      } else {
+        direction = isPositive ? 'declining' : 'improving';
+      }
+    }
+
+    return {
+      direction,
+      percentage: Math.round(cappedPercentChange * 100) / 100,
+    };
   }
 
   /**
@@ -559,7 +1152,24 @@ export class ReportCardGeneratorService {
   }
 
   /**
-   * Calculate percentile rank
+   * Calculate percentile rank for a value within a distribution
+   * 
+   * Returns the percentage of values in the distribution that are worse than
+   * the given value. "Worse" is determined by the higherIsBetter parameter.
+   * 
+   * @param value - The value to calculate percentile for
+   * @param allValues - Array of all peer values to compare against
+   * @param higherIsBetter - If true, higher values are better (e.g., charges);
+   *                         if false, lower values are better (e.g., cancellation rate)
+   * @returns Percentile rank (0-100), where 100 means better than all peers
+   * 
+   * @example
+   * // Higher is better: 80 is better than 70 and 75
+   * calculatePercentile(80, [70, 75, 80, 90], true) // → 50 (better than 2/4 = 50%)
+   * 
+   * @example
+   * // Lower is better: 5% cancellation is better than 10%
+   * calculatePercentile(5, [5, 10, 15], false) // → 66.7 (better than 2/3)
    */
   private calculatePercentile(
     value: number,
@@ -596,14 +1206,15 @@ export class ReportCardGeneratorService {
     _higherIsBetter: boolean
   ): number {
     // Transform percentile (0-100) to grading scale (70-100)
-    // Formula: 70 + (percentile / 100) * 30
-    let score = 70 + (percentileRank / 100) * 30;
+    // Formula: FLOOR + (percentile / 100) * RANGE
+    const { FLOOR, RANGE, TREND_ADJUSTMENT } = SCORE_TRANSFORMATION;
+    let score = FLOOR + (percentileRank / 100) * RANGE;
 
-    // Adjust for trend (±3 points instead of ±5 to not exceed 100)
+    // Adjust for trend (±TREND_ADJUSTMENT points)
     if (trend === 'improving') {
-      score = Math.min(100, score + 3);
+      score = Math.min(100, score + TREND_ADJUSTMENT);
     } else if (trend === 'declining') {
-      score = Math.max(70, score - 3);
+      score = Math.max(FLOOR, score - TREND_ADJUSTMENT);
     }
 
     return Math.round(score * 10) / 10;
@@ -805,19 +1416,6 @@ export class ReportCardGeneratorService {
     }));
   }
 
-  /**
-   * Get letter grade for a score
-   */
-  /**
-   * Get letter grade from score
-   * Floored at C - no D's or F's are assigned
-   */
-  getLetterGrade(score: number): string {
-    if (score >= GRADE_THRESHOLDS.A) return 'A';
-    if (score >= GRADE_THRESHOLDS.B) return 'B';
-    // Floor at C - lowest grade is C
-    return 'C';
-  }
 }
 
 // Export singleton instance for CLI and cron use

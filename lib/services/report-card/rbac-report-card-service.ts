@@ -7,6 +7,7 @@
 
 import { eq, and, desc, inArray, sql } from 'drizzle-orm';
 import { BaseRBACService } from '@/lib/rbac/base-service';
+import { PermissionDeniedError } from '@/lib/errors/rbac-errors';
 import { db } from '@/lib/db';
 import { reportCardCache } from '@/lib/cache/report-card-cache';
 import {
@@ -57,6 +58,65 @@ export class RBACReportCardService extends BaseRBACService {
   }
 
   // ============================================================================
+  // Practice Access Verification
+  // ============================================================================
+
+  /**
+   * Get all practice UIDs accessible to the current user
+   * Super admins have access to all practices.
+   * Regular users only have access to practices in their organizations.
+   */
+  private getAccessiblePracticeUids(): number[] {
+    // Super admins have unrestricted access
+    if (this.isSuperAdmin()) {
+      return []; // Empty array signals "all access"
+    }
+
+    // Collect practice UIDs from user's organizations
+    const practiceUids: Set<number> = new Set();
+    
+    if (this.userContext.organizations) {
+      for (const org of this.userContext.organizations) {
+        if (org.practice_uids && Array.isArray(org.practice_uids)) {
+          for (const uid of org.practice_uids) {
+            practiceUids.add(uid);
+          }
+        }
+      }
+    }
+
+    return Array.from(practiceUids);
+  }
+
+  /**
+   * Verify user has access to a specific practice
+   * Throws PermissionDeniedError if access is denied.
+   * 
+   * @param practiceUid - The practice UID to check access for
+   * @throws PermissionDeniedError if user does not have access
+   */
+  private requirePracticeAccess(practiceUid: number): void {
+    // Super admins have unrestricted access
+    if (this.isSuperAdmin()) {
+      return;
+    }
+
+    const accessiblePractices = this.getAccessiblePracticeUids();
+    
+    if (!accessiblePractices.includes(practiceUid)) {
+      log.warn('Practice access denied', {
+        userId: this.userContext.user_id,
+        practiceUid,
+        accessiblePractices: accessiblePractices.slice(0, 5), // Log first 5 for debugging
+        component: 'report-card',
+      });
+      throw new PermissionDeniedError(
+        `Access denied: User does not have access to practice ${practiceUid}`
+      );
+    }
+  }
+
+  // ============================================================================
   // Report Card Retrieval
   // ============================================================================
 
@@ -73,6 +133,9 @@ export class RBACReportCardService extends BaseRBACService {
       'analytics:read:organization',
       'analytics:read:all',
     ]);
+
+    // Verify user has access to this specific practice
+    this.requirePracticeAccess(practiceUid);
 
     try {
       // Check cache first
@@ -161,6 +224,9 @@ export class RBACReportCardService extends BaseRBACService {
       'analytics:read:organization',
       'analytics:read:all',
     ]);
+
+    // Verify user has access to this specific practice
+    this.requirePracticeAccess(practiceUid);
 
     try {
       // Calculate the previous month from the current report card month
@@ -263,6 +329,9 @@ export class RBACReportCardService extends BaseRBACService {
       'analytics:read:all',
     ]);
 
+    // Verify user has access to this specific practice
+    this.requirePracticeAccess(practiceUid);
+
     try {
       const [result] = await db
         .select()
@@ -331,6 +400,9 @@ export class RBACReportCardService extends BaseRBACService {
       'analytics:read:organization',
       'analytics:read:all',
     ]);
+
+    // Verify user has access to this specific practice
+    this.requirePracticeAccess(practiceUid);
 
     try {
       // Get all report cards for the past 24 months
@@ -610,6 +682,9 @@ export class RBACReportCardService extends BaseRBACService {
       'analytics:read:all',
     ]);
 
+    // Verify user has access to this specific practice
+    this.requirePracticeAccess(practiceUid);
+
     try {
       const results = await db
         .select({ report_card_month: report_card_results.report_card_month })
@@ -641,6 +716,9 @@ export class RBACReportCardService extends BaseRBACService {
       'analytics:read:organization',
       'analytics:read:all',
     ]);
+
+    // Verify user has access to this specific practice
+    this.requirePracticeAccess(practiceUid);
 
     try {
       // Get the last N report cards ordered by month
@@ -709,6 +787,9 @@ export class RBACReportCardService extends BaseRBACService {
       'analytics:read:all',
     ]);
 
+    // Verify user has access to this specific practice
+    this.requirePracticeAccess(practiceUid);
+
     try {
       const conditions = [eq(report_card_trends.practice_uid, practiceUid)];
 
@@ -766,6 +847,9 @@ export class RBACReportCardService extends BaseRBACService {
       'analytics:read:all',
     ]);
 
+    // Verify user has access to this specific practice
+    this.requirePracticeAccess(practiceUid);
+
     return locationComparison.getComparison(practiceUid, measureName);
   }
 
@@ -810,23 +894,11 @@ export class RBACReportCardService extends BaseRBACService {
       // Get measures
       const measures = await reportCardGenerator.getActiveMeasures();
 
-      // Calculate averages and percentiles for each measure
-      const averages: Record<string, number> = {};
-      const percentiles: Record<string, { p25: number; p50: number; p75: number }> = {};
-
-      for (const measure of measures) {
-        const stats = await this.calculateMeasureStats(
-          practices.map((p) => p.practice_uid),
-          measure.measure_name
-        );
-
-        averages[measure.measure_name] = stats.average;
-        percentiles[measure.measure_name] = {
-          p25: stats.p25,
-          p50: stats.p50,
-          p75: stats.p75,
-        };
-      }
+      // Calculate averages and percentiles for ALL measures in a single query
+      const { averages, percentiles } = await this.calculateAllMeasureStats(
+        practices.map((p) => p.practice_uid),
+        measures.map((m) => m.measure_name)
+      );
 
       const comparison: PeerComparison = {
         size_bucket: targetBucket,
@@ -862,8 +934,112 @@ export class RBACReportCardService extends BaseRBACService {
   }
 
   /**
+   * Calculate statistics for ALL measures in a single bulk query
+   * Returns averages and percentile breakdowns for each measure
+   * 
+   * OPTIMIZATION: Replaced N queries (1 per measure) with 1 bulk query
+   */
+  private async calculateAllMeasureStats(
+    practiceUids: number[],
+    measureNames: string[]
+  ): Promise<{
+    averages: Record<string, number>;
+    percentiles: Record<string, { p25: number; p50: number; p75: number }>;
+  }> {
+    const averages: Record<string, number> = {};
+    const percentiles: Record<string, { p25: number; p50: number; p75: number }> = {};
+
+    // Initialize defaults for all measures
+    for (const measureName of measureNames) {
+      averages[measureName] = 0;
+      percentiles[measureName] = { p25: 0, p50: 0, p75: 0 };
+    }
+
+    if (practiceUids.length === 0 || measureNames.length === 0) {
+      return { averages, percentiles };
+    }
+
+    // Bulk query: Get latest value for each practice/measure combination
+    const stats = await db
+      .select({
+        measure_name: report_card_statistics.measure_name,
+        practice_uid: report_card_statistics.practice_uid,
+        value: report_card_statistics.value,
+        period_date: report_card_statistics.period_date,
+      })
+      .from(report_card_statistics)
+      .where(
+        and(
+          inArray(report_card_statistics.practice_uid, practiceUids),
+          inArray(report_card_statistics.measure_name, measureNames)
+        )
+      )
+      .orderBy(
+        report_card_statistics.practice_uid,
+        report_card_statistics.measure_name,
+        desc(report_card_statistics.period_date)
+      );
+
+    // Group values by measure (taking only the latest value per practice)
+    const measureValuesMap: Map<string, number[]> = new Map();
+    const seenPractices: Map<string, Set<number>> = new Map();
+
+    for (const stat of stats) {
+      const measureKey = stat.measure_name.toLowerCase();
+
+      // Initialize if needed
+      if (!measureValuesMap.has(measureKey)) {
+        measureValuesMap.set(measureKey, []);
+        seenPractices.set(measureKey, new Set());
+      }
+
+      // Only take the first (latest) value per practice/measure
+      const seen = seenPractices.get(measureKey);
+      if (seen && !seen.has(stat.practice_uid)) {
+        seen.add(stat.practice_uid);
+        measureValuesMap.get(measureKey)?.push(parseFloat(stat.value));
+      }
+    }
+
+    // Calculate stats for each measure
+    for (const measureName of measureNames) {
+      const measureKey = measureName.toLowerCase();
+      const values = measureValuesMap.get(measureKey);
+
+      if (!values || values.length === 0) {
+        continue;
+      }
+
+      // Sort for percentile calculation
+      const sortedValues = [...values].sort((a, b) => a - b);
+
+      // Calculate average
+      averages[measureName] = Math.round(
+        (sortedValues.reduce((sum, v) => sum + v, 0) / sortedValues.length) * 100
+      ) / 100;
+
+      // Calculate percentiles
+      const getPercentile = (arr: number[], percentile: number): number => {
+        if (arr.length === 0) return 0;
+        const index = Math.ceil((percentile / 100) * arr.length) - 1;
+        const clampedIndex = Math.max(0, Math.min(index, arr.length - 1));
+        return arr[clampedIndex] ?? 0;
+      };
+
+      percentiles[measureName] = {
+        p25: getPercentile(sortedValues, 25),
+        p50: getPercentile(sortedValues, 50),
+        p75: getPercentile(sortedValues, 75),
+      };
+    }
+
+    return { averages, percentiles };
+  }
+
+  /**
    * Calculate measure statistics for a set of practices
    * Returns average and percentile breakdowns for peer comparison
+   * @deprecated Use calculateAllMeasureStats for bulk operations
    */
   private async calculateMeasureStats(
     practiceUids: number[],

@@ -74,22 +74,52 @@ export class PracticeSizingService {
         (a, b) => a.avgMonthlyCharges - b.avgMonthlyCharges
       );
 
-      // Assign buckets using charge-based thresholds and track counts
+      // Pre-calculate all charge values for percentile calculation
+      const allChargeValues = sortedCharges.map((p) => p.avgMonthlyCharges);
+
+      // Build bucket records for bulk upsert
       const bucketCounts = { small: 0, medium: 0, large: 0, xlarge: 0, xxlarge: 0 };
+      const bucketRecords: Array<{
+        practice_uid: number;
+        organization_id: string | null;
+        size_bucket: SizeBucket;
+        monthly_charges_avg: string;
+        percentile: string;
+      }> = [];
 
       for (const practice of sortedCharges) {
         // Calculate percentile within the filtered active practices
-        const percentile = this.calculatePercentile(
-          practice.avgMonthlyCharges,
-          sortedCharges.map((p) => p.avgMonthlyCharges)
-        );
+        const percentile = this.calculatePercentile(practice.avgMonthlyCharges, allChargeValues);
 
         // Determine bucket using charge-based thresholds (annualized)
         const annualizedCharges = practice.avgMonthlyCharges * 12;
         const bucket = this.determineBucketByCharges(annualizedCharges);
 
-        await this.saveBucket(practice, bucket, percentile);
+        bucketRecords.push({
+          practice_uid: practice.practiceUid,
+          organization_id: practice.organizationId,
+          size_bucket: bucket,
+          monthly_charges_avg: String(practice.avgMonthlyCharges),
+          percentile: String(percentile),
+        });
         bucketCounts[bucket]++;
+      }
+
+      // Bulk upsert all bucket assignments in a single query
+      if (bucketRecords.length > 0) {
+        await db
+          .insert(practice_size_buckets)
+          .values(bucketRecords)
+          .onConflictDoUpdate({
+            target: [practice_size_buckets.practice_uid],
+            set: {
+              size_bucket: sql`EXCLUDED.size_bucket`,
+              monthly_charges_avg: sql`EXCLUDED.monthly_charges_avg`,
+              percentile: sql`EXCLUDED.percentile`,
+              organization_id: sql`EXCLUDED.organization_id`,
+              calculated_at: new Date(),
+            },
+          });
       }
 
       const duration = Date.now() - startTime;
@@ -198,46 +228,6 @@ export class PracticeSizingService {
       return 'medium';
     }
     return 'small';
-  }
-
-  /**
-   * Save bucket assignment to database
-   */
-  private async saveBucket(
-    practice: PracticeChargesData,
-    bucket: SizeBucket,
-    percentile: number
-  ): Promise<void> {
-    // Check if bucket exists for this practice
-    const existing = await db
-      .select({ bucket_id: practice_size_buckets.bucket_id })
-      .from(practice_size_buckets)
-      .where(eq(practice_size_buckets.practice_uid, practice.practiceUid))
-      .limit(1);
-
-    const existingRecord = existing[0];
-    if (existingRecord) {
-      // Update existing bucket
-      await db
-        .update(practice_size_buckets)
-        .set({
-          size_bucket: bucket,
-          monthly_charges_avg: String(practice.avgMonthlyCharges),
-          percentile: String(percentile),
-          organization_id: practice.organizationId,
-          calculated_at: new Date(),
-        })
-        .where(eq(practice_size_buckets.bucket_id, existingRecord.bucket_id));
-    } else {
-      // Insert new bucket
-      await db.insert(practice_size_buckets).values({
-        practice_uid: practice.practiceUid,
-        organization_id: practice.organizationId,
-        size_bucket: bucket,
-        monthly_charges_avg: String(practice.avgMonthlyCharges),
-        percentile: String(percentile),
-      });
-    }
   }
 
   /**

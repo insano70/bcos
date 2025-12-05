@@ -21,32 +21,15 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { applyGradeFloor, getGradeColor, getGradeBgColor } from '@/lib/utils/format-value';
+import { applyGradeFloor, getGradeColor, getGradeBgColor, formatCompactValue } from '@/lib/utils/format-value';
 import type { MeasureYoYComparison } from '@/lib/types/report-card';
 
 /**
  * Format measure value based on format type
+ * Uses the shared formatCompactValue utility
  */
 function formatMeasureDisplayValue(value: number, formatType: 'number' | 'currency' | 'percentage'): string {
-  if (formatType === 'currency') {
-    if (value >= 1_000_000) {
-      return `$${(value / 1_000_000).toFixed(1)}M`;
-    }
-    if (value >= 1_000) {
-      return `$${(value / 1_000).toFixed(1)}K`;
-    }
-    return `$${value.toFixed(0)}`;
-  }
-  if (formatType === 'percentage') {
-    return `${value.toFixed(1)}%`;
-  }
-  if (value >= 1_000_000) {
-    return `${(value / 1_000_000).toFixed(1)}M`;
-  }
-  if (value >= 1_000) {
-    return `${(value / 1_000).toFixed(1)}K`;
-  }
-  return value.toFixed(0);
+  return formatCompactValue(value, { style: formatType });
 }
 
 /**
