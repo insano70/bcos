@@ -35,22 +35,22 @@ interface ChartPosition {
 function ChartSkeleton({ height }: { height: number }) {
   return (
     <div
-      className="flex-shrink-0 animate-pulse"
+      className="flex-shrink-0 animate-pulse overflow-hidden rounded-lg"
       style={{
         width: 'min(90vw, 500px)',
       }}
     >
       {/* Label skeleton */}
-      <div className="mb-1.5 px-2">
-        <div className="flex items-baseline justify-between gap-2">
+      <div className="mb-1.5 px-1">
+        <div className="flex items-baseline justify-between gap-2 min-w-0">
           <div className="h-4 w-32 bg-slate-200 dark:bg-slate-700 rounded" />
-          <div className="h-3 w-16 bg-slate-200 dark:bg-slate-700 rounded" />
+          <div className="h-3 w-16 bg-slate-200 dark:bg-slate-700 rounded flex-shrink-0" />
         </div>
       </div>
       
       {/* Chart skeleton */}
       <div
-        className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden"
+        className="bg-white dark:bg-gray-800 rounded-lg overflow-hidden"
         style={{ height: `${height - 30}px` }}
       >
         <div className="h-full flex flex-col p-4">
@@ -150,7 +150,7 @@ export default function DimensionComparisonView({
   const containerHeight = Math.max(baseHeight, DASHBOARD_LAYOUT.CHART.MIN_HEIGHT);
 
   return (
-    <div className="relative bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-gray-200 dark:border-gray-700">
+    <div className="relative bg-gray-50 dark:bg-gray-900/50 shadow-sm rounded-xl overflow-hidden">
       {/* Scroll indicators (mobile) */}
       {visibleCharts.length > 1 && (
         <div className="flex items-center justify-center gap-1.5 py-2 lg:hidden">
@@ -199,20 +199,20 @@ export default function DimensionComparisonView({
             return (
               <div
                 key={uniqueKey}
-                className="dimension-chart flex-shrink-0"
+                className="dimension-chart flex-shrink-0 overflow-hidden rounded-lg"
                 style={{
                   scrollSnapAlign: 'start',
                   width: 'min(90vw, 500px)',
                 }}
               >
                 {/* Dimension value label - Compact for mobile optimization */}
-                <div className="mb-1.5 px-2">
-                  <div className="flex items-baseline justify-between gap-2">
-                    <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                <div className="mb-1.5 px-1">
+                  <div className="flex items-baseline justify-between gap-2 min-w-0">
+                    <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate min-w-0 flex-1">
                       {dimensionChart.dimensionValue.label}
                     </div>
                     {dimensionChart.dimensionValue.recordCount !== undefined && (
-                      <div className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
+                      <div className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0 whitespace-nowrap">
                         {dimensionChart.dimensionValue.recordCount.toLocaleString()}
                       </div>
                     )}
@@ -221,11 +221,10 @@ export default function DimensionComparisonView({
 
               {/* Chart or Error State - No header, maximized space for data visualization */}
               <div
-                className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700"
+                className="bg-white dark:bg-gray-800 rounded-lg overflow-hidden"
                 style={{
                   height: `${containerHeight - 30}px`,
                   maxHeight: `${containerHeight - 30}px`,
-                  overflow: 'hidden',
                 }}
               >
                 {dimensionChart.error ? (

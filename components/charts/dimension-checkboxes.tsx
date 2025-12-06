@@ -133,7 +133,7 @@ export function DimensionCheckboxes({
   }
 
   return (
-    <div className={`flex items-center gap-3 flex-wrap ${compact ? 'gap-2' : ''}`}>
+    <div className={`flex items-center justify-start gap-3 flex-wrap ${compact ? 'gap-2' : ''}`}>
       {/* Label */}
       <span className={`text-slate-600 dark:text-slate-400 font-medium ${compact ? 'text-xs' : 'text-sm'}`}>
         Expand by:

@@ -23,6 +23,7 @@ import { formatValue, formatValueCompact } from '@/lib/utils/chart-data/formatte
 import { getMeasureTypeFromChart } from '@/lib/utils/type-guards';
 import { useDimensionExpansion } from '@/hooks/useDimensionExpansion';
 import { useChartFullscreen } from '@/hooks/useChartFullscreen';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import type {
   DimensionExpansionChartConfig,
   DimensionExpansionFilters,
@@ -71,6 +72,9 @@ export default function DualAxisFullscreenModal({
 
   // Use shared hook for modal lifecycle (mounting, scroll lock, escape key)
   const { mounted } = useChartFullscreen(isOpen, onClose);
+  
+  // Mobile detection for hiding Reset Zoom when dimension controls visible
+  const isMobile = useIsMobile();
 
   const dimension = useDimensionExpansion({
     chartDefinitionId,
@@ -386,7 +390,8 @@ export default function DualAxisFullscreenModal({
               {chartTitle}
             </h2>
             <div className="flex items-center gap-2">
-              {!dimension.expandedData && (
+              {/* Reset Zoom button - hide when in dimension view or on mobile with dimension controls visible */}
+              {!dimension.expandedData && !(isMobile && dimension.canExpand) && (
                 <button
                   type="button"
                   onClick={handleResetZoom}

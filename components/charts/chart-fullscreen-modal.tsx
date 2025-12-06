@@ -213,8 +213,8 @@ export default function ChartFullscreenModal({
               {chartTitle}
             </h2>
             <div className="flex items-center gap-2">
-              {/* Reset Zoom button (only show when not in dimension view) */}
-              {!dimension.expandedData && (
+              {/* Reset Zoom button - hide when in dimension view or on mobile with dimension controls visible */}
+              {!dimension.expandedData && !(isMobile && dimension.canExpand) && (
                 <button
                   type="button"
                   onClick={resetZoom}
