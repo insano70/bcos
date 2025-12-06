@@ -11,6 +11,7 @@ import { report_card_statistics, practice_size_buckets } from '@/lib/db/schema';
 import { log, SLOW_THRESHOLDS } from '@/lib/logger';
 import {
   CHARGE_BASED_THRESHOLDS,
+  BUCKET_SIZING,
   SIZING_MEASURE,
   type SizeBucket,
 } from '@/lib/constants/report-card';
@@ -18,23 +19,45 @@ import type { SizingResult, PracticeSizeBucket } from '@/lib/types/report-card';
 import type { SizingOptions, PracticeChargesData } from './types';
 
 /**
+ * Adaptive thresholds that may be adjusted from defaults
+ * to ensure minimum bucket sizes
+ */
+interface AdaptiveThresholds {
+  small_max: number;
+  medium_max: number;
+  large_max: number;
+  xlarge_max: number;
+  minimum_charges: number;
+}
+
+/**
  * Practice Sizing Service
  *
  * Calculates size buckets for practices based on monthly charges.
- * Uses data-driven thresholds rather than linear percentiles.
+ * Uses data-driven thresholds with adaptive adjustment to ensure
+ * each bucket has at least MIN_BUCKET_SIZE practices for meaningful
+ * peer comparison.
  * Does not require RBAC context as it's designed for CLI/cron use.
  */
 export class PracticeSizingService {
   /**
-   * Assign size buckets to all practices using charge-based thresholds
+   * Store the effective thresholds used in the last sizing run
+   * for use in threshold descriptions
+   */
+  private effectiveThresholds: AdaptiveThresholds = { ...CHARGE_BASED_THRESHOLDS };
+  /**
+   * Assign size buckets to all practices using adaptive charge-based thresholds.
+   * Thresholds are automatically adjusted to ensure each bucket has at least
+   * MIN_BUCKET_SIZE practices for meaningful peer comparison.
    */
   async assignBuckets(_options: SizingOptions = {}): Promise<SizingResult> {
     const startTime = Date.now();
 
     try {
-      log.info('Starting practice sizing with charge-based thresholds', {
+      log.info('Starting practice sizing with adaptive thresholds', {
         operation: 'assign_buckets',
-        thresholds: CHARGE_BASED_THRESHOLDS,
+        defaultThresholds: CHARGE_BASED_THRESHOLDS,
+        minBucketSize: BUCKET_SIZING.MIN_BUCKET_SIZE,
         component: 'report-card',
       });
 
@@ -69,7 +92,16 @@ export class PracticeSizingService {
         component: 'report-card',
       });
 
-      // Sort by charges to calculate percentiles
+      // Sort by charges (descending for threshold calculation - highest first)
+      const sortedByChargesDesc = [...activePractices].sort(
+        (a, b) => b.avgMonthlyCharges - a.avgMonthlyCharges
+      );
+
+      // Calculate adaptive thresholds to ensure minimum bucket sizes
+      const adaptiveThresholds = this.calculateAdaptiveThresholds(sortedByChargesDesc);
+      this.effectiveThresholds = adaptiveThresholds;
+
+      // Sort by charges ascending for percentile calculation
       const sortedCharges = [...activePractices].sort(
         (a, b) => a.avgMonthlyCharges - b.avgMonthlyCharges
       );
@@ -91,9 +123,9 @@ export class PracticeSizingService {
         // Calculate percentile within the filtered active practices
         const percentile = this.calculatePercentile(practice.avgMonthlyCharges, allChargeValues);
 
-        // Determine bucket using charge-based thresholds (annualized)
+        // Determine bucket using adaptive thresholds (annualized)
         const annualizedCharges = practice.avgMonthlyCharges * 12;
-        const bucket = this.determineBucketByCharges(annualizedCharges);
+        const bucket = this.determineBucketByCharges(annualizedCharges, adaptiveThresholds);
 
         bucketRecords.push({
           practice_uid: practice.practiceUid,
@@ -124,10 +156,17 @@ export class PracticeSizingService {
 
       const duration = Date.now() - startTime;
 
-      log.info('Practice sizing completed with charge-based thresholds', {
+      log.info('Practice sizing completed with adaptive thresholds', {
         operation: 'assign_buckets',
         practicesProcessed: activePractices.length,
         bucketCounts,
+        effectiveThresholds: {
+          small_max: `$${(adaptiveThresholds.small_max / 1_000_000).toFixed(1)}M`,
+          medium_max: `$${(adaptiveThresholds.medium_max / 1_000_000).toFixed(1)}M`,
+          large_max: `$${(adaptiveThresholds.large_max / 1_000_000).toFixed(1)}M`,
+          xlarge_max: `$${(adaptiveThresholds.xlarge_max / 1_000_000).toFixed(1)}M`,
+        },
+        thresholdsAdjusted: this.thresholdsWereAdjusted(adaptiveThresholds),
         duration,
         slow: duration > SLOW_THRESHOLDS.API_OPERATION,
         component: 'report-card',
@@ -145,6 +184,155 @@ export class PracticeSizingService {
       });
       throw error;
     }
+  }
+
+  /**
+   * Calculate adaptive thresholds to ensure each bucket has at least MIN_BUCKET_SIZE practices.
+   * Works from the edges (XXLarge and Small) toward the middle.
+   * 
+   * @param sortedPracticesDesc - Practices sorted by charges descending (highest first)
+   */
+  private calculateAdaptiveThresholds(sortedPracticesDesc: PracticeChargesData[]): AdaptiveThresholds {
+    const minSize = BUCKET_SIZING.MIN_BUCKET_SIZE;
+    const thresholds: AdaptiveThresholds = { ...CHARGE_BASED_THRESHOLDS };
+    
+    // Get annualized charges for threshold calculation
+    const annualizedCharges = sortedPracticesDesc.map(p => p.avgMonthlyCharges * 12);
+    
+    // If we don't have enough practices for minimum bucket sizes, just use defaults
+    if (annualizedCharges.length < minSize * 2) {
+      log.info('Not enough practices for adaptive thresholds, using defaults', {
+        operation: 'calculate_adaptive_thresholds',
+        practiceCount: annualizedCharges.length,
+        minRequired: minSize * 2,
+        component: 'report-card',
+      });
+      return thresholds;
+    }
+
+    // Count practices in each bucket with current thresholds
+    const countInBucket = (charges: number[], t: AdaptiveThresholds): Record<SizeBucket, number> => {
+      const counts = { small: 0, medium: 0, large: 0, xlarge: 0, xxlarge: 0 };
+      for (const c of charges) {
+        if (c >= t.xlarge_max) counts.xxlarge++;
+        else if (c >= t.large_max) counts.xlarge++;
+        else if (c >= t.medium_max) counts.large++;
+        else if (c >= t.small_max) counts.medium++;
+        else counts.small++;
+      }
+      return counts;
+    };
+
+    // Initial counts
+    let counts = countInBucket(annualizedCharges, thresholds);
+    
+    log.info('Initial bucket counts before adaptive adjustment', {
+      operation: 'calculate_adaptive_thresholds',
+      counts,
+      component: 'report-card',
+    });
+
+    // Adjust XXLarge threshold (lower it to get more practices from XLarge)
+    if (counts.xxlarge < minSize && counts.xxlarge + counts.xlarge >= minSize) {
+      // Find the charge value at the (minSize)th position from top
+      const targetIndex = minSize - 1; // 0-indexed
+      const chargeAtTarget = annualizedCharges[targetIndex];
+      if (targetIndex < annualizedCharges.length && chargeAtTarget !== undefined) {
+        // Set threshold just below the (minSize)th highest practice
+        thresholds.xlarge_max = chargeAtTarget - 1;
+        counts = countInBucket(annualizedCharges, thresholds);
+        
+        log.info('Adjusted XXLarge threshold to meet minimum bucket size', {
+          operation: 'calculate_adaptive_thresholds',
+          newThreshold: `$${(thresholds.xlarge_max / 1_000_000).toFixed(1)}M`,
+          newXXLargeCount: counts.xxlarge,
+          component: 'report-card',
+        });
+      }
+    }
+
+    // Adjust Small threshold (raise it to get more practices from Medium)
+    // Sort ascending for small bucket calculation
+    const chargesAsc = [...annualizedCharges].sort((a, b) => a - b);
+    if (counts.small < minSize && counts.small + counts.medium >= minSize) {
+      const targetIndex = minSize - 1; // 0-indexed
+      const chargeAtTarget = chargesAsc[targetIndex];
+      if (targetIndex < chargesAsc.length && chargeAtTarget !== undefined) {
+        // Set threshold just above the (minSize)th lowest practice
+        thresholds.small_max = chargeAtTarget + 1;
+        counts = countInBucket(annualizedCharges, thresholds);
+        
+        log.info('Adjusted Small threshold to meet minimum bucket size', {
+          operation: 'calculate_adaptive_thresholds',
+          newThreshold: `$${(thresholds.small_max / 1_000_000).toFixed(1)}M`,
+          newSmallCount: counts.small,
+          component: 'report-card',
+        });
+      }
+    }
+
+    // Adjust XLarge threshold if still undersized (after XXLarge adjustment)
+    if (counts.xlarge < minSize && counts.xlarge + counts.large >= minSize) {
+      // Find practices between large_max and xlarge_max, sorted descending
+      const xlargeAndLarge = annualizedCharges
+        .filter(c => c >= thresholds.medium_max && c < thresholds.xlarge_max)
+        .sort((a, b) => b - a);
+      
+      const targetIndex = minSize - 1;
+      const chargeAtTarget = xlargeAndLarge[targetIndex];
+      if (xlargeAndLarge.length >= minSize && chargeAtTarget !== undefined) {
+        thresholds.large_max = chargeAtTarget - 1;
+        counts = countInBucket(annualizedCharges, thresholds);
+        
+        log.info('Adjusted XLarge threshold to meet minimum bucket size', {
+          operation: 'calculate_adaptive_thresholds',
+          newThreshold: `$${(thresholds.large_max / 1_000_000).toFixed(1)}M`,
+          newXLargeCount: counts.xlarge,
+          component: 'report-card',
+        });
+      }
+    }
+
+    // Adjust Medium threshold if undersized
+    if (counts.medium < minSize && counts.medium + counts.large >= minSize) {
+      const mediumAndLarge = chargesAsc
+        .filter(c => c >= thresholds.small_max && c < thresholds.large_max);
+      
+      const targetIndex = minSize - 1;
+      const chargeAtTarget = mediumAndLarge[targetIndex];
+      if (mediumAndLarge.length >= minSize && chargeAtTarget !== undefined) {
+        thresholds.medium_max = chargeAtTarget + 1;
+        counts = countInBucket(annualizedCharges, thresholds);
+        
+        log.info('Adjusted Medium threshold to meet minimum bucket size', {
+          operation: 'calculate_adaptive_thresholds',
+          newThreshold: `$${(thresholds.medium_max / 1_000_000).toFixed(1)}M`,
+          newMediumCount: counts.medium,
+          component: 'report-card',
+        });
+      }
+    }
+
+    // Final counts log
+    log.info('Final bucket counts after adaptive adjustment', {
+      operation: 'calculate_adaptive_thresholds',
+      counts,
+      component: 'report-card',
+    });
+
+    return thresholds;
+  }
+
+  /**
+   * Check if thresholds were adjusted from defaults
+   */
+  private thresholdsWereAdjusted(thresholds: AdaptiveThresholds): boolean {
+    return (
+      thresholds.small_max !== CHARGE_BASED_THRESHOLDS.small_max ||
+      thresholds.medium_max !== CHARGE_BASED_THRESHOLDS.medium_max ||
+      thresholds.large_max !== CHARGE_BASED_THRESHOLDS.large_max ||
+      thresholds.xlarge_max !== CHARGE_BASED_THRESHOLDS.xlarge_max
+    );
   }
 
   /**
@@ -207,24 +395,26 @@ export class PracticeSizingService {
   /**
    * Determine size bucket based on annualized charge thresholds
    *
-   * Thresholds based on last 12 months data distribution:
-   * - XXLarge: > $90M annual charges (~10% of practices) - industry giants
-   * - XLarge: $46M - $90M (~14% of practices) - large practices
-   * - Large: $25M - $46M (~20% of practices)
-   * - Medium: $10M - $25M (~22% of practices)
-   * - Small: < $10M (~23% of practices)
+   * Uses adaptive thresholds that may have been adjusted to ensure
+   * each bucket has at least MIN_BUCKET_SIZE practices.
+   * 
+   * @param annualizedCharges - Annual charges for the practice
+   * @param thresholds - Adaptive thresholds (may differ from defaults)
    */
-  private determineBucketByCharges(annualizedCharges: number): SizeBucket {
-    if (annualizedCharges >= CHARGE_BASED_THRESHOLDS.xlarge_max) {
+  private determineBucketByCharges(
+    annualizedCharges: number,
+    thresholds: AdaptiveThresholds = this.effectiveThresholds
+  ): SizeBucket {
+    if (annualizedCharges >= thresholds.xlarge_max) {
       return 'xxlarge';
     }
-    if (annualizedCharges >= CHARGE_BASED_THRESHOLDS.large_max) {
+    if (annualizedCharges >= thresholds.large_max) {
       return 'xlarge';
     }
-    if (annualizedCharges >= CHARGE_BASED_THRESHOLDS.medium_max) {
+    if (annualizedCharges >= thresholds.medium_max) {
       return 'large';
     }
-    if (annualizedCharges >= CHARGE_BASED_THRESHOLDS.small_max) {
+    if (annualizedCharges >= thresholds.small_max) {
       return 'medium';
     }
     return 'small';
@@ -296,15 +486,26 @@ export class PracticeSizingService {
 
   /**
    * Get threshold descriptions for display
+   * Uses the effective thresholds from the last sizing run, which may have been
+   * adjusted from defaults to ensure minimum bucket sizes.
    */
   getThresholdDescriptions(): Record<SizeBucket, string> {
+    const t = this.effectiveThresholds;
     return {
-      small: `Annual charges < $${(CHARGE_BASED_THRESHOLDS.small_max / 1_000_000).toFixed(0)}M`,
-      medium: `Annual charges $${(CHARGE_BASED_THRESHOLDS.small_max / 1_000_000).toFixed(0)}M - $${(CHARGE_BASED_THRESHOLDS.medium_max / 1_000_000).toFixed(0)}M`,
-      large: `Annual charges $${(CHARGE_BASED_THRESHOLDS.medium_max / 1_000_000).toFixed(0)}M - $${(CHARGE_BASED_THRESHOLDS.large_max / 1_000_000).toFixed(0)}M`,
-      xlarge: `Annual charges $${(CHARGE_BASED_THRESHOLDS.large_max / 1_000_000).toFixed(0)}M - $${(CHARGE_BASED_THRESHOLDS.xlarge_max / 1_000_000).toFixed(0)}M`,
-      xxlarge: `Annual charges > $${(CHARGE_BASED_THRESHOLDS.xlarge_max / 1_000_000).toFixed(0)}M`,
+      small: `Annual charges < $${(t.small_max / 1_000_000).toFixed(0)}M`,
+      medium: `Annual charges $${(t.small_max / 1_000_000).toFixed(0)}M - $${(t.medium_max / 1_000_000).toFixed(0)}M`,
+      large: `Annual charges $${(t.medium_max / 1_000_000).toFixed(0)}M - $${(t.large_max / 1_000_000).toFixed(0)}M`,
+      xlarge: `Annual charges $${(t.large_max / 1_000_000).toFixed(0)}M - $${(t.xlarge_max / 1_000_000).toFixed(0)}M`,
+      xxlarge: `Annual charges > $${(t.xlarge_max / 1_000_000).toFixed(0)}M`,
     };
+  }
+
+  /**
+   * Get the effective thresholds used in the last sizing run
+   * Useful for debugging and understanding why certain practices are in certain buckets
+   */
+  getEffectiveThresholds(): AdaptiveThresholds {
+    return { ...this.effectiveThresholds };
   }
 }
 

@@ -67,12 +67,16 @@ export const DEFAULT_PERCENTILE_THRESHOLDS = {
  * - Uses recent performance to accurately reflect current practice size
  * - Thresholds set to create meaningful peer comparison groups
  *
- * Distribution (approximate):
- * - XXLarge (> $90M): ~10% of practices (13) - industry giants
- * - XLarge ($46M - $90M): ~14% of practices (18) - large practices
- * - Large ($25M - $46M): ~20% of practices (26)
- * - Medium ($10M - $25M): ~22% of practices (28)
- * - Small (< $10M): ~23% of practices (29)
+ * NOTE: These are DEFAULT thresholds. The actual thresholds used may be
+ * adjusted dynamically by the sizing algorithm to ensure each bucket
+ * has at least MIN_BUCKET_SIZE members for meaningful peer comparison.
+ *
+ * Distribution (approximate with defaults):
+ * - XXLarge (> $90M): ~10% of practices - industry giants
+ * - XLarge ($46M - $90M): ~14% of practices - large practices
+ * - Large ($25M - $46M): ~20% of practices
+ * - Medium ($10M - $25M): ~22% of practices
+ * - Small (< $10M): ~23% of practices
  */
 export const CHARGE_BASED_THRESHOLDS = {
   /** Annual charges threshold for Small → Medium */
@@ -85,6 +89,19 @@ export const CHARGE_BASED_THRESHOLDS = {
   xlarge_max: 90_000_000, // $90M
   /** Minimum annual charges to be included in sizing (exclude inactive practices) */
   minimum_charges: 100_000, // $100K
+} as const;
+
+/**
+ * Bucket sizing constraints
+ * Controls adaptive threshold adjustment to ensure meaningful peer comparison
+ */
+export const BUCKET_SIZING = {
+  /**
+   * Minimum practices required per bucket for meaningful peer comparison.
+   * If a bucket has fewer than this many practices, thresholds will be
+   * adjusted to pull in more practices from adjacent buckets.
+   */
+  MIN_BUCKET_SIZE: 5,
 } as const;
 
 /**
