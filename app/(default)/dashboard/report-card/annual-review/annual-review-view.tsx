@@ -77,13 +77,9 @@ export default function AnnualReviewView() {
     }
     
     if (canViewAll && !selectedOrgId) {
-      const uids: number[] = [];
-      for (const org of allOrganizations) {
-        if (org.practice_uids) {
-          uids.push(...org.practice_uids);
-        }
-      }
-      return Array.from(new Set(uids));
+      // Super user without selected org - MUST select an org first
+      // Don't auto-select from random pool of all practices
+      return [];
     }
 
     if (!userContext?.organizations) return [];
@@ -103,14 +99,20 @@ export default function AnnualReviewView() {
     }
   }, [practiceUids, selectedPracticeUid]);
 
-  // Reset practice when org changes
+  // Reset practice selection when org changes for super admins
   useEffect(() => {
-    if (canViewAll && selectedOrgId) {
-      const org = allOrganizations.find((o) => o.id === selectedOrgId);
-      const orgPractices = org?.practice_uids || [];
-      if (orgPractices.length > 0) {
-        setSelectedPracticeUid(orgPractices[0]);
+    if (canViewAll) {
+      if (selectedOrgId) {
+        // Org selected - select first practice in that org
+        const org = allOrganizations.find((o) => o.id === selectedOrgId);
+        const orgPractices = org?.practice_uids || [];
+        if (orgPractices.length > 0) {
+          setSelectedPracticeUid(orgPractices[0]);
+        } else {
+          setSelectedPracticeUid(undefined);
+        }
       } else {
+        // No org selected - clear practice selection
         setSelectedPracticeUid(undefined);
       }
     }
@@ -124,11 +126,84 @@ export default function AnnualReviewView() {
 
   // Determine if org selector should be shown
   const showOrgSelector = useMemo(() => {
+    // Super users: ALWAYS show - they must select an organization
     if (canViewAll) {
-      return allOrganizations.length > 1;
+      return allOrganizations.length > 0;
     }
     return (userContext?.organizations?.length ?? 0) > 1;
   }, [canViewAll, allOrganizations.length, userContext?.organizations?.length]);
+
+  // No practice selected state - for super users who haven't selected an org
+  if (!authLoading && !loadingOrgs && !selectedPracticeUid) {
+    return (
+      <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-7xl mx-auto">
+        {/* Header with back link */}
+        <div className="mb-6">
+          <Link 
+            href="/dashboard/report-card"
+            className="inline-flex items-center gap-2 text-sm text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Report Card
+          </Link>
+        </div>
+
+        <div className="sm:flex sm:justify-between sm:items-center mb-8">
+          <div className="mb-4 sm:mb-0">
+            <h1 className="text-2xl md:text-3xl text-slate-800 dark:text-slate-100 font-bold flex items-center gap-3">
+              <Calendar className="w-8 h-8 text-violet-500" />
+              Annual Review
+            </h1>
+            <p className="text-slate-600 dark:text-slate-400 mt-1">
+              Year-over-year performance analysis and projections
+            </p>
+          </div>
+        </div>
+
+        {/* Organization selector */}
+        {showOrgSelector && (
+          <div className="flex flex-wrap items-center gap-4 mb-6 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700">
+            <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+              <Building2 className="w-4 h-4" />
+              <span className="font-medium">Organization:</span>
+            </div>
+            <div className="w-72">
+              <HierarchySelect
+                items={allOrganizations}
+                value={selectedOrgId}
+                onChange={(id) => setSelectedOrgId(id as string | undefined)}
+                idField="id"
+                nameField="name"
+                parentField="parent_organization_id"
+                activeField="is_active"
+                placeholder="Select an Organization"
+                disabled={loadingOrgs}
+                showSearch
+                allowClear
+                rootLabel={canViewAll ? 'All Organizations' : 'My Organizations'}
+              />
+            </div>
+          </div>
+        )}
+
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-8">
+          <div className="text-center py-12">
+            <div className="p-4 rounded-full bg-slate-100 dark:bg-slate-800 w-20 h-20 mx-auto mb-4 flex items-center justify-center">
+              <Calendar className="w-10 h-10 text-slate-400 dark:text-slate-500" />
+            </div>
+            <h3 className="text-lg font-medium text-slate-800 dark:text-slate-200 mb-2">
+              No Practice Selected
+            </h3>
+            <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto">
+              {canViewAll
+                ? 'Select an organization above to view their annual review.'
+                : 'Your account is not associated with a practice. Please contact your administrator to be assigned to a practice.'}
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Loading state
   if (isLoading && !review) {

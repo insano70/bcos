@@ -14,6 +14,8 @@ import {
 import { Play, Loader2 } from 'lucide-react';
 import type { MeasureConfig, FilterCriteria } from '@/lib/types/report-card';
 import { useQueryClient } from '@tanstack/react-query';
+import DeleteConfirmationModal from '@/components/delete-confirmation-modal';
+import { clientErrorLog } from '@/lib/utils/debug-client';
 
 /**
  * Report Card Admin Component
@@ -84,7 +86,16 @@ export default function ReportCardAdmin() {
     error?: string;
   } | null>(null);
 
+  // Delete confirmation modal state
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [pendingDeleteMeasureId, setPendingDeleteMeasureId] = useState<number | null>(null);
+
   const measures = measuresData?.measures || [];
+
+  // Find the measure pending deletion for the modal
+  const pendingDeleteMeasure = pendingDeleteMeasureId
+    ? measures.find((m) => m.measure_id === pendingDeleteMeasureId)
+    : null;
 
   /**
    * Handle report card generation with full reset
@@ -131,18 +142,27 @@ export default function ReportCardAdmin() {
       setIsCreating(false);
       await queryClient.invalidateQueries({ queryKey: ['report-card-measures'] });
     } catch (err) {
-      console.error('Failed to create measure:', err);
+      clientErrorLog('Failed to create measure:', err);
     }
   };
 
-  const handleDeleteMeasure = async (measureId: number) => {
-    if (!confirm('Are you sure you want to deactivate this measure?')) return;
-    try {
-      await deleteMeasure.mutateAsync(measureId);
-      await queryClient.invalidateQueries({ queryKey: ['report-card-measures'] });
-    } catch (err) {
-      console.error('Failed to delete measure:', err);
-    }
+  /**
+   * Open delete confirmation modal for a measure
+   */
+  const handleDeleteMeasureClick = (measureId: number) => {
+    setPendingDeleteMeasureId(measureId);
+    setDeleteModalOpen(true);
+  };
+
+  /**
+   * Confirm and execute measure deletion
+   */
+  const handleConfirmDelete = async () => {
+    if (!pendingDeleteMeasureId) return;
+    
+    await deleteMeasure.mutateAsync(pendingDeleteMeasureId);
+    await queryClient.invalidateQueries({ queryKey: ['report-card-measures'] });
+    setPendingDeleteMeasureId(null);
   };
 
   const handleSeedMeasures = async () => {
@@ -197,7 +217,7 @@ export default function ReportCardAdmin() {
       setShowDiscoverModal(false);
       await queryClient.invalidateQueries({ queryKey: ['report-card-measures'] });
     } catch (err) {
-      console.error('Failed to seed measures:', err);
+      clientErrorLog('Failed to seed measures:', err);
     } finally {
       setIsSeedingMeasures(false);
     }
@@ -465,7 +485,7 @@ export default function ReportCardAdmin() {
                           <Pencil className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => handleDeleteMeasure(measure.measure_id)}
+                          onClick={() => handleDeleteMeasureClick(measure.measure_id)}
                           className="text-slate-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400"
                           title="Deactivate measure"
                         >
@@ -509,6 +529,22 @@ export default function ReportCardAdmin() {
           }}
         />
       )}
+
+      {/* Delete Confirmation Modal */}
+      <DeleteConfirmationModal
+        isOpen={deleteModalOpen}
+        setIsOpen={(open) => {
+          setDeleteModalOpen(open);
+          if (!open) {
+            setPendingDeleteMeasureId(null);
+          }
+        }}
+        title="Deactivate Measure"
+        itemName={pendingDeleteMeasure?.display_name || 'this measure'}
+        message="This will deactivate the measure and remove it from future report card calculations. Existing report card data will not be affected."
+        confirmButtonText="Deactivate"
+        onConfirm={handleConfirmDelete}
+      />
     </div>
   );
 }
@@ -569,7 +605,7 @@ function MeasureFormModal({ measure, onClose, onSave, filterableColumns }: Measu
         await onSave(formData);
       }
     } catch (err) {
-      console.error('Failed to save measure:', err);
+      clientErrorLog('Failed to save measure:', err);
     } finally {
       setIsSaving(false);
     }

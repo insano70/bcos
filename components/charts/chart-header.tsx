@@ -90,8 +90,8 @@ export default function ChartHeader({
         )}
       </div>
 
-      {/* Actions */}
-      <div className="flex items-center gap-1">
+      {/* Actions - 44px minimum touch targets for mobile accessibility */}
+      <div className="flex items-center gap-0.5">
         {/* Export Button */}
         {onExport && (
           <div className="relative">
@@ -99,11 +99,11 @@ export default function ChartHeader({
               type="button"
               onClick={() => setShowExportMenu(!showExportMenu)}
               disabled={isLoading}
-              className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               title="Export chart"
               aria-label="Export chart"
             >
-              <Download className="w-4 h-4" />
+              <Download className="w-5 h-5" />
             </button>
 
             {/* Export dropdown */}
@@ -149,11 +149,11 @@ export default function ChartHeader({
             type="button"
             onClick={onRefresh}
             disabled={isLoading}
-            className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             title="Refresh chart data"
             aria-label="Refresh chart data"
           >
-            <RefreshCcw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+            <RefreshCcw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
           </button>
         )}
 
@@ -163,11 +163,11 @@ export default function ChartHeader({
             type="button"
             onClick={onFullscreen}
             disabled={isLoading}
-            className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             title="Fullscreen"
             aria-label="View in fullscreen"
           >
-            <Maximize2 className="w-4 h-4" />
+            <Maximize2 className="w-5 h-5" />
           </button>
         )}
       </div>

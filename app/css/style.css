@@ -171,6 +171,8 @@
     width: 100%;
     height: 100%;
     display: block;
+    /* Prevent double-tap zoom and pinch zoom on chart canvases for mobile */
+    touch-action: manipulation;
   }
   
   .chart-container-responsive {
@@ -184,6 +186,12 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
+  }
+  
+  /* Ensure all canvas elements in charts have proper touch behavior */
+  .chart-container-responsive canvas,
+  .chart-canvas canvas {
+    touch-action: manipulation;
   }
 }
 

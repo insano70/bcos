@@ -63,14 +63,9 @@ export default function ReportCardView() {
     }
     
     if (canViewAll && !selectedOrgId) {
-      // Super user without selected org - show all practices from all orgs
-      const uids: number[] = [];
-      for (const org of allOrganizations) {
-        if (org.practice_uids) {
-          uids.push(...org.practice_uids);
-        }
-      }
-      return Array.from(new Set(uids));
+      // Super user without selected org - MUST select an org first
+      // Don't auto-select from random pool of all practices
+      return [];
     }
 
     // Regular user - get from their organizations
@@ -91,14 +86,20 @@ export default function ReportCardView() {
     }
   }, [practiceUids, selectedPracticeUid]);
 
-  // Reset practice selection when org changes
+  // Reset practice selection when org changes for super admins
   useEffect(() => {
-    if (canViewAll && selectedOrgId) {
-      const org = allOrganizations.find((o) => o.id === selectedOrgId);
-      const orgPractices = org?.practice_uids || [];
-      if (orgPractices.length > 0) {
-        setSelectedPracticeUid(orgPractices[0]);
+    if (canViewAll) {
+      if (selectedOrgId) {
+        // Org selected - select first practice in that org
+        const org = allOrganizations.find((o) => o.id === selectedOrgId);
+        const orgPractices = org?.practice_uids || [];
+        if (orgPractices.length > 0) {
+          setSelectedPracticeUid(orgPractices[0]);
+        } else {
+          setSelectedPracticeUid(undefined);
+        }
       } else {
+        // No org selected - clear practice selection
         setSelectedPracticeUid(undefined);
       }
     }
@@ -148,11 +149,10 @@ export default function ReportCardView() {
   }, [selectedPracticeUid]);
 
   // Determine if organization selector should be shown
-  // Only show when user has multiple organizations to choose from
   const showOrgSelector = useMemo(() => {
-    // Super users: show if there are multiple organizations
+    // Super users: ALWAYS show - they must select an organization
     if (canViewAll) {
-      return allOrganizations.length > 1;
+      return allOrganizations.length > 0;
     }
     // Regular users: show if they have access to multiple organizations
     return (userContext?.organizations?.length ?? 0) > 1;

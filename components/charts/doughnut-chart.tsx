@@ -213,6 +213,7 @@ const DoughnutChart = forwardRef<HTMLCanvasElement, DoughnutProps>(function Doug
             height: '100%',
             display: 'block',
             maxHeight: '100%',
+            touchAction: 'manipulation',
           }}
         />
       </div>

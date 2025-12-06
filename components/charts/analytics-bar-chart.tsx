@@ -422,6 +422,7 @@ const AnalyticsBarChart = forwardRef<HTMLCanvasElement, AnalyticsBarChartProps>(
               width: '100%',
               height: '100%',
               display: 'block',
+              touchAction: 'manipulation',
             }}
           />
         </div>

@@ -216,7 +216,7 @@ export default function AreaChart({ data, width, height }: AreaChartProps) {
       ref={canvas} 
       width={width} 
       height={height}
-      style={{ width: '100%', height: '100%', display: 'block' }}
+      style={{ width: '100%', height: '100%', display: 'block', touchAction: 'manipulation' }}
     />
   );
 }
