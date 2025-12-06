@@ -17,8 +17,9 @@ const inter = Inter({
 export const metadata = {
   title: 'Bendcare Thrive',
   description: 'Bendcare Thrive',
+  manifest: '/manifest.json',
   icons: {
-    apple: '/apple-touch-icon.png',
+    apple: '/thrive_app_logo_180.png',
   },
 };
 
