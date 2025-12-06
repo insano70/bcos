@@ -24,10 +24,16 @@ export const DASHBOARD_LAYOUT = {
     HEIGHT_MULTIPLIER: 150,
 
     /**
-     * Minimum chart height in pixels
+     * Minimum chart height in pixels (desktop)
      * Ensures charts are never too small to be useful
      */
     MIN_HEIGHT: 250,
+
+    /**
+     * Minimum chart height for mobile devices
+     * Smaller to fit more content on screen while remaining usable
+     */
+    MIN_HEIGHT_MOBILE: 200,
 
     /**
      * Minimum height with padding for responsive containers
@@ -35,12 +41,46 @@ export const DASHBOARD_LAYOUT = {
     MIN_HEIGHT_WITH_PADDING: 200,
 
     /**
+     * Minimum height with padding for mobile
+     */
+    MIN_HEIGHT_WITH_PADDING_MOBILE: 160,
+
+    /**
      * Padding to subtract from container height
      * Accounts for chart header, borders, etc.
      */
     HEIGHT_PADDING: 100,
+
+    /**
+     * Mobile breakpoint in pixels (matches Tailwind md breakpoint)
+     */
+    MOBILE_BREAKPOINT: 768,
   },
 } as const;
+
+/**
+ * Get responsive minimum height based on viewport width
+ * 
+ * @param isMobile - Whether the current viewport is mobile-sized
+ * @returns Appropriate minimum height for the viewport
+ */
+export function getResponsiveMinHeight(isMobile: boolean): number {
+  return isMobile 
+    ? DASHBOARD_LAYOUT.CHART.MIN_HEIGHT_MOBILE 
+    : DASHBOARD_LAYOUT.CHART.MIN_HEIGHT;
+}
+
+/**
+ * Get responsive minimum height with padding based on viewport width
+ * 
+ * @param isMobile - Whether the current viewport is mobile-sized
+ * @returns Appropriate minimum height with padding for the viewport
+ */
+export function getResponsiveMinHeightWithPadding(isMobile: boolean): number {
+  return isMobile 
+    ? DASHBOARD_LAYOUT.CHART.MIN_HEIGHT_WITH_PADDING_MOBILE 
+    : DASHBOARD_LAYOUT.CHART.MIN_HEIGHT_WITH_PADDING;
+}
 
 /**
  * Responsive column span breakpoints

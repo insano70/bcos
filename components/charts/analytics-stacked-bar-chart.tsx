@@ -250,14 +250,16 @@ const AnalyticsStackedBarChart = forwardRef<HTMLCanvasElement, AnalyticsStackedB
 
               itemsWithTotals.forEach(({ item, total: theValue }) => {
                 const li = document.createElement('li');
-                // Button element
+                // Button element - 36px min height for mobile touch targets
                 const button = document.createElement('button');
                 button.style.display = 'inline-flex';
                 button.style.alignItems = 'center';
                 button.style.opacity = item.hidden ? '.3' : '';
-                button.style.minWidth = '0'; // Allow shrinking
-                button.style.maxWidth = '200px'; // Limit button width
-                button.style.margin = '2px'; // Compact spacing
+                button.style.minHeight = '36px'; // Mobile touch target
+                button.style.maxWidth = '220px'; // Slightly wider for better readability
+                button.style.padding = '4px 8px'; // Better touch padding
+                button.style.margin = '2px';
+                button.style.borderRadius = '6px'; // Rounded for better touch feedback
                 button.onclick = () => {
                   c.setDatasetVisibility(
                     item.datasetIndex!,
@@ -268,32 +270,34 @@ const AnalyticsStackedBarChart = forwardRef<HTMLCanvasElement, AnalyticsStackedB
                 // Color box
                 const box = document.createElement('span');
                 box.style.display = 'block';
-                box.style.width = '12px';
-                box.style.height = '12px';
-                box.style.borderRadius = 'calc(infinity * 1px)';
+                box.style.width = '10px';
+                box.style.height = '10px';
+                box.style.borderRadius = '50%';
                 box.style.marginRight = '8px';
-                box.style.borderWidth = '3px';
-                box.style.borderColor = item.fillStyle as string;
+                box.style.flexShrink = '0';
+                box.style.backgroundColor = item.fillStyle as string;
                 box.style.pointerEvents = 'none';
-                // Label
+                // Label container
                 const labelContainer = document.createElement('span');
                 labelContainer.style.display = 'flex';
                 labelContainer.style.alignItems = 'center';
+                labelContainer.style.minWidth = '0'; // Allow text truncation
                 const value = document.createElement('span');
                 value.classList.add('text-gray-800', 'dark:text-gray-100');
-                value.style.fontSize = '15px'; // Between value and label (was 18px)
+                value.style.fontSize = '0.875rem'; // 14px - responsive rem unit
                 value.style.lineHeight = '1.4';
-                value.style.fontWeight = '600'; // Reduced from 700
-                value.style.marginRight = '6px'; // Reduced from 8px
+                value.style.fontWeight = '600';
+                value.style.marginRight = '6px';
                 value.style.pointerEvents = 'none';
+                value.style.flexShrink = '0'; // Don't shrink values
                 const label = document.createElement('span');
                 label.classList.add('text-gray-500', 'dark:text-gray-400');
-                label.style.fontSize = '12px'; // Reduced from 14px
+                label.style.fontSize = '0.75rem'; // 12px - responsive rem unit
                 label.style.lineHeight = '1.3';
                 label.style.whiteSpace = 'nowrap';
                 label.style.overflow = 'hidden';
                 label.style.textOverflow = 'ellipsis';
-                label.style.maxWidth = '120px'; // Limit label width
+                label.style.maxWidth = '100px'; // Slightly reduced for mobile
 
                 // theValue already calculated during sorting step
                 // Get measure type from chart data, fallback to 'number'

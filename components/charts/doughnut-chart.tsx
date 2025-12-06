@@ -92,8 +92,8 @@ const DoughnutChart = forwardRef<HTMLCanvasElement, DoughnutProps>(function Doug
             const items = c.options.plugins?.legend?.labels?.generateLabels?.(c);
             items?.forEach((item) => {
               const li = document.createElement('li');
-              li.style.margin = '4px';
-              // Button element
+              li.style.margin = '2px';
+              // Button element - 36px min height for mobile touch targets
               const button = document.createElement('button');
               button.classList.add(
                 'btn-xs',
@@ -106,6 +106,10 @@ const DoughnutChart = forwardRef<HTMLCanvasElement, DoughnutProps>(function Doug
                 'rounded-full'
               );
               button.style.opacity = item.hidden ? '.3' : '';
+              button.style.minHeight = '32px'; // Mobile touch target
+              button.style.padding = '6px 12px'; // Better touch padding
+              button.style.display = 'inline-flex';
+              button.style.alignItems = 'center';
               button.onclick = () => {
                 c.toggleDataVisibility(item.index!);
                 c.update();
@@ -113,16 +117,19 @@ const DoughnutChart = forwardRef<HTMLCanvasElement, DoughnutProps>(function Doug
               // Color box
               const box = document.createElement('span');
               box.style.display = 'block';
-              box.style.width = '8px';
-              box.style.height = '8px';
+              box.style.width = '10px';
+              box.style.height = '10px';
               box.style.backgroundColor = item.fillStyle as string;
-              box.style.borderRadius = '4px';
-              box.style.marginRight = '4px';
+              box.style.borderRadius = '50%';
+              box.style.marginRight = '6px';
+              box.style.flexShrink = '0';
               box.style.pointerEvents = 'none';
               // Label
               const label = document.createElement('span');
               label.style.display = 'flex';
               label.style.alignItems = 'center';
+              label.style.fontSize = '0.75rem'; // Responsive rem unit
+              label.style.whiteSpace = 'nowrap';
               const labelText = document.createTextNode(item.text);
               label.appendChild(labelText);
               li.appendChild(button);

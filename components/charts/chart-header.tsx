@@ -12,12 +12,14 @@
  * - Reduces duplication in chart components
  * - Centralized action button styling
  * - Easy to add new header actions
+ * - Mobile-optimized bottom sheet for export menu
  */
 
 'use client';
 
-import { Download, Maximize2, RefreshCcw } from 'lucide-react';
+import { Download, Maximize2, RefreshCcw, X } from 'lucide-react';
 import { useState } from 'react';
+import { useIsMobile } from '@/hooks/useIsMobile';
 
 /**
  * Chart header props
@@ -70,6 +72,7 @@ export default function ChartHeader({
   className = '',
 }: ChartHeaderProps) {
   const [showExportMenu, setShowExportMenu] = useState(false);
+  const isMobile = useIsMobile();
 
   /**
    * Handle export format selection
@@ -84,14 +87,14 @@ export default function ChartHeader({
       className={`px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between bg-white dark:bg-gray-800 rounded-t-2xl ${className}`}
     >
       {/* Title */}
-      <div className="flex-1">
+      <div className="flex-1 min-w-0">
         {title && (
-          <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">{title}</h2>
+          <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100 truncate">{title}</h2>
         )}
       </div>
 
       {/* Actions - 44px minimum touch targets for mobile accessibility */}
-      <div className="flex items-center gap-0.5">
+      <div className="flex items-center gap-0.5 flex-shrink-0">
         {/* Export Button */}
         {onExport && (
           <div className="relative">
@@ -106,38 +109,91 @@ export default function ChartHeader({
               <Download className="w-5 h-5" />
             </button>
 
-            {/* Export dropdown */}
+            {/* Export menu - Bottom sheet on mobile, dropdown on desktop */}
             {showExportMenu && (
               <>
                 {/* Backdrop */}
-                <div className="fixed inset-0 z-40" onClick={() => setShowExportMenu(false)} />
+                <div 
+                  className="fixed inset-0 z-40 bg-black/20 md:bg-transparent" 
+                  onClick={() => setShowExportMenu(false)} 
+                />
 
-                {/* Dropdown menu */}
-                <div className="absolute right-0 mt-2 w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50">
-                  <div className="py-1">
-                    <button
-                      type="button"
-                      onClick={() => handleExport('png')}
-                      className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                    >
-                      Export as PNG
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleExport('pdf')}
-                      className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                    >
-                      Export as PDF
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleExport('csv')}
-                      className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                    >
-                      Export as CSV
-                    </button>
+                {isMobile ? (
+                  /* Mobile: Bottom Sheet */
+                  <div className="fixed inset-x-0 bottom-0 z-50 bg-white dark:bg-gray-800 rounded-t-2xl shadow-xl animate-in slide-in-from-bottom duration-200">
+                    {/* Handle bar */}
+                    <div className="flex justify-center pt-3 pb-2">
+                      <div className="w-10 h-1 bg-gray-300 dark:bg-gray-600 rounded-full" />
+                    </div>
+                    
+                    {/* Header with close button */}
+                    <div className="flex items-center justify-between px-4 pb-2 border-b border-gray-200 dark:border-gray-700">
+                      <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">
+                        Export Chart
+                      </h3>
+                      <button
+                        type="button"
+                        onClick={() => setShowExportMenu(false)}
+                        className="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                        aria-label="Close"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+                    
+                    {/* Export options */}
+                    <div className="p-4 space-y-2 pb-safe">
+                      <button
+                        type="button"
+                        onClick={() => handleExport('png')}
+                        className="w-full min-h-[48px] flex items-center justify-center px-4 py-3 text-base font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-xl transition-colors"
+                      >
+                        Export as PNG
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleExport('pdf')}
+                        className="w-full min-h-[48px] flex items-center justify-center px-4 py-3 text-base font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-xl transition-colors"
+                      >
+                        Export as PDF
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleExport('csv')}
+                        className="w-full min-h-[48px] flex items-center justify-center px-4 py-3 text-base font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-xl transition-colors"
+                      >
+                        Export as CSV
+                      </button>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  /* Desktop: Dropdown menu */
+                  <div className="absolute right-0 mt-2 w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50">
+                    <div className="py-1">
+                      <button
+                        type="button"
+                        onClick={() => handleExport('png')}
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                      >
+                        Export as PNG
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleExport('pdf')}
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                      >
+                        Export as PDF
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleExport('csv')}
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                      >
+                        Export as CSV
+                      </button>
+                    </div>
+                  </div>
+                )}
               </>
             )}
           </div>
