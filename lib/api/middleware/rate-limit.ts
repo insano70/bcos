@@ -21,34 +21,39 @@ interface RateLimitConfig {
  */
 const RATE_LIMIT_CONFIGS: Record<string, RateLimitConfig> = {
   auth: {
-    limit: 20, // 20 auth attempts per 15-minute window
+    limit: 200, // 200 auth attempts per 15-minute window (TEMPORARY: increased 10x for summit)
     windowSeconds: 15 * 60, // 15 minutes
     // Rationale: Allows 1-2 failed login attempts + retries before lockout
     // Prevents brute force attacks while accommodating typos/forgotten passwords
+    // SUMMIT FIX: Increased from 20 to 200 to support many users sharing one IP
   },
   mfa: {
-    limit: 5, // 5 MFA verification attempts per 15-minute window
+    limit: 50, // 50 MFA verification attempts per 15-minute window (TEMPORARY: increased 10x for summit)
     windowSeconds: 15 * 60, // 15 minutes
     // Rationale: Strict limit to prevent TOTP/passkey brute force
     // Lower than 'auth' because MFA should succeed on first try
+    // SUMMIT FIX: Increased from 5 to 50 to support many users sharing one IP
   },
   upload: {
-    limit: 300, // 300 file uploads per minute
+    limit: 3000, // 3000 file uploads per minute (TEMPORARY: increased 10x for summit)
     windowSeconds: 60, // 1 minute
     // Rationale: Prevents storage/bandwidth abuse from bulk uploads
     // 300/min allows extensive batch operations and large gallery uploads while blocking DoS via large files
+    // SUMMIT FIX: Increased from 300 to 3000 to support many users sharing one IP
   },
   api: {
-    limit: 500, // 500 standard API requests per minute
+    limit: 5000, // 5000 standard API requests per minute (TEMPORARY: increased 10x for summit)
     windowSeconds: 60, // 1 minute
     // Rationale: Supports complex dashboard usage (8+ requests/second)
     // High enough for complex UIs with multiple concurrent requests, low enough to prevent abuse
+    // SUMMIT FIX: Increased from 500 to 5000 to support many users sharing one IP
   },
   session_read: {
-    limit: 500, // 500 session verification requests per minute
+    limit: 5000, // 5000 session verification requests per minute (TEMPORARY: increased 10x for summit)
     windowSeconds: 60, // 1 minute
     // Rationale: High limit for frequent auth checks (/api/auth/me called 3+ times per page)
     // Must be higher than 'api' to avoid blocking legitimate session verification
+    // SUMMIT FIX: Increased from 500 to 5000 to support many users sharing one IP
   },
 };
 
