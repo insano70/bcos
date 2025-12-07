@@ -24,15 +24,49 @@ import type { CollectionOptions, MeasureWithFilters, MeasureStatisticsRow } from
  * Statistics Collector Service
  *
  * Handles the collection of practice metrics from the analytics database.
- * This service does not require RBAC context as it is designed to be
- * called from CLI scripts or cron jobs.
+ * 
+ * SECURITY: This service should only be invoked from:
+ * 1. CLI scripts (BCOS_CLI_MODE=true environment variable)
+ * 2. Admin API endpoints (fromAdminApi: true option)
  */
 export class StatisticsCollectorService {
   /**
+   * SECURITY: Validate that collection is being called from authorized context
+   * @throws Error if called from unauthorized context
+   */
+  private validateCallerContext(options: CollectionOptions): void {
+    const isCliMode = process.env.BCOS_CLI_MODE === 'true';
+    const isAdminApi = options.fromAdminApi === true;
+
+    if (!isCliMode && !isAdminApi) {
+      log.security('Unauthorized statistics collection attempt', 'high', {
+        operation: 'collect_statistics',
+        isCliMode,
+        isAdminApi,
+        component: 'report-card',
+      });
+      throw new Error(
+        'SECURITY: Statistics collection must be invoked from CLI (BCOS_CLI_MODE=true) or admin API (fromAdminApi: true)'
+      );
+    }
+
+    log.info('Statistics collection caller context validated', {
+      operation: 'collect_statistics',
+      context: isCliMode ? 'CLI' : 'Admin API',
+      component: 'report-card',
+    });
+  }
+
+  /**
    * Collect statistics from analytics DB and store in main DB
    * Iterates over active measures and generates dynamic SQL based on filter_criteria
+   * 
+   * SECURITY: Must be called from CLI or admin API only
    */
   async collect(options: CollectionOptions = {}): Promise<CollectionResult> {
+    // SECURITY: Validate caller context before proceeding
+    this.validateCallerContext(options);
+
     const startTime = Date.now();
     let recordsInserted = 0;
     let recordsUpdated = 0;

@@ -6,6 +6,7 @@ import { log } from '@/lib/logger';
 import { createRBACReportCardService } from '@/lib/services/report-card';
 import type { UserContext } from '@/lib/types/rbac';
 import { reportCardParamsSchema } from '@/lib/validations/report-card';
+import { PermissionDeniedError } from '@/lib/errors/rbac-errors';
 import { z } from 'zod';
 
 /**
@@ -67,6 +68,17 @@ const getGradeHistoryHandler = async (
   } catch (error) {
     const duration = Date.now() - startTime;
 
+    // SECURITY: Return 404 for access denied (prevent enumeration)
+    if (error instanceof PermissionDeniedError) {
+      log.info('Grade history access denied', {
+        practiceUid,
+        userId: userContext.user_id,
+        duration,
+        component: 'report-card',
+      });
+      return createErrorResponse('Grade history not found', 404, request);
+    }
+
     log.error('Failed to get grade history', error as Error, {
       practiceUid,
       userId: userContext.user_id,
@@ -86,7 +98,7 @@ const getGradeHistoryHandler = async (
 };
 
 export const GET = rbacRoute(getGradeHistoryHandler, {
-  permission: ['analytics:read:own', 'analytics:read:organization', 'analytics:read:all'],
+  permission: ['analytics:read:organization', 'analytics:read:all'],
   rateLimit: 'api',
 });
 

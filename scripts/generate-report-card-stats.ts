@@ -12,6 +12,10 @@
  *   pnpm tsx --env-file=.env.local scripts/generate-report-card-stats.ts --all --dry-run
  */
 
+// SECURITY: Set CLI mode flag before importing services
+// This allows statistics collector to validate authorized context
+process.env.BCOS_CLI_MODE = 'true';
+
 import { parseArgs } from 'node:util';
 
 // Simple console logger for script execution

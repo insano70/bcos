@@ -21,11 +21,44 @@ import type {
 import type { TrendPeriod, SizeBucket } from '@/lib/constants/report-card';
 
 // =============================================================================
-// Report Card Queries
+// Report Card Queries (by Organization - Primary)
+// =============================================================================
+
+/**
+ * Hook for fetching an organization's report card
+ * This is the PRIMARY hook for UI - users select by organization, not practice.
+ * Includes previous month summary for comparison display.
+ *
+ * @param organizationId - Organization ID (UUID) to fetch report card for
+ * @param month - Optional month in YYYY-MM-DD format to fetch specific month's report card
+ */
+export function useReportCardByOrg(organizationId: string | undefined, month?: string) {
+  const queryParams = month ? `?month=${month}` : '';
+  const url = organizationId ? `/api/admin/report-card/org/${organizationId}${queryParams}` : '';
+
+  return useApiQuery<{
+    reportCard: ReportCard;
+    previousMonth: PreviousMonthSummary | null;
+    availableMonths: string[];
+  }>(
+    organizationId
+      ? ['report-card-by-org', organizationId, month || 'latest']
+      : ['report-card-by-org', 'none'],
+    url,
+    {
+      enabled: !!organizationId,
+      staleTime: 5 * 60 * 1000, // 5 minutes
+    }
+  );
+}
+
+// =============================================================================
+// Report Card Queries (by Practice UID - Legacy)
 // =============================================================================
 
 /**
  * Hook for fetching a practice's report card
+ * @deprecated Use useReportCardByOrg instead - users should select by organization
  * Includes previous month summary for comparison display
  * 
  * @param practiceUid - Practice UID to fetch report card for
@@ -123,7 +156,28 @@ export function useGradeHistory(practiceUid: number | undefined, limit: number =
 }
 
 /**
+ * Hook for fetching annual review data by organization
+ * This is the PRIMARY hook for UI - users select by organization.
+ * Returns year-over-year comparison, trends, and forecasts.
+ */
+export function useAnnualReviewByOrg(organizationId: string | undefined) {
+  const url = organizationId ? `/api/admin/report-card/org/${organizationId}/annual-review` : '';
+
+  return useApiQuery<{ review: AnnualReview }>(
+    organizationId
+      ? ['report-card-annual-review-by-org', organizationId]
+      : ['report-card-annual-review-by-org', 'none'],
+    url,
+    {
+      enabled: !!organizationId,
+      staleTime: 10 * 60 * 1000, // 10 minutes (annual data changes less frequently)
+    }
+  );
+}
+
+/**
  * Hook for fetching annual review data
+ * @deprecated Use useAnnualReviewByOrg instead - users should select by organization
  * Returns year-over-year comparison, trends, and forecasts
  */
 export function useAnnualReview(practiceUid: number | undefined) {

@@ -9,8 +9,10 @@ import {
   useUpdateWorkItemType,
 } from '@/lib/hooks/use-work-item-types';
 import { createSafeTextSchema } from '@/lib/validations/sanitization';
+import ColorPicker from './color-picker';
 import CrudModal from './crud-modal';
 import type { FieldConfig, CustomFieldProps } from './crud-modal/types';
+import EmojiPicker from './emoji-picker';
 import HierarchySelect from './hierarchy-select';
 
 // Create schema
@@ -69,6 +71,31 @@ function OrganizationSelectAdapter({ value, onChange, error, disabled }: CustomF
   );
 }
 
+// Adapter for color picker
+function ColorPickerAdapter({ value, onChange }: CustomFieldProps<WorkItemTypeFormData>) {
+  return (
+    <ColorPicker
+      label="Color"
+      value={(value as string) || ''}
+      onChange={(color) => onChange(color)}
+      defaultColor="#3b82f6"
+      description="Pick from presets or enter a custom hex color"
+    />
+  );
+}
+
+// Adapter for emoji picker
+function EmojiPickerAdapter({ value, onChange }: CustomFieldProps<WorkItemTypeFormData>) {
+  return (
+    <EmojiPicker
+      label="Icon"
+      value={(value as string) || ''}
+      onChange={(emoji) => onChange(emoji)}
+      description="Pick an emoji to represent this work item type"
+    />
+  );
+}
+
 export default function WorkItemTypeModal({
   mode,
   isOpen,
@@ -96,18 +123,18 @@ export default function WorkItemTypeModal({
       rows: 3,
     },
     {
-      type: 'text',
+      type: 'custom',
       name: 'icon',
       label: 'Icon',
-      placeholder: 'e.g., 📋, 🐛, ✨',
-      helpText: 'Enter an emoji to represent this type',
+      component: EmojiPickerAdapter,
+      props: {},
     },
     {
-      type: 'text',
+      type: 'custom',
       name: 'color',
       label: 'Color',
-      placeholder: 'e.g., #FF5733 or blue-500',
-      helpText: 'Color for this type (hex code or Tailwind class)',
+      component: ColorPickerAdapter,
+      props: {},
     },
     {
       type: 'custom',

@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useId, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
+import ColorPicker from './color-picker';
 import DeleteConfirmationModal from './delete-confirmation-modal';
 import {
   useCreateWorkItemStatus,
@@ -53,7 +54,6 @@ export default function ManageStatusesModal({
 
   const statusNameId = useId();
   const statusCategoryId = useId();
-  const colorId = useId();
   const displayOrderId = useId();
 
   const {
@@ -62,6 +62,7 @@ export default function ManageStatusesModal({
     formState: { errors },
     reset,
     setValue,
+    watch,
   } = useForm<StatusForm>({
     resolver: zodResolver(statusSchema),
     defaultValues: {
@@ -287,14 +288,12 @@ export default function ManageStatusesModal({
 
                         {/* Color */}
                         <div>
-                          <label className="block text-sm font-medium mb-1" htmlFor={colorId}>
-                            Color <span className="text-red-500">*</span>
-                          </label>
-                          <input
-                            id={colorId}
-                            type="color"
-                            className={`form-input w-full h-10 ${errors.color ? 'border-red-300' : ''}`}
-                            {...register('color')}
+                          <ColorPicker
+                            label="Color"
+                            value={watch('color') || '#3b82f6'}
+                            onChange={(color) => setValue('color', color, { shouldValidate: true })}
+                            defaultColor="#3b82f6"
+                            description="Pick from presets or enter a custom hex color"
                           />
                           {errors.color && (
                             <div className="text-xs mt-1 text-red-500">{errors.color.message}</div>

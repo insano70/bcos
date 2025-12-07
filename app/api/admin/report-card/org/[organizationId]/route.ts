@@ -5,38 +5,45 @@ import { rbacRoute } from '@/lib/api/route-handlers';
 import { log, logTemplates } from '@/lib/logger';
 import { createRBACReportCardService } from '@/lib/services/report-card';
 import type { UserContext } from '@/lib/types/rbac';
-import { reportCardParamsSchema } from '@/lib/validations/report-card';
 import { ReportCardNotFoundError } from '@/lib/errors/report-card-errors';
 import { PermissionDeniedError } from '@/lib/errors/rbac-errors';
 import { z } from 'zod';
 
 /**
- * Report Card API - Get report card for a practice
- * 
+ * Report Card API - Get report card for an organization
+ *
+ * Primary endpoint for UI - users select by organization, not practice.
  * Supports optional `month` query param to fetch a specific month's report card.
  * If no month is provided, returns the latest report card.
  */
 
-const reportCardQuerySchema = z.object({
-  month: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Month must be in YYYY-MM-DD format').optional(),
+const organizationIdSchema = z.object({
+  organizationId: z.string().uuid('Organization ID must be a valid UUID'),
 });
 
-const getReportCardHandler = async (
+const reportCardQuerySchema = z.object({
+  month: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Month must be in YYYY-MM-DD format')
+    .optional(),
+});
+
+const getReportCardByOrgHandler = async (
   request: NextRequest,
   userContext: UserContext,
   ...args: unknown[]
 ) => {
   const startTime = Date.now();
-  const { params } = args[0] as { params: Promise<{ practiceUid: string }> };
+  const { params } = args[0] as { params: Promise<{ organizationId: string }> };
   const resolvedParams = await params;
-  const practiceUid = resolvedParams.practiceUid;
+  const organizationId = resolvedParams.organizationId;
 
   try {
     // Validate params
-    const validationResult = reportCardParamsSchema.safeParse({ practiceUid });
+    const validationResult = organizationIdSchema.safeParse({ organizationId });
 
     if (!validationResult.success) {
-      return createErrorResponse('Invalid practice UID', 400, request);
+      return createErrorResponse('Invalid organization ID', 400, request);
     }
 
     // Parse optional month query param
@@ -45,35 +52,39 @@ const getReportCardHandler = async (
       month: searchParams.get('month') || undefined,
     });
 
-    const practiceUidNum = parseInt(validationResult.data.practiceUid, 10);
     const month = queryResult.success ? queryResult.data.month : undefined;
 
     const service = createRBACReportCardService(userContext);
 
     // Get report card - either by specific month or latest
     const reportCard = month
-      ? await service.getReportCardByMonth(practiceUidNum, month)
-      : await service.getReportCard(practiceUidNum);
+      ? await service.getReportCardByOrganizationAndMonth(organizationId, month)
+      : await service.getReportCardByOrganization(organizationId);
 
     // Get previous month summary for comparison
-    const previousMonth = await service.getPreviousMonthSummary(
-      practiceUidNum,
+    const previousMonth = await service.getPreviousMonthSummaryByOrganization(
+      organizationId,
       reportCard.report_card_month
     );
 
     // Get available months for month selector
-    const availableMonths = await service.getAvailableMonths(practiceUidNum, 6);
+    const availableMonths = await service.getAvailableMonthsByOrganization(organizationId, 6);
 
     const duration = Date.now() - startTime;
 
     const template = logTemplates.crud.read('report_card', {
-      resourceId: practiceUid,
+      resourceId: organizationId,
       userId: userContext.user_id,
       duration,
       found: true,
     });
 
-    log.info(template.message, { ...template.context, component: 'report-card', month });
+    log.info(template.message, {
+      ...template.context,
+      component: 'report-card',
+      month,
+      queryBy: 'organization_id',
+    });
 
     return createSuccessResponse(
       { reportCard, previousMonth, availableMonths },
@@ -85,7 +96,7 @@ const getReportCardHandler = async (
     // SECURITY: Return 404 for both not found AND access denied (prevent enumeration)
     if (error instanceof ReportCardNotFoundError || error instanceof PermissionDeniedError) {
       log.info('Report card not found or access denied', {
-        practiceUid,
+        organizationId,
         userId: userContext.user_id,
         duration,
         errorType: error.constructor.name,
@@ -95,7 +106,7 @@ const getReportCardHandler = async (
     }
 
     log.error('Failed to get report card', error as Error, {
-      practiceUid,
+      organizationId,
       userId: userContext.user_id,
       duration,
       component: 'report-card',
@@ -112,7 +123,8 @@ const getReportCardHandler = async (
   }
 };
 
-export const GET = rbacRoute(getReportCardHandler, {
+export const GET = rbacRoute(getReportCardByOrgHandler, {
   permission: ['analytics:read:organization', 'analytics:read:all'],
   rateLimit: 'api',
 });
+

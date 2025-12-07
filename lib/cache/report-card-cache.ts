@@ -57,6 +57,26 @@ class ReportCardCacheService extends CacheService<ReportCard> {
   }
 
   // ==========================================================================
+  // Organization Report Cards
+  // ==========================================================================
+
+  /**
+   * Get cached report card for an organization
+   */
+  async getReportCardByOrg(organizationId: string): Promise<ReportCard | null> {
+    const key = this.buildKey('org', organizationId);
+    return this.get<ReportCard>(key);
+  }
+
+  /**
+   * Cache a report card for an organization
+   */
+  async setReportCardByOrg(organizationId: string, data: ReportCard): Promise<boolean> {
+    const key = this.buildKey('org', organizationId);
+    return this.set(key, data, { ttl: this.defaultTTL });
+  }
+
+  // ==========================================================================
   // Peer Comparison Statistics
   // ==========================================================================
 
@@ -107,7 +127,7 @@ class ReportCardCacheService extends CacheService<ReportCard> {
    * @param id - Optional ID for specific resource invalidation
    */
   async invalidate(
-    resourceType: 'practice' | 'peer' | 'measures' | 'all',
+    resourceType: 'practice' | 'org' | 'peer' | 'measures' | 'all',
     id?: number | string
   ): Promise<void> {
     try {
@@ -131,6 +151,18 @@ class ReportCardCacheService extends CacheService<ReportCard> {
         log.info('Report card cache invalidated', {
           type: 'practice',
           practiceUid: id,
+          component: 'report-card-cache',
+        });
+        return;
+      }
+
+      if (resourceType === 'org' && id !== undefined) {
+        // Invalidate specific organization report card
+        const key = this.buildKey('org', id);
+        await this.del(key);
+        log.info('Report card cache invalidated', {
+          type: 'org',
+          organizationId: id,
           component: 'report-card-cache',
         });
         return;

@@ -15,17 +15,37 @@ import type { LocationMetricsRow } from './types';
  * Location Comparison Service
  *
  * Queries the analytics database to compare performance across locations.
- * Does not require RBAC context as it's called through the RBAC service.
+ * 
+ * SECURITY: While this service is typically called through the RBAC service layer,
+ * it includes defense-in-depth validation via accessiblePractices parameter.
  */
 export class LocationComparisonService {
   /**
    * Get location comparison for a practice
+   * 
+   * @param practiceUid - Practice UID to get comparison for
+   * @param measureName - Optional specific measure to compare
+   * @param accessiblePractices - Optional array of practice UIDs user can access (defense-in-depth)
    */
   async getComparison(
     practiceUid: number,
-    measureName?: string
+    measureName?: string,
+    accessiblePractices?: number[]
   ): Promise<LocationComparison> {
     const startTime = Date.now();
+
+    // SECURITY: Defense-in-depth - verify practice access if provided
+    if (accessiblePractices !== undefined && accessiblePractices.length > 0) {
+      if (!accessiblePractices.includes(practiceUid)) {
+        log.security('Location comparison access denied (defense-in-depth)', 'medium', {
+          operation: 'get_location_comparison',
+          practiceUid,
+          accessiblePractices: accessiblePractices.slice(0, 5),
+          component: 'report-card',
+        });
+        throw new Error(`Access denied: User cannot access practice ${practiceUid}`);
+      }
+    }
 
     try {
       log.info('Fetching location comparison', {

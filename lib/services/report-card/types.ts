@@ -19,10 +19,16 @@ export interface AnalyticsStatisticsRow {
 
 /**
  * Options for statistics collection
+ * SECURITY: Collection should only be invoked from CLI or admin API
  */
 export interface CollectionOptions {
   practiceUid?: number | undefined;
   force?: boolean | undefined;
+  /**
+   * SECURITY: Set to true when called from admin API endpoint
+   * If not set, will check for BCOS_CLI_MODE environment variable
+   */
+  fromAdminApi?: boolean | undefined;
 }
 
 /**

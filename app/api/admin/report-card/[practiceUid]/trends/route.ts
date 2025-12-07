@@ -6,6 +6,7 @@ import { log } from '@/lib/logger';
 import { createRBACReportCardService } from '@/lib/services/report-card';
 import type { UserContext } from '@/lib/types/rbac';
 import { reportCardParamsSchema, trendQuerySchema } from '@/lib/validations/report-card';
+import { PermissionDeniedError } from '@/lib/errors/rbac-errors';
 import type { TrendPeriod } from '@/lib/constants/report-card';
 
 /**
@@ -61,6 +62,17 @@ const getTrendsHandler = async (
   } catch (error) {
     const duration = Date.now() - startTime;
 
+    // SECURITY: Return 404 for access denied (prevent enumeration)
+    if (error instanceof PermissionDeniedError) {
+      log.info('Trends access denied', {
+        practiceUid,
+        userId: userContext.user_id,
+        duration,
+        component: 'report-card',
+      });
+      return createErrorResponse('Trends not found', 404, request);
+    }
+
     log.error('Failed to get trends', error as Error, {
       practiceUid,
       userId: userContext.user_id,
@@ -80,6 +92,6 @@ const getTrendsHandler = async (
 };
 
 export const GET = rbacRoute(getTrendsHandler, {
-  permission: ['analytics:read:own', 'analytics:read:organization', 'analytics:read:all'],
+  permission: ['analytics:read:organization', 'analytics:read:all'],
   rateLimit: 'api',
 });

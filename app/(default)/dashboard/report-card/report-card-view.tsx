@@ -4,10 +4,8 @@ import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/components/auth/rbac-auth-provider';
 import { ChartErrorBoundary } from '@/components/charts/chart-error-boundary';
 import {
-  useReportCard,
-  useTrends,
+  useReportCardByOrg,
   usePeerComparison,
-  useGradeHistory,
 } from '@/lib/hooks/use-report-card';
 import { useOrganizations } from '@/lib/hooks/use-organizations';
 import HierarchySelect from '@/components/hierarchy-select';
@@ -29,10 +27,10 @@ import { FileText, RefreshCcw, Building2, Calendar } from 'lucide-react';
  * Report Card View Component
  *
  * Displays practice performance metrics, trends, and peer comparisons.
+ * Users select by organization - the system queries by organization_id.
  */
 export default function ReportCardView() {
   const { userContext, isLoading: authLoading } = useAuth();
-  const [selectedPracticeUid, setSelectedPracticeUid] = useState<number | undefined>(undefined);
   const [selectedOrgId, setSelectedOrgId] = useState<string | undefined>(undefined);
   const [selectedMonth, setSelectedMonth] = useState<string | undefined>(undefined);
   const [trendPeriod, setTrendPeriod] = useState<TrendPeriod>('3_month');
@@ -45,134 +43,66 @@ export default function ReportCardView() {
   // Check if user has all-access permission (super user)
   const canViewAll = useMemo(() => {
     if (!userContext?.all_permissions) return false;
-    return userContext.all_permissions.some(
-      (p) => p.name === 'analytics:read:all'
-    );
+    return userContext.all_permissions.some((p) => p.name === 'analytics:read:all');
   }, [userContext]);
 
-  // Fetch organizations for super users
+  // Fetch organizations for the org selector (super users see all, regular users see theirs)
   const { data: allOrganizations = [], isLoading: loadingOrgs } = useOrganizations();
 
-  // Get practice UIDs from user's organizations (for regular users)
-  // or from selected organization (for super users)
-  const practiceUids = useMemo(() => {
-    if (canViewAll && selectedOrgId) {
-      // Super user with selected org - get practices from that org
-      const org = allOrganizations.find((o) => o.id === selectedOrgId);
-      return org?.practice_uids || [];
-    }
-    
-    if (canViewAll && !selectedOrgId) {
-      // Super user without selected org - MUST select an org first
-      // Don't auto-select from random pool of all practices
-      return [];
-    }
-
-    // Regular user - get from their organizations
-    if (!userContext?.organizations) return [];
-    const uids: number[] = [];
-    for (const org of userContext.organizations) {
-      if (org.practice_uids) {
-        uids.push(...org.practice_uids);
-      }
-    }
-    return Array.from(new Set(uids));
-  }, [userContext, canViewAll, selectedOrgId, allOrganizations]);
-
-  // Set initial practice UID when available
-  useEffect(() => {
-    if (practiceUids.length > 0 && !selectedPracticeUid) {
-      setSelectedPracticeUid(practiceUids[0]);
-    }
-  }, [practiceUids, selectedPracticeUid]);
-
-  // Reset practice selection when org changes for super admins
-  useEffect(() => {
+  // Build list of selectable organizations
+  const selectableOrgs = useMemo(() => {
     if (canViewAll) {
-      if (selectedOrgId) {
-        // Org selected - select first practice in that org
-        const org = allOrganizations.find((o) => o.id === selectedOrgId);
-        const orgPractices = org?.practice_uids || [];
-        if (orgPractices.length > 0) {
-          setSelectedPracticeUid(orgPractices[0]);
-        } else {
-          setSelectedPracticeUid(undefined);
-        }
-      } else {
-        // No org selected - clear practice selection
-        setSelectedPracticeUid(undefined);
-      }
+      // Super user - can select any organization
+      return allOrganizations;
     }
-  }, [selectedOrgId, canViewAll, allOrganizations]);
+    // Regular user - filter to only their organizations
+    if (!userContext?.organizations) return [];
+    const userOrgIds = new Set(userContext.organizations.map((o) => o.organization_id));
+    return allOrganizations.filter((org) => userOrgIds.has(org.id));
+  }, [canViewAll, allOrganizations, userContext?.organizations]);
 
-  // Data hooks
+  // Auto-select organization for users with only one org
+  useEffect(() => {
+    if (!selectedOrgId && selectableOrgs.length === 1 && selectableOrgs[0]) {
+      setSelectedOrgId(selectableOrgs[0].id);
+    }
+  }, [selectableOrgs, selectedOrgId]);
+
+  // Determine if organization selector should be shown
+  // Only show if user has multiple organizations to choose from
+  const showOrgSelector = selectableOrgs.length > 1;
+
+  // Fetch report card by organization ID
   const {
     data: reportCardData,
     isLoading: isLoadingReportCard,
     error: reportCardError,
     refetch: refetchReportCard,
-  } = useReportCard(selectedPracticeUid, selectedMonth);
-
-  const { data: trendsData, isLoading: isLoadingTrends } = useTrends(
-    selectedPracticeUid,
-    trendPeriod
-  );
+  } = useReportCardByOrg(selectedOrgId, selectedMonth);
 
   // Default peer bucket to practice's bucket, allow override
   const practiceBucket = reportCardData?.reportCard?.size_bucket;
   const effectivePeerBucket = selectedPeerBucket ?? practiceBucket;
 
-  const { data: peerData, isLoading: isLoadingPeer } = usePeerComparison(
-    effectivePeerBucket
-  );
-
-  // Fetch grade history (last 12 months)
-  const { data: historyData, isLoading: isLoadingHistory } = useGradeHistory(
-    selectedPracticeUid,
-    12
-  );
+  const { data: peerData, isLoading: isLoadingPeer } = usePeerComparison(effectivePeerBucket);
 
   const reportCard = reportCardData?.reportCard;
   const previousMonth = reportCardData?.previousMonth;
   const availableMonths = reportCardData?.availableMonths || [];
-  const trends = trendsData?.trends || [];
   const peerComparison = peerData?.comparison;
-  const gradeHistory = historyData?.history || [];
 
-  const isLoading = authLoading || isLoadingReportCard || isLoadingTrends || isLoadingPeer;
+  const isLoading = authLoading || loadingOrgs || isLoadingReportCard;
 
-  // Reset peer bucket and month selection when practice changes
-  // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally reset on practice change only
+  // Reset peer bucket and month selection when org changes
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally reset on org change only
   useEffect(() => {
     setSelectedPeerBucket(undefined);
     setSelectedMonth(undefined);
-  }, [selectedPracticeUid]);
+  }, [selectedOrgId]);
 
-  // Determine if organization selector should be shown
-  const showOrgSelector = useMemo(() => {
-    // Super users: ALWAYS show - they must select an organization
-    if (canViewAll) {
-      return allOrganizations.length > 0;
-    }
-    // Regular users: show if they have access to multiple organizations
-    return (userContext?.organizations?.length ?? 0) > 1;
-  }, [canViewAll, allOrganizations.length, userContext?.organizations?.length]);
-
-  // Render organization selector only when there are multiple orgs to choose from
+  // Render organization selector
   const renderFilters = () => {
     if (!showOrgSelector) return null;
-
-    // Get selected org name for display
-    const selectedOrgName = selectedOrgId 
-      ? allOrganizations.find((o) => o.id === selectedOrgId)?.name 
-      : null;
-
-    // Determine which orgs to show in the selector
-    const selectableOrgs = canViewAll 
-      ? allOrganizations 
-      : allOrganizations.filter((org) => 
-          userContext?.organizations?.some((userOrg) => userOrg.organization_id === org.id)
-        );
 
     return (
       <div className="flex flex-wrap items-center gap-4 mb-6 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700">
@@ -180,7 +110,7 @@ export default function ReportCardView() {
           <Building2 className="w-4 h-4" />
           <span className="font-medium">Organization:</span>
         </div>
-        
+
         {/* Organization selector */}
         <div className="w-72">
           <HierarchySelect
@@ -194,23 +124,16 @@ export default function ReportCardView() {
             placeholder="Select an Organization"
             disabled={loadingOrgs}
             showSearch
-            allowClear
+            allowClear={canViewAll}
             rootLabel={canViewAll ? 'All Organizations' : 'My Organizations'}
           />
         </div>
-
-        {/* Show selected org info */}
-        {selectedOrgName && practiceUids.length > 0 && (
-          <span className="text-sm text-slate-500 dark:text-slate-400">
-            ({practiceUids.length} practice{practiceUids.length !== 1 ? 's' : ''})
-          </span>
-        )}
       </div>
     );
   };
 
-  // No practice selected state - show different message for super users
-  if (!authLoading && !loadingOrgs && !selectedPracticeUid) {
+  // No organization selected state
+  if (!authLoading && !loadingOrgs && !selectedOrgId) {
     return (
       <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-7xl mx-auto">
         <div className="sm:flex sm:justify-between sm:items-center mb-8">
@@ -232,12 +155,12 @@ export default function ReportCardView() {
               <FileText className="w-10 h-10 text-slate-400 dark:text-slate-500" />
             </div>
             <h3 className="text-lg font-medium text-slate-800 dark:text-slate-200 mb-2">
-              No Practice Selected
+              {selectableOrgs.length === 0 ? 'No Organization Access' : 'Select an Organization'}
             </h3>
             <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto">
-              {canViewAll
-                ? 'Select an organization above to view their report card.'
-                : 'Your account is not associated with a practice. Please contact your administrator to be assigned to a practice.'}
+              {selectableOrgs.length === 0
+                ? 'Your account is not associated with any organization. Please contact your administrator.'
+                : 'Select an organization above to view their report card.'}
             </p>
           </div>
         </div>
@@ -261,11 +184,21 @@ export default function ReportCardView() {
   if (reportCardError) {
     return (
       <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-7xl mx-auto">
+        <div className="sm:flex sm:justify-between sm:items-center mb-8">
+          <div className="mb-4 sm:mb-0">
+            <h1 className="text-2xl md:text-3xl text-slate-800 dark:text-slate-100 font-bold">
+              Practice Report Card
+            </h1>
+          </div>
+        </div>
+
+        {renderFilters()}
+
         <div className="bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 p-6 rounded-2xl">
           <h3 className="font-semibold mb-2">Failed to load report card</h3>
           <p className="text-sm mb-4">
-            There was an error loading your report card. This may be because no report card
-            has been generated for your practice yet.
+            There was an error loading your report card. This may be because no report card has
+            been generated for this organization yet.
           </p>
           <button
             onClick={() => refetchReportCard()}
@@ -294,6 +227,8 @@ export default function ReportCardView() {
           </div>
         </div>
 
+        {renderFilters()}
+
         <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-8">
           <div className="text-center py-12">
             <div className="p-4 rounded-full bg-amber-100 dark:bg-amber-900/30 w-20 h-20 mx-auto mb-4 flex items-center justify-center">
@@ -303,8 +238,8 @@ export default function ReportCardView() {
               Report Card Not Available
             </h3>
             <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto">
-              Your practice report card has not been generated yet. Report cards are
-              generated periodically based on your practice data.
+              The report card for this organization has not been generated yet. Report cards are
+              generated periodically based on practice data.
             </p>
           </div>
         </div>
@@ -313,7 +248,6 @@ export default function ReportCardView() {
   }
 
   // Extract practice values for peer comparison
-  // Values = actual raw values (e.g., $150,000 in charges)
   const practiceValues: Record<string, number> = {};
   if (reportCard.measure_scores) {
     for (const [measureName, scoreData] of Object.entries(reportCard.measure_scores)) {
@@ -328,10 +262,9 @@ export default function ReportCardView() {
         <div className="mb-4 sm:mb-0">
           <div className="flex items-center gap-4 flex-wrap">
             <h1 className="text-2xl md:text-3xl text-slate-800 dark:text-slate-100 font-bold">
-              {selectedMonth 
+              {selectedMonth
                 ? `${new Date(`${selectedMonth}T00:00:00`).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })} Report Card`
-                : `${reportCardMonth} Report Card`
-              }
+                : `${reportCardMonth} Report Card`}
             </h1>
             {/* Month Selector - only show if multiple months available */}
             {availableMonths.length > 1 && (
@@ -344,10 +277,9 @@ export default function ReportCardView() {
             )}
           </div>
           <p className="text-slate-600 dark:text-slate-400 mt-1">
-            {selectedMonth 
+            {selectedMonth
               ? `Historical report card from ${new Date(`${selectedMonth}T00:00:00`).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`
-              : `How your practice performed in ${reportCardMonthInfo.monthName}`
-            }
+              : `How your practice performed in ${reportCardMonthInfo.monthName}`}
           </p>
         </div>
         <div className="flex items-center gap-4">
@@ -371,48 +303,48 @@ export default function ReportCardView() {
         </div>
       </div>
 
-      {/* Filters for super users */}
+      {/* Filters */}
       {renderFilters()}
 
-      {/* Main grid layout - wrapped in error boundary for resilience */}
+      {/* Main grid layout */}
       <ChartErrorBoundary chartName="Report Card">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Overall Score Card - Full width on mobile, 5 cols on large */}
+          {/* Overall Score Card */}
           <div className="lg:col-span-5">
             <OverallScoreCard
               score={reportCard.overall_score}
               sizeBucket={reportCard.size_bucket}
               percentileRank={reportCard.percentile_rank}
-              reportCardMonth={selectedMonth 
-                ? new Date(`${selectedMonth}T00:00:00`).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
-                : reportCardMonth
+              reportCardMonth={
+                selectedMonth
+                  ? new Date(`${selectedMonth}T00:00:00`).toLocaleDateString('en-US', {
+                      month: 'long',
+                      year: 'numeric',
+                    })
+                  : reportCardMonth
               }
               previousMonth={previousMonth}
             />
           </div>
 
-          {/* Insights Panel - Full width on mobile, 7 cols on large */}
+          {/* Insights Panel */}
           <div className="lg:col-span-7">
             <InsightsPanel insights={reportCard.insights} />
           </div>
 
-          {/* Measure Breakdown - Full width on mobile, 6 cols on large */}
+          {/* Measure Breakdown */}
           <div className="lg:col-span-6">
             <MeasureBreakdown measureScores={reportCard.measure_scores} />
           </div>
 
-          {/* Trend Chart - Full width on mobile, 6 cols on large */}
+          {/* Trend Chart - Placeholder until org-based trends API is ready */}
           <div className="lg:col-span-6">
             <ChartErrorBoundary chartName="Trend Chart">
-              <TrendChart
-                trends={trends}
-                selectedPeriod={trendPeriod}
-                onPeriodChange={setTrendPeriod}
-              />
+              <TrendChart trends={[]} selectedPeriod={trendPeriod} onPeriodChange={setTrendPeriod} />
             </ChartErrorBoundary>
           </div>
 
-          {/* Peer Comparison - Full width */}
+          {/* Peer Comparison */}
           {peerComparison && (
             <div className="lg:col-span-12">
               <PeerComparisonPanel
@@ -427,12 +359,9 @@ export default function ReportCardView() {
             </div>
           )}
 
-          {/* Grade History Table - Full width */}
+          {/* Grade History - Placeholder until org-based history API is ready */}
           <div className="lg:col-span-12">
-            <GradeHistoryTable
-              history={gradeHistory}
-              isLoading={isLoadingHistory}
-            />
+            <GradeHistoryTable history={[]} isLoading={false} />
           </div>
         </div>
       </ChartErrorBoundary>

@@ -11,7 +11,7 @@
  *
  * Features:
  * - Optional rate limiting (skip if limitType not provided)
- * - Supports 'auth', 'mfa', 'api', 'upload', 'session_read' limit types
+ * - Supports 'auth', 'mfa', 'api', 'upload', 'session_read', 'admin_cli' limit types
  * - Automatic timing tracking
  * - Throws RateLimitError if exceeded (handled by error handler)
  *
@@ -21,6 +21,7 @@
  * - api: 200 requests/min - Standard API operations
  * - upload: 10 requests/min - File upload endpoints
  * - session_read: 500 requests/min - High-frequency session verification endpoints
+ * - admin_cli: 1 request/min - Resource-intensive admin operations (report card generation)
  *
  * Usage:
  * ```typescript
@@ -38,7 +39,7 @@ import type { Middleware, MiddlewareResult, RouteContext } from '../types';
 export class RateLimitMiddleware implements Middleware {
   name = 'rateLimit';
 
-  constructor(private limitType?: 'auth' | 'mfa' | 'api' | 'upload' | 'session_read') {}
+  constructor(private limitType?: 'auth' | 'mfa' | 'api' | 'upload' | 'session_read' | 'admin_cli') {}
 
   async execute(request: NextRequest, context: RouteContext): Promise<MiddlewareResult> {
     // Skip if no rate limit configured

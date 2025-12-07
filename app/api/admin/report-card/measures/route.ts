@@ -132,8 +132,9 @@ const createMeasureHandler = async (
   }
 };
 
+// SECURITY: Measure configuration is admin-only (business intelligence protection)
 export const GET = rbacRoute(getMeasuresHandler, {
-  permission: ['analytics:read:organization', 'analytics:read:all'],
+  permission: 'analytics:read:all',
   rateLimit: 'api',
 });
 

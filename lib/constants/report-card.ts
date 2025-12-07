@@ -195,3 +195,61 @@ export const SIZING_MEASURE = 'Charges' as const;
  * Type-safe access to report card limit keys
  */
 export type ReportCardLimitKey = keyof typeof REPORT_CARD_LIMITS;
+
+/**
+ * Report Card Permissions
+ *
+ * SECURITY: Centralized permission definitions for all report card operations.
+ * Using a single source of truth ensures consistency between routes and services.
+ *
+ * Permission Hierarchy:
+ * - analytics:read:own: Provider-level access (NOT valid for report cards - practice level aggregates)
+ * - analytics:read:organization: Organization-level access (can view report cards for their orgs)
+ * - analytics:read:all: Super admin (can view all report cards and configure measures)
+ *
+ * NOTE: Report cards are practice-level aggregates and do NOT support analytics:read:own.
+ * Users with only provider-level access cannot view report cards.
+ */
+export const REPORT_CARD_PERMISSIONS = {
+  /**
+   * View report card data (scores, trends, history)
+   * Requires organization-level or higher access
+   */
+  VIEW_REPORT_CARD: ['analytics:read:organization', 'analytics:read:all'] as const,
+
+  /**
+   * View peer comparison statistics
+   * Requires organization-level or higher access
+   * Note: Data is anonymized for privacy
+   */
+  VIEW_PEER_COMPARISON: ['analytics:read:organization', 'analytics:read:all'] as const,
+
+  /**
+   * View location comparison within a practice
+   * Requires organization-level or higher access
+   */
+  VIEW_LOCATION_COMPARISON: ['analytics:read:organization', 'analytics:read:all'] as const,
+
+  /**
+   * View measure configurations
+   * ADMIN ONLY - measure config is business intelligence
+   */
+  VIEW_MEASURES: ['analytics:read:all'] as const,
+
+  /**
+   * Create/update/delete measure configurations
+   * ADMIN ONLY
+   */
+  MANAGE_MEASURES: ['analytics:read:all'] as const,
+
+  /**
+   * Generate/regenerate report cards
+   * ADMIN ONLY - resource-intensive operation
+   */
+  GENERATE_REPORTS: ['analytics:read:all'] as const,
+} as const;
+
+/**
+ * Type for permission arrays
+ */
+export type ReportCardPermissionKey = keyof typeof REPORT_CARD_PERMISSIONS;

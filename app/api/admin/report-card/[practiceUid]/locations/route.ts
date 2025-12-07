@@ -6,6 +6,7 @@ import { log } from '@/lib/logger';
 import { createRBACReportCardService } from '@/lib/services/report-card';
 import type { UserContext } from '@/lib/types/rbac';
 import { reportCardParamsSchema, locationComparisonQuerySchema } from '@/lib/validations/report-card';
+import { PermissionDeniedError } from '@/lib/errors/rbac-errors';
 
 /**
  * Report Card API - Get location comparison for a practice
@@ -60,6 +61,17 @@ const getLocationComparisonHandler = async (
   } catch (error) {
     const duration = Date.now() - startTime;
 
+    // SECURITY: Return 404 for access denied (prevent enumeration)
+    if (error instanceof PermissionDeniedError) {
+      log.info('Location comparison access denied', {
+        practiceUid,
+        userId: userContext.user_id,
+        duration,
+        component: 'report-card',
+      });
+      return createErrorResponse('Location comparison not found', 404, request);
+    }
+
     log.error('Failed to get location comparison', error as Error, {
       practiceUid,
       userId: userContext.user_id,
@@ -79,6 +91,6 @@ const getLocationComparisonHandler = async (
 };
 
 export const GET = rbacRoute(getLocationComparisonHandler, {
-  permission: ['analytics:read:own', 'analytics:read:organization', 'analytics:read:all'],
+  permission: ['analytics:read:organization', 'analytics:read:all'],
   rateLimit: 'api',
 });

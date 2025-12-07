@@ -293,7 +293,7 @@ export default function WorkItemFieldModal({
       name: 'field_label' as never,
       label: 'Field Label',
       required: true,
-      column: mode === 'create' ? 'left' : 'full',
+      column: 'full',
     },
     {
       type: 'text',
@@ -302,7 +302,7 @@ export default function WorkItemFieldModal({
       placeholder: 'e.g., patient_status, due_date',
       helpText: 'Must start with a lowercase letter, use only lowercase letters, numbers, and underscores',
       required: true,
-      column: 'right',
+      column: 'full',
       visible: (_formData) => mode === 'create',
     },
     {
@@ -310,7 +310,7 @@ export default function WorkItemFieldModal({
       name: 'field_type' as never,
       label: 'Field Type',
       required: true,
-      column: mode === 'create' ? 'full' : 'left',
+      column: 'full',
       options: [
         { value: 'text', label: 'Text' },
         { value: 'number', label: 'Number' },

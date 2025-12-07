@@ -21,15 +21,18 @@ export class ReportCardError extends Error {
 }
 
 /**
- * Error thrown when a report card is not found for a practice
+ * Error thrown when a report card is not found for a practice or organization
  */
 export class ReportCardNotFoundError extends ReportCardError {
-  constructor(practiceUid: number) {
+  constructor(identifier: number | string) {
+    const isOrgId = typeof identifier === 'string';
     super(
-      `Report card not found for practice ${practiceUid}`,
+      isOrgId
+        ? `Report card not found for identifier ${identifier}`
+        : `Report card not found for practice ${identifier}`,
       'REPORT_CARD_NOT_FOUND',
       404,
-      { practiceUid }
+      isOrgId ? { identifier } : { practiceUid: identifier }
     );
     this.name = 'ReportCardNotFoundError';
   }

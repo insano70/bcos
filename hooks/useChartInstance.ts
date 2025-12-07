@@ -6,11 +6,12 @@
  * - Chart initialization with configuration
  * - Chart destruction on cleanup
  * - Zoom reset functionality
+ * - Orientation change handling for mobile devices
  *
  * Single Responsibility: Chart.js instance management
  */
 
-import { useEffect, useState, useCallback, type RefObject } from 'react';
+import { useEffect, useState, useCallback, useRef, type RefObject } from 'react';
 import type { Chart as ChartType, ChartOptions } from 'chart.js';
 import {
   BarController,
@@ -93,6 +94,9 @@ export function useChartInstance(params: UseChartInstanceParams): ChartInstanceS
     registerChartPlugins();
   }, []);
 
+  // Store chart ref for orientation handler
+  const chartRef = useRef<ChartType | null>(null);
+
   // Initialize chart
   // biome-ignore lint/correctness/useExhaustiveDependencies: canvasRef.current is intentionally excluded - ref mutations don't trigger re-renders, mounted state ensures canvas is ready
   useEffect(() => {
@@ -120,13 +124,43 @@ export function useChartInstance(params: UseChartInstanceParams): ChartInstanceS
     });
 
     setChart(newChart);
+    chartRef.current = newChart;
 
     // Cleanup on unmount or dependencies change
     return () => {
       newChart.destroy();
       setChart(null);
+      chartRef.current = null;
     };
   }, [mounted, isOpen, chartData, chartType, chartOptions, expandedData]);
+
+  // Handle orientation changes - resize chart when device is rotated
+  useEffect(() => {
+    if (!isOpen) return;
+
+    let timeoutId: ReturnType<typeof setTimeout>;
+
+    const handleOrientationChange = () => {
+      // Debounce to avoid multiple rapid calls during orientation animation
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        if (chartRef.current) {
+          // Trigger chart resize to fit new dimensions
+          chartRef.current.resize();
+        }
+      }, 150);
+    };
+
+    // Listen for orientation change event (mobile) and resize (desktop/fallback)
+    window.addEventListener('orientationchange', handleOrientationChange);
+    window.addEventListener('resize', handleOrientationChange);
+
+    return () => {
+      clearTimeout(timeoutId);
+      window.removeEventListener('orientationchange', handleOrientationChange);
+      window.removeEventListener('resize', handleOrientationChange);
+    };
+  }, [isOpen]);
 
   /**
    * Reset chart zoom to original view

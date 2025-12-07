@@ -228,6 +228,9 @@ export function buildTooltipConfig(
     };
   }
 
+  // Detect mobile viewport for tooltip positioning
+  const isMobileViewport = typeof window !== 'undefined' && window.innerWidth < 768;
+
   return {
     legend: {
       display: false,
@@ -242,9 +245,17 @@ export function buildTooltipConfig(
       titleColor: darkMode ? tooltipBodyColor.dark : tooltipBodyColor.light,
       bodyColor: darkMode ? tooltipBodyColor.dark : tooltipBodyColor.light,
       bodySpacing: 8,
-      padding: 12,
+      padding: isMobileViewport ? 10 : 12, // Slightly smaller padding on mobile
       boxPadding: 6,
       usePointStyle: true,
+      // Mobile-optimized tooltip positioning
+      caretPadding: isMobileViewport ? 8 : 4, // More space on mobile to avoid finger blocking
+      cornerRadius: 8,
+      // Position tooltip to avoid edge cutoff on mobile
+      ...(isMobileViewport && {
+        position: 'nearest' as const,
+        yAlign: 'bottom' as const, // Prefer showing below data point on mobile
+      }),
       callbacks: {
         title: (context: { label?: string }[]) => {
           const labelValue = context[0]?.label || '';

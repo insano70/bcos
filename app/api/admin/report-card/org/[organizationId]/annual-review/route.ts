@@ -5,60 +5,59 @@ import { rbacRoute } from '@/lib/api/route-handlers';
 import { log } from '@/lib/logger';
 import { createRBACReportCardService } from '@/lib/services/report-card';
 import type { UserContext } from '@/lib/types/rbac';
-import { reportCardParamsSchema } from '@/lib/validations/report-card';
 import { PermissionDeniedError } from '@/lib/errors/rbac-errors';
+import { z } from 'zod';
 
 /**
- * Report Card API - Get annual review for a practice
+ * Report Card API - Get annual review for an organization
  * Returns year-over-year comparison, monthly trends, and forecasts
  */
 
-const getAnnualReviewHandler = async (
+const organizationIdSchema = z.object({
+  organizationId: z.string().uuid('Organization ID must be a valid UUID'),
+});
+
+const getAnnualReviewByOrgHandler = async (
   request: NextRequest,
   userContext: UserContext,
   ...args: unknown[]
 ) => {
   const startTime = Date.now();
-  const { params } = args[0] as { params: Promise<{ practiceUid: string }> };
+  const { params } = args[0] as { params: Promise<{ organizationId: string }> };
   const resolvedParams = await params;
-  const practiceUid = resolvedParams.practiceUid;
+  const organizationId = resolvedParams.organizationId;
 
   try {
     // Validate params
-    const paramsResult = reportCardParamsSchema.safeParse({ practiceUid });
+    const paramsResult = organizationIdSchema.safeParse({ organizationId });
 
     if (!paramsResult.success) {
-      return createErrorResponse('Invalid practice UID', 400, request);
+      return createErrorResponse('Invalid organization ID', 400, request);
     }
 
-    const practiceUidNum = parseInt(paramsResult.data.practiceUid, 10);
-
-    // Get annual review
+    // Get annual review by organization
     const service = createRBACReportCardService(userContext);
-    const review = await service.getAnnualReview(practiceUidNum);
+    const review = await service.getAnnualReviewByOrganization(organizationId);
 
     const duration = Date.now() - startTime;
 
-    log.info('Fetched annual review', {
-      operation: 'get_annual_review',
-      practiceUid,
+    log.info('Fetched annual review by organization', {
+      operation: 'get_annual_review_by_org',
+      organizationId,
       monthsAnalyzed: review.summary.monthsAnalyzed,
       userId: userContext.user_id,
       duration,
       component: 'report-card',
     });
 
-    return createSuccessResponse(
-      { review },
-      'Annual review retrieved successfully'
-    );
+    return createSuccessResponse({ review }, 'Annual review retrieved successfully');
   } catch (error) {
     const duration = Date.now() - startTime;
 
     // SECURITY: Return 404 for access denied (prevent enumeration)
     if (error instanceof PermissionDeniedError) {
       log.info('Annual review access denied', {
-        practiceUid,
+        organizationId,
         userId: userContext.user_id,
         duration,
         component: 'report-card',
@@ -66,8 +65,8 @@ const getAnnualReviewHandler = async (
       return createErrorResponse('Annual review not found', 404, request);
     }
 
-    log.error('Failed to get annual review', error as Error, {
-      practiceUid,
+    log.error('Failed to get annual review by organization', error as Error, {
+      organizationId,
       userId: userContext.user_id,
       duration,
       component: 'report-card',
@@ -84,7 +83,7 @@ const getAnnualReviewHandler = async (
   }
 };
 
-export const GET = rbacRoute(getAnnualReviewHandler, {
+export const GET = rbacRoute(getAnnualReviewByOrgHandler, {
   permission: ['analytics:read:organization', 'analytics:read:all'],
   rateLimit: 'api',
 });

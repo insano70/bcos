@@ -23,6 +23,17 @@ export const metadata = {
   },
 };
 
+/**
+ * Viewport configuration for mobile devices
+ * - viewport-fit: cover enables safe area insets for notched devices (iPhone X+)
+ * - Allows proper rendering on devices with notches/Dynamic Island
+ */
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover' as const,
+};
+
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   // Extract CSP nonces from middleware headers
   const nonces = await getServerNonces();

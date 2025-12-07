@@ -165,6 +165,83 @@
   }
 }
 
+/* Mobile safe area utilities for notched devices (iPhone X+, Dynamic Island) */
+@layer utilities {
+  /* Padding utilities for safe areas */
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  .pl-safe {
+    padding-left: env(safe-area-inset-left, 0px);
+  }
+  .pr-safe {
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+  .px-safe {
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+  .py-safe {
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .p-safe {
+    padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+  }
+  
+  /* Margin utilities for safe areas */
+  .mb-safe {
+    margin-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .mt-safe {
+    margin-top: env(safe-area-inset-top, 0px);
+  }
+}
+
+/* Dynamic viewport height utilities (accounts for mobile browser chrome) */
+@layer utilities {
+  /* Height utilities using dvh (dynamic viewport height) */
+  .h-dvh {
+    height: 100vh; /* Fallback for older browsers */
+    height: 100dvh;
+  }
+  .min-h-dvh {
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+  .max-h-dvh {
+    max-height: 100vh;
+    max-height: 100dvh;
+  }
+  
+  /* Fullscreen modal heights with dvh */
+  .h-screen-dvh {
+    height: 100vh;
+    height: 100dvh;
+  }
+  
+  /* Partial viewport heights */
+  .h-90dvh {
+    height: 90vh;
+    height: 90dvh;
+  }
+  .h-80dvh {
+    height: 80vh;
+    height: 80dvh;
+  }
+  .h-75dvh {
+    height: 75vh;
+    height: 75dvh;
+  }
+  .h-50dvh {
+    height: 50vh;
+    height: 50dvh;
+  }
+}
+
 /* Chart component utilities (CSP-compliant) */
 @layer utilities {
   .chart-canvas {
@@ -192,6 +269,62 @@
   .chart-container-responsive canvas,
   .chart-canvas canvas {
     touch-action: manipulation;
+  }
+}
+
+/* CSS Container Queries for responsive chart layouts */
+@layer utilities {
+  /* Chart wrapper with container query support */
+  .chart-container-query {
+    container-type: inline-size;
+    container-name: chart;
+  }
+  
+  /* Dashboard card with container query support */
+  .dashboard-card-container {
+    container-type: inline-size;
+    container-name: dashboard-card;
+  }
+}
+
+/* Container query responsive rules for charts */
+@container chart (max-width: 400px) {
+  .chart-legend-responsive {
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  
+  .chart-legend-responsive .legend-item {
+    font-size: 0.75rem;
+  }
+  
+  .chart-title-responsive {
+    font-size: 0.875rem;
+  }
+  
+  .chart-header-responsive {
+    padding: 0.5rem;
+  }
+}
+
+@container chart (max-width: 300px) {
+  .chart-legend-responsive {
+    display: none;
+  }
+  
+  .chart-title-responsive {
+    font-size: 0.75rem;
+  }
+}
+
+@container dashboard-card (max-width: 350px) {
+  .card-actions-responsive {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .card-title-responsive {
+    font-size: 0.875rem;
   }
 }
 

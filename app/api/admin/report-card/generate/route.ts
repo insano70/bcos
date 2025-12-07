@@ -88,9 +88,11 @@ const generateReportCardsHandler = async (
     }
 
     // Step 1: Collect statistics
+    // SECURITY: fromAdminApi validates this is from authorized admin endpoint
     const collectResult = await statisticsCollector.collect({
       practiceUid,
       force: force || reset, // Force collection if reset
+      fromAdminApi: true,
     });
 
     // Step 2: Calculate trends
@@ -176,9 +178,10 @@ const generateReportCardsHandler = async (
   }
 };
 
+// SECURITY: Admin-only with very restrictive rate limit (resource-intensive operation)
 export const POST = rbacRoute(generateReportCardsHandler, {
   permission: 'analytics:read:all',
-  rateLimit: 'api',
+  rateLimit: 'admin_cli',
 });
 
 

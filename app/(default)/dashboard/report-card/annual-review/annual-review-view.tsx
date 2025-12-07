@@ -3,14 +3,14 @@
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/components/auth/rbac-auth-provider';
-import { useAnnualReview } from '@/lib/hooks/use-report-card';
+import { useAnnualReviewByOrg } from '@/lib/hooks/use-report-card';
 import { useOrganizations } from '@/lib/hooks/use-organizations';
 import HierarchySelect from '@/components/hierarchy-select';
-import { 
-  Calendar, 
-  TrendingUp, 
-  TrendingDown, 
-  Minus, 
+import {
+  Calendar,
+  TrendingUp,
+  TrendingDown,
+  Minus,
   ArrowLeft,
   Target,
   Award,
@@ -21,14 +21,22 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { applyGradeFloor, getGradeColor, getGradeBgColor, formatCompactValue } from '@/lib/utils/format-value';
+import {
+  applyGradeFloor,
+  getGradeColor,
+  getGradeBgColor,
+  formatCompactValue,
+} from '@/lib/utils/format-value';
 import type { MeasureYoYComparison } from '@/lib/types/report-card';
 
 /**
  * Format measure value based on format type
  * Uses the shared formatCompactValue utility
  */
-function formatMeasureDisplayValue(value: number, formatType: 'number' | 'currency' | 'percentage'): string {
+function formatMeasureDisplayValue(
+  value: number,
+  formatType: 'number' | 'currency' | 'percentage'
+): string {
   return formatCompactValue(value, { style: formatType });
 }
 
@@ -38,7 +46,12 @@ function formatMeasureDisplayValue(value: number, formatType: 'number' | 'curren
 function getTrendDisplay(trend: 'improving' | 'declining' | 'stable') {
   switch (trend) {
     case 'improving':
-      return { Icon: TrendingUp, color: 'text-emerald-500', bg: 'bg-emerald-500/10', label: 'Improving' };
+      return {
+        Icon: TrendingUp,
+        color: 'text-emerald-500',
+        bg: 'bg-emerald-500/10',
+        label: 'Improving',
+      };
     case 'declining':
       return { Icon: TrendingDown, color: 'text-rose-500', bg: 'bg-rose-500/10', label: 'Declining' };
     default:
@@ -48,16 +61,17 @@ function getTrendDisplay(trend: 'improving' | 'declining' | 'stable') {
 
 /**
  * Annual Review View Component
- * 
+ *
  * Displays comprehensive year-over-year analysis including:
  * - Year-over-year comparison
  * - Monthly score chart
  * - Performance summary statistics
  * - Future forecast
+ *
+ * Users select by organization - the system queries by organization_id.
  */
 export default function AnnualReviewView() {
   const { userContext, isLoading: authLoading } = useAuth();
-  const [selectedPracticeUid, setSelectedPracticeUid] = useState<number | undefined>(undefined);
   const [selectedOrgId, setSelectedOrgId] = useState<string | undefined>(undefined);
 
   // Check if user has all-access permission
@@ -66,80 +80,76 @@ export default function AnnualReviewView() {
     return userContext.all_permissions.some((p) => p.name === 'analytics:read:all');
   }, [userContext]);
 
-  // Fetch organizations for super users
+  // Fetch organizations for the org selector
   const { data: allOrganizations = [], isLoading: loadingOrgs } = useOrganizations();
 
-  // Get practice UIDs
-  const practiceUids = useMemo(() => {
-    if (canViewAll && selectedOrgId) {
-      const org = allOrganizations.find((o) => o.id === selectedOrgId);
-      return org?.practice_uids || [];
-    }
-    
-    if (canViewAll && !selectedOrgId) {
-      // Super user without selected org - MUST select an org first
-      // Don't auto-select from random pool of all practices
-      return [];
-    }
-
-    if (!userContext?.organizations) return [];
-    const uids: number[] = [];
-    for (const org of userContext.organizations) {
-      if (org.practice_uids) {
-        uids.push(...org.practice_uids);
-      }
-    }
-    return Array.from(new Set(uids));
-  }, [userContext, canViewAll, selectedOrgId, allOrganizations]);
-
-  // Set initial practice UID
-  useEffect(() => {
-    if (practiceUids.length > 0 && !selectedPracticeUid) {
-      setSelectedPracticeUid(practiceUids[0]);
-    }
-  }, [practiceUids, selectedPracticeUid]);
-
-  // Reset practice selection when org changes for super admins
-  useEffect(() => {
+  // Build list of selectable organizations
+  const selectableOrgs = useMemo(() => {
     if (canViewAll) {
-      if (selectedOrgId) {
-        // Org selected - select first practice in that org
-        const org = allOrganizations.find((o) => o.id === selectedOrgId);
-        const orgPractices = org?.practice_uids || [];
-        if (orgPractices.length > 0) {
-          setSelectedPracticeUid(orgPractices[0]);
-        } else {
-          setSelectedPracticeUid(undefined);
-        }
-      } else {
-        // No org selected - clear practice selection
-        setSelectedPracticeUid(undefined);
-      }
+      return allOrganizations;
     }
-  }, [selectedOrgId, canViewAll, allOrganizations]);
+    if (!userContext?.organizations) return [];
+    const userOrgIds = new Set(userContext.organizations.map((o) => o.organization_id));
+    return allOrganizations.filter((org) => userOrgIds.has(org.id));
+  }, [canViewAll, allOrganizations, userContext?.organizations]);
 
-  // Fetch annual review data
-  const { data: reviewData, isLoading: isLoadingReview, error } = useAnnualReview(selectedPracticeUid);
+  // Auto-select organization for users with only one org
+  useEffect(() => {
+    if (!selectedOrgId && selectableOrgs.length === 1 && selectableOrgs[0]) {
+      setSelectedOrgId(selectableOrgs[0].id);
+    }
+  }, [selectableOrgs, selectedOrgId]);
+
+  // Determine if organization selector should be shown
+  const showOrgSelector = selectableOrgs.length > 1;
+
+  // Fetch annual review data by organization
+  const {
+    data: reviewData,
+    isLoading: isLoadingReview,
+    error,
+  } = useAnnualReviewByOrg(selectedOrgId);
   const review = reviewData?.review;
 
   const isLoading = authLoading || loadingOrgs || isLoadingReview;
 
-  // Determine if org selector should be shown
-  const showOrgSelector = useMemo(() => {
-    // Super users: ALWAYS show - they must select an organization
-    if (canViewAll) {
-      return allOrganizations.length > 0;
-    }
-    return (userContext?.organizations?.length ?? 0) > 1;
-  }, [canViewAll, allOrganizations.length, userContext?.organizations?.length]);
+  // Render organization selector
+  const renderOrgSelector = () => {
+    if (!showOrgSelector) return null;
 
-  // No practice selected state - for super users who haven't selected an org
-  if (!authLoading && !loadingOrgs && !selectedPracticeUid) {
+    return (
+      <div className="flex flex-wrap items-center gap-4 mb-6 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700">
+        <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+          <Building2 className="w-4 h-4" />
+          <span className="font-medium">Organization:</span>
+        </div>
+        <div className="w-72">
+          <HierarchySelect
+            items={selectableOrgs}
+            value={selectedOrgId}
+            onChange={(id) => setSelectedOrgId(id as string | undefined)}
+            idField="id"
+            nameField="name"
+            parentField="parent_organization_id"
+            activeField="is_active"
+            placeholder="Select an Organization"
+            disabled={loadingOrgs}
+            showSearch
+            allowClear={canViewAll}
+            rootLabel={canViewAll ? 'All Organizations' : 'My Organizations'}
+          />
+        </div>
+      </div>
+    );
+  };
+
+  // No organization selected state
+  if (!authLoading && !loadingOrgs && !selectedOrgId) {
     return (
       <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-7xl mx-auto">
         {/* Header with back link */}
         <div className="mb-6">
-          <Link 
+          <Link
             href="/dashboard/report-card"
             className="inline-flex items-center gap-2 text-sm text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors"
           >
@@ -160,31 +170,7 @@ export default function AnnualReviewView() {
           </div>
         </div>
 
-        {/* Organization selector */}
-        {showOrgSelector && (
-          <div className="flex flex-wrap items-center gap-4 mb-6 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700">
-            <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
-              <Building2 className="w-4 h-4" />
-              <span className="font-medium">Organization:</span>
-            </div>
-            <div className="w-72">
-              <HierarchySelect
-                items={allOrganizations}
-                value={selectedOrgId}
-                onChange={(id) => setSelectedOrgId(id as string | undefined)}
-                idField="id"
-                nameField="name"
-                parentField="parent_organization_id"
-                activeField="is_active"
-                placeholder="Select an Organization"
-                disabled={loadingOrgs}
-                showSearch
-                allowClear
-                rootLabel={canViewAll ? 'All Organizations' : 'My Organizations'}
-              />
-            </div>
-          </div>
-        )}
+        {renderOrgSelector()}
 
         <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-8">
           <div className="text-center py-12">
@@ -192,12 +178,12 @@ export default function AnnualReviewView() {
               <Calendar className="w-10 h-10 text-slate-400 dark:text-slate-500" />
             </div>
             <h3 className="text-lg font-medium text-slate-800 dark:text-slate-200 mb-2">
-              No Practice Selected
+              {selectableOrgs.length === 0 ? 'No Organization Access' : 'Select an Organization'}
             </h3>
             <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto">
-              {canViewAll
-                ? 'Select an organization above to view their annual review.'
-                : 'Your account is not associated with a practice. Please contact your administrator to be assigned to a practice.'}
+              {selectableOrgs.length === 0
+                ? 'Your account is not associated with any organization. Please contact your administrator.'
+                : 'Select an organization above to view their annual review.'}
             </p>
           </div>
         </div>
@@ -221,6 +207,18 @@ export default function AnnualReviewView() {
   if (error) {
     return (
       <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-7xl mx-auto">
+        <div className="mb-6">
+          <Link
+            href="/dashboard/report-card"
+            className="inline-flex items-center gap-2 text-sm text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Report Card
+          </Link>
+        </div>
+
+        {renderOrgSelector()}
+
         <div className="bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 p-6 rounded-2xl">
           <h3 className="font-semibold mb-2">Failed to load annual review</h3>
           <p className="text-sm">
@@ -235,7 +233,7 @@ export default function AnnualReviewView() {
     <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-7xl mx-auto">
       {/* Header with back link */}
       <div className="mb-6">
-        <Link 
+        <Link
           href="/dashboard/report-card"
           className="inline-flex items-center gap-2 text-sm text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors"
         >
@@ -256,31 +254,7 @@ export default function AnnualReviewView() {
         </div>
       </div>
 
-      {/* Organization selector */}
-      {showOrgSelector && (
-        <div className="flex flex-wrap items-center gap-4 mb-6 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700">
-          <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
-            <Building2 className="w-4 h-4" />
-            <span className="font-medium">Organization:</span>
-          </div>
-          <div className="w-72">
-            <HierarchySelect
-              items={allOrganizations}
-              value={selectedOrgId}
-              onChange={(id) => setSelectedOrgId(id as string | undefined)}
-              idField="id"
-              nameField="name"
-              parentField="parent_organization_id"
-              activeField="is_active"
-              placeholder="Select an Organization"
-              disabled={loadingOrgs}
-              showSearch
-              allowClear
-              rootLabel={canViewAll ? 'All Organizations' : 'My Organizations'}
-            />
-          </div>
-        </div>
-      )}
+      {renderOrgSelector()}
 
       {/* No data state */}
       {!review || review.monthlyScores.length === 0 ? (
@@ -293,8 +267,8 @@ export default function AnnualReviewView() {
               No Data Available
             </h3>
             <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto">
-              There isn't enough historical data to generate an annual review yet.
-              Check back after a few months of report cards have been generated.
+              There isn't enough historical data to generate an annual review yet. Check back after
+              a few months of report cards have been generated.
             </p>
           </div>
         </div>
@@ -312,7 +286,7 @@ export default function AnnualReviewView() {
                 <BarChart3 className="w-5 h-5 text-violet-500" />
                 Year over Year Comparison
               </h2>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* Previous Year */}
                 <div className="bg-white/50 dark:bg-slate-800/50 rounded-xl p-4">
@@ -320,25 +294,29 @@ export default function AnnualReviewView() {
                     {review.yearOverYear.previousYear}
                   </div>
                   <div className="flex items-baseline gap-2">
-                    <span className={`text-3xl font-bold ${getGradeColor(review.yearOverYear.previousYearGrade)}`}>
+                    <span
+                      className={`text-3xl font-bold ${getGradeColor(review.yearOverYear.previousYearGrade)}`}
+                    >
                       {review.yearOverYear.previousYearGrade}
                     </span>
                     <span className="text-lg text-slate-600 dark:text-slate-300">
                       {applyGradeFloor(review.yearOverYear.previousYearAverage).toFixed(1)}
                     </span>
                   </div>
-                  <div className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                    Average Score
-                  </div>
+                  <div className="text-sm text-slate-500 dark:text-slate-400 mt-1">Average Score</div>
                 </div>
 
                 {/* Change indicator */}
                 <div className="flex flex-col items-center justify-center">
-                  <div className={`text-3xl font-bold ${
-                    review.yearOverYear.changePercent > 0 ? 'text-emerald-500' :
-                    review.yearOverYear.changePercent < 0 ? 'text-rose-500' :
-                    'text-slate-500'
-                  }`}>
+                  <div
+                    className={`text-3xl font-bold ${
+                      review.yearOverYear.changePercent > 0
+                        ? 'text-emerald-500'
+                        : review.yearOverYear.changePercent < 0
+                          ? 'text-rose-500'
+                          : 'text-slate-500'
+                    }`}
+                  >
                     {review.yearOverYear.changePercent > 0 ? '+' : ''}
                     {review.yearOverYear.changePercent.toFixed(1)}%
                   </div>
@@ -352,9 +330,7 @@ export default function AnnualReviewView() {
                     {review.yearOverYear.changePercent === 0 && (
                       <Minus className="w-4 h-4 text-slate-500" />
                     )}
-                    <span className="text-sm text-slate-500 dark:text-slate-400">
-                      Year over Year
-                    </span>
+                    <span className="text-sm text-slate-500 dark:text-slate-400">Year over Year</span>
                   </div>
                 </div>
 
@@ -364,16 +340,16 @@ export default function AnnualReviewView() {
                     {review.yearOverYear.currentYear}
                   </div>
                   <div className="flex items-baseline gap-2">
-                    <span className={`text-3xl font-bold ${getGradeColor(review.yearOverYear.currentYearGrade)}`}>
+                    <span
+                      className={`text-3xl font-bold ${getGradeColor(review.yearOverYear.currentYearGrade)}`}
+                    >
                       {review.yearOverYear.currentYearGrade}
                     </span>
                     <span className="text-lg text-slate-600 dark:text-slate-300">
                       {applyGradeFloor(review.yearOverYear.currentYearAverage).toFixed(1)}
                     </span>
                   </div>
-                  <div className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                    Average Score
-                  </div>
+                  <div className="text-sm text-slate-500 dark:text-slate-400 mt-1">Average Score</div>
                 </div>
               </div>
             </motion.div>
@@ -392,7 +368,6 @@ export default function AnnualReviewView() {
             </h2>
 
             <div className="space-y-4">
-              {/* Average Score */}
               <div className="flex justify-between items-center">
                 <span className="text-slate-600 dark:text-slate-300">Average Score</span>
                 <span className="text-xl font-semibold text-slate-800 dark:text-slate-100">
@@ -400,7 +375,6 @@ export default function AnnualReviewView() {
                 </span>
               </div>
 
-              {/* Highest Score */}
               <div className="flex justify-between items-center">
                 <span className="text-slate-600 dark:text-slate-300">Highest Score</span>
                 <span className="text-xl font-semibold text-emerald-500">
@@ -408,7 +382,6 @@ export default function AnnualReviewView() {
                 </span>
               </div>
 
-              {/* Lowest Score */}
               <div className="flex justify-between items-center">
                 <span className="text-slate-600 dark:text-slate-300">Lowest Score</span>
                 <span className="text-xl font-semibold text-amber-500">
@@ -416,10 +389,11 @@ export default function AnnualReviewView() {
                 </span>
               </div>
 
-              {/* Trend */}
               <div className="flex justify-between items-center">
                 <span className="text-slate-600 dark:text-slate-300">Overall Trend</span>
-                <div className={`flex items-center gap-2 px-3 py-1 rounded-full ${getTrendDisplay(review.summary.trend).bg}`}>
+                <div
+                  className={`flex items-center gap-2 px-3 py-1 rounded-full ${getTrendDisplay(review.summary.trend).bg}`}
+                >
                   {(() => {
                     const { Icon, color, label } = getTrendDisplay(review.summary.trend);
                     return (
@@ -432,7 +406,6 @@ export default function AnnualReviewView() {
                 </div>
               </div>
 
-              {/* Months Analyzed */}
               <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
                 <span className="text-sm text-slate-500 dark:text-slate-400">
                   Based on {review.summary.monthsAnalyzed} months of data
@@ -441,7 +414,7 @@ export default function AnnualReviewView() {
             </div>
           </motion.div>
 
-          {/* Forecast with Month-by-Month Projections */}
+          {/* Forecast */}
           {review.forecast && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -455,17 +428,23 @@ export default function AnnualReviewView() {
               </h2>
 
               <div className="text-center py-4">
-                <div className={`inline-block px-6 py-3 rounded-2xl ${getGradeBgColor(review.forecast.projectedGrade)}`}>
-                  <span className={`text-5xl font-bold ${getGradeColor(review.forecast.projectedGrade)}`}>
+                <div
+                  className={`inline-block px-6 py-3 rounded-2xl ${getGradeBgColor(review.forecast.projectedGrade)}`}
+                >
+                  <span
+                    className={`text-5xl font-bold ${getGradeColor(review.forecast.projectedGrade)}`}
+                  >
                     {review.forecast.projectedGrade}
                   </span>
                 </div>
                 <div className="mt-4 text-lg text-slate-700 dark:text-slate-200">
-                  Projected Score: <span className="font-semibold">{applyGradeFloor(review.forecast.projectedScore).toFixed(1)}</span>
+                  Projected Score:{' '}
+                  <span className="font-semibold">
+                    {applyGradeFloor(review.forecast.projectedScore).toFixed(1)}
+                  </span>
                 </div>
               </div>
 
-              {/* Month-by-Month Projections */}
               {review.forecast.monthlyProjections && review.forecast.monthlyProjections.length > 0 && (
                 <div className="mt-4 p-4 bg-white/50 dark:bg-slate-800/50 rounded-xl">
                   <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">
@@ -473,7 +452,7 @@ export default function AnnualReviewView() {
                   </h3>
                   <div className="grid grid-cols-3 gap-2">
                     {review.forecast.monthlyProjections.map((proj) => (
-                      <div 
+                      <div
                         key={proj.month}
                         className="text-center p-2 bg-white/50 dark:bg-slate-700/50 rounded-lg"
                       >
@@ -500,8 +479,10 @@ export default function AnnualReviewView() {
                       {review.forecast.projectionNote}
                     </p>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
-                      Confidence: {review.forecast.confidence.charAt(0).toUpperCase() + review.forecast.confidence.slice(1)} 
-                      {' '}(based on {review.forecast.basedOnMonths} months)
+                      Confidence:{' '}
+                      {review.forecast.confidence.charAt(0).toUpperCase() +
+                        review.forecast.confidence.slice(1)}{' '}
+                      (based on {review.forecast.basedOnMonths} months)
                     </p>
                   </div>
                 </div>
@@ -545,7 +526,7 @@ export default function AnnualReviewView() {
                   </thead>
                   <tbody>
                     {review.measureYoY.map((measure: MeasureYoYComparison, index: number) => (
-                      <tr 
+                      <tr
                         key={measure.measureName}
                         className={`border-b border-slate-100 dark:border-slate-700/50 ${
                           index % 2 === 0 ? 'bg-slate-50/50 dark:bg-slate-800/50' : ''
@@ -563,9 +544,9 @@ export default function AnnualReviewView() {
                           {formatMeasureDisplayValue(measure.currentYearAverage, measure.formatType)}
                         </td>
                         <td className="py-3 px-4 text-right">
-                          <span className={`font-medium ${
-                            measure.improved ? 'text-emerald-600' : 'text-rose-600'
-                          }`}>
+                          <span
+                            className={`font-medium ${measure.improved ? 'text-emerald-600' : 'text-rose-600'}`}
+                          >
                             {measure.changePercent > 0 ? '+' : ''}
                             {measure.changePercent.toFixed(1)}%
                           </span>
@@ -602,46 +583,46 @@ export default function AnnualReviewView() {
               Monthly Performance History
             </h2>
 
-            {/* Score timeline with grade cards */}
             <div className="overflow-x-auto pb-2">
               <div className="flex gap-3 min-w-max">
-                {review.monthlyScores.slice().reverse().map((month, index) => {
-                  const gradeScore = applyGradeFloor(month.score);
-                  return (
-                    <motion.div
-                      key={month.month}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.3, delay: index * 0.03 }}
-                      className="flex flex-col items-center"
-                    >
-                      {/* Grade card */}
-                      <div
-                        className={`w-16 h-20 rounded-xl flex flex-col items-center justify-center shadow-sm border-2 ${
-                          month.grade.startsWith('A') 
-                            ? 'bg-emerald-50 dark:bg-emerald-900/30 border-emerald-300 dark:border-emerald-700' 
-                            : month.grade.startsWith('B') 
-                            ? 'bg-teal-50 dark:bg-teal-900/30 border-teal-300 dark:border-teal-700' 
-                            : 'bg-amber-50 dark:bg-amber-900/30 border-amber-300 dark:border-amber-700'
-                        }`}
+                {review.monthlyScores
+                  .slice()
+                  .reverse()
+                  .map((month, index) => {
+                    const gradeScore = applyGradeFloor(month.score);
+                    return (
+                      <motion.div
+                        key={month.month}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3, delay: index * 0.03 }}
+                        className="flex flex-col items-center"
                       >
-                        <span className={`text-2xl font-bold ${getGradeColor(month.grade)}`}>
-                          {month.grade}
-                        </span>
-                        <span className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                          {Math.round(gradeScore)}
-                        </span>
-                      </div>
-                      {/* Month label */}
-                      <div className="mt-2 text-xs font-medium text-slate-600 dark:text-slate-400">
-                        {month.monthLabel.split(' ')[0]}
-                      </div>
-                      <div className="text-[10px] text-slate-400 dark:text-slate-500">
-                        {month.monthLabel.split(' ')[1]}
-                      </div>
-                    </motion.div>
-                  );
-                })}
+                        <div
+                          className={`w-16 h-20 rounded-xl flex flex-col items-center justify-center shadow-sm border-2 ${
+                            month.grade.startsWith('A')
+                              ? 'bg-emerald-50 dark:bg-emerald-900/30 border-emerald-300 dark:border-emerald-700'
+                              : month.grade.startsWith('B')
+                                ? 'bg-teal-50 dark:bg-teal-900/30 border-teal-300 dark:border-teal-700'
+                                : 'bg-amber-50 dark:bg-amber-900/30 border-amber-300 dark:border-amber-700'
+                          }`}
+                        >
+                          <span className={`text-2xl font-bold ${getGradeColor(month.grade)}`}>
+                            {month.grade}
+                          </span>
+                          <span className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                            {Math.round(gradeScore)}
+                          </span>
+                        </div>
+                        <div className="mt-2 text-xs font-medium text-slate-600 dark:text-slate-400">
+                          {month.monthLabel.split(' ')[0]}
+                        </div>
+                        <div className="text-[10px] text-slate-400 dark:text-slate-500">
+                          {month.monthLabel.split(' ')[1]}
+                        </div>
+                      </motion.div>
+                    );
+                  })}
               </div>
             </div>
           </motion.div>
@@ -650,4 +631,3 @@ export default function AnnualReviewView() {
     </div>
   );
 }
-
