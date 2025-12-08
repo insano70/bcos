@@ -19,8 +19,9 @@ const rateQueryHandler = async (
   ...args: unknown[]
 ): Promise<Response> => {
   try {
-    const params = (args[0] as { params: { id: string } }).params;
-    const id = params.id;
+    const { params } = args[0] as { params: Promise<{ id: string }> };
+    const resolvedParams = await params;
+    const id = resolvedParams.id;
 
     const validatedData = await validateRequest(request, rateQuerySchema);
 

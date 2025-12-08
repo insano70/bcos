@@ -2,7 +2,9 @@
 
 import { useRouter, useSearchParams } from 'next/navigation';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { RotateCcw } from 'lucide-react';
+import { RotateCcw, Presentation } from 'lucide-react';
+import { useOpenSwipeMode } from '@/app/fullscreen-swipe-context';
+import { FullscreenSwipeContainer } from '@/components/charts/fullscreen-swipe';
 import {
   useDashboardData,
   type DashboardUniversalFilters,
@@ -32,6 +34,42 @@ import { clientDebugLog, clientErrorLog } from '@/lib/utils/debug-client';
 interface DashboardViewProps {
   dashboard: Dashboard;
   dashboardCharts: DashboardChart[];
+}
+
+/**
+ * Present Button Component
+ *
+ * Opens fullscreen swipe mode for presentation.
+ */
+function PresentButton({
+  dashboardId,
+  universalFilters,
+}: {
+  dashboardId: string;
+  universalFilters: DashboardUniversalFilters;
+}) {
+  const openSwipeMode = useOpenSwipeMode();
+
+  const handleClick = () => {
+    openSwipeMode({
+      dashboardId,
+      chartIndex: 0,
+      universalFilters,
+    });
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+      title="Enter presentation mode (fullscreen swipe navigation)"
+      aria-label="Enter presentation mode"
+    >
+      <Presentation className="w-4 h-4" />
+      <span className="hidden sm:inline">Present</span>
+    </button>
+  );
 }
 
 /**
@@ -396,26 +434,34 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
           {dashboardConfig.dashboardName}
         </h1>
 
-        {/* Right: Filter Pills + Dropdown */}
-        {showFilterBar && (
-          <div className="flex items-center gap-3">
-            {/* Filter Pills (visual indicators) */}
-            <DashboardFilterPills
-              filters={universalFilters}
-              defaultFilters={filterConfig?.defaultFilters as DashboardUniversalFilters | undefined}
-              onRemoveFilter={handleRemoveFilter}
-              loading={isLoading}
-            />
+        {/* Right: Present Button + Filter Pills + Dropdown */}
+        <div className="flex items-center gap-3">
+          {/* Present Button - Opens fullscreen swipe mode */}
+          <PresentButton
+            dashboardId={dashboard.dashboard_id}
+            universalFilters={universalFilters}
+          />
 
-            {/* Filter Dropdown */}
-            <DashboardFilterDropdown
-              initialFilters={universalFilters}
-              onFiltersChange={handleFilterChange}
-              loading={isLoading}
-              align="right"
-            />
-          </div>
-        )}
+          {showFilterBar && (
+            <>
+              {/* Filter Pills (visual indicators) */}
+              <DashboardFilterPills
+                filters={universalFilters}
+                defaultFilters={filterConfig?.defaultFilters as DashboardUniversalFilters | undefined}
+                onRemoveFilter={handleRemoveFilter}
+                loading={isLoading}
+              />
+
+              {/* Filter Dropdown */}
+              <DashboardFilterDropdown
+                initialFilters={universalFilters}
+                onFiltersChange={handleFilterChange}
+                loading={isLoading}
+                align="right"
+              />
+            </>
+          )}
+        </div>
       </div>
 
       {/* Performance Metrics (dev mode only) */}
@@ -440,6 +486,9 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
           </div>
         </div>
       )}
+
+      {/* Fullscreen Swipe Mode Container */}
+      <FullscreenSwipeContainer />
 
       {/* Dashboard Grid - Following /dashboard pattern */}
       <div className="grid grid-cols-12 gap-6 w-full px-4 pb-4">

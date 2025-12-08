@@ -5,6 +5,7 @@ import { RBACAuthProvider } from '@/components/auth/rbac-auth-provider';
 import { NonceProvider } from '@/lib/security/nonce-context';
 import { getServerNonces } from '@/lib/security/nonce-server';
 import AppProvider from './app-provider';
+import { FullscreenSwipeProvider } from './fullscreen-swipe-context';
 import QueryProvider from './query-provider';
 import Theme from './theme-provider';
 
@@ -61,7 +62,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <RBACAuthProvider>
             <QueryProvider>
               <Theme>
-                <AppProvider>{children}</AppProvider>
+                <FullscreenSwipeProvider>
+                  <AppProvider>{children}</AppProvider>
+                </FullscreenSwipeProvider>
               </Theme>
             </QueryProvider>
           </RBACAuthProvider>

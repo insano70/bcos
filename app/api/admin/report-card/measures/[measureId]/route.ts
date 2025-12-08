@@ -19,8 +19,9 @@ const updateMeasureHandler = async (
   ...args: unknown[]
 ) => {
   const startTime = Date.now();
-  const { params } = args[0] as { params: { measureId: string } };
-  const measureId = params.measureId;
+  const { params } = args[0] as { params: Promise<{ measureId: string }> };
+  const resolvedParams = await params;
+  const measureId = resolvedParams.measureId;
 
   try {
     // Validate params
@@ -95,8 +96,9 @@ const deleteMeasureHandler = async (
   ...args: unknown[]
 ) => {
   const startTime = Date.now();
-  const { params } = args[0] as { params: { measureId: string } };
-  const measureId = params.measureId;
+  const { params } = args[0] as { params: Promise<{ measureId: string }> };
+  const resolvedParams = await params;
+  const measureId = resolvedParams.measureId;
 
   try {
     // Validate params

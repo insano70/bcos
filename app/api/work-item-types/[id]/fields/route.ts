@@ -19,9 +19,10 @@ const postFieldHandler = async (
   userContext: UserContext,
   ...args: unknown[]
 ) => {
-  const params = (args[0] as { params: { id: string } }).params;
+  const { params } = args[0] as { params: Promise<{ id: string }> };
+  const resolvedParams = await params;
   const startTime = Date.now();
-  const workItemTypeId = params.id as string;
+  const workItemTypeId = resolvedParams.id;
 
   log.info('Work item field creation request initiated', {
     workItemTypeId,
@@ -86,9 +87,10 @@ const getFieldsHandler = async (
   userContext: UserContext,
   ...args: unknown[]
 ) => {
-  const params = (args[0] as { params: { id: string } }).params;
+  const { params } = args[0] as { params: Promise<{ id: string }> };
+  const resolvedParams = await params;
   const startTime = Date.now();
-  const workItemTypeId = params.id as string;
+  const workItemTypeId = resolvedParams.id;
 
   log.info('Work item fields list request initiated', {
     workItemTypeId,
