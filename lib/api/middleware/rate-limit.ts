@@ -120,7 +120,7 @@ export function getRateLimitKey(request: Request, prefix = ''): string {
  */
 export async function applyRateLimit(
   request: Request,
-  type: 'auth' | 'api' | 'upload' | 'mfa' | 'session_read' = 'api'
+  type: 'auth' | 'api' | 'upload' | 'mfa' | 'session_read' | 'admin_cli' = 'api'
 ): Promise<{
   success: boolean;
   remaining: number;
