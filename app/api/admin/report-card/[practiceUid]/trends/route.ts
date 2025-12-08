@@ -19,8 +19,9 @@ const getTrendsHandler = async (
   ...args: unknown[]
 ) => {
   const startTime = Date.now();
-  const { params } = args[0] as { params: { practiceUid: string } };
-  const practiceUid = params.practiceUid;
+  const { params } = args[0] as { params: Promise<{ practiceUid: string }> };
+  const resolvedParams = await params;
+  const practiceUid = resolvedParams.practiceUid;
 
   try {
     // Validate params

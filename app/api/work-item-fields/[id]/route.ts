@@ -16,9 +16,10 @@ const getFieldHandler = async (
   userContext: UserContext,
   ...args: unknown[]
 ) => {
-  const params = (args[0] as { params: { id: string } }).params;
+  const { params } = args[0] as { params: Promise<{ id: string }> };
+  const resolvedParams = await params;
   const startTime = Date.now();
-  const fieldId = params.id as string;
+  const fieldId = resolvedParams.id;
 
   log.info('Work item field retrieval request initiated', {
     fieldId,
@@ -73,9 +74,10 @@ const patchFieldHandler = async (
   userContext: UserContext,
   ...args: unknown[]
 ) => {
-  const params = (args[0] as { params: { id: string } }).params;
+  const { params } = args[0] as { params: Promise<{ id: string }> };
+  const resolvedParams = await params;
   const startTime = Date.now();
-  const fieldId = params.id as string;
+  const fieldId = resolvedParams.id;
 
   log.info('Work item field update request initiated', {
     fieldId,
@@ -129,9 +131,10 @@ const deleteFieldHandler = async (
   userContext: UserContext,
   ...args: unknown[]
 ) => {
-  const params = (args[0] as { params: { id: string } }).params;
+  const { params } = args[0] as { params: Promise<{ id: string }> };
+  const resolvedParams = await params;
   const startTime = Date.now();
-  const fieldId = params.id as string;
+  const fieldId = resolvedParams.id;
 
   log.info('Work item field deletion request initiated', {
     fieldId,

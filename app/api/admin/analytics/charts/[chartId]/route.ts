@@ -20,10 +20,11 @@ const getChartHandler = async (
   userContext: UserContext,
   ...args: unknown[]
 ) => {
-  const { params } = args[0] as { params: { chartId: string } };
+  const { params } = args[0] as { params: Promise<{ chartId: string }> };
+  const resolvedParams = await params;
 
   log.info('Chart definition get request initiated', {
-    chartId: params.chartId,
+    chartId: resolvedParams.chartId,
     requestingUserId: userContext.user_id,
   });
 
@@ -31,7 +32,7 @@ const getChartHandler = async (
     // Use the RBAC charts service
     const chartsService = createRBACChartsService(userContext);
 
-    const chart = await chartsService.getChartById(params.chartId);
+    const chart = await chartsService.getChartById(resolvedParams.chartId);
 
     if (!chart) {
       return createErrorResponse('Chart definition not found', 404);
@@ -40,7 +41,7 @@ const getChartHandler = async (
     return createSuccessResponse({ chart }, 'Chart definition retrieved successfully');
   } catch (error) {
     log.error('Chart definition get error', error, {
-      chartId: params.chartId,
+      chartId: resolvedParams.chartId,
       requestingUserId: userContext.user_id,
     });
 
@@ -61,10 +62,11 @@ const updateChartHandler = async (
   userContext: UserContext,
   ...args: unknown[]
 ) => {
-  const { params } = args[0] as { params: { chartId: string } };
+  const { params } = args[0] as { params: Promise<{ chartId: string }> };
+  const resolvedParams = await params;
 
   log.info('Chart definition update request initiated', {
-    chartId: params.chartId,
+    chartId: resolvedParams.chartId,
     requestingUserId: userContext.user_id,
   });
 
@@ -76,7 +78,7 @@ const updateChartHandler = async (
     const chartsService = createRBACChartsService(userContext);
 
     // Fetch current chart for change tracking
-    const existingChart = await chartsService.getChartById(params.chartId);
+    const existingChart = await chartsService.getChartById(resolvedParams.chartId);
     if (!existingChart) {
       return createErrorResponse('Chart definition not found', 404);
     }
@@ -96,13 +98,13 @@ const updateChartHandler = async (
       drill_down_button_label: validatedData.drill_down_button_label,
     };
 
-    const updatedChart = await chartsService.updateChart(params.chartId, updateData);
+    const updatedChart = await chartsService.updateChart(resolvedParams.chartId, updateData);
 
     // Calculate changes for audit trail
     const changes = calculateChanges(existingChart, updateData);
 
     log.info('Chart definition updated successfully', {
-      chartId: params.chartId,
+      chartId: resolvedParams.chartId,
       chartName: updatedChart.chart_name,
       updatedBy: userContext.user_id,
       changes,
@@ -111,13 +113,13 @@ const updateChartHandler = async (
     });
 
     // Invalidate chart definition cache (this specific chart)
-    await analyticsCache.invalidate('chart', params.chartId);
+    await analyticsCache.invalidate('chart', resolvedParams.chartId);
 
     // Invalidate chart list cache (so updated chart appears in lists)
     await analyticsCache.invalidate('chart');
 
     log.info('Chart definition caches invalidated after update', {
-      chartId: params.chartId,
+      chartId: resolvedParams.chartId,
       invalidated: ['chart-definition', 'chart-list'],
       note: 'Data cache invalidation handled at data-source layer',
     });
@@ -125,7 +127,7 @@ const updateChartHandler = async (
     return createSuccessResponse({ chart: updatedChart }, 'Chart definition updated successfully');
   } catch (error) {
     log.error('Chart definition update error', error, {
-      chartId: params.chartId,
+      chartId: resolvedParams.chartId,
       requestingUserId: userContext.user_id,
     });
 
@@ -146,10 +148,11 @@ const deleteChartHandler = async (
   userContext: UserContext,
   ...args: unknown[]
 ) => {
-  const { params } = args[0] as { params: { chartId: string } };
+  const { params } = args[0] as { params: Promise<{ chartId: string }> };
+  const resolvedParams = await params;
 
   log.info('Chart definition delete request initiated', {
-    chartId: params.chartId,
+    chartId: resolvedParams.chartId,
     requestingUserId: userContext.user_id,
   });
 
@@ -157,21 +160,21 @@ const deleteChartHandler = async (
     // Use the RBAC charts service
     const chartsService = createRBACChartsService(userContext);
 
-    await chartsService.deleteChart(params.chartId);
+    await chartsService.deleteChart(resolvedParams.chartId);
 
     log.info('Chart definition deleted successfully', {
-      chartId: params.chartId,
+      chartId: resolvedParams.chartId,
       deletedBy: userContext.user_id,
     });
 
     // Invalidate chart definition cache (this specific chart)
-    await analyticsCache.invalidate('chart', params.chartId);
+    await analyticsCache.invalidate('chart', resolvedParams.chartId);
 
     // Invalidate chart list cache (so deleted chart is removed from lists)
     await analyticsCache.invalidate('chart');
 
     log.info('Chart definition caches invalidated after deletion', {
-      chartId: params.chartId,
+      chartId: resolvedParams.chartId,
       invalidated: ['chart-definition', 'chart-list'],
       note: 'Data cache invalidation handled at data-source layer',
     });
@@ -184,7 +187,7 @@ const deleteChartHandler = async (
     );
   } catch (error) {
     log.error('Chart definition delete error', error, {
-      chartId: params.chartId,
+      chartId: resolvedParams.chartId,
       requestingUserId: userContext.user_id,
     });
 

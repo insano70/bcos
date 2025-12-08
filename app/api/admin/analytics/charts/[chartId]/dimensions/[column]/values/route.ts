@@ -27,11 +27,12 @@ const getDimensionValuesHandler = async (
   userContext: UserContext,
   ...args: unknown[]
 ) => {
-  const { params } = args[0] as { params: { chartId: string; column: string } };
+  const { params } = args[0] as { params: Promise<{ chartId: string; column: string }> };
+  const resolvedParams = await params;
   const startTime = Date.now();
 
   try {
-    const { chartId, column } = params;
+    const { chartId, column } = resolvedParams;
     const { searchParams } = new URL(request.url);
 
     // Parse query parameters (current filters)
@@ -97,8 +98,8 @@ const getDimensionValuesHandler = async (
     return createSuccessResponse(result);
   } catch (error) {
     log.error('Failed to get dimension values', error as Error, {
-      chartId: params.chartId,
-      column: params.column,
+      chartId: resolvedParams.chartId,
+      column: resolvedParams.column,
       userId: userContext.user_id,
     });
     return createErrorResponse('Failed to get dimension values', 500);
@@ -107,6 +108,7 @@ const getDimensionValuesHandler = async (
 
 export const GET = rbacRoute(getDimensionValuesHandler, {
   permission: 'analytics:read:organization',
+  rateLimit: 'api',
 });
 
 /**
