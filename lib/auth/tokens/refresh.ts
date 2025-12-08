@@ -278,6 +278,7 @@ export async function refreshTokenPair(
         accessToken: newAccessToken,
         refreshToken: newRefreshToken,
         expiresAt: new Date(now.getTime() + ACCESS_TOKEN_DURATION),
+        refreshTokenExpiresAt: newRefreshExpiresAt,
         sessionId,
       };
     }); // End transaction

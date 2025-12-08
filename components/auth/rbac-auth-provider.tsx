@@ -12,6 +12,7 @@ import {
 import { apiClient } from '@/lib/api/client';
 import { authLogger } from '@/lib/utils/client-logger';
 import { AUTH_RETRY_CONFIG, TOKEN_REFRESH_INTERVALS } from '@/lib/utils/auth-constants';
+import { clearSessionExpiry, storeLoginHint, storeSessionExpiry } from '@/lib/utils/login-hint-storage';
 import { classifyAuthError, shouldRetryAuthError } from '@/lib/utils/auth-errors';
 import { retryWithBackoff } from '@/lib/utils/retry';
 import { useAuthState } from './hooks/use-auth-state';
@@ -272,6 +273,14 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
         sessionId: result.data.sessionId,
       });
 
+      // Store email for login_hint on future OIDC authentication
+      storeLoginHint(user.email);
+
+      // Store refresh token expiry for preemptive silent auth
+      if (result.data.refreshTokenExpiresAt) {
+        storeSessionExpiry(result.data.refreshTokenExpiresAt);
+      }
+
       authLogger.log(`Token refreshed successfully after ${attempt} attempt(s)`);
     } catch (error) {
       // All retries exhausted - classify the error and determine final action
@@ -319,6 +328,9 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
       // Clear MFA state
       clearMFAState();
 
+      // Clear session expiry tracking
+      clearSessionExpiry();
+
       // Clear auth state
       actions.logout();
 
@@ -331,6 +343,9 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
 
       // Clear MFA state
       clearMFAState();
+
+      // Clear session expiry tracking
+      clearSessionExpiry();
 
       // Clear state even if logout fails (accessToken cleared server-side)
       actions.logout();
@@ -421,6 +436,9 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
           userContext: userContext,
         });
 
+        // Store email for login_hint on future OIDC authentication
+        storeLoginHint(user.email);
+
         // Ensure we have a CSRF token for future requests
         await ensureCsrfToken();
         return;
@@ -505,7 +523,11 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
         setCsrfToken,
         setMFASetupRequired,
         setMFAVerificationRequired,
-        loginSuccess: actions.loginSuccess,
+        loginSuccess: (data) => {
+          actions.loginSuccess(data);
+          // Store email for login_hint on future OIDC authentication
+          storeLoginHint(data.user.email);
+        },
         setLoading: actions.setLoading,
       });
     } catch (error) {
@@ -525,6 +547,8 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
     completeMFASetupHook(sessionData, setCsrfToken, (user, sessionId) => {
       // Update auth state with authenticated user
       actions.loginSuccess({ user, sessionId });
+      // Store email for login_hint on future OIDC authentication
+      storeLoginHint(user.email);
     });
   };
 
@@ -533,6 +557,8 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
     completeMFAVerificationHook(sessionData, setCsrfToken, (user, sessionId) => {
       // Update auth state with authenticated user
       actions.loginSuccess({ user, sessionId });
+      // Store email for login_hint on future OIDC authentication
+      storeLoginHint(user.email);
     });
   };
 

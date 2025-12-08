@@ -15,14 +15,14 @@ export default function DropdownProfile({ align }: { align?: 'left' | 'right' })
       // Use our custom logout
       await logout();
 
-      // Redirect to signin
-      router.push('/signin');
+      // Redirect to signin with logged_out flag to prevent auto-signin via silent auth
+      router.push('/signin?logged_out=true');
       router.refresh();
     } catch (error) {
       // Log client-side logout errors for debugging
       clientErrorLog('Logout error:', error);
       // Force redirect even if logout fails
-      router.push('/signin');
+      router.push('/signin?logged_out=true');
     }
   };
 

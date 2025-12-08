@@ -70,6 +70,9 @@ const getReportCardByOrgHandler = async (
     // Get available months for month selector
     const availableMonths = await service.getAvailableMonthsByOrganization(organizationId, 6);
 
+    // Get grade history for the Grade History table
+    const gradeHistory = await service.getGradeHistoryByOrganization(organizationId, 12);
+
     const duration = Date.now() - startTime;
 
     const template = logTemplates.crud.read('report_card', {
@@ -87,7 +90,7 @@ const getReportCardByOrgHandler = async (
     });
 
     return createSuccessResponse(
-      { reportCard, previousMonth, availableMonths },
+      { reportCard, previousMonth, availableMonths, gradeHistory },
       'Report card retrieved successfully'
     );
   } catch (error) {

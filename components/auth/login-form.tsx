@@ -9,6 +9,7 @@ import { useForm } from 'react-hook-form';
 import { apiClient } from '@/lib/api/client';
 import { clientDebugLog, clientErrorLog } from '@/lib/utils/debug-client';
 import { loginSchema } from '@/lib/validations/auth';
+import { useSilentAuth } from './hooks/use-silent-auth';
 import MFASetupDialog from './mfa-setup-dialog';
 import MFAVerifyDialog from './mfa-verify-dialog';
 import { useAuth } from './rbac-auth-provider';
@@ -37,11 +38,25 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
   const searchParams = useSearchParams();
   const paramCallbackUrl = searchParams.get('callbackUrl') || searchParams.get('returnUrl');
   const oidcError = searchParams.get('error'); // OIDC error from callback
+  const silentAuthFailedParam = searchParams.get('silent_auth_failed'); // Silent auth result
+  const loggedOutParam = searchParams.get('logged_out'); // User explicitly logged out
 
   // Determine callback URL: use param if provided, otherwise use default dashboard if set, else /dashboard
   const callbackUrl =
     paramCallbackUrl ||
     (defaultDashboardId ? `/dashboard/view/${defaultDashboardId}` : '/dashboard');
+
+  // Silent authentication - try to authenticate without user interaction
+  // Skip if:
+  // - There's already an error (from previous OIDC attempt)
+  // - Silent auth already failed
+  // - User explicitly logged out (prevents auto-signin when switching users)
+  const skipSilentAuth = !!oidcError || silentAuthFailedParam === 'true' || loggedOutParam === 'true';
+  const { isCheckingSession } = useSilentAuth({
+    enabled: !skipSilentAuth,
+    returnUrl: callbackUrl,
+  });
+
   const {
     login,
     isAuthenticated,
@@ -255,6 +270,24 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
       setIsSubmitting(false);
     }
   };
+
+  // Show loading state while checking for existing session / silent auth
+  if (isCheckingSession) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 space-y-4">
+        <div className="relative">
+          <div className="w-12 h-12 border-4 border-violet-200 dark:border-violet-900 rounded-full" />
+          <div className="absolute top-0 left-0 w-12 h-12 border-4 border-violet-500 border-t-transparent rounded-full animate-spin" />
+        </div>
+        <div className="text-center">
+          <p className="text-gray-700 dark:text-gray-300 font-medium">Checking your session...</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            Attempting automatic sign-in
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>

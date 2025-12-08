@@ -8,6 +8,7 @@ import {
   type DashboardUniversalFilters,
 } from '@/hooks/use-dashboard-data';
 import { useStickyFilters } from '@/hooks/use-sticky-filters';
+import { useAuth } from '@/components/auth/rbac-auth-provider';
 import { apiClient } from '@/lib/api/client';
 import {
   DASHBOARD_LAYOUT,
@@ -42,7 +43,19 @@ type SwappedChartsMap = Map<string, string>;
 export default function DashboardView({ dashboard, dashboardCharts }: DashboardViewProps) {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { loadPreferences, savePreferences, removeFilter } = useStickyFilters();
+  const { user, userContext } = useAuth();
+  
+  // Get accessible organization IDs for filter validation
+  const accessibleOrganizationIds = useMemo(() => {
+    return userContext?.accessible_organizations?.map(org => org.organization_id) || [];
+  }, [userContext?.accessible_organizations]);
+  
+  // Use user-scoped sticky filters with organization validation
+  const { loadPreferences, savePreferences, removeFilter } = useStickyFilters({
+    userId: user?.id,
+    accessibleOrganizationIds,
+  });
+  
   const [availableCharts, setAvailableCharts] = useState<ChartDefinition[]>([]);
   const [isLoadingCharts, setIsLoadingCharts] = useState(true);
   const [error, setError] = useState<string | null>(null);

@@ -470,6 +470,78 @@ export class RBACReportCardService extends BaseRBACService {
   }
 
   /**
+   * Get grade history for an organization
+   * Returns the last N months of report card grades, most recent first
+   */
+  async getGradeHistoryByOrganization(
+    organizationId: string,
+    limit: number = 12
+  ): Promise<GradeHistoryEntry[]> {
+    // SECURITY: Report cards are practice-level aggregates, require org+ access
+    this.requireAnyPermission([
+      'analytics:read:organization',
+      'analytics:read:all',
+    ]);
+
+    this.requireOrganizationAccess(organizationId);
+
+    try {
+      // Get the last N report cards ordered by month
+      const results = await db
+        .select({
+          report_card_month: report_card_results.report_card_month,
+          overall_score: report_card_results.overall_score,
+          percentile_rank: report_card_results.percentile_rank,
+          size_bucket: report_card_results.size_bucket,
+        })
+        .from(report_card_results)
+        .where(eq(report_card_results.organization_id, organizationId))
+        .orderBy(desc(report_card_results.report_card_month))
+        .limit(limit);
+
+      return results.map((r, index) => {
+        const score = parseFloat(r.overall_score || '0');
+        const grade = this.getLetterGrade(score);
+        const monthDate = new Date(r.report_card_month);
+
+        // Calculate change from previous month (next in array since sorted desc)
+        let scoreChange: number | null = null;
+        let gradeChange: 'up' | 'down' | 'same' | null = null;
+
+        if (index < results.length - 1) {
+          const prevScore = parseFloat(results[index + 1]?.overall_score || '0');
+          const prevGrade = this.getLetterGrade(prevScore);
+          scoreChange = Math.round((score - prevScore) * 10) / 10;
+          const comparison = this.compareGrades(grade, prevGrade);
+          gradeChange = comparison > 0 ? 'up' : comparison < 0 ? 'down' : 'same';
+        }
+
+        return {
+          month: r.report_card_month,
+          monthLabel: monthDate.toLocaleDateString('en-US', {
+            month: 'short',
+            year: 'numeric',
+          }),
+          score,
+          grade,
+          percentileRank: parseFloat(r.percentile_rank || '0'),
+          sizeBucket: (r.size_bucket as SizeBucket) || 'medium',
+          scoreChange,
+          gradeChange,
+        };
+      });
+    } catch (error) {
+      log.error('Failed to get grade history by organization', error as Error, {
+        organizationId,
+        limit,
+        userId: this.userContext.user_id,
+        component: 'report-card',
+      });
+      throw error;
+    }
+  }
+
+  /**
    * Get previous month's report card summary for comparison display
    * Returns null if no previous month data exists
    */

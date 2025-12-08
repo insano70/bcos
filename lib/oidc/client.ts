@@ -122,9 +122,19 @@ export class OIDCClient {
    * Generates authorization URL with PKCE, state, and nonce.
    * Returns the URL and associated cryptographic parameters.
    *
+   * @param options.prompt - Optional OIDC prompt parameter:
+   *   - 'none': Silent authentication (no UI, fails if interaction needed)
+   *   - 'login': Force re-authentication
+   *   - 'consent': Force consent prompt
+   *   - 'select_account': Force account selection
+   *   - undefined: Let the IDP decide (default - enables SSO)
+   * @param options.loginHint - Optional email to pre-fill login form
    * @returns Authorization URL and parameters (state, codeVerifier, nonce)
    */
-  async createAuthUrl(): Promise<OIDCAuthorizationResult> {
+  async createAuthUrl(options?: {
+    prompt?: 'none' | 'login' | 'consent' | 'select_account';
+    loginHint?: string;
+  }): Promise<OIDCAuthorizationResult> {
     if (!this.oauthConfig || !this.config) {
       await this.initialize();
     }
@@ -157,10 +167,27 @@ export class OIDCClient {
     authUrl.searchParams.set('code_challenge', codeChallenge);
     authUrl.searchParams.set('code_challenge_method', 'S256');
 
+    // Optional prompt parameter for controlling authentication behavior
+    // Default: undefined - allows Microsoft to use SSO when the user has an existing session
+    // 'none': Silent authentication - fails if user interaction is required
+    // 'login': Force re-authentication
+    // 'consent': Force consent prompt
+    // 'select_account': Force account picker
+    if (options?.prompt) {
+      authUrl.searchParams.set('prompt', options.prompt);
+    }
+
+    // Optional login_hint to pre-fill user email
+    if (options?.loginHint) {
+      authUrl.searchParams.set('login_hint', options.loginHint);
+    }
+
     log.debug('Authorization URL created', {
       state: `${state.substring(0, 8)}...`,
       nonce: `${nonce.substring(0, 8)}...`,
       scopes: this.config.scopes,
+      prompt: options?.prompt || 'default',
+      hasLoginHint: !!options?.loginHint,
     });
 
     return {

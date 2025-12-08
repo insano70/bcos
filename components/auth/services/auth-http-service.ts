@@ -54,6 +54,8 @@ export interface RefreshResponse {
     user: unknown;
     sessionId: string;
     csrfToken?: string;
+    /** When the refresh token expires (ISO string) - for preemptive auth */
+    refreshTokenExpiresAt?: string;
   };
   error?: string;
 }

@@ -18,6 +18,16 @@ import type {
   GradeHistoryEntry,
   AnnualReview,
 } from '@/lib/types/report-card';
+
+/**
+ * Response type for useReportCardByOrg hook
+ */
+export interface ReportCardByOrgResponse {
+  reportCard: ReportCard;
+  previousMonth: PreviousMonthSummary | null;
+  availableMonths: string[];
+  gradeHistory: GradeHistoryEntry[];
+}
 import type { TrendPeriod, SizeBucket } from '@/lib/constants/report-card';
 
 // =============================================================================
@@ -27,7 +37,7 @@ import type { TrendPeriod, SizeBucket } from '@/lib/constants/report-card';
 /**
  * Hook for fetching an organization's report card
  * This is the PRIMARY hook for UI - users select by organization, not practice.
- * Includes previous month summary for comparison display.
+ * Includes previous month summary for comparison display and grade history.
  *
  * @param organizationId - Organization ID (UUID) to fetch report card for
  * @param month - Optional month in YYYY-MM-DD format to fetch specific month's report card
@@ -36,11 +46,7 @@ export function useReportCardByOrg(organizationId: string | undefined, month?: s
   const queryParams = month ? `?month=${month}` : '';
   const url = organizationId ? `/api/admin/report-card/org/${organizationId}${queryParams}` : '';
 
-  return useApiQuery<{
-    reportCard: ReportCard;
-    previousMonth: PreviousMonthSummary | null;
-    availableMonths: string[];
-  }>(
+  return useApiQuery<ReportCardByOrgResponse>(
     organizationId
       ? ['report-card-by-org', organizationId, month || 'latest']
       : ['report-card-by-org', 'none'],

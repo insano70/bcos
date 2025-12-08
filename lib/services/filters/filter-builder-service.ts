@@ -71,6 +71,11 @@ export class FilterBuilderService {
    * 3. Extract date range (from preset or explicit dates)
    * 4. Normalize to ChartExecutionFilters
    *
+   * Security: Invalid organization filters are gracefully skipped rather than
+   * throwing 403 errors. This prevents users from being locked out of dashboards
+   * when stale localStorage filters reference organizations they no longer have
+   * access to.
+   *
    * @param universalFilters - Universal chart filters from API
    * @param options - Filter builder options
    * @returns Normalized chart execution filters
@@ -92,20 +97,31 @@ export class FilterBuilderService {
     let practiceUids: number[] = [];
 
     if (universalFilters.organizationId) {
-      // Validate access and resolve organization
+      // Validate access and resolve organization (graceful - returns null if invalid)
       const resolution = await this.resolveOrganizationFilter(
         universalFilters.organizationId,
         options.component
       );
-      practiceUids = resolution.practiceUids;
+      
+      if (resolution) {
+        practiceUids = resolution.practiceUids;
 
-      log.info('Organization filter resolved in filter builder', {
-        userId: this.userContext.user_id,
-        organizationId: universalFilters.organizationId,
-        practiceUidCount: practiceUids.length,
-        includesHierarchy: resolution.includesHierarchy,
-        component: options.component,
-      });
+        log.info('Organization filter resolved in filter builder', {
+          userId: this.userContext.user_id,
+          organizationId: universalFilters.organizationId,
+          practiceUidCount: practiceUids.length,
+          includesHierarchy: resolution.includesHierarchy,
+          component: options.component,
+        });
+      } else {
+        // Invalid org filter was skipped - log and continue without it
+        log.warn('Organization filter skipped - user does not have access', {
+          userId: this.userContext.user_id,
+          skippedOrganizationId: universalFilters.organizationId,
+          component: options.component,
+          action: 'filter_skipped_gracefully',
+        });
+      }
     } else if (universalFilters.practiceUids && universalFilters.practiceUids.length > 0) {
       // Use explicit practiceUids if provided (takes precedence)
       practiceUids = universalFilters.practiceUids;
@@ -272,23 +288,42 @@ export class FilterBuilderService {
    * - Provider users (analytics:read:own) cannot use organization filter
    * - No analytics permission = cannot use org filter
    *
+   * Graceful Handling:
+   * - Returns null instead of throwing when user lacks access
+   * - This allows dashboards to load without the invalid filter
+   * - Prevents users being locked out due to stale localStorage filters
+   *
    * Consolidates duplicate implementations from:
    * - lib/services/dashboard-rendering/filter-service.ts
    * - lib/utils/organization-filter-resolver.ts
    *
    * @param organizationId - Organization ID from filter
    * @param component - Component name for logging
-   * @returns Resolved practice UIDs with metadata
-   * @throws Error if user cannot access the organization
+   * @returns Resolved practice UIDs with metadata, or null if user cannot access
    */
   private async resolveOrganizationFilter(
     organizationId: string,
     component: string
-  ): Promise<FilterResolutionResult> {
+  ): Promise<FilterResolutionResult | null> {
     const startTime = Date.now();
 
-    // Step 1: Validate organization access (RBAC)
-    await this.validateOrganizationAccess(organizationId, component);
+    // Step 1: Validate organization access (RBAC) - returns false if no access
+    const hasAccess = await this.validateOrganizationAccess(organizationId, component);
+    
+    if (!hasAccess) {
+      // Log and return null - caller will skip this filter
+      log.security('Organization filter skipped - access denied', 'medium', {
+        userId: this.userContext.user_id,
+        requestedOrganizationId: organizationId,
+        accessibleOrganizationIds: this.userContext.accessible_organizations.map(
+          (o) => o.organization_id
+        ),
+        action: 'filter_skipped',
+        reason: 'graceful_skip_invalid_org_filter',
+        component,
+      });
+      return null;
+    }
 
     // Step 2: Resolve organization to practice UIDs (with hierarchy)
     const allOrganizations = await organizationHierarchyService.getAllOrganizations();
@@ -323,14 +358,18 @@ export class FilterBuilderService {
    * Internal helper that enforces RBAC rules for organization filtering.
    * Consolidates duplicate validation logic from filter-service.ts and organization-filter-resolver.ts
    *
+   * Returns boolean instead of throwing to enable graceful handling:
+   * - true: user has access, proceed with filter
+   * - false: user lacks access, skip filter gracefully
+   *
    * @param organizationId - Organization ID to validate
    * @param component - Component name for security logging
-   * @throws Error if user cannot access the organization
+   * @returns true if user has access, false otherwise
    */
   private async validateOrganizationAccess(
     organizationId: string,
     component: string
-  ): Promise<void> {
+  ): Promise<boolean> {
     const accessService = createOrganizationAccessService(this.userContext);
     const accessInfo = await accessService.getAccessiblePracticeUids();
 
@@ -342,22 +381,19 @@ export class FilterBuilderService {
         permissionScope: 'all',
         component,
       });
-      return;
+      return true;
     }
 
-    // Provider users cannot use organization filter
+    // Provider users cannot use organization filter - skip gracefully
     if (accessInfo.scope === 'own') {
-      log.security('Provider user attempted organization filter - denied', 'high', {
+      log.security('Provider user attempted organization filter - skipped', 'medium', {
         userId: this.userContext.user_id,
         organizationId,
-        blocked: true,
+        skipped: true,
         reason: 'provider_cannot_filter_by_org',
         component,
       });
-
-      throw new Error(
-        'Access denied: Provider-level users cannot filter by organization. You can only see your own provider data.'
-      );
+      return false;
     }
 
     // Organization users can only filter by their accessible organizations (includes hierarchy)
@@ -367,21 +403,17 @@ export class FilterBuilderService {
       );
 
       if (!canAccess) {
-        log.security('Organization filter access denied', 'high', {
+        log.security('Organization filter access denied - skipping filter', 'medium', {
           userId: this.userContext.user_id,
           requestedOrganizationId: organizationId,
           accessibleOrganizationIds: this.userContext.accessible_organizations.map(
             (o) => o.organization_id
           ),
-          blocked: true,
+          skipped: true,
           reason: 'user_not_member_of_requested_org',
           component,
         });
-
-        throw new Error(
-          `Access denied: You do not have permission to filter by organization ${organizationId}. ` +
-            'You can only filter by organizations in your hierarchy.'
-        );
+        return false;
       }
 
       log.info('Organization filter access granted', {
@@ -390,24 +422,27 @@ export class FilterBuilderService {
         verified: true,
         component,
       });
+      return true;
     }
 
-    // No analytics permission
+    // No analytics permission - skip gracefully
     if (accessInfo.scope === 'none') {
       log.security(
-        'User without analytics permission attempted organization filter - denied',
-        'medium',
+        'User without analytics permission attempted organization filter - skipped',
+        'low',
         {
           userId: this.userContext.user_id,
           organizationId,
-          blocked: true,
+          skipped: true,
           reason: 'no_analytics_permission',
           component,
         }
       );
-
-      throw new Error('Access denied: You do not have analytics permissions to filter by organization.');
+      return false;
     }
+
+    // Unknown scope - default to deny
+    return false;
   }
 
   /**

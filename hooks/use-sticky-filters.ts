@@ -2,24 +2,33 @@
  * Sticky Filters Hook
  *
  * Manages persistent filter preferences using browser localStorage.
- * Provides global sticky filter behavior across all dashboards.
+ * Provides user-scoped sticky filter behavior across all dashboards.
  *
  * Features:
  * - Save/load filter preferences from localStorage
- * - Global scope (applies to all dashboards)
+ * - User-scoped storage (prevents cross-user filter contamination)
  * - Graceful error handling (quota exceeded, parse errors)
  * - Clear individual or all sticky filters
+ * - Validate filters against accessible organizations
  * - TypeScript type safety
  *
- * Storage Key: 'bcos_dashboard_filters'
+ * Storage Key: 'bcos_dashboard_filters_{userId}'
  * Persists: organizationId, dateRangePreset, practiceUids, providerName
  * Priority: URL params > localStorage > Dashboard defaults
  */
 
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import type { DashboardUniversalFilters } from '@/hooks/use-dashboard-data';
 
-const STORAGE_KEY = 'bcos_dashboard_filters';
+const STORAGE_KEY_PREFIX = 'bcos_dashboard_filters';
+
+/**
+ * Build storage key for a user
+ * Falls back to legacy key for backwards compatibility if no userId
+ */
+function getStorageKey(userId?: string): string {
+  return userId ? `${STORAGE_KEY_PREFIX}_${userId}` : STORAGE_KEY_PREFIX;
+}
 
 /**
  * Sticky filter preferences stored in localStorage
@@ -34,15 +43,29 @@ export interface StickyFilterPreferences {
 }
 
 /**
+ * Options for sticky filters hook
+ */
+export interface UseStickyFiltersOptions {
+  /** User ID to namespace localStorage (required for proper isolation) */
+  userId?: string | undefined;
+  /** List of organization IDs the user has access to (for validation) */
+  accessibleOrganizationIds?: string[] | undefined;
+}
+
+/**
  * Hook for managing sticky dashboard filters via localStorage
  *
+ * @param options - Configuration options including userId for storage isolation
  * @returns Object with methods to load, save, clear, and remove filters
  *
  * @example
  * ```tsx
- * const { loadPreferences, savePreferences, clearAll } = useStickyFilters();
+ * const { loadPreferences, savePreferences, clearAll } = useStickyFilters({
+ *   userId: user?.id,
+ *   accessibleOrganizationIds: userContext?.accessible_organizations?.map(o => o.organization_id)
+ * });
  *
- * // Load on mount
+ * // Load on mount - automatically validates org filter
  * const saved = loadPreferences();
  *
  * // Save on filter change
@@ -58,9 +81,15 @@ export interface StickyFilterPreferences {
  * };
  * ```
  */
-export function useStickyFilters() {
+export function useStickyFilters(options: UseStickyFiltersOptions = {}) {
+  const { userId, accessibleOrganizationIds } = options;
+  
+  // Memoize storage key based on userId
+  const storageKey = useMemo(() => getStorageKey(userId), [userId]);
+  
   /**
    * Load saved filter preferences from localStorage
+   * Automatically clears invalid organization filters
    *
    * @returns Saved preferences or empty object if none found
    */
@@ -70,8 +99,22 @@ export function useStickyFilters() {
     }
 
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
+      const saved = localStorage.getItem(storageKey);
       if (!saved) {
+        // Try legacy key migration (one-time)
+        if (userId) {
+          const legacySaved = localStorage.getItem(STORAGE_KEY_PREFIX);
+          if (legacySaved) {
+            console.log('[useStickyFilters] Migrating legacy filters to user-scoped storage');
+            // Don't auto-migrate - just clear legacy and start fresh
+            // This prevents inheriting another user's filters
+            try {
+              localStorage.removeItem(STORAGE_KEY_PREFIX);
+            } catch {
+              // Ignore cleanup errors
+            }
+          }
+        }
         return {};
       }
 
@@ -80,8 +123,23 @@ export function useStickyFilters() {
       // Validate structure
       if (typeof parsed !== 'object' || parsed === null) {
         console.warn('[useStickyFilters] Invalid preferences structure, clearing');
-        localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem(storageKey);
         return {};
+      }
+
+      // Validate organization filter against accessible organizations
+      if (parsed.organizationId && accessibleOrganizationIds && accessibleOrganizationIds.length > 0) {
+        const hasAccess = accessibleOrganizationIds.includes(parsed.organizationId);
+        if (!hasAccess) {
+          console.warn('[useStickyFilters] Clearing invalid organization filter - user does not have access', {
+            invalidOrgId: parsed.organizationId,
+            accessibleOrgs: accessibleOrganizationIds,
+          });
+          // Clear the invalid org filter and save back
+          delete parsed.organizationId;
+          parsed.lastUpdated = new Date().toISOString();
+          localStorage.setItem(storageKey, JSON.stringify(parsed));
+        }
       }
 
       return parsed;
@@ -89,19 +147,20 @@ export function useStickyFilters() {
       console.error('[useStickyFilters] Failed to load preferences:', error);
       // Clear corrupted data
       try {
-        localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem(storageKey);
       } catch {
         // Ignore cleanup errors
       }
       return {};
     }
-  }, []);
+  }, [storageKey, accessibleOrganizationIds]);
 
   /**
    * Save filter preferences to localStorage
    *
    * Extracts persistable fields from DashboardUniversalFilters and saves to localStorage.
    * Automatically adds lastUpdated timestamp.
+   * Validates organization filter before saving.
    *
    * @param filters - Dashboard universal filters to save
    */
@@ -114,8 +173,19 @@ export function useStickyFilters() {
       const preferences: Partial<StickyFilterPreferences> = {};
 
       // Only add fields that have values
+      // Validate organization filter before saving
       if (filters.organizationId) {
-        preferences.organizationId = filters.organizationId;
+        // Only save org filter if user has access (or if we don't have access list)
+        const canSaveOrg = !accessibleOrganizationIds || 
+                          accessibleOrganizationIds.length === 0 || 
+                          accessibleOrganizationIds.includes(filters.organizationId);
+        if (canSaveOrg) {
+          preferences.organizationId = filters.organizationId;
+        } else {
+          console.warn('[useStickyFilters] Skipping invalid organization filter on save', {
+            invalidOrgId: filters.organizationId,
+          });
+        }
       }
       if (filters.dateRangePreset) {
         preferences.dateRangePreset = filters.dateRangePreset;
@@ -129,7 +199,7 @@ export function useStickyFilters() {
 
       preferences.lastUpdated = new Date().toISOString();
 
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(preferences));
+      localStorage.setItem(storageKey, JSON.stringify(preferences));
     } catch (error) {
       // Handle quota exceeded or other localStorage errors
       if (error instanceof Error && error.name === 'QuotaExceededError') {
@@ -139,7 +209,7 @@ export function useStickyFilters() {
       }
       // Gracefully degrade - don't break the app
     }
-  }, []);
+  }, [storageKey, accessibleOrganizationIds]);
 
   /**
    * Clear all sticky filter preferences
@@ -150,11 +220,11 @@ export function useStickyFilters() {
     }
 
     try {
-      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(storageKey);
     } catch (error) {
       console.error('[useStickyFilters] Failed to clear preferences:', error);
     }
-  }, []);
+  }, [storageKey]);
 
   /**
    * Remove a specific filter from sticky preferences
@@ -180,13 +250,13 @@ export function useStickyFilters() {
           clearAll();
         } else {
           current.lastUpdated = new Date().toISOString();
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(current));
+          localStorage.setItem(storageKey, JSON.stringify(current));
         }
       } catch (error) {
         console.error('[useStickyFilters] Failed to remove filter:', error);
       }
     },
-    [loadPreferences, clearAll]
+    [loadPreferences, clearAll, storageKey]
   );
 
   /**

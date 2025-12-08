@@ -89,6 +89,7 @@ export default function ReportCardView() {
   const reportCard = reportCardData?.reportCard;
   const previousMonth = reportCardData?.previousMonth;
   const availableMonths = reportCardData?.availableMonths || [];
+  const gradeHistory = reportCardData?.gradeHistory || [];
   const peerComparison = peerData?.comparison;
 
   const isLoading = authLoading || loadingOrgs || isLoadingReportCard;
@@ -359,9 +360,9 @@ export default function ReportCardView() {
             </div>
           )}
 
-          {/* Grade History - Placeholder until org-based history API is ready */}
+          {/* Grade History */}
           <div className="lg:col-span-12">
-            <GradeHistoryTable history={[]} isLoading={false} />
+            <GradeHistoryTable history={gradeHistory} isLoading={isLoadingReportCard} />
           </div>
         </div>
       </ChartErrorBoundary>

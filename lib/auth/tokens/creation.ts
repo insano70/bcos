@@ -204,6 +204,7 @@ export async function createTokenPair(
     accessToken,
     refreshToken,
     expiresAt: new Date(now.getTime() + ACCESS_TOKEN_DURATION),
+    refreshTokenExpiresAt: refreshExpiresAt,
     sessionId,
   };
 }

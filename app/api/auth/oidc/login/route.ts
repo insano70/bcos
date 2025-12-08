@@ -73,11 +73,31 @@ const oidcLoginHandler = async (request: NextRequest) => {
     const { getDefaultReturnUrl } = await import('@/lib/services/default-dashboard-service');
     const returnUrl = await getDefaultReturnUrl(paramReturnUrl);
 
+    // Get optional prompt parameter for controlling authentication behavior
+    // Supported values: 'none', 'login', 'consent', 'select_account'
+    // Default: undefined - allows Microsoft to use SSO when user has existing session
+    const promptParam = request.nextUrl.searchParams.get('prompt');
+    const validPrompts = ['none', 'login', 'consent', 'select_account'] as const;
+    const prompt = promptParam && validPrompts.includes(promptParam as (typeof validPrompts)[number])
+      ? (promptParam as 'none' | 'login' | 'consent' | 'select_account')
+      : undefined;
+
+    // Get optional login_hint to pre-fill email in Microsoft login form
+    const loginHint = request.nextUrl.searchParams.get('login_hint') ?? undefined;
+
     // Get OIDC client (singleton)
     const oidcClient = await getOIDCClient();
 
-    // Create authorization URL with PKCE
-    const { url, state, codeVerifier, nonce } = await oidcClient.createAuthUrl();
+    // Create authorization URL with PKCE and optional prompt/login_hint
+    // Build options object conditionally to satisfy exactOptionalPropertyTypes
+    const authOptions: Parameters<typeof oidcClient.createAuthUrl>[0] = {};
+    if (prompt) {
+      authOptions.prompt = prompt;
+    }
+    if (loginHint) {
+      authOptions.loginHint = loginHint;
+    }
+    const { url, state, codeVerifier, nonce } = await oidcClient.createAuthUrl(authOptions);
 
     // Register state for one-time use validation (CRITICAL for CSRF prevention)
     // Database-backed for horizontal scaling
@@ -120,6 +140,8 @@ const oidcLoginHandler = async (request: NextRequest) => {
       userAgent: metadata.userAgent,
       requestId: correlation.current(),
       returnUrl,
+      prompt: prompt || 'default',
+      hasLoginHint: !!loginHint,
       authEndpoint: url.split('?')[0],
       duration: Date.now() - startTime,
     });

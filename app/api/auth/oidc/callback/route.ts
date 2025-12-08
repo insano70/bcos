@@ -68,12 +68,45 @@ const oidcCallbackHandler = async (request: NextRequest) => {
 
     // Check for provider errors
     if (error) {
+      // Check if this was a silent auth attempt
+      const cookieStore = await cookies();
+      const wasSilentAttempt = cookieStore.get('oidc-silent-attempt')?.value === 'true';
+
+      // Clear the silent attempt marker
+      cookieStore.delete('oidc-silent-attempt');
+      // Also clear the OIDC session cookie to prevent state mismatch on retry
+      cookieStore.delete('oidc-session');
+
+      // Silent auth specific errors - these are expected when user has no Microsoft session
+      // These errors indicate the user needs to interactively authenticate
+      const silentAuthExpectedErrors = ['login_required', 'interaction_required', 'consent_required'];
+
+      if (wasSilentAttempt && silentAuthExpectedErrors.includes(error)) {
+        // Silent auth failed as expected - user has no active Microsoft session
+        // This is NOT an error condition - redirect to signin for interactive login
+        log.info('Silent auth requires interaction - redirecting to signin', {
+          operation: 'oidc_callback',
+          silentAuthResult: 'requires_interaction',
+          error,
+          duration: Date.now() - startTime,
+          component: 'auth',
+        });
+
+        // Redirect to signin page with flag indicating silent auth was attempted
+        // The login form will show the Microsoft login button
+        return NextResponse.redirect(
+          new URL('/signin?silent_auth_failed=true', baseUrl)
+        );
+      }
+
+      // For non-silent auth or unexpected errors, log as error
       log.error('OIDC callback failed - provider error', new Error(errorDescription || error), {
         operation: 'oidc_callback',
         success: false,
         reason: 'provider_error',
         errorCode: error,
         errorDescription: errorDescription || 'no description provided',
+        wasSilentAttempt,
         duration: Date.now() - startTime,
         component: 'auth',
         severity: 'medium',
@@ -90,6 +123,7 @@ const oidcCallbackHandler = async (request: NextRequest) => {
           reason: 'provider_error',
           error,
           errorDescription,
+          wasSilentAttempt,
         },
       });
 
@@ -137,8 +171,9 @@ const oidcCallbackHandler = async (request: NextRequest) => {
       throw new SessionError('OIDC session decryption failed - possible tampering');
     }
 
-    // Delete session cookie (one-time use)
+    // Delete session cookies (one-time use)
     cookieStore.delete('oidc-session');
+    cookieStore.delete('oidc-silent-attempt'); // Clear silent auth marker if present
 
     // ===== 3. Validate State (CSRF Protection) =====
     if (state !== sessionData.state) {
@@ -385,7 +420,7 @@ const oidcCallbackHandler = async (request: NextRequest) => {
     const tokens = await createAuthSession({
       userId: existingUser.user_id,
       deviceInfo,
-      rememberMe: false, // rememberMe = false for SSO
+      rememberMe: true, // SSO users get extended session (30 days) since they authenticate via Microsoft
       email: sanitizedProfile.email,
       authMethod: 'oidc',
     });
@@ -440,7 +475,7 @@ const oidcCallbackHandler = async (request: NextRequest) => {
       httpOnly: true,
       secure: isSecureEnvironment,
       sameSite: 'strict', // CRITICAL: Prevents CSRF attacks
-      maxAge: 60 * 60 * 24 * 7, // 7 days
+      maxAge: 60 * 60 * 24 * 30, // 30 days - matches rememberMe=true token expiration
       path: '/',
     });
 

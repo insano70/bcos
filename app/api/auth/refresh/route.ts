@@ -180,6 +180,7 @@ const refreshHandler = async (request: NextRequest) => {
         },
         accessToken: tokenPair.accessToken,
         expiresAt: tokenPair.expiresAt.toISOString(),
+        refreshTokenExpiresAt: tokenPair.refreshTokenExpiresAt.toISOString(),
         sessionId: tokenPair.sessionId,
         csrfToken, // Include refreshed CSRF token
       },

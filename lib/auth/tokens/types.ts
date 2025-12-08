@@ -19,7 +19,10 @@
 export interface TokenPair {
   accessToken: string;
   refreshToken: string;
+  /** Access token expiration time */
   expiresAt: Date;
+  /** Refresh token expiration time (for session expiry tracking) */
+  refreshTokenExpiresAt: Date;
   sessionId: string;
 }
 
