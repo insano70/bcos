@@ -153,7 +153,7 @@ export function useStickyFilters(options: UseStickyFiltersOptions = {}) {
       }
       return {};
     }
-  }, [storageKey, accessibleOrganizationIds]);
+  }, [storageKey, accessibleOrganizationIds, userId]);
 
   /**
    * Save filter preferences to localStorage
