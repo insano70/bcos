@@ -67,13 +67,18 @@ export function useSyncedScrollSnap({
   const isProgrammaticScrollRef = useRef(false);
   // Track the last known index to detect actual changes
   const lastIndexRef = useRef(currentIndex);
+  // Track if this is the initial mount (need to scroll even if index matches)
+  const isInitialMountRef = useRef(true);
 
   // Scroll to current index when it changes (from keyboard nav or indicator click)
+  // Also scrolls on initial mount to handle case where currentIndex > 0
   useEffect(() => {
     if (!enabled || !containerRef.current) return;
 
-    // Only scroll if the index actually changed and wasn't from user scroll
-    if (lastIndexRef.current === currentIndex) return;
+    // ALWAYS scroll on initial mount, then only on changes
+    // This fixes the black screen issue when opening fullscreen on a non-first dashboard
+    if (!isInitialMountRef.current && lastIndexRef.current === currentIndex) return;
+    isInitialMountRef.current = false;
     lastIndexRef.current = currentIndex;
 
     const dimension =
