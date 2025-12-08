@@ -314,6 +314,31 @@ export async function getCachedUserContext(userId: string): Promise<UserContext>
         });
       }
     }
+
+    // Fallback: If hierarchy lookup returned empty (cache miss/stale),
+    // add the user's direct organization from the database query result.
+    // This prevents permission failures when Redis cache is stale or missing orgs.
+    if (hierarchyIds.length === 0 && !accessibleOrganizations.some((a) => a.organization_id === userOrg.organization_id)) {
+      log.warn('Organization not found in hierarchy cache, adding from database', {
+        organizationId: userOrg.organization_id,
+        organizationName: userOrg.org_name,
+        userId: user.user_id,
+        component: 'rbac-cache',
+        operation: 'get_cached_user_context',
+      });
+
+      accessibleOrganizations.push({
+        organization_id: userOrg.organization_id,
+        name: userOrg.org_name,
+        slug: userOrg.org_slug,
+        parent_organization_id: userOrg.org_parent_id || undefined,
+        practice_uids: userOrg.org_practice_uids || undefined,
+        is_active: userOrg.org_is_active ?? true,
+        created_at: userOrg.org_created_at ?? new Date(),
+        updated_at: userOrg.org_updated_at ?? new Date(),
+        deleted_at: userOrg.org_deleted_at || undefined,
+      });
+    }
   }
   breakdown.hierarchyResolution = Date.now() - t4;
 
