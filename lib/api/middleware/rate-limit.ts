@@ -55,6 +55,12 @@ const RATE_LIMIT_CONFIGS: Record<string, RateLimitConfig> = {
     // Must be higher than 'api' to avoid blocking legitimate session verification
     // SUMMIT FIX: Increased from 500 to 5000 to support many users sharing one IP
   },
+  admin_cli: {
+    limit: 1, // 1 request per minute
+    windowSeconds: 60, // 1 minute
+    // Rationale: Resource-intensive admin operations (e.g., report card generation)
+    // Should be heavily rate limited to prevent system overload
+  },
 };
 
 /**
@@ -114,7 +120,7 @@ export function getRateLimitKey(request: Request, prefix = ''): string {
  * Multi-instance safe - rate limits enforced globally across all instances
  *
  * @param request - HTTP request
- * @param type - Rate limit type (auth, api, upload, mfa, session_read)
+ * @param type - Rate limit type (auth, api, upload, mfa, session_read, admin_cli)
  * @returns Rate limit result with remaining count and reset time
  * @throws RateLimitError if rate limit exceeded
  */
