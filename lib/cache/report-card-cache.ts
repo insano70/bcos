@@ -20,8 +20,9 @@
 
 import { log } from '@/lib/logger';
 import { CacheService } from './base';
-import type { ReportCard, PeerComparison, MeasureConfig } from '@/lib/types/report-card';
+import type { ReportCard, PeerComparison, MeasureConfig, AnnualReview } from '@/lib/types/report-card';
 import type { SizeBucket } from '@/lib/constants/report-card';
+import { REPORT_CARD_TTL } from '@/lib/constants/cache-ttl';
 
 /**
  * Report Card Cache Service
@@ -30,11 +31,7 @@ import type { SizeBucket } from '@/lib/constants/report-card';
  */
 class ReportCardCacheService extends CacheService<ReportCard> {
   protected namespace = 'report-card';
-  protected defaultTTL = 3600; // 1 hour
-
-  // Extended TTLs for different data types
-  private readonly PEER_STATS_TTL = 21600; // 6 hours
-  private readonly MEASURES_TTL = 3600; // 1 hour
+  protected defaultTTL = REPORT_CARD_TTL.DEFAULT;
 
   // ==========================================================================
   // Organization Report Cards
@@ -73,7 +70,27 @@ class ReportCardCacheService extends CacheService<ReportCard> {
    */
   async setPeerStats(sizeBucket: SizeBucket, data: PeerComparison): Promise<boolean> {
     const key = this.buildKey('peer', sizeBucket);
-    return this.set(key, data, { ttl: this.PEER_STATS_TTL });
+    return this.set(key, data, { ttl: REPORT_CARD_TTL.PEER_STATS });
+  }
+
+  // ==========================================================================
+  // Annual Review
+  // ==========================================================================
+
+  /**
+   * Get cached annual review for an organization
+   */
+  async getAnnualReview(organizationId: string): Promise<AnnualReview | null> {
+    const key = this.buildKey('annual-review', organizationId);
+    return this.get<AnnualReview>(key);
+  }
+
+  /**
+   * Cache annual review for an organization
+   */
+  async setAnnualReview(organizationId: string, data: AnnualReview): Promise<boolean> {
+    const key = this.buildKey('annual-review', organizationId);
+    return this.set(key, data, { ttl: REPORT_CARD_TTL.ANNUAL_REVIEW });
   }
 
   // ==========================================================================
@@ -93,7 +110,7 @@ class ReportCardCacheService extends CacheService<ReportCard> {
    */
   async setMeasures(measures: MeasureConfig[], activeOnly: boolean = true): Promise<boolean> {
     const key = this.buildKey('measures', activeOnly ? 'active' : 'all');
-    return this.set(key, measures, { ttl: this.MEASURES_TTL });
+    return this.set(key, measures, { ttl: REPORT_CARD_TTL.MEASURES });
   }
 
   // ==========================================================================
@@ -107,7 +124,7 @@ class ReportCardCacheService extends CacheService<ReportCard> {
    * @param id - Optional ID for specific resource invalidation
    */
   async invalidate(
-    resourceType: 'org' | 'peer' | 'measures' | 'all',
+    resourceType: 'org' | 'peer' | 'measures' | 'annual-review' | 'all',
     id?: string
   ): Promise<void> {
     try {
@@ -143,6 +160,18 @@ class ReportCardCacheService extends CacheService<ReportCard> {
         log.info('Report card cache invalidated', {
           type: 'peer',
           sizeBucket: id,
+          component: 'report-card-cache',
+        });
+        return;
+      }
+
+      if (resourceType === 'annual-review' && id !== undefined) {
+        // Invalidate specific organization's annual review
+        const key = this.buildKey('annual-review', id);
+        await this.del(key);
+        log.info('Report card cache invalidated', {
+          type: 'annual-review',
+          organizationId: id,
           component: 'report-card-cache',
         });
         return;

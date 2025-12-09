@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from 'next/navigation';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { motion } from 'framer-motion';
 import { RotateCcw } from 'lucide-react';
 import {
   useDashboardData,
@@ -317,13 +318,40 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
   // Combined loading state (chart definitions + batch data)
   const isLoading = isLoadingCharts || isBatchLoading;
 
+  // Loading state - show title and filters with spinner
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-600"></div>
-        <span className="ml-3 text-gray-600 dark:text-gray-400">
-          {isLoadingCharts ? DASHBOARD_MESSAGES.LOADING.DASHBOARD : DASHBOARD_MESSAGES.LOADING.CHART_DATA}
-        </span>
+      <div className="space-y-4">
+        {/* Title Row - visible during loading */}
+        <div className="flex items-center justify-between gap-4 px-4 pt-4">
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
+            {dashboard.dashboard_name || 'Loading Dashboard...'}
+          </h1>
+
+          {/* Filter controls visible but disabled during loading */}
+          {showFilterBar && (
+            <div className="flex items-center gap-3 opacity-50 pointer-events-none">
+              <DashboardFilterPills
+                filters={universalFilters}
+                defaultFilters={filterConfig?.defaultFilters as DashboardUniversalFilters | undefined}
+                onRemoveFilter={handleRemoveFilter}
+                loading={true}
+              />
+              <DashboardFilterDropdown
+                initialFilters={universalFilters}
+                onFiltersChange={handleFilterChange}
+                loading={true}
+                align="right"
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Simple centered spinner */}
+        <div className="flex items-center justify-center min-h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-600" />
+          <span className="ml-3 text-gray-600 dark:text-gray-400">Loading...</span>
+        </div>
       </div>
     );
   }
@@ -456,13 +484,20 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
 
       {/* Dashboard Grid - Following /dashboard pattern */}
       <div className="grid grid-cols-12 gap-6 w-full px-4 pb-4">
-        {dashboardConfig.charts.map((dashboardChart) => {
+        {dashboardConfig.charts.map((dashboardChart, chartIndex) => {
           if (!dashboardChart.chartDefinition) {
             const colSpanClass = getResponsiveColSpan(dashboardChart.position.w);
 
             return (
-              <div
+              <motion.div
                 key={dashboardChart.id}
+                initial={{ opacity: 0, y: 12, scale: 0.96 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ 
+                  duration: 0.4, 
+                  delay: chartIndex * 0.06,
+                  ease: [0.25, 0.46, 0.45, 0.94]
+                }}
                 className={`${colSpanClass} flex flex-col bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-dashed border-gray-300 dark:border-gray-600`}
               >
                 <div className="flex items-center justify-center h-48 text-center text-gray-500 dark:text-gray-400">
@@ -472,7 +507,7 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
                     <p className="text-xs">ID: {dashboardChart.chartDefinitionId.slice(0, 8)}...</p>
                   </div>
                 </div>
-              </div>
+              </motion.div>
             );
           }
 
@@ -507,8 +542,15 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
           // Skip chart if no data returned from batch API
           if (!batchChartData) {
             return (
-              <div
+              <motion.div
                 key={dashboardChart.id}
+                initial={{ opacity: 0, y: 12, scale: 0.96 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ 
+                  duration: 0.4, 
+                  delay: chartIndex * 0.06,
+                  ease: [0.25, 0.46, 0.45, 0.94]
+                }}
                 className={`${colSpanClass} flex flex-col bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-dashed border-gray-300 dark:border-gray-600`}
               >
                 <div className="flex items-center justify-center h-48 text-center text-gray-500 dark:text-gray-400">
@@ -527,13 +569,20 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
                     )}
                   </div>
                 </div>
-              </div>
+              </motion.div>
             );
           }
 
           return (
-            <div
+            <motion.div
               key={dashboardChart.id}
+              initial={{ opacity: 0, y: 12, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ 
+                duration: 0.4, 
+                delay: chartIndex * 0.06,
+                ease: [0.25, 0.46, 0.45, 0.94]
+              }}
               className={`${colSpanClass} flex flex-col relative`}
               style={{
                 marginBottom: `${dashboardConfig.layout.margin}px`,
@@ -588,7 +637,7 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
                   })}
                 />
               </ChartErrorBoundary>
-            </div>
+            </motion.div>
           );
         })}
       </div>

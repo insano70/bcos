@@ -1,6 +1,6 @@
 'use client';
 
-import { ChevronDown, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 
 interface MonthSelectorProps {
@@ -12,15 +12,20 @@ interface MonthSelectorProps {
   onMonthChange: (month: string) => void;
   /** Loading state */
   isLoading?: boolean;
+  /** Compact mode for mobile */
+  compact?: boolean;
   className?: string;
 }
 
 /**
- * Format month string for display (full month name)
+ * Format month string for display
  */
-function formatMonthLabel(monthStr: string): string {
+function formatMonthLabel(monthStr: string, short = false): string {
   const date = new Date(`${monthStr}T00:00:00`);
-  return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  return date.toLocaleDateString('en-US', { 
+    month: short ? 'short' : 'long', 
+    year: 'numeric' 
+  });
 }
 
 /**
@@ -28,12 +33,17 @@ function formatMonthLabel(monthStr: string): string {
  * 
  * Allows users to select from available report card months.
  * Shows a dropdown with formatted month names.
+ * 
+ * Arrow convention (timeline order):
+ * - Left arrow = go back in time (older months)
+ * - Right arrow = go forward in time (newer months)
  */
 export default function MonthSelector({
   availableMonths,
   selectedMonth,
   onMonthChange,
   isLoading,
+  compact = false,
   className = '',
 }: MonthSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -68,40 +78,44 @@ export default function MonthSelector({
   }
 
   const currentIndex = availableMonths.indexOf(selectedMonth);
-  const canGoNewer = currentIndex > 0;
+  // Array is sorted newest first, so:
+  // - Going "back in time" (left arrow) = higher index = older month
+  // - Going "forward in time" (right arrow) = lower index = newer month
   const canGoOlder = currentIndex < availableMonths.length - 1;
+  const canGoNewer = currentIndex > 0;
 
-  const handlePrevious = () => {
-    const newerMonth = availableMonths[currentIndex - 1];
-    if (canGoNewer && newerMonth) {
-      onMonthChange(newerMonth);
-    }
-  };
-
-  const handleNext = () => {
+  const handleGoOlder = () => {
     const olderMonth = availableMonths[currentIndex + 1];
     if (canGoOlder && olderMonth) {
       onMonthChange(olderMonth);
     }
   };
 
-  const displayLabel = formatMonthLabel(selectedMonth);
+  const handleGoNewer = () => {
+    const newerMonth = availableMonths[currentIndex - 1];
+    if (canGoNewer && newerMonth) {
+      onMonthChange(newerMonth);
+    }
+  };
+
+  const displayLabel = formatMonthLabel(selectedMonth, compact);
   const isLatest = currentIndex === 0;
 
   return (
-    <div className={`flex items-center gap-2 ${className}`} ref={dropdownRef}>
-      {/* Previous button (newer) */}
+    <div className={`flex items-center gap-1 ${className}`} ref={dropdownRef}>
+      {/* Left arrow = go back in time (older) */}
       <button
-        onClick={handlePrevious}
-        disabled={!canGoNewer}
-        className={`p-1.5 rounded-lg transition-colors ${
-          canGoNewer
+        onClick={handleGoOlder}
+        disabled={!canGoOlder}
+        className={`p-1 rounded-md transition-colors ${
+          canGoOlder
             ? 'hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300'
             : 'text-slate-300 dark:text-slate-600 cursor-not-allowed'
         }`}
-        title="Newer month"
+        title="Previous month"
+        aria-label="Go to previous month"
       >
-        <ChevronLeft className="w-4 h-4" />
+        <ChevronLeft className={compact ? 'w-4 h-4' : 'w-5 h-5'} />
       </button>
 
       {/* Month dropdown */}
@@ -109,27 +123,26 @@ export default function MonthSelector({
         <button
           onClick={() => setIsOpen(!isOpen)}
           disabled={isLoading}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors min-w-[180px] justify-between"
+          className={`flex items-center gap-1.5 rounded-md bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors ${
+            compact ? 'px-2 py-1 min-w-[120px]' : 'px-3 py-1.5 min-w-[160px]'
+          }`}
         >
-          <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-slate-500" />
-            <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
-              {displayLabel}
-            </span>
-          </div>
+          <span className={`font-medium text-slate-700 dark:text-slate-200 ${compact ? 'text-xs' : 'text-sm'}`}>
+            {displayLabel}
+          </span>
           {isLatest && (
-            <span className="text-[10px] font-medium text-emerald-500 uppercase tracking-wide">
+            <span className={`font-medium text-emerald-500 uppercase tracking-wide ${compact ? 'text-[8px]' : 'text-[10px]'}`}>
               Latest
             </span>
           )}
           <ChevronDown 
-            className={`w-4 h-4 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} 
+            className={`text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''} ${compact ? 'w-3 h-3' : 'w-4 h-4'}`} 
           />
         </button>
 
         {/* Dropdown menu */}
         {isOpen && (
-          <div className="absolute top-full left-0 mt-1 w-full min-w-[200px] bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 py-1 z-50">
+          <div className="absolute top-full left-0 mt-1 w-full min-w-[160px] bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 py-1 z-50">
             <div className="max-h-48 overflow-y-auto">
               {availableMonths.map((month, index) => (
                 <button
@@ -157,18 +170,19 @@ export default function MonthSelector({
         )}
       </div>
 
-      {/* Next button (older) */}
+      {/* Right arrow = go forward in time (newer) */}
       <button
-        onClick={handleNext}
-        disabled={!canGoOlder}
-        className={`p-1.5 rounded-lg transition-colors ${
-          canGoOlder
+        onClick={handleGoNewer}
+        disabled={!canGoNewer}
+        className={`p-1 rounded-md transition-colors ${
+          canGoNewer
             ? 'hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300'
             : 'text-slate-300 dark:text-slate-600 cursor-not-allowed'
         }`}
-        title="Older month"
+        title="Next month"
+        aria-label="Go to next month"
       >
-        <ChevronRight className="w-4 h-4" />
+        <ChevronRight className={compact ? 'w-4 h-4' : 'w-5 h-5'} />
       </button>
     </div>
   );

@@ -78,9 +78,9 @@ export default function DashboardViewPage() {
     return (
       <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-9xl mx-auto">
         <div className="flex items-center justify-center h-96">
-          <div className="flex flex-col items-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-violet-500"></div>
-            <p className="mt-4 text-gray-600 dark:text-gray-400">Loading dashboard...</p>
+          <div className="flex items-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-600" />
+            <span className="ml-3 text-gray-600 dark:text-gray-400">Loading...</span>
           </div>
         </div>
       </div>

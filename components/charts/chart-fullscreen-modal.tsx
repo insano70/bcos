@@ -306,17 +306,17 @@ export default function ChartFullscreenModal({
             </div>
           )}
 
-          {/* Show dimension comparison view if expanded or loading */}
-          {(dimension.expandedData?.dimensions || dimension.loading) && (
+          {/* Show dimension comparison view only when we have expanded data */}
+          {dimension.expandedData?.dimensions && (
             <DimensionComparisonView
-              dimensions={dimension.expandedData?.dimensions || []}
+              dimensions={dimension.expandedData.dimensions}
               chartDefinition={{
                 chart_definition_id: chartDefinitionId || '',
                 chart_name: chartTitle,
                 chart_type: chartType,
                 ...(finalChartConfig && { chart_config: finalChartConfig }),
               }}
-              dimensionCharts={dimension.expandedData?.charts || []}
+              dimensionCharts={dimension.expandedData.charts || []}
               position={{ x: 0, y: 0, w: 12, h: 6 }}
               availableDimensions={dimension.availableDimensions}
               selectedDimensionColumns={dimension.selectedDimensionColumns}
@@ -325,17 +325,31 @@ export default function ChartFullscreenModal({
               hasMoreFromServer={dimension.hasMore}
               onLoadMore={dimension.loadMore}
               isLoadingMore={dimension.loadingMore}
-              isLoading={dimension.loading}
-              totalCombinations={dimension.expandedData?.metadata?.totalCombinations}
+              isLoading={false}
+              totalCombinations={dimension.expandedData.metadata?.totalCombinations}
               fullscreen={true}
             />
           )}
 
-          {/* Show normal chart if not in dimension mode */}
+          {/* Show normal chart if not in dimension mode (keep visible while loading) */}
           {!dimension.expandedData && (
             <>
-              <div className="w-full h-[calc(90vh-200px)] min-h-[400px]">
+              <div className="relative w-full h-[calc(90vh-200px)] min-h-[400px]">
                 <canvas ref={canvasRef} />
+                
+                {/* Loading overlay while dimension expansion is in progress */}
+                {dimension.loading && (
+                  <div className="absolute inset-0 bg-white/60 dark:bg-gray-800/60 flex items-center justify-center rounded-lg backdrop-blur-sm">
+                    <div className="flex items-center gap-3 px-4 py-2 bg-white dark:bg-gray-700 rounded-lg shadow-lg">
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-violet-600" />
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                        Expanding by {dimension.selectedDimensionColumns
+                          .map(col => dimension.availableDimensions.find(d => d.columnName === col)?.displayName || col)
+                          .join(', ') || 'dimension'}...
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Legend - now declarative! */}

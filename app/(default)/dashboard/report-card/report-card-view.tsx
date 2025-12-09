@@ -20,7 +20,7 @@ import {
   MonthSelector,
 } from '@/components/report-card';
 import Link from 'next/link';
-import { FileText, RefreshCcw, Building2, Calendar } from 'lucide-react';
+import { FileText, RefreshCcw, Calendar } from 'lucide-react';
 
 /**
  * Report Card View Component
@@ -121,19 +121,16 @@ export default function ReportCardView() {
     }
   }, [availableMonths, selectedMonth]);
 
-  // Render organization selector
+  // Render organization selector - compact style with label above
   const renderFilters = () => {
     if (!showOrgSelector) return null;
 
     return (
-      <div className="flex flex-wrap items-center gap-4 mb-6 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700">
-        <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
-          <Building2 className="w-4 h-4" />
-          <span className="font-medium">Organization:</span>
-        </div>
-
-        {/* Organization selector */}
-        <div className="w-72">
+      <div className="mb-4">
+        <label className="block text-xs text-slate-500 dark:text-slate-400 font-medium mb-1">
+          Organization
+        </label>
+        <div className="w-80 sm:w-[400px]">
           <HierarchySelect
             items={selectableOrgs}
             value={selectedOrgId}
@@ -142,7 +139,7 @@ export default function ReportCardView() {
             nameField="name"
             parentField="parent_organization_id"
             activeField="is_active"
-            placeholder="Select an Organization"
+            placeholder="Select Organization"
             disabled={loadingOrgs}
             showSearch
             allowClear={canViewAll}
@@ -277,46 +274,40 @@ export default function ReportCardView() {
   }
 
   return (
-    <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="sm:flex sm:justify-between sm:items-center mb-8">
-        <div className="mb-4 sm:mb-0">
-          <div className="flex items-center gap-4 flex-wrap">
-            <h1 className="text-2xl md:text-3xl text-slate-800 dark:text-slate-100 font-bold">
-              {new Date(`${reportCard.report_card_month}T00:00:00`).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })} Report Card
-            </h1>
-            {/* Month Selector - only show if multiple months available */}
-            {availableMonths.length > 1 && selectedMonth && (
-              <MonthSelector
-                availableMonths={availableMonths}
-                selectedMonth={selectedMonth}
-                onMonthChange={setSelectedMonth}
-                isLoading={isLoadingReportCard}
-              />
-            )}
-          </div>
-          <p className="text-slate-600 dark:text-slate-400 mt-1">
-            How your practice performed in {new Date(`${reportCard.report_card_month}T00:00:00`).toLocaleDateString('en-US', { month: 'long' })}
-          </p>
-        </div>
-        <div className="flex items-center gap-4">
+    <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-8 w-full max-w-7xl mx-auto">
+      {/* Header - Compact on mobile */}
+      <div className="mb-4 sm:mb-8">
+        {/* Title */}
+        <h1 className="text-xl sm:text-2xl md:text-3xl text-slate-800 dark:text-slate-100 font-bold">
+          {new Date(`${reportCard.report_card_month}T00:00:00`).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })} Report Card
+        </h1>
+        
+        {/* Controls row - Month selector and Annual Review on same line */}
+        <div className="flex items-center justify-between gap-2 mt-2">
+          {/* Month Selector */}
+          {availableMonths.length > 1 && selectedMonth ? (
+            <MonthSelector
+              availableMonths={availableMonths}
+              selectedMonth={selectedMonth}
+              onMonthChange={setSelectedMonth}
+              isLoading={isLoadingReportCard}
+              compact
+            />
+          ) : (
+            <p className="text-sm text-slate-600 dark:text-slate-400">
+              How your practice performed in {new Date(`${reportCard.report_card_month}T00:00:00`).toLocaleDateString('en-US', { month: 'long' })}
+            </p>
+          )}
+          
+          {/* Annual Review link */}
           <Link
             href="/dashboard/report-card/annual-review"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400 hover:bg-violet-100 dark:hover:bg-violet-900/30 transition-colors text-sm font-medium"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400 hover:bg-violet-100 dark:hover:bg-violet-900/30 transition-colors text-xs sm:text-sm font-medium whitespace-nowrap"
           >
-            <Calendar className="w-4 h-4" />
-            Annual Review
+            <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            <span className="hidden sm:inline">Annual Review</span>
+            <span className="sm:hidden">Annual</span>
           </Link>
-          <div className="text-sm text-slate-500 dark:text-slate-400">
-            Generated:{' '}
-            {new Date(reportCard.generated_at).toLocaleDateString('en-US', {
-              month: 'long',
-              day: 'numeric',
-              year: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit',
-            })}
-          </div>
         </div>
       </div>
 

@@ -54,6 +54,36 @@ export class RBACReportCardService extends BaseRBACService {
   }
 
   // ============================================================================
+  // Database Result Mapping
+  // ============================================================================
+
+  /**
+   * Map database result to ReportCard domain object
+   *
+   * Centralizes all result transformation logic to ensure consistency
+   * across getReportCardByOrganization and getReportCardByOrganizationAndMonth.
+   *
+   * @param result - Raw database result from report_card_results table
+   * @returns Fully mapped ReportCard object
+   */
+  private mapDbResultToReportCard(
+    result: typeof report_card_results.$inferSelect
+  ): ReportCard {
+    return {
+      result_id: result.result_id,
+      practice_uid: result.practice_uid,
+      organization_id: result.organization_id,
+      report_card_month: result.report_card_month,
+      generated_at: result.generated_at?.toISOString() || new Date().toISOString(),
+      overall_score: parseFloat(result.overall_score || '0'),
+      size_bucket: (result.size_bucket as SizeBucket) || 'medium',
+      percentile_rank: parseFloat(result.percentile_rank || '0'),
+      insights: (result.insights as string[]) || [],
+      measure_scores: (result.measure_scores as Record<string, ReportCard['measure_scores'][string]>) || {},
+    };
+  }
+
+  // ============================================================================
   // Practice Access Verification
   // ============================================================================
 
@@ -177,18 +207,7 @@ export class RBACReportCardService extends BaseRBACService {
         throw new ReportCardNotFoundError(`organization:${organizationId}`);
       }
 
-      const reportCard: ReportCard = {
-        result_id: result.result_id,
-        practice_uid: result.practice_uid,
-        organization_id: result.organization_id,
-        report_card_month: result.report_card_month,
-        generated_at: result.generated_at?.toISOString() || new Date().toISOString(),
-        overall_score: parseFloat(result.overall_score || '0'),
-        size_bucket: (result.size_bucket as SizeBucket) || 'medium',
-        percentile_rank: parseFloat(result.percentile_rank || '0'),
-        insights: (result.insights as string[]) || [],
-        measure_scores: (result.measure_scores as Record<string, ReportCard['measure_scores'][string]>) || {},
-      };
+      const reportCard = this.mapDbResultToReportCard(result);
 
       // Cache the result (keyed by organization_id)
       await reportCardCache.setReportCardByOrg(organizationId, reportCard);
@@ -254,18 +273,7 @@ export class RBACReportCardService extends BaseRBACService {
         throw new ReportCardNotFoundError(`organization:${organizationId}:month:${month}`);
       }
 
-      const reportCard: ReportCard = {
-        result_id: result.result_id,
-        practice_uid: result.practice_uid,
-        organization_id: result.organization_id,
-        report_card_month: result.report_card_month,
-        generated_at: result.generated_at?.toISOString() || new Date().toISOString(),
-        overall_score: parseFloat(result.overall_score || '0'),
-        size_bucket: (result.size_bucket as SizeBucket) || 'medium',
-        percentile_rank: parseFloat(result.percentile_rank || '0'),
-        insights: (result.insights as string[]) || [],
-        measure_scores: (result.measure_scores as Record<string, ReportCard['measure_scores'][string]>) || {},
-      };
+      const reportCard = this.mapDbResultToReportCard(result);
 
       const duration = Date.now() - startTime;
       log.info('Report card retrieved by org and month', {
@@ -421,7 +429,7 @@ export class RBACReportCardService extends BaseRBACService {
 
       return results.map((r, index) => {
         const score = parseFloat(r.overall_score || '0');
-        const grade = this.getLetterGrade(score);
+        const grade = sharedGetLetterGrade(score);
         // Use T00:00:00 suffix to parse in local time, not UTC
         const monthDate = new Date(`${r.report_card_month}T00:00:00`);
 
@@ -431,9 +439,9 @@ export class RBACReportCardService extends BaseRBACService {
 
         if (index < results.length - 1) {
           const prevScore = parseFloat(results[index + 1]?.overall_score || '0');
-          const prevGrade = this.getLetterGrade(prevScore);
+          const prevGrade = sharedGetLetterGrade(prevScore);
           scoreChange = Math.round((score - prevScore) * 10) / 10;
-          const comparison = this.compareGrades(grade, prevGrade);
+          const comparison = sharedCompareGrades(grade, prevGrade);
           gradeChange = comparison > 0 ? 'up' : comparison < 0 ? 'down' : 'same';
         }
 
@@ -463,24 +471,9 @@ export class RBACReportCardService extends BaseRBACService {
   }
 
   /**
-   * Get letter grade from score
-   * Uses shared utility from format-value
-   */
-  private getLetterGrade(score: number): string {
-    return sharedGetLetterGrade(score);
-  }
-
-  /**
-   * Compare two grades, returns positive if grade1 > grade2
-   * Uses shared utility from format-value
-   */
-  private compareGrades(grade1: string, grade2: string): number {
-    return sharedCompareGrades(grade1, grade2);
-  }
-
-  /**
    * Get annual review data by organization
    * Returns year-over-year comparison, monthly trends, and summary statistics.
+   * Checks cache first, then falls back to database query.
    */
   async getAnnualReviewByOrganization(organizationId: string): Promise<AnnualReview> {
     const startTime = Date.now();
@@ -494,6 +487,21 @@ export class RBACReportCardService extends BaseRBACService {
     this.requireOrganizationAccess(organizationId);
 
     try {
+      // Check cache first
+      const cached = await reportCardCache.getAnnualReview(organizationId);
+      if (cached) {
+        const duration = Date.now() - startTime;
+        log.info('Annual review cache hit', {
+          operation: 'get_annual_review_by_org',
+          organizationId,
+          userId: this.userContext.user_id,
+          duration,
+          cached: true,
+          component: 'report-card',
+        });
+        return cached;
+      }
+
       // Get all report cards for the past 24 months for this organization
       const results = await db
         .select({
@@ -545,7 +553,7 @@ export class RBACReportCardService extends BaseRBACService {
             year: 'numeric',
           }),
           score,
-          grade: this.getLetterGrade(score),
+          grade: sharedGetLetterGrade(score),
           percentileRank: parseFloat(r.percentile_rank || '0'),
         };
       });
@@ -573,8 +581,8 @@ export class RBACReportCardService extends BaseRBACService {
           currentYearAverage: Math.round(thisYearAvg * 10) / 10,
           previousYearAverage: Math.round(lastYearAvg * 10) / 10,
           changePercent: Math.round(changePercent * 10) / 10,
-          currentYearGrade: this.getLetterGrade(thisYearAvg),
-          previousYearGrade: this.getLetterGrade(lastYearAvg),
+          currentYearGrade: sharedGetLetterGrade(thisYearAvg),
+          previousYearGrade: sharedGetLetterGrade(lastYearAvg),
           monthsCompared: Math.min(thisYearScores.length, lastYearScores.length),
         };
       }
@@ -676,7 +684,7 @@ export class RBACReportCardService extends BaseRBACService {
               month: `${projMonth.getFullYear()}-${String(projMonth.getMonth() + 1).padStart(2, '0')}-01`,
               monthLabel: projMonth.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
               projectedScore: Math.round(projectedMonthScore * 10) / 10,
-              projectedGrade: this.getLetterGrade(projectedMonthScore),
+              projectedGrade: sharedGetLetterGrade(projectedMonthScore),
             });
 
             projMonth = new Date(projMonth.getFullYear(), projMonth.getMonth() + 1, 1);
@@ -684,7 +692,7 @@ export class RBACReportCardService extends BaseRBACService {
 
           const finalProjection = monthlyProjections[Math.min(2, monthlyProjections.length - 1)];
           const projectedScore = finalProjection?.projectedScore ?? Math.min(100, Math.max(70, firstMonth.score + (avgRecentChange * 3)));
-          const projectedGrade = this.getLetterGrade(projectedScore);
+          const projectedGrade = sharedGetLetterGrade(projectedScore);
 
           forecast = {
             projectedScore: Math.round(projectedScore * 10) / 10,
@@ -701,18 +709,7 @@ export class RBACReportCardService extends BaseRBACService {
         }
       }
 
-      const duration = Date.now() - startTime;
-
-      log.info('Fetched annual review by organization', {
-        operation: 'get_annual_review_by_org',
-        organizationId,
-        monthsAnalyzed: monthlyScores.length,
-        userId: this.userContext.user_id,
-        duration,
-        component: 'report-card',
-      });
-
-      return {
+      const annualReview: AnnualReview = {
         practiceUid,
         currentYear,
         monthlyScores,
@@ -728,6 +725,23 @@ export class RBACReportCardService extends BaseRBACService {
         },
         forecast,
       };
+
+      // Cache the result
+      await reportCardCache.setAnnualReview(organizationId, annualReview);
+
+      const duration = Date.now() - startTime;
+
+      log.info('Fetched annual review by organization', {
+        operation: 'get_annual_review_by_org',
+        organizationId,
+        monthsAnalyzed: monthlyScores.length,
+        userId: this.userContext.user_id,
+        duration,
+        cached: false,
+        component: 'report-card',
+      });
+
+      return annualReview;
     } catch (error) {
       log.error('Failed to get annual review by organization', error as Error, {
         organizationId,
@@ -919,62 +933,6 @@ export class RBACReportCardService extends BaseRBACService {
     }
 
     return { averages, percentiles };
-  }
-
-  /**
-   * Calculate measure statistics for a set of practices
-   * Returns average and percentile breakdowns for peer comparison
-   * @deprecated Use calculateAllMeasureStats for bulk operations
-   */
-  private async calculateMeasureStats(
-    practiceUids: number[],
-    measureName: string
-  ): Promise<{ average: number; p25: number; p50: number; p75: number }> {
-    if (practiceUids.length === 0) {
-      return { average: 0, p25: 0, p50: 0, p75: 0 };
-    }
-
-    // Get the latest value for each practice using case-insensitive measure name match
-    const stats = await db
-      .selectDistinctOn([report_card_statistics.practice_uid], {
-        value: report_card_statistics.value,
-      })
-      .from(report_card_statistics)
-      .where(
-        and(
-          inArray(report_card_statistics.practice_uid, practiceUids),
-          sql`LOWER(${report_card_statistics.measure_name}) = LOWER(${measureName})`
-        )
-      )
-      .orderBy(
-        report_card_statistics.practice_uid,
-        desc(report_card_statistics.period_date)
-      );
-
-    if (stats.length === 0) {
-      return { average: 0, p25: 0, p50: 0, p75: 0 };
-    }
-
-    // Convert to numbers and sort for percentile calculation
-    const values = stats.map((s) => parseFloat(s.value)).sort((a, b) => a - b);
-
-    // Calculate average
-    const average = values.reduce((sum, v) => sum + v, 0) / values.length;
-
-    // Calculate percentiles
-    const getPercentile = (arr: number[], percentile: number): number => {
-      if (arr.length === 0) return 0;
-      const index = Math.ceil((percentile / 100) * arr.length) - 1;
-      const clampedIndex = Math.max(0, Math.min(index, arr.length - 1));
-      return arr[clampedIndex] ?? 0;
-    };
-
-    return {
-      average: Math.round(average * 100) / 100,
-      p25: getPercentile(values, 25),
-      p50: getPercentile(values, 50),
-      p75: getPercentile(values, 75),
-    };
   }
 
   // ============================================================================

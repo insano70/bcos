@@ -200,7 +200,6 @@ export class ReportCardGeneratorService {
           practices,
           targetMonth,
           preloadedData,
-          options.force ?? options.historical ?? false,
           errors
         );
 
@@ -512,13 +511,12 @@ export class ReportCardGeneratorService {
 
   /**
    * Generate report cards for all practices in a month using preloaded data
-   * Uses bulk upsert for saving
+   * Uses bulk upsert for saving (always updates existing records)
    */
   private async generateForMonthBulk(
     practices: number[],
     targetMonth: string,
     preloadedData: PreloadedData,
-    _force: boolean,
     errors: GenerationResult['errors']
   ): Promise<{ generated: number; processedPractices: number[] }> {
     const reportCards: Array<{

@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { handleRouteError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { log } from '@/lib/logger';
@@ -99,14 +99,7 @@ const discoverMeasuresHandler = async (
       component: 'report-card',
     });
 
-    const errorMessage =
-      process.env.NODE_ENV === 'development'
-        ? error instanceof Error
-          ? error.message
-          : 'Unknown error'
-        : 'Internal server error';
-
-    return createErrorResponse(errorMessage, 500, request);
+    return handleRouteError(error, 'Failed to discover measures', request);
   }
 };
 

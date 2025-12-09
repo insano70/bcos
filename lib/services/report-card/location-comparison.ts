@@ -57,6 +57,22 @@ export class LocationComparisonService {
 
       // Get active measures to include
       const activeMeasures = await this.getActiveMeasures();
+
+      // Validate measureName if provided - must be an active measure
+      if (measureName !== undefined) {
+        const activeMeasureNames = new Set(activeMeasures.map((m) => m.measure_name));
+        if (!activeMeasureNames.has(measureName)) {
+          log.warn('Invalid measure name requested for location comparison', {
+            operation: 'get_location_comparison',
+            practiceUid,
+            measureName,
+            validMeasures: Array.from(activeMeasureNames).slice(0, 5),
+            component: 'report-card',
+          });
+          throw new Error(`Invalid measure: ${measureName}. Must be an active measure.`);
+        }
+      }
+
       const measureNames = measureName
         ? [measureName]
         : activeMeasures.map((m) => m.measure_name);
