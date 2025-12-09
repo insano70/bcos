@@ -16,6 +16,7 @@ import type {
   PreviousMonthSummary,
   GradeHistoryEntry,
   AnnualReview,
+  PracticeTrend,
 } from '@/lib/types/report-card';
 import type { SizeBucket } from '@/lib/constants/report-card';
 
@@ -31,6 +32,8 @@ export interface ReportCardByOrgResponse {
   previousMonth: PreviousMonthSummary | null;
   availableMonths: string[];
   gradeHistory: GradeHistoryEntry[];
+  /** Trend data for all periods (3, 6, and 9 month comparisons) */
+  trends: PracticeTrend[];
 }
 
 /**

@@ -73,6 +73,9 @@ const getReportCardByOrgHandler = async (
     // Get grade history for the Grade History table
     const gradeHistory = await service.getGradeHistoryByOrganization(organizationId, 12);
 
+    // Get trends for the Trend Chart (3, 6, and 9 month trends)
+    const trends = await service.getTrendsByOrganization(organizationId);
+
     const duration = Date.now() - startTime;
 
     const template = logTemplates.crud.read('report_card', {
@@ -90,7 +93,7 @@ const getReportCardByOrgHandler = async (
     });
 
     return createSuccessResponse(
-      { reportCard, previousMonth, availableMonths, gradeHistory },
+      { reportCard, previousMonth, availableMonths, gradeHistory, trends },
       'Report card retrieved successfully'
     );
   } catch (error) {

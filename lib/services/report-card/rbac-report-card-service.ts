@@ -14,6 +14,7 @@ import {
   report_card_results,
   report_card_measures,
   report_card_statistics,
+  report_card_trends,
   practice_size_buckets,
 } from '@/lib/db/schema';
 import { log, logTemplates, calculateChanges } from '@/lib/logger';
@@ -37,6 +38,7 @@ import type {
   AnnualForecast,
   MeasureYoYComparison,
   MonthlyProjection,
+  PracticeTrend,
 } from '@/lib/types/report-card';
 import type { SizeBucket } from '@/lib/constants/report-card';
 import { getLetterGrade as sharedGetLetterGrade, compareGrades as sharedCompareGrades } from '@/lib/utils/format-value';
@@ -463,6 +465,54 @@ export class RBACReportCardService extends BaseRBACService {
       log.error('Failed to get grade history by organization', error as Error, {
         organizationId,
         limit,
+        userId: this.userContext.user_id,
+        component: 'report-card',
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Get trend data for an organization
+   * Returns all 3, 6, and 9 month trends for all measures.
+   * This data is used by the TrendChart component to show period comparisons.
+   */
+  async getTrendsByOrganization(organizationId: string): Promise<PracticeTrend[]> {
+    // SECURITY: Report cards are practice-level aggregates, require org+ access
+    this.requireAnyPermission([
+      'analytics:read:organization',
+      'analytics:read:all',
+    ]);
+
+    this.requireOrganizationAccess(organizationId);
+
+    try {
+      const results = await db
+        .select({
+          trend_id: report_card_trends.trend_id,
+          practice_uid: report_card_trends.practice_uid,
+          measure_name: report_card_trends.measure_name,
+          trend_period: report_card_trends.trend_period,
+          trend_direction: report_card_trends.trend_direction,
+          trend_percentage: report_card_trends.trend_percentage,
+          calculated_at: report_card_trends.calculated_at,
+        })
+        .from(report_card_trends)
+        .where(eq(report_card_trends.organization_id, organizationId))
+        .orderBy(report_card_trends.measure_name, report_card_trends.trend_period);
+
+      return results.map((r) => ({
+        trend_id: r.trend_id,
+        practice_uid: r.practice_uid,
+        measure_name: r.measure_name,
+        trend_period: r.trend_period as '3_month' | '6_month' | '9_month',
+        trend_direction: r.trend_direction as 'improving' | 'declining' | 'stable',
+        trend_percentage: parseFloat(r.trend_percentage || '0'),
+        calculated_at: r.calculated_at?.toISOString() || new Date().toISOString(),
+      }));
+    } catch (error) {
+      log.error('Failed to get trends by organization', error as Error, {
+        organizationId,
         userId: this.userContext.user_id,
         component: 'report-card',
       });

@@ -85,26 +85,10 @@ export default function ReportCardView() {
   const previousMonth = reportCardData?.previousMonth;
   const availableMonths = reportCardData?.availableMonths || [];
   const gradeHistory = reportCardData?.gradeHistory || [];
+  const trends = reportCardData?.trends || [];
   const peerComparison = peerData?.comparison;
 
   const isLoading = authLoading || loadingOrgs || isLoadingReportCard;
-
-  // Extract trend data from measure_scores for TrendChart
-  // The report card generator embeds trend info in each measure's score data
-  // Must be declared before any early returns
-  const trendData = useMemo(() => {
-    if (!reportCard?.measure_scores) return [];
-    
-    return Object.entries(reportCard.measure_scores).map(([measureName, scoreData]) => ({
-      trend_id: 0, // Not used in display
-      practice_uid: reportCard.practice_uid,
-      measure_name: measureName,
-      trend_period: trendPeriod, // Use selected period
-      trend_direction: scoreData.trend as 'improving' | 'declining' | 'stable',
-      trend_percentage: scoreData.trend_percentage ?? 0,
-      calculated_at: reportCard.generated_at,
-    }));
-  }, [reportCard?.measure_scores, reportCard?.practice_uid, reportCard?.generated_at, trendPeriod]);
 
   // Reset peer bucket and month selection when org changes
   // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally reset on org change only
@@ -341,10 +325,10 @@ export default function ReportCardView() {
             <MeasureBreakdown measureScores={reportCard.measure_scores} />
           </div>
 
-          {/* Trend Chart - uses trend data from measure_scores */}
+          {/* Trend Chart - uses actual trend data from report_card_trends table */}
           <div className="lg:col-span-6">
             <ChartErrorBoundary chartName="Trend Chart">
-              <TrendChart trends={trendData} selectedPeriod={trendPeriod} onPeriodChange={setTrendPeriod} />
+              <TrendChart trends={trends} selectedPeriod={trendPeriod} onPeriodChange={setTrendPeriod} />
             </ChartErrorBoundary>
           </div>
 
