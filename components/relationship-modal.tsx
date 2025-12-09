@@ -30,7 +30,7 @@ function AutoCreateConfigField({ value, onChange, formData, disabled }: CustomFi
       <AutoCreateConfigBuilder
         childTypeId={childTypeId}
         value={config}
-        onChange={(newConfig) => onChange(newConfig)}
+        onChange={onChange}
         disabled={disabled ?? false}
       />
     </div>
@@ -156,7 +156,7 @@ export default function RelationshipModal({
         { value: '', label: 'Select a child type...', disabled: true },
         ...availableChildTypes.map((type) => ({
           value: type.id,
-          label: `${type.icon} ${type.name}`,
+          label: type.icon ? `${type.icon} ${type.name}` : type.name,
         })),
       ],
       visible: (_formData) => mode === 'create',

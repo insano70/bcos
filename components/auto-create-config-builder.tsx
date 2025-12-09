@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useWorkItemFields } from '@/lib/hooks/use-work-item-fields';
 
 export interface AutoCreateConfig {
@@ -24,6 +24,29 @@ const STANDARD_FIELDS = [
   { name: 'due_date', label: 'Due Date' },
 ];
 
+// Helper to build config from state
+function buildConfig(
+  subjectTemplate: string,
+  fieldValues: Record<string, string>,
+  inheritFields: string[]
+): AutoCreateConfig | null {
+  const config: AutoCreateConfig = {};
+
+  if (subjectTemplate) {
+    config.subject_template = subjectTemplate;
+  }
+
+  if (Object.keys(fieldValues).length > 0) {
+    config.field_values = fieldValues;
+  }
+
+  if (inheritFields.length > 0) {
+    config.inherit_fields = inheritFields;
+  }
+
+  return Object.keys(config).length > 0 ? config : null;
+}
+
 export default function AutoCreateConfigBuilder({
   childTypeId,
   value,
@@ -35,42 +58,32 @@ export default function AutoCreateConfigBuilder({
   const [inheritFields, setInheritFields] = useState<string[]>(value?.inherit_fields || []);
   const [showHelp, setShowHelp] = useState(false);
 
+  // Store onChange in a ref to avoid dependency issues
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+
   const { data: customFields = [], isLoading } = useWorkItemFields({
     work_item_type_id: childTypeId,
     is_visible: true,
   });
 
-  // Update parent when internal state changes
-  useEffect(() => {
-    const config: AutoCreateConfig = {};
-
-    if (subjectTemplate) {
-      config.subject_template = subjectTemplate;
-    }
-
-    if (Object.keys(fieldValues).length > 0) {
-      config.field_values = fieldValues;
-    }
-
-    if (inheritFields.length > 0) {
-      config.inherit_fields = inheritFields;
-    }
-
-    // Only send config if at least one field is set
-    if (Object.keys(config).length > 0) {
-      onChange(config);
-    } else {
-      onChange(null);
-    }
-  }, [subjectTemplate, fieldValues, inheritFields, onChange]);
+  // Update handlers that call onChange directly instead of via useEffect
+  const handleSubjectTemplateChange = (newValue: string) => {
+    setSubjectTemplate(newValue);
+    const config = buildConfig(newValue, fieldValues, inheritFields);
+    onChangeRef.current(config);
+  };
 
   const handleAddFieldValue = () => {
     const newField = customFields.find((f) => !fieldValues[f.field_name]);
     if (newField) {
-      setFieldValues({
+      const newFieldValues = {
         ...fieldValues,
         [newField.field_name]: '',
-      });
+      };
+      setFieldValues(newFieldValues);
+      const config = buildConfig(subjectTemplate, newFieldValues, inheritFields);
+      onChangeRef.current(config);
     }
   };
 
@@ -78,31 +91,43 @@ export default function AutoCreateConfigBuilder({
     const newFieldValues = { ...fieldValues };
     delete newFieldValues[fieldName];
     setFieldValues(newFieldValues);
+    const config = buildConfig(subjectTemplate, newFieldValues, inheritFields);
+    onChangeRef.current(config);
   };
 
   const handleFieldValueChange = (fieldName: string, template: string) => {
-    setFieldValues({
+    const newFieldValues = {
       ...fieldValues,
       [fieldName]: template,
-    });
+    };
+    setFieldValues(newFieldValues);
+    const config = buildConfig(subjectTemplate, newFieldValues, inheritFields);
+    onChangeRef.current(config);
   };
 
   const handleToggleInheritField = (fieldName: string) => {
-    if (inheritFields.includes(fieldName)) {
-      setInheritFields(inheritFields.filter((f) => f !== fieldName));
-    } else {
-      setInheritFields([...inheritFields, fieldName]);
-    }
+    const newInheritFields = inheritFields.includes(fieldName)
+      ? inheritFields.filter((f) => f !== fieldName)
+      : [...inheritFields, fieldName];
+    setInheritFields(newInheritFields);
+    const config = buildConfig(subjectTemplate, fieldValues, newInheritFields);
+    onChangeRef.current(config);
   };
 
   const insertToken = (token: string, target: 'subject' | string) => {
     if (target === 'subject') {
-      setSubjectTemplate((prev) => prev + token);
+      const newSubject = subjectTemplate + token;
+      setSubjectTemplate(newSubject);
+      const config = buildConfig(newSubject, fieldValues, inheritFields);
+      onChangeRef.current(config);
     } else {
-      setFieldValues((prev) => ({
-        ...prev,
-        [target]: (prev[target] || '') + token,
-      }));
+      const newFieldValues = {
+        ...fieldValues,
+        [target]: (fieldValues[target] || '') + token,
+      };
+      setFieldValues(newFieldValues);
+      const config = buildConfig(subjectTemplate, newFieldValues, inheritFields);
+      onChangeRef.current(config);
     }
   };
 
@@ -154,7 +179,7 @@ export default function AutoCreateConfigBuilder({
           <input
             type="text"
             value={subjectTemplate}
-            onChange={(e) => setSubjectTemplate(e.target.value)}
+            onChange={(e) => handleSubjectTemplateChange(e.target.value)}
             placeholder="e.g., Patient Record for {parent.subject}"
             disabled={disabled}
             className="form-input w-full"

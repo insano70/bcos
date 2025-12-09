@@ -2,18 +2,18 @@
  * Report Card Cache Service
  *
  * Handles caching for report card data:
- * - Individual practice report cards
+ * - Organization report cards
  * - Peer comparison statistics
  * - Measure configurations
  *
  * KEY NAMING CONVENTION:
- *   report-card:practice:{practiceUid}
+ *   report-card:org:{organizationId}
  *   report-card:peer:{sizeBucket}
  *   report-card:measures:active
  *   report-card:measures:all
  *
  * TTL STRATEGY:
- * - Practice report cards: 1 hour (refreshed daily via cron)
+ * - Organization report cards: 1 hour (refreshed daily via cron)
  * - Peer stats: 6 hours (aggregate data, less volatile)
  * - Measures config: 1 hour (admin-managed, rarely changes)
  */
@@ -35,26 +35,6 @@ class ReportCardCacheService extends CacheService<ReportCard> {
   // Extended TTLs for different data types
   private readonly PEER_STATS_TTL = 21600; // 6 hours
   private readonly MEASURES_TTL = 3600; // 1 hour
-
-  // ==========================================================================
-  // Practice Report Cards
-  // ==========================================================================
-
-  /**
-   * Get cached report card for a practice
-   */
-  async getReportCard(practiceUid: number): Promise<ReportCard | null> {
-    const key = this.buildKey('practice', practiceUid);
-    return this.get<ReportCard>(key);
-  }
-
-  /**
-   * Cache a report card for a practice
-   */
-  async setReportCard(practiceUid: number, data: ReportCard): Promise<boolean> {
-    const key = this.buildKey('practice', practiceUid);
-    return this.set(key, data, { ttl: this.defaultTTL });
-  }
 
   // ==========================================================================
   // Organization Report Cards
@@ -127,8 +107,8 @@ class ReportCardCacheService extends CacheService<ReportCard> {
    * @param id - Optional ID for specific resource invalidation
    */
   async invalidate(
-    resourceType: 'practice' | 'org' | 'peer' | 'measures' | 'all',
-    id?: number | string
+    resourceType: 'org' | 'peer' | 'measures' | 'all',
+    id?: string
   ): Promise<void> {
     try {
       if (resourceType === 'all') {
@@ -139,18 +119,6 @@ class ReportCardCacheService extends CacheService<ReportCard> {
         log.info('Report card cache invalidated', {
           type: 'all',
           deletedCount,
-          component: 'report-card-cache',
-        });
-        return;
-      }
-
-      if (resourceType === 'practice' && id !== undefined) {
-        // Invalidate specific practice report card
-        const key = this.buildKey('practice', id);
-        await this.del(key);
-        log.info('Report card cache invalidated', {
-          type: 'practice',
-          practiceUid: id,
           component: 'report-card-cache',
         });
         return;
@@ -207,26 +175,7 @@ class ReportCardCacheService extends CacheService<ReportCard> {
       });
     }
   }
-
-  /**
-   * Warm cache for a specific practice
-   */
-  async warmCache(practiceUid: number, reportCard: ReportCard): Promise<void> {
-    try {
-      await this.setReportCard(practiceUid, reportCard);
-      log.debug('Report card cache warmed', {
-        practiceUid,
-        component: 'report-card-cache',
-      });
-    } catch (error) {
-      log.error('Failed to warm report card cache', error as Error, {
-        practiceUid,
-        component: 'report-card-cache',
-      });
-    }
-  }
 }
 
 // Export singleton instance
 export const reportCardCache = new ReportCardCacheService();
-

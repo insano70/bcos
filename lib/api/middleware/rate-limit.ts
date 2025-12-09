@@ -148,8 +148,10 @@ export async function applyRateLimit(
     return applyRateLimit(request, 'api');
   }
 
-  // Get identifier (IP address)
-  const identifier = getRateLimitKey(request);
+  // Get identifier (IP address + rate limit type to avoid key collision)
+  // Different rate limit types must have separate counters
+  const ip = getRateLimitKey(request);
+  const identifier = `${type}:${ip}`;
 
   // Check rate limit using Redis
   const result: RateLimitResult = await rateLimitCache.checkIpRateLimit(

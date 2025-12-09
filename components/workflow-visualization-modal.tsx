@@ -30,12 +30,15 @@ export default function WorkflowVisualizationModal({
   workItemTypeName,
   organizationId: _organizationId,
 }: WorkflowVisualizationModalProps) {
-  const { data: statuses = [], isLoading: statusesLoading } = useWorkItemStatuses(workItemTypeId);
+  // Only fetch data when modal is open to prevent unnecessary API calls
+  const { data: statuses = [], isLoading: statusesLoading } = useWorkItemStatuses(
+    isOpen ? workItemTypeId : undefined
+  );
   const {
     data: transitions = [],
     isLoading: transitionsLoading,
     refetch,
-  } = useWorkItemTransitions(workItemTypeId);
+  } = useWorkItemTransitions(isOpen ? workItemTypeId : undefined);
   const createTransition = useCreateWorkItemTransition();
   const updateTransition = useUpdateWorkItemTransition();
   const deleteTransition = useDeleteWorkItemTransition();

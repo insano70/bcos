@@ -190,7 +190,7 @@ const createWorkItemFieldSchema = z.object({
     'attachment',
   ] as const),
   field_description: z.string().optional(),
-  display_order: z.number().optional(),
+  display_order: z.coerce.number().optional(),
   is_required_on_creation: z.boolean().optional(),
   is_required_to_complete: z.boolean().optional(),
   is_visible: z.boolean().optional(),
@@ -209,7 +209,7 @@ const createWorkItemFieldSchema = z.object({
 const editWorkItemFieldSchema = z.object({
   field_label: z.string().min(1, 'Field label is required'),
   field_description: z.string().optional(),
-  display_order: z.number().optional(),
+  display_order: z.coerce.number().optional(),
   is_required_on_creation: z.boolean().optional(),
   is_required_to_complete: z.boolean().optional(),
   is_visible: z.boolean().optional(),

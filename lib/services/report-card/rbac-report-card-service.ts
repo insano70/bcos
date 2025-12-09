@@ -12,7 +12,6 @@ import { db } from '@/lib/db';
 import { reportCardCache } from '@/lib/cache/report-card-cache';
 import {
   report_card_results,
-  report_card_trends,
   report_card_measures,
   report_card_statistics,
   practice_size_buckets,
@@ -26,9 +25,7 @@ import {
 import type { UserContext } from '@/lib/types/rbac';
 import type {
   ReportCard,
-  PracticeTrend,
   PeerComparison,
-  LocationComparison,
   MeasureConfig,
   MeasureCreateInput,
   MeasureUpdateInput,
@@ -41,9 +38,8 @@ import type {
   MeasureYoYComparison,
   MonthlyProjection,
 } from '@/lib/types/report-card';
-import type { SizeBucket, TrendPeriod, TrendDirection } from '@/lib/constants/report-card';
+import type { SizeBucket } from '@/lib/constants/report-card';
 import { getLetterGrade as sharedGetLetterGrade, compareGrades as sharedCompareGrades } from '@/lib/utils/format-value';
-import { locationComparison } from './location-comparison';
 import { reportCardGenerator } from './report-card-generator';
 
 /**
@@ -117,99 +113,8 @@ export class RBACReportCardService extends BaseRBACService {
   }
 
   // ============================================================================
-  // Report Card Retrieval
+  // Report Card Retrieval (Organization-based)
   // ============================================================================
-
-  /**
-   * Get report card for a specific practice
-   * Checks cache first, then falls back to database query
-   */
-  async getReportCard(practiceUid: number): Promise<ReportCard> {
-    const startTime = Date.now();
-
-    // Reuse existing analytics permissions
-    // SECURITY: Report cards are practice-level aggregates, require org+ access
-    this.requireAnyPermission([
-      'analytics:read:organization',
-      'analytics:read:all',
-    ]);
-
-    // Verify user has access to this specific practice
-    this.requirePracticeAccess(practiceUid);
-
-    try {
-      // Check cache first
-      const cached = await reportCardCache.getReportCard(practiceUid);
-      if (cached) {
-        const duration = Date.now() - startTime;
-        log.info('Report card cache hit', {
-          operation: 'get_report_card',
-          practiceUid,
-          userId: this.userContext.user_id,
-          duration,
-          cached: true,
-          component: 'report-card',
-        });
-        return cached;
-      }
-
-      // Get the latest report card for this practice
-      const [result] = await db
-        .select()
-        .from(report_card_results)
-        .where(eq(report_card_results.practice_uid, practiceUid))
-        .orderBy(desc(report_card_results.generated_at))
-        .limit(1);
-
-      if (!result) {
-        throw new ReportCardNotFoundError(practiceUid);
-      }
-
-      const reportCard: ReportCard = {
-        result_id: result.result_id,
-        practice_uid: result.practice_uid,
-        organization_id: result.organization_id,
-        report_card_month: result.report_card_month,
-        generated_at: result.generated_at?.toISOString() || new Date().toISOString(),
-        overall_score: parseFloat(result.overall_score || '0'),
-        size_bucket: (result.size_bucket as SizeBucket) || 'medium',
-        percentile_rank: parseFloat(result.percentile_rank || '0'),
-        insights: (result.insights as string[]) || [],
-        measure_scores: (result.measure_scores as Record<string, ReportCard['measure_scores'][string]>) || {},
-      };
-
-      // Cache the result
-      await reportCardCache.setReportCard(practiceUid, reportCard);
-
-      const duration = Date.now() - startTime;
-
-      const template = logTemplates.crud.read('report_card', {
-        resourceId: String(practiceUid),
-        userId: this.userContext.user_id,
-        duration,
-        found: true,
-        metadata: {
-          overallScore: reportCard.overall_score,
-          sizeBucket: reportCard.size_bucket,
-        },
-      });
-
-      log.info(template.message, { ...template.context, component: 'report-card' });
-
-      return reportCard;
-    } catch (error) {
-      if (error instanceof ReportCardNotFoundError) {
-        throw error;
-      }
-
-      log.error('Failed to get report card', error as Error, {
-        practiceUid,
-        userId: this.userContext.user_id,
-        component: 'report-card',
-      });
-      throw error;
-    }
-  }
 
   /**
    * Get report card for a specific organization
@@ -245,12 +150,27 @@ export class RBACReportCardService extends BaseRBACService {
         return cached;
       }
 
-      // Get the latest report card for this organization
+      // Get the latest report card month for this organization using MAX()
+      // This is deterministic - explicitly gets the maximum month, not relying on sort order
+      const [maxMonthResult] = await db
+        .select({ maxMonth: sql<string>`MAX(${report_card_results.report_card_month})` })
+        .from(report_card_results)
+        .where(eq(report_card_results.organization_id, organizationId));
+
+      if (!maxMonthResult?.maxMonth) {
+        throw new ReportCardNotFoundError(`organization:${organizationId}`);
+      }
+
+      // Get the report card for the maximum month
       const [result] = await db
         .select()
         .from(report_card_results)
-        .where(eq(report_card_results.organization_id, organizationId))
-        .orderBy(desc(report_card_results.generated_at))
+        .where(
+          and(
+            eq(report_card_results.organization_id, organizationId),
+            eq(report_card_results.report_card_month, maxMonthResult.maxMonth)
+          )
+        )
         .limit(1);
 
       if (!result) {
@@ -410,8 +330,8 @@ export class RBACReportCardService extends BaseRBACService {
 
     this.requireOrganizationAccess(organizationId);
 
-    // Parse current month and get previous
-    const currentDate = new Date(currentMonth);
+    // Parse current month and get previous (use T00:00:00 suffix to parse in local time, not UTC)
+    const currentDate = new Date(`${currentMonth}T00:00:00`);
     const previousDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
     const previousMonthStr = `${previousDate.getFullYear()}-${String(previousDate.getMonth() + 1).padStart(2, '0')}-01`;
 
@@ -502,7 +422,8 @@ export class RBACReportCardService extends BaseRBACService {
       return results.map((r, index) => {
         const score = parseFloat(r.overall_score || '0');
         const grade = this.getLetterGrade(score);
-        const monthDate = new Date(r.report_card_month);
+        // Use T00:00:00 suffix to parse in local time, not UTC
+        const monthDate = new Date(`${r.report_card_month}T00:00:00`);
 
         // Calculate change from previous month (next in array since sorted desc)
         let scoreChange: number | null = null;
@@ -542,94 +463,6 @@ export class RBACReportCardService extends BaseRBACService {
   }
 
   /**
-   * Get previous month's report card summary for comparison display
-   * Returns null if no previous month data exists
-   */
-  async getPreviousMonthSummary(
-    practiceUid: number,
-    currentReportCardMonth: string
-  ): Promise<PreviousMonthSummary | null> {
-    // SECURITY: Report cards are practice-level aggregates, require org+ access
-    this.requireAnyPermission([
-      'analytics:read:organization',
-      'analytics:read:all',
-    ]);
-
-    // Verify user has access to this specific practice
-    this.requirePracticeAccess(practiceUid);
-
-    try {
-      // Calculate the previous month from the current report card month
-      const currentDate = new Date(currentReportCardMonth);
-      const previousMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
-      const previousMonthStr = `${previousMonth.getFullYear()}-${String(previousMonth.getMonth() + 1).padStart(2, '0')}-01`;
-
-      // Get the previous month's report card
-      const [previousResult] = await db
-        .select({
-          overall_score: report_card_results.overall_score,
-          report_card_month: report_card_results.report_card_month,
-        })
-        .from(report_card_results)
-        .where(
-          and(
-            eq(report_card_results.practice_uid, practiceUid),
-            eq(report_card_results.report_card_month, previousMonthStr)
-          )
-        )
-        .limit(1);
-
-      if (!previousResult) {
-        return null;
-      }
-
-      // Get current month's score for comparison
-      const [currentResult] = await db
-        .select({
-          overall_score: report_card_results.overall_score,
-        })
-        .from(report_card_results)
-        .where(
-          and(
-            eq(report_card_results.practice_uid, practiceUid),
-            eq(report_card_results.report_card_month, currentReportCardMonth)
-          )
-        )
-        .limit(1);
-
-      const previousScore = parseFloat(previousResult.overall_score || '0');
-      const currentScore = currentResult ? parseFloat(currentResult.overall_score || '0') : 0;
-      const scoreChange = currentScore - previousScore;
-
-      // Format month label
-      const monthLabel = previousMonth.toLocaleDateString('en-US', {
-        month: 'long',
-        year: 'numeric',
-      });
-
-      // Calculate grade
-      const grade = this.getLetterGrade(previousScore);
-      const currentGrade = this.getLetterGrade(currentScore);
-      const gradeImproved = this.compareGrades(currentGrade, grade) > 0;
-
-      return {
-        month: monthLabel,
-        score: previousScore,
-        grade,
-        scoreChange: Math.round(scoreChange * 10) / 10,
-        gradeImproved,
-      };
-    } catch (error) {
-      log.error('Failed to get previous month summary', error as Error, {
-        practiceUid,
-        currentReportCardMonth,
-        component: 'report-card',
-      });
-      return null;
-    }
-  }
-
-  /**
    * Get letter grade from score
    * Uses shared utility from format-value
    */
@@ -646,364 +479,7 @@ export class RBACReportCardService extends BaseRBACService {
   }
 
   /**
-   * Get report card for a specific month
-   * @param practiceUid - Practice UID
-   * @param month - ISO date string for the month (e.g., "2025-11-01")
-   */
-  async getReportCardByMonth(practiceUid: number, month: string): Promise<ReportCard> {
-    const startTime = Date.now();
-
-    // SECURITY: Report cards are practice-level aggregates, require org+ access
-    this.requireAnyPermission([
-      'analytics:read:organization',
-      'analytics:read:all',
-    ]);
-
-    // Verify user has access to this specific practice
-    this.requirePracticeAccess(practiceUid);
-
-    try {
-      const [result] = await db
-        .select()
-        .from(report_card_results)
-        .where(
-          and(
-            eq(report_card_results.practice_uid, practiceUid),
-            eq(report_card_results.report_card_month, month)
-          )
-        )
-        .limit(1);
-
-      if (!result) {
-        throw new ReportCardNotFoundError(practiceUid);
-      }
-
-      const reportCard: ReportCard = {
-        result_id: result.result_id,
-        practice_uid: result.practice_uid,
-        organization_id: result.organization_id,
-        report_card_month: result.report_card_month,
-        generated_at: result.generated_at?.toISOString() || new Date().toISOString(),
-        overall_score: parseFloat(result.overall_score || '0'),
-        size_bucket: (result.size_bucket as SizeBucket) || 'medium',
-        percentile_rank: parseFloat(result.percentile_rank || '0'),
-        insights: (result.insights as string[]) || [],
-        measure_scores: (result.measure_scores as Record<string, ReportCard['measure_scores'][string]>) || {},
-      };
-
-      const duration = Date.now() - startTime;
-
-      log.info('Fetched report card by month', {
-        operation: 'get_report_card_by_month',
-        practiceUid,
-        month,
-        userId: this.userContext.user_id,
-        duration,
-        component: 'report-card',
-      });
-
-      return reportCard;
-    } catch (error) {
-      if (error instanceof ReportCardNotFoundError) {
-        throw error;
-      }
-
-      log.error('Failed to get report card by month', error as Error, {
-        practiceUid,
-        month,
-        userId: this.userContext.user_id,
-        component: 'report-card',
-      });
-      throw error;
-    }
-  }
-
-  /**
-   * Get annual review data for a practice
-   * Returns year-over-year comparison, monthly trends, and summary statistics
-   */
-  async getAnnualReview(practiceUid: number): Promise<AnnualReview> {
-    const startTime = Date.now();
-
-    // SECURITY: Report cards are practice-level aggregates, require org+ access
-    this.requireAnyPermission([
-      'analytics:read:organization',
-      'analytics:read:all',
-    ]);
-
-    // Verify user has access to this specific practice
-    this.requirePracticeAccess(practiceUid);
-
-    try {
-      // Get all report cards for the past 24 months
-      const results = await db
-        .select({
-          report_card_month: report_card_results.report_card_month,
-          overall_score: report_card_results.overall_score,
-          percentile_rank: report_card_results.percentile_rank,
-          size_bucket: report_card_results.size_bucket,
-          measure_scores: report_card_results.measure_scores,
-        })
-        .from(report_card_results)
-        .where(eq(report_card_results.practice_uid, practiceUid))
-        .orderBy(desc(report_card_results.report_card_month))
-        .limit(24);
-
-      if (results.length === 0) {
-        return {
-          practiceUid,
-          currentYear: new Date().getFullYear(),
-          monthlyScores: [],
-          yearOverYear: null,
-          measureYoY: [],
-          summary: {
-            averageScore: 0,
-            highestScore: 0,
-            lowestScore: 0,
-            monthsAnalyzed: 0,
-            trend: 'stable',
-            improvementPercentage: 0,
-          },
-          forecast: null,
-        };
-      }
-
-      // Get active measures for per-measure YoY calculation
-      const activeMeasures = await reportCardGenerator.getActiveMeasures();
-
-      // Calculate monthly scores with grades
-      const monthlyScores: MonthlyScore[] = results.map((r) => {
-        const score = parseFloat(r.overall_score || '0');
-        return {
-          month: r.report_card_month,
-          monthLabel: new Date(r.report_card_month).toLocaleDateString('en-US', {
-            month: 'short',
-            year: 'numeric',
-          }),
-          score,
-          grade: this.getLetterGrade(score),
-          percentileRank: parseFloat(r.percentile_rank || '0'),
-        };
-      });
-
-      // Calculate year-over-year comparison
-      const currentYear = new Date().getFullYear();
-      const thisYearScores = monthlyScores.filter((m) => {
-        const year = new Date(m.month).getFullYear();
-        return year === currentYear;
-      });
-      const lastYearScores = monthlyScores.filter((m) => {
-        const year = new Date(m.month).getFullYear();
-        return year === currentYear - 1;
-      });
-
-      let yearOverYear: YearOverYearComparison | null = null;
-      if (thisYearScores.length > 0 && lastYearScores.length > 0) {
-        const thisYearAvg = thisYearScores.reduce((sum, m) => sum + m.score, 0) / thisYearScores.length;
-        const lastYearAvg = lastYearScores.reduce((sum, m) => sum + m.score, 0) / lastYearScores.length;
-        const changePercent = lastYearAvg > 0 ? ((thisYearAvg - lastYearAvg) / lastYearAvg) * 100 : 0;
-
-        yearOverYear = {
-          currentYear,
-          previousYear: currentYear - 1,
-          currentYearAverage: Math.round(thisYearAvg * 10) / 10,
-          previousYearAverage: Math.round(lastYearAvg * 10) / 10,
-          changePercent: Math.round(changePercent * 10) / 10,
-          currentYearGrade: this.getLetterGrade(thisYearAvg),
-          previousYearGrade: this.getLetterGrade(lastYearAvg),
-          monthsCompared: Math.min(thisYearScores.length, lastYearScores.length),
-        };
-      }
-
-      // Calculate per-measure YoY comparison
-      const measureYoY: MeasureYoYComparison[] = [];
-      
-      // Get this year and last year results for per-measure analysis
-      const thisYearResults = results.filter((r) => {
-        const year = new Date(r.report_card_month).getFullYear();
-        return year === currentYear;
-      });
-      const lastYearResults = results.filter((r) => {
-        const year = new Date(r.report_card_month).getFullYear();
-        return year === currentYear - 1;
-      });
-
-      if (thisYearResults.length > 0 && lastYearResults.length > 0) {
-        for (const measure of activeMeasures) {
-          // Get this year average for this measure
-          const thisYearValues: number[] = [];
-          for (const result of thisYearResults) {
-            const measureScores = result.measure_scores as Record<string, { value: number }> | null;
-            const measureScore = measureScores?.[measure.measure_name];
-            if (measureScore?.value !== undefined) {
-              thisYearValues.push(measureScore.value);
-            }
-          }
-
-          // Get last year average for this measure
-          const lastYearValues: number[] = [];
-          for (const result of lastYearResults) {
-            const measureScores = result.measure_scores as Record<string, { value: number }> | null;
-            const measureScore = measureScores?.[measure.measure_name];
-            if (measureScore?.value !== undefined) {
-              lastYearValues.push(measureScore.value);
-            }
-          }
-
-          if (thisYearValues.length > 0 && lastYearValues.length > 0) {
-            const thisYearAvg = thisYearValues.reduce((sum, v) => sum + v, 0) / thisYearValues.length;
-            const lastYearAvg = lastYearValues.reduce((sum, v) => sum + v, 0) / lastYearValues.length;
-            const changePercent = lastYearAvg !== 0 
-              ? ((thisYearAvg - lastYearAvg) / Math.abs(lastYearAvg)) * 100 
-              : 0;
-
-            // Determine if change is an improvement based on higher_is_better
-            const isPositiveChange = changePercent > 0;
-            const improved = measure.higher_is_better ? isPositiveChange : !isPositiveChange;
-
-            measureYoY.push({
-              measureName: measure.measure_name,
-              displayName: measure.display_name,
-              previousYearAverage: Math.round(lastYearAvg * 100) / 100,
-              currentYearAverage: Math.round(thisYearAvg * 100) / 100,
-              changePercent: Math.round(changePercent * 10) / 10,
-              improved,
-              formatType: measure.format_type,
-            });
-          }
-        }
-      }
-
-      // Calculate summary statistics
-      const scores = monthlyScores.map((m) => m.score);
-      const avgScore = scores.reduce((sum, s) => sum + s, 0) / scores.length;
-      const highestScore = Math.max(...scores);
-      const lowestScore = Math.min(...scores);
-
-      // Calculate trend (compare first half to second half)
-      // Requires at least 3 months to calculate meaningful trend
-      let trend: 'improving' | 'declining' | 'stable' = 'stable';
-      let improvementPercentage = 0;
-      
-      if (monthlyScores.length >= 3) {
-        const midpoint = Math.floor(scores.length / 2);
-        const recentScores = scores.slice(0, midpoint);
-        const olderScores = scores.slice(midpoint);
-        const recentAvg = recentScores.length > 0 
-          ? recentScores.reduce((sum, s) => sum + s, 0) / recentScores.length 
-          : 0;
-        const olderAvg = olderScores.length > 0 
-          ? olderScores.reduce((sum, s) => sum + s, 0) / olderScores.length 
-          : 0;
-        
-        if (olderAvg > 0) {
-          const changePercent = ((recentAvg - olderAvg) / olderAvg) * 100;
-          improvementPercentage = Math.round(changePercent * 10) / 10;
-          if (changePercent >= 3) trend = 'improving';
-          else if (changePercent <= -3) trend = 'declining';
-        }
-      }
-
-      // Calculate forecast with month-by-month projections
-      let forecast: AnnualForecast | null = null;
-      if (monthlyScores.length >= 3) {
-        // Use last 6 months for projection
-        const recentMonths = monthlyScores.slice(0, Math.min(6, monthlyScores.length));
-        const firstMonth = recentMonths[0];
-        const lastMonth = recentMonths[recentMonths.length - 1];
-        
-        // TypeScript safety: ensure we have valid data
-        if (!firstMonth || !lastMonth) {
-          forecast = null;
-        } else {
-          const avgRecentChange = recentMonths.length > 1
-            ? (firstMonth.score - lastMonth.score) / (recentMonths.length - 1)
-            : 0;
-          
-          // Calculate month-by-month projections through end of year
-          const monthlyProjections: MonthlyProjection[] = [];
-          const latestMonthDate = new Date(firstMonth.month);
-          const currentYearEnd = new Date(currentYear, 11, 31); // Dec 31 of current year
-          
-          // Project up to 6 months forward or until end of year
-          let projMonth = new Date(latestMonthDate.getFullYear(), latestMonthDate.getMonth() + 1, 1);
-          let cumulativeChange = 0;
-          
-          while (projMonth <= currentYearEnd && monthlyProjections.length < 6) {
-            cumulativeChange += avgRecentChange;
-            const projectedMonthScore = Math.min(100, Math.max(70, firstMonth.score + cumulativeChange));
-            
-            monthlyProjections.push({
-              month: `${projMonth.getFullYear()}-${String(projMonth.getMonth() + 1).padStart(2, '0')}-01`,
-              monthLabel: projMonth.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
-              projectedScore: Math.round(projectedMonthScore * 10) / 10,
-              projectedGrade: this.getLetterGrade(projectedMonthScore),
-            });
-            
-            // Move to next month
-            projMonth = new Date(projMonth.getFullYear(), projMonth.getMonth() + 1, 1);
-          }
-
-          // Final projected score is the last month's projection or 3 months out
-          const finalProjection = monthlyProjections[Math.min(2, monthlyProjections.length - 1)];
-          const projectedScore = finalProjection?.projectedScore ?? Math.min(100, Math.max(70, firstMonth.score + (avgRecentChange * 3)));
-          const projectedGrade = this.getLetterGrade(projectedScore);
-
-          forecast = {
-            projectedScore: Math.round(projectedScore * 10) / 10,
-            projectedGrade,
-            confidence: recentMonths.length >= 6 ? 'high' : recentMonths.length >= 3 ? 'medium' : 'low',
-            basedOnMonths: recentMonths.length,
-            projectionNote: avgRecentChange > 0 
-              ? 'Based on recent positive trends, score is projected to improve.'
-              : avgRecentChange < 0
-              ? 'Based on recent trends, focus on improvement is recommended.'
-              : 'Score is projected to remain stable based on recent performance.',
-            monthlyProjections,
-          };
-        }
-      }
-
-      const duration = Date.now() - startTime;
-
-      log.info('Fetched annual review', {
-        operation: 'get_annual_review',
-        practiceUid,
-        monthsAnalyzed: monthlyScores.length,
-        userId: this.userContext.user_id,
-        duration,
-        component: 'report-card',
-      });
-
-      return {
-        practiceUid,
-        currentYear,
-        monthlyScores,
-        yearOverYear,
-        measureYoY,
-        summary: {
-          averageScore: Math.round(avgScore * 10) / 10,
-          highestScore: Math.round(highestScore * 10) / 10,
-          lowestScore: Math.round(lowestScore * 10) / 10,
-          monthsAnalyzed: monthlyScores.length,
-          trend,
-          improvementPercentage,
-        },
-        forecast,
-      };
-    } catch (error) {
-      log.error('Failed to get annual review', error as Error, {
-        practiceUid,
-        userId: this.userContext.user_id,
-        component: 'report-card',
-      });
-      throw error;
-    }
-  }
-
-  /**
    * Get annual review data by organization
-   * This is the primary method for UI - users select by organization.
    * Returns year-over-year comparison, monthly trends, and summary statistics.
    */
   async getAnnualReviewByOrganization(organizationId: string): Promise<AnnualReview> {
@@ -1059,11 +535,12 @@ export class RBACReportCardService extends BaseRBACService {
       const activeMeasures = await reportCardGenerator.getActiveMeasures();
 
       // Calculate monthly scores with grades
+      // Use T00:00:00 suffix to parse in local time, not UTC
       const monthlyScores: MonthlyScore[] = results.map((r) => {
         const score = parseFloat(r.overall_score || '0');
         return {
           month: r.report_card_month,
-          monthLabel: new Date(r.report_card_month).toLocaleDateString('en-US', {
+          monthLabel: new Date(`${r.report_card_month}T00:00:00`).toLocaleDateString('en-US', {
             month: 'short',
             year: 'numeric',
           }),
@@ -1076,11 +553,11 @@ export class RBACReportCardService extends BaseRBACService {
       // Calculate year-over-year comparison
       const currentYear = new Date().getFullYear();
       const thisYearScores = monthlyScores.filter((m) => {
-        const year = new Date(m.month).getFullYear();
+        const year = new Date(`${m.month}T00:00:00`).getFullYear();
         return year === currentYear;
       });
       const lastYearScores = monthlyScores.filter((m) => {
-        const year = new Date(m.month).getFullYear();
+        const year = new Date(`${m.month}T00:00:00`).getFullYear();
         return year === currentYear - 1;
       });
 
@@ -1104,8 +581,8 @@ export class RBACReportCardService extends BaseRBACService {
 
       // Calculate per-measure YoY comparison
       const measureYoY: MeasureYoYComparison[] = [];
-      const thisYearResults = results.filter((r) => new Date(r.report_card_month).getFullYear() === currentYear);
-      const lastYearResults = results.filter((r) => new Date(r.report_card_month).getFullYear() === currentYear - 1);
+      const thisYearResults = results.filter((r) => new Date(`${r.report_card_month}T00:00:00`).getFullYear() === currentYear);
+      const lastYearResults = results.filter((r) => new Date(`${r.report_card_month}T00:00:00`).getFullYear() === currentYear - 1);
 
       if (thisYearResults.length > 0 && lastYearResults.length > 0) {
         for (const measure of activeMeasures) {
@@ -1184,7 +661,8 @@ export class RBACReportCardService extends BaseRBACService {
             : 0;
 
           const monthlyProjections: MonthlyProjection[] = [];
-          const latestMonthDate = new Date(firstMonth.month);
+          // Use T00:00:00 suffix to parse in local time, not UTC
+          const latestMonthDate = new Date(`${firstMonth.month}T00:00:00`);
           const currentYearEnd = new Date(currentYear, 11, 31);
 
           let projMonth = new Date(latestMonthDate.getFullYear(), latestMonthDate.getMonth() + 1, 1);
@@ -1258,190 +736,6 @@ export class RBACReportCardService extends BaseRBACService {
       });
       throw error;
     }
-  }
-
-  /**
-   * Get available report card months for a practice
-   * Returns list of months that have report cards, most recent first
-   */
-  async getAvailableMonths(practiceUid: number, limit: number = 6): Promise<string[]> {
-    // SECURITY: Report cards are practice-level aggregates, require org+ access
-    this.requireAnyPermission([
-      'analytics:read:organization',
-      'analytics:read:all',
-    ]);
-
-    // Verify user has access to this specific practice
-    this.requirePracticeAccess(practiceUid);
-
-    try {
-      const results = await db
-        .select({ report_card_month: report_card_results.report_card_month })
-        .from(report_card_results)
-        .where(eq(report_card_results.practice_uid, practiceUid))
-        .orderBy(desc(report_card_results.report_card_month))
-        .limit(limit);
-
-      return results.map((r) => r.report_card_month);
-    } catch (error) {
-      log.error('Failed to get available months', error as Error, {
-        practiceUid,
-        component: 'report-card',
-      });
-      return [];
-    }
-  }
-
-  /**
-   * Get grade history for the last N months
-   * Returns an array of monthly grade summaries, most recent first
-   */
-  async getGradeHistory(
-    practiceUid: number,
-    limit: number = 12
-  ): Promise<GradeHistoryEntry[]> {
-    // SECURITY: Report cards are practice-level aggregates, require org+ access
-    this.requireAnyPermission([
-      'analytics:read:organization',
-      'analytics:read:all',
-    ]);
-
-    // Verify user has access to this specific practice
-    this.requirePracticeAccess(practiceUid);
-
-    try {
-      // Get the last N report cards ordered by month
-      const results = await db
-        .select({
-          report_card_month: report_card_results.report_card_month,
-          overall_score: report_card_results.overall_score,
-          percentile_rank: report_card_results.percentile_rank,
-          size_bucket: report_card_results.size_bucket,
-        })
-        .from(report_card_results)
-        .where(eq(report_card_results.practice_uid, practiceUid))
-        .orderBy(desc(report_card_results.report_card_month))
-        .limit(limit);
-
-      return results.map((r, index) => {
-        const score = parseFloat(r.overall_score || '0');
-        const grade = this.getLetterGrade(score);
-        const monthDate = new Date(r.report_card_month);
-        
-        // Calculate change from previous month (next in array since sorted desc)
-        let scoreChange: number | null = null;
-        let gradeChange: 'up' | 'down' | 'same' | null = null;
-        
-        if (index < results.length - 1) {
-          const prevScore = parseFloat(results[index + 1]?.overall_score || '0');
-          const prevGrade = this.getLetterGrade(prevScore);
-          scoreChange = Math.round((score - prevScore) * 10) / 10;
-          const comparison = this.compareGrades(grade, prevGrade);
-          gradeChange = comparison > 0 ? 'up' : comparison < 0 ? 'down' : 'same';
-        }
-
-        return {
-          month: r.report_card_month,
-          monthLabel: monthDate.toLocaleDateString('en-US', {
-            month: 'short',
-            year: 'numeric',
-          }),
-          score,
-          grade,
-          percentileRank: parseFloat(r.percentile_rank || '0'),
-          sizeBucket: (r.size_bucket as SizeBucket) || 'medium',
-          scoreChange,
-          gradeChange,
-        };
-      });
-    } catch (error) {
-      log.error('Failed to get grade history', error as Error, {
-        practiceUid,
-        limit,
-        component: 'report-card',
-      });
-      throw error;
-    }
-  }
-
-  /**
-   * Get trends for a specific practice
-   */
-  async getTrends(practiceUid: number, period?: TrendPeriod): Promise<PracticeTrend[]> {
-    const startTime = Date.now();
-
-    // SECURITY: Report cards are practice-level aggregates, require org+ access
-    this.requireAnyPermission([
-      'analytics:read:organization',
-      'analytics:read:all',
-    ]);
-
-    // Verify user has access to this specific practice
-    this.requirePracticeAccess(practiceUid);
-
-    try {
-      const conditions = [eq(report_card_trends.practice_uid, practiceUid)];
-
-      if (period) {
-        conditions.push(eq(report_card_trends.trend_period, period));
-      }
-
-      const trends = await db
-        .select()
-        .from(report_card_trends)
-        .where(and(...conditions))
-        .orderBy(report_card_trends.measure_name);
-
-      const duration = Date.now() - startTime;
-
-      log.info('Fetched practice trends', {
-        operation: 'get_trends',
-        practiceUid,
-        period: period || 'all',
-        trendCount: trends.length,
-        userId: this.userContext.user_id,
-        duration,
-        component: 'report-card',
-      });
-
-      return trends.map((t) => ({
-        trend_id: t.trend_id,
-        practice_uid: t.practice_uid,
-        measure_name: t.measure_name,
-        trend_period: t.trend_period as TrendPeriod,
-        trend_direction: t.trend_direction as TrendDirection,
-        trend_percentage: parseFloat(t.trend_percentage || '0'),
-        calculated_at: t.calculated_at?.toISOString() || new Date().toISOString(),
-      }));
-    } catch (error) {
-      log.error('Failed to get trends', error as Error, {
-        practiceUid,
-        userId: this.userContext.user_id,
-        component: 'report-card',
-      });
-      throw error;
-    }
-  }
-
-  /**
-   * Get location comparison for a practice
-   */
-  async getLocationComparison(
-    practiceUid: number,
-    measureName?: string
-  ): Promise<LocationComparison> {
-    // SECURITY: Report cards are practice-level aggregates, require org+ access
-    this.requireAnyPermission([
-      'analytics:read:organization',
-      'analytics:read:all',
-    ]);
-
-    // Verify user has access to this specific practice
-    this.requirePracticeAccess(practiceUid);
-
-    // SECURITY: Pass accessible practices for defense-in-depth validation
-    const accessiblePractices = this.getAccessiblePracticeUids();
-    return locationComparison.getComparison(practiceUid, measureName, accessiblePractices);
   }
 
   /**

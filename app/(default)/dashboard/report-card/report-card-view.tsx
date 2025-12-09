@@ -19,7 +19,6 @@ import {
   GradeHistoryTable,
   MonthSelector,
 } from '@/components/report-card';
-import { getReportCardMonth } from '@/lib/utils/format-value';
 import Link from 'next/link';
 import { FileText, RefreshCcw, Building2, Calendar } from 'lucide-react';
 
@@ -32,13 +31,9 @@ import { FileText, RefreshCcw, Building2, Calendar } from 'lucide-react';
 export default function ReportCardView() {
   const { userContext, isLoading: authLoading } = useAuth();
   const [selectedOrgId, setSelectedOrgId] = useState<string | undefined>(undefined);
-  const [selectedMonth, setSelectedMonth] = useState<string | undefined>(undefined);
+  const [selectedMonth, setSelectedMonth] = useState<string>('');
   const [trendPeriod, setTrendPeriod] = useState<TrendPeriod>('3_month');
   const [selectedPeerBucket, setSelectedPeerBucket] = useState<SizeBucket | undefined>(undefined);
-
-  // Get the report card month (last full month)
-  const reportCardMonthInfo = useMemo(() => getReportCardMonth(), []);
-  const reportCardMonth = reportCardMonthInfo.monthYear;
 
   // Check if user has all-access permission (super user)
   const canViewAll = useMemo(() => {
@@ -94,12 +89,37 @@ export default function ReportCardView() {
 
   const isLoading = authLoading || loadingOrgs || isLoadingReportCard;
 
+  // Extract trend data from measure_scores for TrendChart
+  // The report card generator embeds trend info in each measure's score data
+  // Must be declared before any early returns
+  const trendData = useMemo(() => {
+    if (!reportCard?.measure_scores) return [];
+    
+    return Object.entries(reportCard.measure_scores).map(([measureName, scoreData]) => ({
+      trend_id: 0, // Not used in display
+      practice_uid: reportCard.practice_uid,
+      measure_name: measureName,
+      trend_period: trendPeriod, // Use selected period
+      trend_direction: scoreData.trend as 'improving' | 'declining' | 'stable',
+      trend_percentage: scoreData.trend_percentage ?? 0,
+      calculated_at: reportCard.generated_at,
+    }));
+  }, [reportCard?.measure_scores, reportCard?.practice_uid, reportCard?.generated_at, trendPeriod]);
+
   // Reset peer bucket and month selection when org changes
   // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally reset on org change only
   useEffect(() => {
     setSelectedPeerBucket(undefined);
-    setSelectedMonth(undefined);
+    setSelectedMonth('');
   }, [selectedOrgId]);
+
+  // Set selectedMonth to latest available month when data loads
+  useEffect(() => {
+    const latestMonth = availableMonths[0];
+    if (latestMonth && !selectedMonth) {
+      setSelectedMonth(latestMonth);
+    }
+  }, [availableMonths, selectedMonth]);
 
   // Render organization selector
   const renderFilters = () => {
@@ -263,12 +283,10 @@ export default function ReportCardView() {
         <div className="mb-4 sm:mb-0">
           <div className="flex items-center gap-4 flex-wrap">
             <h1 className="text-2xl md:text-3xl text-slate-800 dark:text-slate-100 font-bold">
-              {selectedMonth
-                ? `${new Date(`${selectedMonth}T00:00:00`).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })} Report Card`
-                : `${reportCardMonth} Report Card`}
+              {new Date(`${reportCard.report_card_month}T00:00:00`).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })} Report Card
             </h1>
             {/* Month Selector - only show if multiple months available */}
-            {availableMonths.length > 1 && (
+            {availableMonths.length > 1 && selectedMonth && (
               <MonthSelector
                 availableMonths={availableMonths}
                 selectedMonth={selectedMonth}
@@ -278,9 +296,7 @@ export default function ReportCardView() {
             )}
           </div>
           <p className="text-slate-600 dark:text-slate-400 mt-1">
-            {selectedMonth
-              ? `Historical report card from ${new Date(`${selectedMonth}T00:00:00`).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`
-              : `How your practice performed in ${reportCardMonthInfo.monthName}`}
+            How your practice performed in {new Date(`${reportCard.report_card_month}T00:00:00`).toLocaleDateString('en-US', { month: 'long' })}
           </p>
         </div>
         <div className="flex items-center gap-4">
@@ -316,14 +332,10 @@ export default function ReportCardView() {
               score={reportCard.overall_score}
               sizeBucket={reportCard.size_bucket}
               percentileRank={reportCard.percentile_rank}
-              reportCardMonth={
-                selectedMonth
-                  ? new Date(`${selectedMonth}T00:00:00`).toLocaleDateString('en-US', {
-                      month: 'long',
-                      year: 'numeric',
-                    })
-                  : reportCardMonth
-              }
+              reportCardMonth={new Date(`${reportCard.report_card_month}T00:00:00`).toLocaleDateString('en-US', {
+                month: 'long',
+                year: 'numeric',
+              })}
               previousMonth={previousMonth}
             />
           </div>
@@ -338,10 +350,10 @@ export default function ReportCardView() {
             <MeasureBreakdown measureScores={reportCard.measure_scores} />
           </div>
 
-          {/* Trend Chart - Placeholder until org-based trends API is ready */}
+          {/* Trend Chart - uses trend data from measure_scores */}
           <div className="lg:col-span-6">
             <ChartErrorBoundary chartName="Trend Chart">
-              <TrendChart trends={[]} selectedPeriod={trendPeriod} onPeriodChange={setTrendPeriod} />
+              <TrendChart trends={trendData} selectedPeriod={trendPeriod} onPeriodChange={setTrendPeriod} />
             </ChartErrorBoundary>
           </div>
 

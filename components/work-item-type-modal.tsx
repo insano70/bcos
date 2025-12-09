@@ -15,12 +15,20 @@ import type { FieldConfig, CustomFieldProps } from './crud-modal/types';
 import EmojiPicker from './emoji-picker';
 import HierarchySelect from './hierarchy-select';
 
+// Color validation regex (must match backend: lib/validations/work-items.ts)
+const hexColorRegex = /^#[0-9A-Fa-f]{6}$/;
+
 // Create schema
 const createWorkItemTypeSchema = z.object({
   name: createSafeTextSchema(1, 255, 'Type name'),
   description: createSafeTextSchema(0, 1000, 'Description').optional(),
   icon: z.string().max(10, 'Icon must not exceed 10 characters').optional(),
-  color: z.string().max(50, 'Color must not exceed 50 characters').optional(),
+  color: z
+    .string()
+    .refine((val) => val === '' || hexColorRegex.test(val), {
+      message: 'Color must be a valid hex code (e.g., #FF5733)',
+    })
+    .optional(),
   organization_id: z.string().uuid('Invalid organization'),
   is_active: z.boolean().optional(),
 });
@@ -30,7 +38,13 @@ const editWorkItemTypeSchema = z.object({
   name: createSafeTextSchema(1, 255, 'Type name').optional(),
   description: createSafeTextSchema(0, 1000, 'Description').optional().nullable(),
   icon: z.string().max(10, 'Icon must not exceed 10 characters').optional().nullable(),
-  color: z.string().max(50, 'Color must not exceed 50 characters').optional().nullable(),
+  color: z
+    .string()
+    .refine((val) => val === '' || hexColorRegex.test(val), {
+      message: 'Color must be a valid hex code (e.g., #FF5733)',
+    })
+    .optional()
+    .nullable(),
   is_active: z.boolean().optional(),
 });
 
@@ -155,7 +169,7 @@ export default function WorkItemTypeModal({
   const handleSubmit = async (data: WorkItemTypeFormData) => {
     if (mode === 'create') {
       const createData = data as CreateWorkItemTypeFormData;
-      // Filter out undefined values for exactOptionalPropertyTypes
+      // Filter out undefined/empty values for exactOptionalPropertyTypes
       const filteredData: {
         organization_id: string;
         name: string;
@@ -167,9 +181,16 @@ export default function WorkItemTypeModal({
         organization_id: createData.organization_id,
         name: createData.name,
       };
-      if (createData.description !== undefined) filteredData.description = createData.description;
-      if (createData.icon !== undefined) filteredData.icon = createData.icon;
-      if (createData.color !== undefined) filteredData.color = createData.color;
+      if (createData.description !== undefined && createData.description !== '') {
+        filteredData.description = createData.description;
+      }
+      if (createData.icon !== undefined && createData.icon !== '') {
+        filteredData.icon = createData.icon;
+      }
+      // Only include color if it's a valid hex code (not empty string)
+      if (createData.color !== undefined && createData.color !== '') {
+        filteredData.color = createData.color;
+      }
       if (createData.is_active !== undefined) filteredData.is_active = createData.is_active;
 
       await createWorkItemType.mutateAsync(filteredData);
@@ -186,6 +207,7 @@ export default function WorkItemTypeModal({
       if (editData.name !== undefined) filteredData.name = editData.name;
       if (editData.description !== undefined) filteredData.description = editData.description || null;
       if (editData.icon !== undefined) filteredData.icon = editData.icon || null;
+      // For edit mode, convert empty string to null (which backend accepts)
       if (editData.color !== undefined) filteredData.color = editData.color || null;
       if (editData.is_active !== undefined) filteredData.is_active = editData.is_active;
 
@@ -210,7 +232,7 @@ export default function WorkItemTypeModal({
         name: '',
         description: '',
         icon: '',
-        color: '',
+        color: '#3b82f6', // Default color matching ColorPicker defaultColor
         organization_id: userContext?.current_organization_id || '',
         is_active: true,
       } as never}

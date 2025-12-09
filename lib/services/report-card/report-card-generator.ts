@@ -346,7 +346,8 @@ export class ReportCardGeneratorService {
     
     if (practices.length === 0 || measures.length === 0) return map;
 
-    const targetDate = new Date(targetMonth);
+    // Use T00:00:00 suffix to parse in local time, not UTC
+    const targetDate = new Date(`${targetMonth}T00:00:00`);
     const monthStart = new Date(targetDate.getFullYear(), targetDate.getMonth(), 1);
     const monthEnd = new Date(targetDate.getFullYear(), targetDate.getMonth() + 1, 1);
 
@@ -388,7 +389,8 @@ export class ReportCardGeneratorService {
     
     if (measures.length === 0) return map;
 
-    const targetDate = new Date(targetMonth);
+    // Use T00:00:00 suffix to parse in local time, not UTC
+    const targetDate = new Date(`${targetMonth}T00:00:00`);
     const monthStart = new Date(targetDate.getFullYear(), targetDate.getMonth(), 1);
     const monthEnd = new Date(targetDate.getFullYear(), targetDate.getMonth() + 1, 1);
 
@@ -462,7 +464,8 @@ export class ReportCardGeneratorService {
     
     if (practices.length === 0 || measures.length === 0) return map;
 
-    const targetDate = new Date(targetMonth);
+    // Use T00:00:00 suffix to parse in local time, not UTC
+    const targetDate = new Date(`${targetMonth}T00:00:00`);
     // Get 4 months of data: target month + 3 prior months
     const trendStart = new Date(targetDate.getFullYear(), targetDate.getMonth() - 3, 1);
     const monthEnd = new Date(targetDate.getFullYear(), targetDate.getMonth() + 1, 1);
@@ -750,7 +753,8 @@ export class ReportCardGeneratorService {
       return { direction: 'stable', percentage: 0 };
     }
 
-    const targetDate = new Date(targetMonth);
+    // Use T00:00:00 suffix to parse in local time, not UTC
+    const targetDate = new Date(`${targetMonth}T00:00:00`);
     const targetMonthStart = targetDate.getTime();
     const targetMonthEnd = new Date(targetDate.getFullYear(), targetDate.getMonth() + 1, 1).getTime();
 
@@ -937,7 +941,8 @@ export class ReportCardGeneratorService {
   ): Promise<MeasureScoringResult | null> {
     // Get statistics for the target month
     // Match month by comparing the period_date's year-month
-    const targetDate = new Date(targetMonth);
+    // Use T00:00:00 suffix to parse in local time, not UTC
+    const targetDate = new Date(`${targetMonth}T00:00:00`);
     const monthStart = new Date(targetDate.getFullYear(), targetDate.getMonth(), 1);
     const monthEnd = new Date(targetDate.getFullYear(), targetDate.getMonth() + 1, 1);
 
@@ -1011,7 +1016,8 @@ export class ReportCardGeneratorService {
     targetMonth: string,
     higherIsBetter: boolean
   ): Promise<{ direction: TrendDirection; percentage: number }> {
-    const targetDate = new Date(targetMonth);
+    // Use T00:00:00 suffix to parse in local time, not UTC
+    const targetDate = new Date(`${targetMonth}T00:00:00`);
     
     // Get prior 3 months
     const priorMonths: Date[] = [];
@@ -1124,7 +1130,8 @@ export class ReportCardGeneratorService {
     }
 
     // Get value for each peer practice for the target month
-    const targetDate = new Date(targetMonth);
+    // Use T00:00:00 suffix to parse in local time, not UTC
+    const targetDate = new Date(`${targetMonth}T00:00:00`);
     const monthStart = new Date(targetDate.getFullYear(), targetDate.getMonth(), 1);
     const monthEnd = new Date(targetDate.getFullYear(), targetDate.getMonth() + 1, 1);
 

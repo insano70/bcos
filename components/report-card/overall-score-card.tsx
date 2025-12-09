@@ -222,6 +222,7 @@ export default function OverallScoreCard({
       </div>
 
       <div className="relative z-10">
+        {/* Header */}
         <div className="flex items-center gap-2 mb-1">
           <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-300">
             {reportCardMonth ? `${reportCardMonth} Report Card` : 'Practice Report Card'}
@@ -234,82 +235,83 @@ export default function OverallScoreCard({
           </p>
         )}
 
-        <div className="flex flex-col sm:flex-row items-center gap-8">
-          {/* Score Ring with Grade */}
-          <div className="relative">
-            <ScoreRing score={score} />
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className={`text-6xl font-bold ${color}`}>
-                {letter}
-                <span className="text-4xl">{modifier}</span>
-              </span>
-              <span className="text-2xl font-semibold text-slate-600 dark:text-slate-400">
-                <AnimatedScore value={displayScore} />
-              </span>
+        {/* Main content - responsive grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Left: Score Ring with Grade and Change Indicator */}
+          <div className="flex flex-col items-center gap-4">
+            <div className="relative">
+              <ScoreRing score={score} size={180} />
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <span className={`text-5xl font-bold ${color}`}>
+                  {letter}
+                  <span className="text-3xl">{modifier}</span>
+                </span>
+                <span className="text-xl font-semibold text-slate-600 dark:text-slate-400">
+                  <AnimatedScore value={displayScore} />
+                </span>
+              </div>
             </div>
+
+            {/* Previous Month Comparison - below score on all sizes */}
+            {previousMonth && changeIndicator && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3, duration: 0.4 }}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/50 dark:bg-slate-800/50 border border-slate-200/50 dark:border-slate-700/50"
+              >
+                <span className={changeIndicator.color}>{changeIndicator.icon}</span>
+                <div className="text-sm">
+                  <span className={`font-medium ${changeIndicator.color}`}>
+                    {changeIndicator.text}
+                  </span>
+                  <span className="text-slate-600 dark:text-slate-400 ml-1">
+                    {previousMonth.month} ({previousMonth.grade})
+                  </span>
+                </div>
+              </motion.div>
+            )}
           </div>
 
-          {/* Previous Month Comparison */}
-          {previousMonth && changeIndicator && (
-            <motion.div
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.3, duration: 0.4 }}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/50 dark:bg-slate-800/50 border border-slate-200/50 dark:border-slate-700/50"
-            >
-              <span className={changeIndicator.color}>{changeIndicator.icon}</span>
-              <div className="text-sm">
-                <span className={`font-medium ${changeIndicator.color}`}>
-                  {changeIndicator.text}
-                </span>
-                <span className="text-slate-600 dark:text-slate-400 ml-1">
-                  {previousMonth.month} ({previousMonth.grade})
-                </span>
-              </div>
-            </motion.div>
-          )}
+          {/* Right: Practice Size and Peer Ranking */}
+          <div className="flex flex-col justify-center space-y-4">
+            <div>
+              <span className="text-sm text-slate-500 dark:text-slate-400 block">
+                Practice Size
+              </span>
+              <span className="text-lg font-medium text-slate-700 dark:text-slate-300">
+                {formatSizeBucket(sizeBucket)}
+              </span>
+              <span className="text-xs text-slate-400 dark:text-slate-500 block">
+                {getSizeBucketDescription(sizeBucket)}
+              </span>
+            </div>
 
-          {/* Details */}
-          <div className="flex-1 text-center sm:text-left">
-            <div className="space-y-4">
-              <div>
-                <span className="text-sm text-slate-500 dark:text-slate-400 block">
-                  Practice Size
-                </span>
-                <span className="text-lg font-medium text-slate-700 dark:text-slate-300">
-                  {formatSizeBucket(sizeBucket)}
-                </span>
-                <span className="text-xs text-slate-400 dark:text-slate-500 block">
-                  {getSizeBucketDescription(sizeBucket)}
-                </span>
-              </div>
+            <div>
+              <span className="text-sm text-slate-500 dark:text-slate-400 block">
+                Peer Ranking
+              </span>
+              <span className="text-lg font-medium text-slate-700 dark:text-slate-300">
+                Top{' '}
+                <span className={color}>
+                  {Math.round(100 - percentileRank)}%
+                </span>{' '}
+                of {formatSizeBucket(sizeBucket)}s
+              </span>
+            </div>
 
-              <div>
-                <span className="text-sm text-slate-500 dark:text-slate-400 block">
-                  Peer Ranking
-                </span>
-                <span className="text-lg font-medium text-slate-700 dark:text-slate-300">
-                  Top{' '}
-                  <span className={color}>
-                    {Math.round(100 - percentileRank)}%
-                  </span>{' '}
-                  of {formatSizeBucket(sizeBucket)}s
-                </span>
+            <div className="pt-2">
+              <div className="h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                <motion.div
+                  className={`h-full ${color.replace('text-', 'bg-')}`}
+                  initial={{ width: 0 }}
+                  animate={{ width: `${percentileRank}%` }}
+                  transition={{ duration: 1, delay: 0.5 }}
+                />
               </div>
-
-              <div className="pt-2">
-                <div className="h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                  <motion.div
-                    className={`h-full ${color.replace('text-', 'bg-')}`}
-                    initial={{ width: 0 }}
-                    animate={{ width: `${percentileRank}%` }}
-                    transition={{ duration: 1, delay: 0.5 }}
-                  />
-                </div>
-                <span className="text-xs text-slate-500 dark:text-slate-400 mt-1 block">
-                  {Math.round(percentileRank)}th percentile
-                </span>
-              </div>
+              <span className="text-xs text-slate-500 dark:text-slate-400 mt-1 block">
+                {Math.round(percentileRank)}th percentile
+              </span>
             </div>
           </div>
         </div>

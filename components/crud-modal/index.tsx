@@ -45,6 +45,8 @@ export default function CrudModal<TFormData extends FieldValues = FieldValues, T
 }: CrudModalProps<TFormData, TEntity>) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showToast, setShowToast] = useState(false);
+  const [showErrorToast, setShowErrorToast] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string>('');
 
   // Store defaultValues in a ref to avoid triggering effects on every render
   const defaultValuesRef = useRef(defaultValues);
@@ -69,9 +71,15 @@ export default function CrudModal<TFormData extends FieldValues = FieldValues, T
     if (mode === 'edit' && entity && isOpen) {
       // Reset form with entity data to ensure clean state
       reset(entity as never);
+      // Clear any previous error state when opening modal
+      setShowErrorToast(false);
+      setErrorMessage('');
     } else if (mode === 'create' && isOpen) {
       // Reset to default values when opening in create mode
       reset(defaultValuesRef.current as never);
+      // Clear any previous error state when opening modal
+      setShowErrorToast(false);
+      setErrorMessage('');
     }
   }, [entity, isOpen, mode, reset]);
 
@@ -101,7 +109,21 @@ export default function CrudModal<TFormData extends FieldValues = FieldValues, T
       onSuccess?.();
       afterSuccess?.();
     } catch (error) {
-      // Error handling is done by the mutation/onSubmit handler
+      // Extract user-friendly error message and display to user
+      let message = `Failed to ${mode === 'create' ? 'create' : 'update'} ${resourceName}`;
+      if (error instanceof Error) {
+        message = error.message;
+      } else if (typeof error === 'string') {
+        message = error;
+      }
+      
+      // Show error toast to user
+      setErrorMessage(message);
+      setShowErrorToast(true);
+      // Auto-hide error toast after 5 seconds
+      setTimeout(() => setShowErrorToast(false), 5000);
+      
+      // Log for debugging
       clientErrorLog(`Error ${mode === 'create' ? 'creating' : 'updating'} ${resourceName}:`, error);
     } finally {
       setIsSubmitting(false);
@@ -287,6 +309,16 @@ export default function CrudModal<TFormData extends FieldValues = FieldValues, T
           {finalSuccessMessage}
         </Toast>
       )}
+
+      {/* Error Toast */}
+      <Toast
+        type="error"
+        open={showErrorToast}
+        setOpen={setShowErrorToast}
+        className="fixed bottom-4 right-4 z-[60]"
+      >
+        {errorMessage}
+      </Toast>
     </>
   );
 }

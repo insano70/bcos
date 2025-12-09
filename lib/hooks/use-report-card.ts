@@ -2,14 +2,13 @@
  * Report Card Hooks
  *
  * React Query hooks for report card API operations.
+ * All hooks use organization-based queries (not practice UID).
  */
 
 import { useApiQuery, useApiPost, useApiPut, useApiDelete } from './use-api';
 import type {
   ReportCard,
-  PracticeTrend,
   PeerComparison,
-  LocationComparison,
   MeasureConfig,
   MeasureCreateInput,
   MeasureUpdateInput,
@@ -18,6 +17,11 @@ import type {
   GradeHistoryEntry,
   AnnualReview,
 } from '@/lib/types/report-card';
+import type { SizeBucket } from '@/lib/constants/report-card';
+
+// =============================================================================
+// Report Card Queries (by Organization)
+// =============================================================================
 
 /**
  * Response type for useReportCardByOrg hook
@@ -28,11 +32,6 @@ export interface ReportCardByOrgResponse {
   availableMonths: string[];
   gradeHistory: GradeHistoryEntry[];
 }
-import type { TrendPeriod, SizeBucket } from '@/lib/constants/report-card';
-
-// =============================================================================
-// Report Card Queries (by Organization - Primary)
-// =============================================================================
 
 /**
  * Hook for fetching an organization's report card
@@ -58,74 +57,6 @@ export function useReportCardByOrg(organizationId: string | undefined, month?: s
   );
 }
 
-// =============================================================================
-// Report Card Queries (by Practice UID - Legacy)
-// =============================================================================
-
-/**
- * Hook for fetching a practice's report card
- * @deprecated Use useReportCardByOrg instead - users should select by organization
- * Includes previous month summary for comparison display
- * 
- * @param practiceUid - Practice UID to fetch report card for
- * @param month - Optional month in YYYY-MM-DD format to fetch specific month's report card
- */
-export function useReportCard(practiceUid: number | undefined, month?: string) {
-  const queryParams = month ? `?month=${month}` : '';
-  const url = practiceUid ? `/api/admin/report-card/${practiceUid}${queryParams}` : '';
-
-  return useApiQuery<{
-    reportCard: ReportCard;
-    previousMonth: PreviousMonthSummary | null;
-    availableMonths: string[];
-  }>(
-    practiceUid ? ['report-card', practiceUid, month || 'latest'] : ['report-card', 'none'],
-    url,
-    {
-      enabled: !!practiceUid,
-      staleTime: 5 * 60 * 1000, // 5 minutes
-    }
-  );
-}
-
-/**
- * Hook for fetching practice trends
- */
-export function useTrends(practiceUid: number | undefined, period?: TrendPeriod) {
-  const queryParams = period ? `?period=${period}` : '';
-  const url = practiceUid ? `/api/admin/report-card/${practiceUid}/trends${queryParams}` : '';
-
-  return useApiQuery<{ trends: PracticeTrend[] }>(
-    practiceUid
-      ? ['report-card-trends', practiceUid, period || 'all']
-      : ['report-card-trends', 'none'],
-    url,
-    {
-      enabled: !!practiceUid,
-      staleTime: 5 * 60 * 1000,
-    }
-  );
-}
-
-/**
- * Hook for fetching location comparison for a practice
- */
-export function useLocationComparison(practiceUid: number | undefined, measureName?: string) {
-  const queryParams = measureName ? `?measure=${encodeURIComponent(measureName)}` : '';
-  const url = practiceUid ? `/api/admin/report-card/${practiceUid}/locations${queryParams}` : '';
-
-  return useApiQuery<{ comparison: LocationComparison }>(
-    practiceUid
-      ? ['report-card-locations', practiceUid, measureName || 'all']
-      : ['report-card-locations', 'none'],
-    url,
-    {
-      enabled: !!practiceUid,
-      staleTime: 5 * 60 * 1000,
-    }
-  );
-}
-
 /**
  * Hook for fetching peer comparison statistics
  */
@@ -143,27 +74,7 @@ export function usePeerComparison(sizeBucket?: SizeBucket) {
 }
 
 /**
- * Hook for fetching grade history (last N months of report cards)
- */
-export function useGradeHistory(practiceUid: number | undefined, limit: number = 12) {
-  const queryParams = limit !== 12 ? `?limit=${limit}` : '';
-  const url = practiceUid ? `/api/admin/report-card/${practiceUid}/history${queryParams}` : '';
-
-  return useApiQuery<{ history: GradeHistoryEntry[] }>(
-    practiceUid
-      ? ['report-card-history', practiceUid, limit]
-      : ['report-card-history', 'none'],
-    url,
-    {
-      enabled: !!practiceUid,
-      staleTime: 5 * 60 * 1000, // 5 minutes
-    }
-  );
-}
-
-/**
  * Hook for fetching annual review data by organization
- * This is the PRIMARY hook for UI - users select by organization.
  * Returns year-over-year comparison, trends, and forecasts.
  */
 export function useAnnualReviewByOrg(organizationId: string | undefined) {
@@ -176,26 +87,6 @@ export function useAnnualReviewByOrg(organizationId: string | undefined) {
     url,
     {
       enabled: !!organizationId,
-      staleTime: 10 * 60 * 1000, // 10 minutes (annual data changes less frequently)
-    }
-  );
-}
-
-/**
- * Hook for fetching annual review data
- * @deprecated Use useAnnualReviewByOrg instead - users should select by organization
- * Returns year-over-year comparison, trends, and forecasts
- */
-export function useAnnualReview(practiceUid: number | undefined) {
-  const url = practiceUid ? `/api/admin/report-card/${practiceUid}/annual-review` : '';
-
-  return useApiQuery<{ review: AnnualReview }>(
-    practiceUid
-      ? ['report-card-annual-review', practiceUid]
-      : ['report-card-annual-review', 'none'],
-    url,
-    {
-      enabled: !!practiceUid,
       staleTime: 10 * 60 * 1000, // 10 minutes (annual data changes less frequently)
     }
   );
@@ -280,7 +171,7 @@ export function useDeleteMeasure() {
 
 /**
  * Hook for triggering report card generation
- * 
+ *
  * @param reset - When true, clears all report card data before regenerating
  * @param force - When true, forces regeneration even if data exists
  */

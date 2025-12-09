@@ -191,13 +191,122 @@ export default function AnnualReviewView() {
     );
   }
 
-  // Loading state
+  // Skeleton component for loading state
+  const SkeletonCard = ({ className = '', children }: { className?: string; children?: React.ReactNode }) => (
+    <div className={`bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700 ${className}`}>
+      {children}
+    </div>
+  );
+
+  const SkeletonLine = ({ width = 'w-full', height = 'h-4' }: { width?: string; height?: string }) => (
+    <div className={`${width} ${height} bg-slate-200 dark:bg-slate-700 rounded animate-pulse`} />
+  );
+
+  // Loading state - shows header and skeleton that matches actual layout
   if (isLoading && !review) {
     return (
       <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-7xl mx-auto">
-        <div className="flex flex-col items-center justify-center py-24">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-violet-500 mb-4" />
-          <span className="text-slate-600 dark:text-slate-400">Loading annual review...</span>
+        {/* Header with back link - shown immediately */}
+        <div className="mb-6">
+          <Link
+            href="/dashboard/report-card"
+            className="inline-flex items-center gap-2 text-sm text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Report Card
+          </Link>
+        </div>
+
+        <div className="sm:flex sm:justify-between sm:items-center mb-8">
+          <div className="mb-4 sm:mb-0">
+            <h1 className="text-2xl md:text-3xl text-slate-800 dark:text-slate-100 font-bold flex items-center gap-3">
+              <Calendar className="w-8 h-8 text-violet-500" />
+              Annual Review
+            </h1>
+            <p className="text-slate-600 dark:text-slate-400 mt-1">
+              Year-over-year performance analysis and projections
+            </p>
+          </div>
+        </div>
+
+        {renderOrgSelector()}
+
+        {/* Skeleton grid matching actual layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Year over Year Comparison skeleton */}
+          <div className="lg:col-span-12 bg-gradient-to-br from-violet-500/10 to-purple-600/5 rounded-2xl p-6 border border-violet-200 dark:border-violet-800">
+            <div className="flex items-center gap-2 mb-4">
+              <BarChart3 className="w-5 h-5 text-violet-500" />
+              <SkeletonLine width="w-48" height="h-5" />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="bg-white/50 dark:bg-slate-800/50 rounded-xl p-4">
+                  <SkeletonLine width="w-20" height="h-3" />
+                  <div className="mt-3 flex items-baseline gap-2">
+                    <SkeletonLine width="w-12" height="h-8" />
+                    <SkeletonLine width="w-10" height="h-5" />
+                  </div>
+                  <SkeletonLine width="w-24" height="h-3" />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Performance Summary skeleton */}
+          <SkeletonCard className="lg:col-span-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Award className="w-5 h-5 text-amber-500" />
+              <SkeletonLine width="w-40" height="h-5" />
+            </div>
+            <div className="space-y-4">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="flex justify-between items-center">
+                  <SkeletonLine width="w-28" height="h-4" />
+                  <SkeletonLine width="w-16" height="h-6" />
+                </div>
+              ))}
+              <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
+                <SkeletonLine width="w-40" height="h-3" />
+              </div>
+            </div>
+          </SkeletonCard>
+
+          {/* Projected Performance skeleton */}
+          <div className="lg:col-span-6 bg-gradient-to-br from-blue-500/10 to-indigo-600/5 rounded-2xl p-6 border border-blue-200 dark:border-blue-800">
+            <div className="flex items-center gap-2 mb-4">
+              <Sparkles className="w-5 h-5 text-blue-500" />
+              <SkeletonLine width="w-40" height="h-5" />
+            </div>
+            <div className="text-center py-4">
+              <div className="inline-block px-6 py-3 rounded-2xl bg-slate-200/50 dark:bg-slate-700/50">
+                <SkeletonLine width="w-16" height="h-12" />
+              </div>
+              <div className="mt-4">
+                <SkeletonLine width="w-32" height="h-5" />
+              </div>
+            </div>
+            <div className="mt-4 p-4 bg-white/50 dark:bg-slate-800/50 rounded-xl">
+              <SkeletonLine width="w-full" height="h-3" />
+              <div className="mt-2">
+                <SkeletonLine width="w-3/4" height="h-3" />
+              </div>
+            </div>
+          </div>
+
+          {/* Monthly Performance History skeleton */}
+          <SkeletonCard className="lg:col-span-12">
+            <SkeletonLine width="w-56" height="h-5" />
+            <div className="mt-6 flex gap-3 overflow-hidden">
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((i) => (
+                <div key={i} className="flex flex-col items-center flex-shrink-0">
+                  <div className="w-16 h-20 rounded-xl bg-slate-100 dark:bg-slate-700 animate-pulse" />
+                  <SkeletonLine width="w-8" height="h-3" />
+                  <SkeletonLine width="w-10" height="h-2" />
+                </div>
+              ))}
+            </div>
+          </SkeletonCard>
         </div>
       </div>
     );
