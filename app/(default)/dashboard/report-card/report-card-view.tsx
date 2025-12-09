@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/components/auth/rbac-auth-provider';
 import { ChartErrorBoundary } from '@/components/charts/chart-error-boundary';
 import {
@@ -30,6 +31,7 @@ import { FileText, RefreshCcw, Calendar } from 'lucide-react';
  */
 export default function ReportCardView() {
   const { userContext, isLoading: authLoading } = useAuth();
+  const searchParams = useSearchParams();
   const [selectedOrgId, setSelectedOrgId] = useState<string | undefined>(undefined);
   const [selectedMonth, setSelectedMonth] = useState<string>('');
   const [trendPeriod, setTrendPeriod] = useState<TrendPeriod>('3_month');
@@ -56,12 +58,22 @@ export default function ReportCardView() {
     return allOrganizations.filter((org) => userOrgIds.has(org.id));
   }, [canViewAll, allOrganizations, userContext?.organizations]);
 
-  // Auto-select organization for users with only one org
+  // Initialize org from URL param or auto-select for single-org users
   useEffect(() => {
-    if (!selectedOrgId && selectableOrgs.length === 1 && selectableOrgs[0]) {
+    if (selectedOrgId) return; // Already selected
+    
+    // Priority 1: URL param
+    const orgFromUrl = searchParams.get('org');
+    if (orgFromUrl && selectableOrgs.some((org) => org.id === orgFromUrl)) {
+      setSelectedOrgId(orgFromUrl);
+      return;
+    }
+    
+    // Priority 2: Auto-select for single-org users
+    if (selectableOrgs.length === 1 && selectableOrgs[0]) {
       setSelectedOrgId(selectableOrgs[0].id);
     }
-  }, [selectableOrgs, selectedOrgId]);
+  }, [selectableOrgs, selectedOrgId, searchParams]);
 
   // Determine if organization selector should be shown
   // Only show if user has multiple organizations to choose from
@@ -285,7 +297,7 @@ export default function ReportCardView() {
           
           {/* Annual Review link */}
           <Link
-            href="/dashboard/report-card/annual-review"
+            href={selectedOrgId ? `/dashboard/report-card/annual-review?org=${selectedOrgId}` : '/dashboard/report-card/annual-review'}
             className="inline-flex items-center gap-1.5 px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400 hover:bg-violet-100 dark:hover:bg-violet-900/30 transition-colors text-xs sm:text-sm font-medium whitespace-nowrap"
           >
             <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4" />

@@ -16,8 +16,10 @@ export default function DropdownProfile({ align }: { align?: 'left' | 'right' })
       await logout();
 
       // Redirect to signin with logged_out flag to prevent auto-signin via silent auth
+      // Note: Do NOT call router.refresh() here - it causes a race condition where
+      // the current page refreshes before navigation completes, triggering middleware
+      // to redirect with callbackUrl instead of logged_out=true
       router.push('/signin?logged_out=true');
-      router.refresh();
     } catch (error) {
       // Log client-side logout errors for debugging
       clientErrorLog('Logout error:', error);

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/components/auth/rbac-auth-provider';
 import { useAnnualReviewByOrg } from '@/lib/hooks/use-report-card';
@@ -72,6 +73,7 @@ function getTrendDisplay(trend: 'improving' | 'declining' | 'stable') {
  */
 export default function AnnualReviewView() {
   const { userContext, isLoading: authLoading } = useAuth();
+  const searchParams = useSearchParams();
   const [selectedOrgId, setSelectedOrgId] = useState<string | undefined>(undefined);
 
   // Check if user has all-access permission
@@ -93,12 +95,22 @@ export default function AnnualReviewView() {
     return allOrganizations.filter((org) => userOrgIds.has(org.id));
   }, [canViewAll, allOrganizations, userContext?.organizations]);
 
-  // Auto-select organization for users with only one org
+  // Initialize org from URL param or auto-select for single-org users
   useEffect(() => {
-    if (!selectedOrgId && selectableOrgs.length === 1 && selectableOrgs[0]) {
+    if (selectedOrgId) return; // Already selected
+    
+    // Priority 1: URL param
+    const orgFromUrl = searchParams.get('org');
+    if (orgFromUrl && selectableOrgs.some((org) => org.id === orgFromUrl)) {
+      setSelectedOrgId(orgFromUrl);
+      return;
+    }
+    
+    // Priority 2: Auto-select for single-org users
+    if (selectableOrgs.length === 1 && selectableOrgs[0]) {
       setSelectedOrgId(selectableOrgs[0].id);
     }
-  }, [selectableOrgs, selectedOrgId]);
+  }, [selectableOrgs, selectedOrgId, searchParams]);
 
   // Determine if organization selector should be shown
   const showOrgSelector = selectableOrgs.length > 1;
@@ -150,7 +162,7 @@ export default function AnnualReviewView() {
         {/* Header with back link */}
         <div className="mb-6">
           <Link
-            href="/dashboard/report-card"
+            href={selectedOrgId ? `/dashboard/report-card?org=${selectedOrgId}` : '/dashboard/report-card'}
             className="inline-flex items-center gap-2 text-sm text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -209,7 +221,7 @@ export default function AnnualReviewView() {
         {/* Header with back link - shown immediately */}
         <div className="mb-6">
           <Link
-            href="/dashboard/report-card"
+            href={selectedOrgId ? `/dashboard/report-card?org=${selectedOrgId}` : '/dashboard/report-card'}
             className="inline-flex items-center gap-2 text-sm text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -318,7 +330,7 @@ export default function AnnualReviewView() {
       <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-7xl mx-auto">
         <div className="mb-6">
           <Link
-            href="/dashboard/report-card"
+            href={selectedOrgId ? `/dashboard/report-card?org=${selectedOrgId}` : '/dashboard/report-card'}
             className="inline-flex items-center gap-2 text-sm text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -343,7 +355,7 @@ export default function AnnualReviewView() {
       {/* Header with back link */}
       <div className="mb-6">
         <Link
-          href="/dashboard/report-card"
+          href={selectedOrgId ? `/dashboard/report-card?org=${selectedOrgId}` : '/dashboard/report-card'}
           className="inline-flex items-center gap-2 text-sm text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
