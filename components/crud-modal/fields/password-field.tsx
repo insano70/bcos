@@ -1,4 +1,4 @@
-import { useId } from 'react';
+import { memo, useId } from 'react';
 import type { FieldErrors, FieldValues, UseFormRegister } from 'react-hook-form';
 import type { PasswordFieldConfig } from '../types';
 
@@ -9,7 +9,7 @@ interface PasswordFieldProps<TFormData extends FieldValues = FieldValues> {
   isSubmitting: boolean;
 }
 
-export default function PasswordField<TFormData extends FieldValues = FieldValues>({
+function PasswordFieldInner<TFormData extends FieldValues = FieldValues>({
   field,
   register,
   errors,
@@ -53,3 +53,6 @@ export default function PasswordField<TFormData extends FieldValues = FieldValue
     </div>
   );
 }
+
+const PasswordField = memo(PasswordFieldInner) as typeof PasswordFieldInner;
+export default PasswordField;

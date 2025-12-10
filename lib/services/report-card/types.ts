@@ -202,3 +202,85 @@ export interface PreloadedData {
   trendData: TrendDataMap;
   measures: import('@/lib/types/report-card').MeasureConfig[];
 }
+
+// ============================================================================
+// Dependency Injection Interfaces for Testability
+// ============================================================================
+
+/**
+ * Score calculator interface for dependency injection
+ */
+export interface IScoreCalculator {
+  calculatePercentile(value: number, allValues: number[], higherIsBetter: boolean): number;
+  calculateTrendScore(trendPercentage: number): number;
+  normalizeScore(
+    percentileRank: number,
+    trend: import('@/lib/constants/report-card').TrendDirection,
+    higherIsBetter: boolean,
+    trendPercentage?: number
+  ): number;
+  calculateOverallScore(
+    results: MeasureScoringResult[],
+    measures: import('@/lib/types/report-card').MeasureConfig[]
+  ): number;
+  scoreMeasure(
+    practiceUid: number,
+    measure: import('@/lib/types/report-card').MeasureConfig,
+    sizeBucket: import('@/lib/constants/report-card').SizeBucket,
+    targetMonth: string,
+    monthStats: MonthStatisticsMap,
+    peerStats: PeerStatisticsMap,
+    trendDataMap: TrendDataMap
+  ): MeasureScoringResult | null;
+  calculateTrend(
+    practiceUid: number,
+    measure: import('@/lib/types/report-card').MeasureConfig,
+    targetMonth: string,
+    trendDataMap: TrendDataMap
+  ): { direction: import('@/lib/constants/report-card').TrendDirection; percentage: number };
+  generateInsights(
+    results: MeasureScoringResult[],
+    measures: import('@/lib/types/report-card').MeasureConfig[]
+  ): string[];
+}
+
+/**
+ * Data preloader interface for dependency injection
+ */
+export interface IDataPreloader {
+  preloadSizeBuckets(practices: number[]): Promise<SizeBucketMap>;
+  preloadMonthStatistics(
+    practices: number[],
+    measures: import('@/lib/types/report-card').MeasureConfig[],
+    targetMonth: string
+  ): Promise<MonthStatisticsMap>;
+  preloadPeerStatistics(
+    measures: import('@/lib/types/report-card').MeasureConfig[],
+    targetMonth: string
+  ): Promise<PeerStatisticsMap>;
+  preloadTrendData(
+    practices: number[],
+    measures: import('@/lib/types/report-card').MeasureConfig[],
+    targetMonth: string
+  ): Promise<TrendDataMap>;
+}
+
+/**
+ * Measure service interface for dependency injection
+ * NOTE: getActiveMeasures is a standalone function, not part of this interface
+ */
+export interface IMeasureService {
+  getList(options?: { activeOnly?: boolean }): Promise<{
+    items: import('@/lib/types/report-card').MeasureConfig[];
+    total: number;
+  }>;
+  getById(id: number): Promise<import('@/lib/types/report-card').MeasureConfig | null>;
+  create(
+    data: import('@/lib/types/report-card').MeasureCreateInput
+  ): Promise<import('@/lib/types/report-card').MeasureConfig>;
+  update(
+    id: number,
+    data: import('@/lib/types/report-card').MeasureUpdateInput
+  ): Promise<import('@/lib/types/report-card').MeasureConfig>;
+  delete(id: number): Promise<void>;
+}

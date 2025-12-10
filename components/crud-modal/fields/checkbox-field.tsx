@@ -1,4 +1,4 @@
-import { useId } from 'react';
+import { memo, useId } from 'react';
 import type { FieldErrors, FieldValues, UseFormRegister } from 'react-hook-form';
 import type { CheckboxFieldConfig } from '../types';
 
@@ -9,7 +9,7 @@ interface CheckboxFieldProps<TFormData extends FieldValues = FieldValues> {
   isSubmitting: boolean;
 }
 
-export default function CheckboxField<TFormData extends FieldValues = FieldValues>({
+function CheckboxFieldInner<TFormData extends FieldValues = FieldValues>({
   field,
   register,
   errors,
@@ -49,3 +49,6 @@ export default function CheckboxField<TFormData extends FieldValues = FieldValue
     </div>
   );
 }
+
+const CheckboxField = memo(CheckboxFieldInner) as typeof CheckboxFieldInner;
+export default CheckboxField;

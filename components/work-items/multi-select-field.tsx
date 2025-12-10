@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 
 /**
  * Multi-Select Field Component
@@ -22,7 +22,7 @@ interface MultiSelectFieldProps {
   disabled?: boolean;
 }
 
-export function MultiSelectField({
+function MultiSelectFieldInner({
   options,
   value,
   onChange,
@@ -184,3 +184,5 @@ export function MultiSelectField({
     </div>
   );
 }
+
+export const MultiSelectField = memo(MultiSelectFieldInner);

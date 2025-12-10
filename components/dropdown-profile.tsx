@@ -1,12 +1,13 @@
 'use client';
 
+import { memo } from 'react';
 import { Menu, MenuButton, MenuItem, MenuItems, Transition } from '@headlessui/react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from './auth/rbac-auth-provider';
 import { clientErrorLog } from '@/lib/utils/debug-client';
 
-export default function DropdownProfile({ align }: { align?: 'left' | 'right' }) {
+function DropdownProfileInner({ align }: { align?: 'left' | 'right' }) {
   const router = useRouter();
   const { logout, user } = useAuth();
 
@@ -81,3 +82,6 @@ export default function DropdownProfile({ align }: { align?: 'left' | 'right' })
     </Menu>
   );
 }
+
+const DropdownProfile = memo(DropdownProfileInner);
+export default DropdownProfile;

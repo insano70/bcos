@@ -12,7 +12,8 @@
  */
 
 import type { NextRequest } from 'next/server';
-import { createErrorResponse, handleRouteError } from '@/lib/api/responses/error';
+import { z } from 'zod';
+import { createErrorResponse, handleRouteError, ValidationError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { cacheWarmingService } from '@/lib/cache/data-source/cache-warming';
@@ -23,10 +24,13 @@ import { db } from '@/lib/db';
 import { chart_data_sources } from '@/lib/db/chart-config-schema';
 import { eq } from 'drizzle-orm';
 
-interface WarmCacheRequest {
-  datasourceId?: number; // Omit to warm all datasources
-  force?: boolean; // Force rewarm even if recently warmed
-}
+/**
+ * Request validation schema for cache warming
+ */
+const warmCacheRequestSchema = z.object({
+  datasourceId: z.number().int().positive().optional(),
+  force: z.boolean().optional().default(false),
+});
 
 interface WarmCacheResponse {
   jobId?: string;
@@ -40,8 +44,18 @@ const warmCacheHandler = async (request: NextRequest) => {
   const startTime = Date.now();
 
   try {
-    const body = (await request.json()) as WarmCacheRequest;
-    const { datasourceId, force = false } = body;
+    const rawBody = await request.json();
+    const parseResult = warmCacheRequestSchema.safeParse(rawBody);
+
+    if (!parseResult.success) {
+      return createErrorResponse(
+        ValidationError(parseResult.error.flatten().fieldErrors, 'Invalid request body'),
+        400,
+        request
+      );
+    }
+
+    const { datasourceId, force } = parseResult.data;
 
     log.info('Cache warming request initiated', {
       operation: 'cache_warm',

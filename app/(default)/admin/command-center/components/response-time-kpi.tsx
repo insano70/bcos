@@ -8,11 +8,13 @@
  * - Red: > 1000ms
  */
 
+import { memo } from 'react';
+
 interface ResponseTimeKPIProps {
   p95: number; // milliseconds
 }
 
-export default function ResponseTimeKPI({ p95 }: ResponseTimeKPIProps) {
+function ResponseTimeKPIInner({ p95 }: ResponseTimeKPIProps) {
   // Determine status based on SLOW_THRESHOLDS
   const getStatusColor = () => {
     if (p95 < 300) return 'text-green-600 dark:text-green-400';
@@ -61,3 +63,6 @@ export default function ResponseTimeKPI({ p95 }: ResponseTimeKPIProps) {
     </div>
   );
 }
+
+const ResponseTimeKPI = memo(ResponseTimeKPIInner);
+export default ResponseTimeKPI;

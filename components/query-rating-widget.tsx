@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import { apiClient } from '@/lib/api/client';
 import { clientErrorLog } from '@/lib/utils/debug-client';
 
@@ -10,7 +10,7 @@ interface QueryRatingWidgetProps {
   onRatingChange?: () => void;
 }
 
-export default function QueryRatingWidget({
+function QueryRatingWidgetInner({
   queryId,
   currentRating,
   onRatingChange,
@@ -66,4 +66,7 @@ export default function QueryRatingWidget({
     </div>
   );
 }
+
+const QueryRatingWidget = memo(QueryRatingWidgetInner);
+export default QueryRatingWidget;
 

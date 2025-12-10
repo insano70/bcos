@@ -10,7 +10,7 @@
  */
 
 import { ChevronDown, ChevronRight, Plus, X } from 'lucide-react';
-import { useState } from 'react';
+import { memo, useState, useCallback } from 'react';
 import { useWorkItemFields } from '@/lib/hooks/use-work-item-fields';
 import type { ValidationConfig, ValidationRule } from '@/lib/validations/workflow-transitions';
 
@@ -30,6 +30,110 @@ const OPERATORS = [
   { value: 'less_than', label: 'Less Than' },
   { value: 'contains', label: 'Contains' },
 ] as const;
+
+interface FieldOption {
+  work_item_field_id: string;
+  field_label: string;
+}
+
+interface ValidationRuleItemProps {
+  rule: ValidationRule;
+  index: number;
+  fields: FieldOption[];
+  onRemove: (index: number) => void;
+  onChange: (index: number, field: keyof ValidationRule, value: string) => void;
+}
+
+/**
+ * Memoized validation rule item to prevent re-renders when other rules change
+ */
+const ValidationRuleItem = memo(function ValidationRuleItem({
+  rule,
+  index,
+  fields,
+  onRemove,
+  onChange,
+}: ValidationRuleItemProps) {
+  return (
+    <div className="border border-gray-200 dark:border-gray-700/60 rounded-lg p-4 bg-white dark:bg-gray-800 space-y-3">
+      <div className="flex items-start justify-between">
+        <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+          Rule #{index + 1}
+        </span>
+        <button
+          type="button"
+          onClick={() => onRemove(index)}
+          className="text-gray-400 hover:text-red-600 dark:hover:text-red-400"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Field
+          </label>
+          <select
+            value={rule.field}
+            onChange={(e) => onChange(index, 'field', e.target.value)}
+            className="form-select w-full text-sm"
+          >
+            <option value="">Select field...</option>
+            {fields.map((field) => (
+              <option key={field.work_item_field_id} value={field.work_item_field_id}>
+                {field.field_label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Operator
+          </label>
+          <select
+            value={rule.operator}
+            onChange={(e) => onChange(index, 'operator', e.target.value)}
+            className="form-select w-full text-sm"
+          >
+            {OPERATORS.map((op) => (
+              <option key={op.value} value={op.value}>
+                {op.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+          Value
+        </label>
+        <input
+          type="text"
+          value={rule.value}
+          onChange={(e) => onChange(index, 'value', e.target.value)}
+          placeholder="Enter comparison value..."
+          className="form-input w-full text-sm"
+        />
+      </div>
+
+      <div>
+        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+          Error Message
+        </label>
+        <input
+          type="text"
+          value={rule.message}
+          onChange={(e) => onChange(index, 'message', e.target.value)}
+          placeholder="Message to show if validation fails..."
+          className="form-input w-full text-sm"
+        />
+      </div>
+    </div>
+  );
+});
 
 export function TransitionValidationBuilder({
   workItemTypeId,
@@ -59,6 +163,7 @@ export function TransitionValidationBuilder({
 
   const handleAddCustomRule = () => {
     const newRule: ValidationRule = {
+      id: crypto.randomUUID(),
       field: '',
       operator: 'equals',
       value: '',
@@ -72,25 +177,35 @@ export function TransitionValidationBuilder({
     });
   };
 
-  const handleRemoveCustomRule = (index: number) => {
-    const newRules = customRules.filter((_, i) => i !== index);
-    setCustomRules(newRules);
-    onChange({
-      required_fields: requiredFields,
-      custom_rules: newRules,
-    });
-  };
+  const handleRemoveCustomRule = useCallback(
+    (index: number) => {
+      setCustomRules((prev) => {
+        const newRules = prev.filter((_, i) => i !== index);
+        onChange({
+          required_fields: requiredFields,
+          custom_rules: newRules,
+        });
+        return newRules;
+      });
+    },
+    [onChange, requiredFields]
+  );
 
-  const handleCustomRuleChange = (index: number, field: keyof ValidationRule, value: string) => {
-    const newRules = customRules.map((rule, i) =>
-      i === index ? { ...rule, [field]: value } : rule
-    );
-    setCustomRules(newRules);
-    onChange({
-      required_fields: requiredFields,
-      custom_rules: newRules,
-    });
-  };
+  const handleCustomRuleChange = useCallback(
+    (index: number, field: keyof ValidationRule, value: string) => {
+      setCustomRules((prev) => {
+        const newRules = prev.map((rule, i) =>
+          i === index ? { ...rule, [field]: value } : rule
+        );
+        onChange({
+          required_fields: requiredFields,
+          custom_rules: newRules,
+        });
+        return newRules;
+      });
+    },
+    [onChange, requiredFields]
+  );
 
   if (isLoading) {
     return (
@@ -173,86 +288,14 @@ export function TransitionValidationBuilder({
             </div>
           ) : (
             customRules.map((rule, index) => (
-              <div
-                key={`${rule.field}-${rule.operator}-${index}`}
-                className="border border-gray-200 dark:border-gray-700/60 rounded-lg p-4 bg-white dark:bg-gray-800 space-y-3"
-              >
-                <div className="flex items-start justify-between">
-                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                    Rule #{index + 1}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveCustomRule(index)}
-                    className="text-gray-400 hover:text-red-600 dark:hover:text-red-400"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Field
-                    </label>
-                    <select
-                      value={rule.field}
-                      onChange={(e) => handleCustomRuleChange(index, 'field', e.target.value)}
-                      className="form-select w-full text-sm"
-                    >
-                      <option value="">Select field...</option>
-                      {fields.map((field) => (
-                        <option key={field.work_item_field_id} value={field.work_item_field_id}>
-                          {field.field_label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Operator
-                    </label>
-                    <select
-                      value={rule.operator}
-                      onChange={(e) => handleCustomRuleChange(index, 'operator', e.target.value)}
-                      className="form-select w-full text-sm"
-                    >
-                      {OPERATORS.map((op) => (
-                        <option key={op.value} value={op.value}>
-                          {op.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Value
-                  </label>
-                  <input
-                    type="text"
-                    value={rule.value}
-                    onChange={(e) => handleCustomRuleChange(index, 'value', e.target.value)}
-                    placeholder="Enter comparison value..."
-                    className="form-input w-full text-sm"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Error Message
-                  </label>
-                  <input
-                    type="text"
-                    value={rule.message}
-                    onChange={(e) => handleCustomRuleChange(index, 'message', e.target.value)}
-                    placeholder="Message to show if validation fails..."
-                    className="form-input w-full text-sm"
-                  />
-                </div>
-              </div>
+              <ValidationRuleItem
+                key={rule.id ?? `rule-${index}`}
+                rule={rule}
+                index={index}
+                fields={fields}
+                onRemove={handleRemoveCustomRule}
+                onChange={handleCustomRuleChange}
+              />
             ))
           )}
         </div>

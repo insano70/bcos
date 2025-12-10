@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { memo, useState, useCallback } from 'react';
 import type { ConditionalVisibilityRule, WorkItemField } from '@/lib/types/work-item-fields';
 
 interface ConditionalVisibilityBuilderProps {
@@ -21,6 +21,134 @@ const OPERATORS: Array<{ value: ConditionalVisibilityRule['operator']; label: st
   { value: 'is_not_empty', label: 'Is Not Empty' },
 ];
 
+// ============================================
+// MEMOIZED VISIBILITY RULE ITEM COMPONENT
+// ============================================
+
+interface VisibilityRuleItemProps {
+  rule: ConditionalVisibilityRule;
+  index: number;
+  selectableFields: WorkItemField[];
+  onUpdate: (index: number, updates: Partial<ConditionalVisibilityRule>) => void;
+  onRemove: (index: number) => void;
+}
+
+const needsValueInput = (operator: ConditionalVisibilityRule['operator']) => {
+  return operator !== 'is_empty' && operator !== 'is_not_empty';
+};
+
+const VisibilityRuleItem = memo(function VisibilityRuleItem({
+  rule,
+  index,
+  selectableFields,
+  onUpdate,
+  onRemove,
+}: VisibilityRuleItemProps) {
+  const selectedField = selectableFields.find((f) => f.work_item_field_id === rule.field_id);
+
+  return (
+    <div className="p-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded space-y-2">
+      <div className="flex items-start gap-2">
+        {/* Field Selector */}
+        <div className="flex-1">
+          <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Field</label>
+          <select
+            value={rule.field_id}
+            onChange={(e) => onUpdate(index, { field_id: e.target.value })}
+            className="form-select w-full text-sm px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
+          >
+            {selectableFields.map((field) => (
+              <option key={field.work_item_field_id} value={field.work_item_field_id}>
+                {field.field_label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Operator Selector */}
+        <div className="flex-1">
+          <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Operator</label>
+          <select
+            value={rule.operator}
+            onChange={(e) =>
+              onUpdate(index, {
+                operator: e.target.value as ConditionalVisibilityRule['operator'],
+              })
+            }
+            className="form-select w-full text-sm px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
+          >
+            {OPERATORS.map((op) => (
+              <option key={op.value} value={op.value}>
+                {op.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Value Input */}
+        {needsValueInput(rule.operator) && (
+          <div className="flex-1">
+            <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Value</label>
+            {selectedField?.field_type === 'dropdown' && selectedField.field_options ? (
+              <select
+                value={String(rule.value || '')}
+                onChange={(e) => onUpdate(index, { value: e.target.value })}
+                className="form-select w-full text-sm px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
+              >
+                <option value="">Select value...</option>
+                {selectedField.field_options.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            ) : selectedField?.field_type === 'checkbox' ? (
+              <select
+                value={String(rule.value || 'true')}
+                onChange={(e) => onUpdate(index, { value: e.target.value === 'true' })}
+                className="form-select w-full text-sm px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
+              >
+                <option value="true">Checked</option>
+                <option value="false">Unchecked</option>
+              </select>
+            ) : (
+              <input
+                type="text"
+                value={String(rule.value || '')}
+                onChange={(e) => onUpdate(index, { value: e.target.value })}
+                placeholder="Enter value..."
+                className="form-input w-full text-sm px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
+              />
+            )}
+          </div>
+        )}
+
+        {/* Remove Button */}
+        <div className={needsValueInput(rule.operator) ? 'pt-5' : 'pt-5'}>
+          <button
+            type="button"
+            onClick={() => onRemove(index)}
+            className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
+            title="Remove rule"
+          >
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+              <path
+                fillRule="evenodd"
+                d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                clipRule="evenodd"
+              />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+});
+
+// ============================================
+// MAIN COMPONENT
+// ============================================
+
 export default function ConditionalVisibilityBuilder({
   rules,
   onChange,
@@ -32,29 +160,32 @@ export default function ConditionalVisibilityBuilder({
   // Filter out the current field (can't depend on itself)
   const selectableFields = availableFields.filter((f) => f.work_item_field_id !== currentFieldId);
 
-  const addRule = () => {
+  const addRule = useCallback(() => {
     const newRule: ConditionalVisibilityRule = {
+      id: crypto.randomUUID(),
       field_id: selectableFields[0]?.work_item_field_id || '',
       operator: 'equals',
       value: '',
     };
     onChange([...rules, newRule]);
     setIsExpanded(true);
-  };
+  }, [selectableFields, onChange, rules]);
 
-  const updateRule = (index: number, updates: Partial<ConditionalVisibilityRule>) => {
-    const newRules = [...rules];
-    newRules[index] = { ...newRules[index], ...updates } as ConditionalVisibilityRule;
-    onChange(newRules);
-  };
+  const updateRule = useCallback(
+    (index: number, updates: Partial<ConditionalVisibilityRule>) => {
+      const newRules = [...rules];
+      newRules[index] = { ...newRules[index], ...updates } as ConditionalVisibilityRule;
+      onChange(newRules);
+    },
+    [rules, onChange]
+  );
 
-  const removeRule = (index: number) => {
-    onChange(rules.filter((_, i) => i !== index));
-  };
-
-  const needsValueInput = (operator: ConditionalVisibilityRule['operator']) => {
-    return operator !== 'is_empty' && operator !== 'is_not_empty';
-  };
+  const removeRule = useCallback(
+    (index: number) => {
+      onChange(rules.filter((_, i) => i !== index));
+    },
+    [rules, onChange]
+  );
 
   if (selectableFields.length === 0) {
     return (
@@ -116,121 +247,16 @@ export default function ConditionalVisibilityBuilder({
               <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
                 Show this field when ALL of the following conditions are met:
               </p>
-              {rules.map((rule, index) => {
-                const selectedField = selectableFields.find(
-                  (f) => f.work_item_field_id === rule.field_id
-                );
-
-                return (
-                  <div
-                    key={`${rule.field_id}-${index}`}
-                    className="p-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded space-y-2"
-                  >
-                    <div className="flex items-start gap-2">
-                      {/* Field Selector */}
-                      <div className="flex-1">
-                        <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
-                          Field
-                        </label>
-                        <select
-                          value={rule.field_id}
-                          onChange={(e) => updateRule(index, { field_id: e.target.value })}
-                          className="form-select w-full text-sm px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
-                        >
-                          {selectableFields.map((field) => (
-                            <option key={field.work_item_field_id} value={field.work_item_field_id}>
-                              {field.field_label}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      {/* Operator Selector */}
-                      <div className="flex-1">
-                        <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
-                          Operator
-                        </label>
-                        <select
-                          value={rule.operator}
-                          onChange={(e) =>
-                            updateRule(index, {
-                              operator: e.target.value as ConditionalVisibilityRule['operator'],
-                            })
-                          }
-                          className="form-select w-full text-sm px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
-                        >
-                          {OPERATORS.map((op) => (
-                            <option key={op.value} value={op.value}>
-                              {op.label}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      {/* Value Input */}
-                      {needsValueInput(rule.operator) && (
-                        <div className="flex-1">
-                          <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
-                            Value
-                          </label>
-                          {selectedField?.field_type === 'dropdown' &&
-                          selectedField.field_options ? (
-                            <select
-                              value={String(rule.value || '')}
-                              onChange={(e) => updateRule(index, { value: e.target.value })}
-                              className="form-select w-full text-sm px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
-                            >
-                              <option value="">Select value...</option>
-                              {selectedField.field_options.map((opt) => (
-                                <option key={opt.value} value={opt.value}>
-                                  {opt.label}
-                                </option>
-                              ))}
-                            </select>
-                          ) : selectedField?.field_type === 'checkbox' ? (
-                            <select
-                              value={String(rule.value || 'true')}
-                              onChange={(e) =>
-                                updateRule(index, { value: e.target.value === 'true' })
-                              }
-                              className="form-select w-full text-sm px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
-                            >
-                              <option value="true">Checked</option>
-                              <option value="false">Unchecked</option>
-                            </select>
-                          ) : (
-                            <input
-                              type="text"
-                              value={String(rule.value || '')}
-                              onChange={(e) => updateRule(index, { value: e.target.value })}
-                              placeholder="Enter value..."
-                              className="form-input w-full text-sm px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
-                            />
-                          )}
-                        </div>
-                      )}
-
-                      {/* Remove Button */}
-                      <div className={needsValueInput(rule.operator) ? 'pt-5' : 'pt-5'}>
-                        <button
-                          type="button"
-                          onClick={() => removeRule(index)}
-                          className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
-                          title="Remove rule"
-                        >
-                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                            <path
-                              fillRule="evenodd"
-                              d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                              clipRule="evenodd"
-                            />
-                          </svg>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+              {rules.map((rule, index) => (
+                <VisibilityRuleItem
+                  key={rule.id ?? `rule-${index}`}
+                  rule={rule}
+                  index={index}
+                  selectableFields={selectableFields}
+                  onUpdate={updateRule}
+                  onRemove={removeRule}
+                />
+              ))}
             </>
           )}
         </div>

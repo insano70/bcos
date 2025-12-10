@@ -8,12 +8,20 @@
  */
 
 import type { NextRequest } from 'next/server';
+import { z } from 'zod';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { handleRouteError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { dimensionDiscoveryService } from '@/lib/services/analytics/dimension-discovery-service';
 import type { UserContext } from '@/lib/types/rbac';
 import { log } from '@/lib/logger';
+
+/**
+ * Request validation schema for dimension filters
+ */
+const dimensionFiltersSchema = z.object({
+  runtimeFilters: z.record(z.string(), z.unknown()).optional(),
+});
 
 const getDimensionsHandler = async (
   request: NextRequest,
@@ -27,11 +35,15 @@ const getDimensionsHandler = async (
   try {
     const chartId = params.chartId;
 
-    // Parse request body for filters (optional)
+    // Parse and validate request body for filters (optional)
     let filters: Record<string, unknown> | undefined;
     try {
-      const body = await request.json();
-      filters = body.runtimeFilters;
+      const rawBody = await request.json();
+      const parseResult = dimensionFiltersSchema.safeParse(rawBody);
+      if (parseResult.success) {
+        filters = parseResult.data.runtimeFilters;
+      }
+      // If validation fails, proceed without filters (graceful degradation)
     } catch {
       // If no body or invalid JSON, proceed without filters
       filters = undefined;

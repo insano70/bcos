@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import type { DataTableBulkAction } from './types';
 
 /** Configurable labels for i18n support */
@@ -57,7 +58,7 @@ interface DataTableToolbarProps<T> {
     labels?: DataTableToolbarLabels | undefined;
 }
 
-export function DataTableToolbar<T>({
+function DataTableToolbarInner<T>({
     searchable,
     searchPlaceholder,
     searchQuery,
@@ -185,3 +186,5 @@ export function DataTableToolbar<T>({
         </div>
     );
 }
+
+export const DataTableToolbar = memo(DataTableToolbarInner) as typeof DataTableToolbarInner;

@@ -6,6 +6,7 @@
 
 'use client';
 
+import { memo } from 'react';
 import {
   getHealthBadgeClasses,
   getHealthEmoji,
@@ -21,7 +22,7 @@ interface CacheHealthBadgeProps {
   className?: string;
 }
 
-export default function CacheHealthBadge({
+function CacheHealthBadgeInner({
   health,
   score,
   size = 'md',
@@ -51,3 +52,6 @@ export default function CacheHealthBadge({
     </div>
   );
 }
+
+const CacheHealthBadge = memo(CacheHealthBadgeInner);
+export default CacheHealthBadge;

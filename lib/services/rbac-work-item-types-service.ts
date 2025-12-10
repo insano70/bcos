@@ -1,14 +1,10 @@
-import { and, asc, count, eq, isNull, or } from 'drizzle-orm';
+import { and, count, eq, isNull, or, type SQL } from 'drizzle-orm';
+
 import { db } from '@/lib/db';
 import { organizations, users, work_item_types } from '@/lib/db/schema';
-import {
-  ConflictError,
-  DatabaseError,
-  ForbiddenError,
-  NotFoundError,
-} from '@/lib/errors/domain-errors';
+import { ConflictError, DatabaseError, ForbiddenError, NotFoundError } from '@/lib/errors/domain-errors';
 import { log } from '@/lib/logger';
-import { BaseRBACService } from '@/lib/rbac/base-service';
+import { BaseCrudService, type CrudServiceConfig, type JoinQueryConfig } from '@/lib/services/crud';
 import type { UserContext } from '@/lib/types/rbac';
 import type {
   WorkItemTypeQueryOptions,
@@ -22,236 +18,196 @@ export type { WorkItemTypeQueryOptions, WorkItemTypeWithDetails };
 /**
  * Work Item Types Service with RBAC
  * Manages work item types with automatic permission checking
+ *
+ * Migrated to use BaseCrudService infrastructure with JOIN support.
  */
 
-// Type for work item type query result row
-interface WorkItemTypeQueryRow {
-  work_item_type_id: string;
-  organization_id: string | null;
-  organization_name: string | null;
+// Create and update data types
+interface CreateWorkItemTypeData {
+  organization_id: string;
   name: string;
-  description: string | null;
-  icon: string | null;
-  color: string | null;
-  is_active: boolean;
-  created_by: string | null;
-  created_by_first_name: string | null;
-  created_by_last_name: string | null;
-  created_at: Date | null;
-  updated_at: Date | null;
+  description?: string;
+  icon?: string;
+  color?: string;
+  is_active?: boolean;
 }
 
-export class RBACWorkItemTypesService extends BaseRBACService {
+interface UpdateWorkItemTypeData {
+  name?: string;
+  description?: string | null;
+  icon?: string | null;
+  color?: string | null;
+  is_active?: boolean;
+}
+
+export class RBACWorkItemTypesService extends BaseCrudService<
+  typeof work_item_types,
+  WorkItemTypeWithDetails,
+  CreateWorkItemTypeData,
+  UpdateWorkItemTypeData,
+  WorkItemTypeQueryOptions
+> {
+  protected config: CrudServiceConfig<
+    typeof work_item_types,
+    WorkItemTypeWithDetails,
+    CreateWorkItemTypeData,
+    UpdateWorkItemTypeData,
+    WorkItemTypeQueryOptions
+  > = {
+    table: work_item_types,
+    resourceName: 'work-items',
+    displayName: 'work item type',
+    primaryKeyName: 'work_item_type_id',
+    deletedAtColumnName: 'deleted_at',
+    updatedAtColumnName: 'updated_at',
+    permissions: {
+      read: 'work-items:read:organization',
+      // Create/update/delete handled by custom methods due to complex permission logic
+    },
+    transformers: {
+      toEntity: (row: Record<string, unknown>): WorkItemTypeWithDetails => ({
+        work_item_type_id: row.work_item_type_id as string,
+        organization_id: row.organization_id as string | null,
+        organization_name: row.organization_name as string | null,
+        name: row.name as string,
+        description: row.description as string | null,
+        icon: row.icon as string | null,
+        color: row.color as string | null,
+        is_active: row.is_active as boolean,
+        created_by: row.created_by as string | null,
+        created_by_name: formatUserName(
+          row.created_by_first_name as string | null,
+          row.created_by_last_name as string | null
+        ),
+        created_at: (row.created_at as Date) ?? new Date(),
+        updated_at: (row.updated_at as Date) ?? new Date(),
+      }),
+      toCreateValues: (data, ctx) => ({
+        organization_id: data.organization_id,
+        name: data.name,
+        description: data.description ?? null,
+        icon: data.icon ?? null,
+        color: data.color ?? null,
+        is_active: data.is_active ?? true,
+        created_by: ctx.user_id,
+      }),
+    },
+  };
+
   /**
-   * Map database query result to WorkItemTypeWithDetails
-   * Centralizes mapping logic to ensure consistency and DRY principle
+   * Build JOIN query for enriched work item type data
    */
-  private mapRowToWorkItemType(row: WorkItemTypeQueryRow): WorkItemTypeWithDetails {
+  protected buildJoinQuery(): JoinQueryConfig {
     return {
-      work_item_type_id: row.work_item_type_id,
-      organization_id: row.organization_id,
-      organization_name: row.organization_name,
-      name: row.name,
-      description: row.description,
-      icon: row.icon,
-      color: row.color,
-      is_active: row.is_active,
-      created_by: row.created_by,
-      created_by_name: formatUserName(row.created_by_first_name, row.created_by_last_name),
-      created_at: row.created_at ?? new Date(),
-      updated_at: row.updated_at ?? new Date(),
+      selectFields: {
+        work_item_type_id: work_item_types.work_item_type_id,
+        organization_id: work_item_types.organization_id,
+        organization_name: organizations.name,
+        name: work_item_types.name,
+        description: work_item_types.description,
+        icon: work_item_types.icon,
+        color: work_item_types.color,
+        is_active: work_item_types.is_active,
+        created_by: work_item_types.created_by,
+        created_by_first_name: users.first_name,
+        created_by_last_name: users.last_name,
+        created_at: work_item_types.created_at,
+        updated_at: work_item_types.updated_at,
+      },
+      joins: [
+        {
+          table: organizations,
+          on: eq(work_item_types.organization_id, organizations.organization_id),
+          type: 'left',
+        },
+        {
+          table: users,
+          on: eq(work_item_types.created_by, users.user_id),
+          type: 'left',
+        },
+      ],
     };
   }
 
   /**
-   * Get work item types with filtering
-   * Returns global types (organization_id = null) and organization-specific types
+   * Build custom conditions for organization and is_active filtering
+   * Work item types have special org logic: show global types (org_id = null) + org-specific types
+   */
+  protected buildCustomConditions(options: WorkItemTypeQueryOptions): SQL[] {
+    const conditions: SQL[] = [];
+    const { organization_id, is_active } = options;
+
+    // Get access scope for custom org logic
+    const accessScope = this.getAccessScope('work-items', 'read');
+
+    // Complex organization filtering
+    if (organization_id) {
+      // Include both global types (null) and organization-specific types
+      const orgCondition = or(
+        isNull(work_item_types.organization_id),
+        eq(work_item_types.organization_id, organization_id)
+      );
+      if (orgCondition) {
+        conditions.push(orgCondition);
+      }
+    } else if (accessScope.scope === 'all' || this.isSuperAdmin()) {
+      // Super admin or 'all' scope: show all work item types (no organization filter)
+    } else if (this.userContext.current_organization_id) {
+      // If no org filter but user has current org, show global + current org types
+      const orgCondition = or(
+        isNull(work_item_types.organization_id),
+        eq(work_item_types.organization_id, this.userContext.current_organization_id)
+      );
+      if (orgCondition) {
+        conditions.push(orgCondition);
+      }
+    } else {
+      // Otherwise, only show global types
+      conditions.push(isNull(work_item_types.organization_id));
+    }
+
+    // is_active filter
+    if (is_active !== undefined) {
+      conditions.push(eq(work_item_types.is_active, is_active));
+    }
+
+    return conditions;
+  }
+
+  // ===========================================================================
+  // Public API Methods - Maintain backward compatibility
+  // ===========================================================================
+
+  /**
+   * Get work item types with filtering (legacy method wrapper)
    */
   async getWorkItemTypes(
     options: WorkItemTypeQueryOptions = {}
   ): Promise<WorkItemTypeWithDetails[]> {
-    const { organization_id, is_active, limit = 50, offset = 0 } = options;
-
-    const queryStart = Date.now();
-
-    try {
-      // Build WHERE conditions
-      const conditions = [isNull(work_item_types.deleted_at)];
-
-      // Check access scope for work-items:read
-      const accessScope = this.getAccessScope('work-items', 'read');
-
-      // Filter by organization_id or include global types
-      if (organization_id) {
-        // Include both global types (null) and organization-specific types
-        const orgCondition = or(
-          isNull(work_item_types.organization_id),
-          eq(work_item_types.organization_id, organization_id)
-        );
-        if (orgCondition) {
-          conditions.push(orgCondition);
-        }
-      } else if (accessScope.scope === 'all' || this.isSuperAdmin()) {
-        // Super admin or 'all' scope: show all work item types (no organization filter)
-        // This allows super admins to see both global and all organization-specific types
-      } else if (this.userContext.current_organization_id) {
-        // If no org filter but user has current org, show global + current org types
-        const orgCondition = or(
-          isNull(work_item_types.organization_id),
-          eq(work_item_types.organization_id, this.userContext.current_organization_id)
-        );
-        if (orgCondition) {
-          conditions.push(orgCondition);
-        }
-      } else {
-        // Otherwise, only show global types
-        conditions.push(isNull(work_item_types.organization_id));
-      }
-
-      if (is_active !== undefined) {
-        conditions.push(eq(work_item_types.is_active, is_active));
-      }
-
-      // Execute query with joins
-      const results = await db
-        .select({
-          work_item_type_id: work_item_types.work_item_type_id,
-          organization_id: work_item_types.organization_id,
-          organization_name: organizations.name,
-          name: work_item_types.name,
-          description: work_item_types.description,
-          icon: work_item_types.icon,
-          color: work_item_types.color,
-          is_active: work_item_types.is_active,
-          created_by: work_item_types.created_by,
-          created_by_first_name: users.first_name,
-          created_by_last_name: users.last_name,
-          created_at: work_item_types.created_at,
-          updated_at: work_item_types.updated_at,
-        })
-        .from(work_item_types)
-        .leftJoin(organizations, eq(work_item_types.organization_id, organizations.organization_id))
-        .leftJoin(users, eq(work_item_types.created_by, users.user_id))
-        .where(and(...conditions))
-        .orderBy(asc(work_item_types.name))
-        .limit(limit)
-        .offset(offset);
-
-      log.info('Work item types retrieved', {
-        count: results.length,
-        duration: Date.now() - queryStart,
-      });
-
-      return results.map((row) => this.mapRowToWorkItemType(row));
-    } catch (error) {
-      log.error('Failed to retrieve work item types', error);
-      throw error;
-    }
+    const result = await this.getList(options);
+    // Sort by name (maintaining original behavior)
+    return result.items.sort((a, b) => a.name.localeCompare(b.name));
   }
 
   /**
-   * Get total count of work item types
+   * Get total count of work item types (legacy method wrapper)
    */
   async getWorkItemTypeCount(options: WorkItemTypeQueryOptions = {}): Promise<number> {
-    const { organization_id, is_active } = options;
-
-    try {
-      const conditions = [isNull(work_item_types.deleted_at)];
-
-      // Check access scope for work-items:read
-      const accessScope = this.getAccessScope('work-items', 'read');
-
-      if (organization_id) {
-        const orgCondition = or(
-          isNull(work_item_types.organization_id),
-          eq(work_item_types.organization_id, organization_id)
-        );
-        if (orgCondition) {
-          conditions.push(orgCondition);
-        }
-      } else if (accessScope.scope === 'all' || this.isSuperAdmin()) {
-        // Super admin or 'all' scope: count all work item types (no organization filter)
-      } else if (this.userContext.current_organization_id) {
-        const orgCondition = or(
-          isNull(work_item_types.organization_id),
-          eq(work_item_types.organization_id, this.userContext.current_organization_id)
-        );
-        if (orgCondition) {
-          conditions.push(orgCondition);
-        }
-      } else {
-        conditions.push(isNull(work_item_types.organization_id));
-      }
-
-      if (is_active !== undefined) {
-        conditions.push(eq(work_item_types.is_active, is_active));
-      }
-
-      const [result] = await db
-        .select({ count: count() })
-        .from(work_item_types)
-        .where(and(...conditions));
-
-      return result?.count || 0;
-    } catch (error) {
-      log.error('Failed to count work item types', error);
-      throw error;
-    }
+    return this.getCount(options);
   }
 
   /**
-   * Get work item type by ID
+   * Get work item type by ID (legacy method wrapper)
    */
   async getWorkItemTypeById(typeId: string): Promise<WorkItemTypeWithDetails | null> {
-    try {
-      const results = await db
-        .select({
-          work_item_type_id: work_item_types.work_item_type_id,
-          organization_id: work_item_types.organization_id,
-          organization_name: organizations.name,
-          name: work_item_types.name,
-          description: work_item_types.description,
-          icon: work_item_types.icon,
-          color: work_item_types.color,
-          is_active: work_item_types.is_active,
-          created_by: work_item_types.created_by,
-          created_by_first_name: users.first_name,
-          created_by_last_name: users.last_name,
-          created_at: work_item_types.created_at,
-          updated_at: work_item_types.updated_at,
-        })
-        .from(work_item_types)
-        .leftJoin(organizations, eq(work_item_types.organization_id, organizations.organization_id))
-        .leftJoin(users, eq(work_item_types.created_by, users.user_id))
-        .where(
-          and(eq(work_item_types.work_item_type_id, typeId), isNull(work_item_types.deleted_at))
-        )
-        .limit(1);
-
-      const row = results[0];
-      if (!row) {
-        return null;
-      }
-
-      return this.mapRowToWorkItemType(row);
-    } catch (error) {
-      log.error('Failed to retrieve work item type', error, { typeId });
-      throw error;
-    }
+    return this.getById(typeId);
   }
 
   /**
    * Create a new work item type
-   * Phase 4: Make work item types user-configurable
+   * Custom implementation required - permission depends on organization_id in input data
    */
-  async createWorkItemType(data: {
-    organization_id: string;
-    name: string;
-    description?: string;
-    icon?: string;
-    color?: string;
-    is_active?: boolean;
-  }): Promise<WorkItemTypeWithDetails> {
+  async createWorkItemType(data: CreateWorkItemTypeData): Promise<WorkItemTypeWithDetails> {
     const startTime = Date.now();
 
     log.info('Work item type creation initiated', {
@@ -270,9 +226,9 @@ export class RBACWorkItemTypesService extends BaseRBACService {
         .values({
           organization_id: data.organization_id,
           name: data.name,
-          description: data.description || null,
-          icon: data.icon || null,
-          color: data.color || null,
+          description: data.description ?? null,
+          icon: data.icon ?? null,
+          color: data.color ?? null,
           is_active: data.is_active ?? true,
           created_by: this.userContext.user_id,
         })
@@ -306,17 +262,11 @@ export class RBACWorkItemTypesService extends BaseRBACService {
 
   /**
    * Update a work item type
-   * Phase 4: Make work item types user-configurable
+   * Custom implementation required - forbids updating global types, permission depends on existing entity's org
    */
   async updateWorkItemType(
     typeId: string,
-    data: {
-      name?: string;
-      description?: string | null;
-      icon?: string | null;
-      color?: string | null;
-      is_active?: boolean;
-    }
+    data: UpdateWorkItemTypeData
   ): Promise<WorkItemTypeWithDetails> {
     const startTime = Date.now();
 
@@ -377,8 +327,7 @@ export class RBACWorkItemTypesService extends BaseRBACService {
 
   /**
    * Delete (soft delete) a work item type
-   * Phase 4: Make work item types user-configurable
-   * Only allowed if no work items exist for this type
+   * Custom implementation required - different permissions for global vs org types, existence check
    */
   async deleteWorkItemType(typeId: string): Promise<void> {
     const startTime = Date.now();
@@ -413,9 +362,7 @@ export class RBACWorkItemTypesService extends BaseRBACService {
     const [workItemCount] = await db
       .select({ count: count() })
       .from(work_items)
-      .where(
-        and(eq(work_items.work_item_type_id, typeId), isNull(work_items.deleted_at))
-      );
+      .where(and(eq(work_items.work_item_type_id, typeId), isNull(work_items.deleted_at)));
 
     if (!workItemCount) {
       throw new DatabaseError('Failed to check work item count', 'read');

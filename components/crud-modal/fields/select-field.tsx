@@ -1,4 +1,4 @@
-import { useId } from 'react';
+import { memo, useId } from 'react';
 import type { FieldErrors, FieldValues, UseFormRegister, UseFormWatch } from 'react-hook-form';
 import type { SelectFieldConfig } from '../types';
 
@@ -10,7 +10,7 @@ interface SelectFieldProps<TFormData extends FieldValues = FieldValues> {
   isSubmitting: boolean;
 }
 
-export default function SelectField<TFormData extends FieldValues = FieldValues>({
+function SelectFieldInner<TFormData extends FieldValues = FieldValues>({
   field,
   register,
   errors,
@@ -67,3 +67,6 @@ export default function SelectField<TFormData extends FieldValues = FieldValues>
     </div>
   );
 }
+
+const SelectField = memo(SelectFieldInner) as typeof SelectFieldInner;
+export default SelectField;

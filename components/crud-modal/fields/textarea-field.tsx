@@ -1,4 +1,4 @@
-import { useId } from 'react';
+import { memo, useId } from 'react';
 import type { FieldErrors, FieldValues, UseFormRegister } from 'react-hook-form';
 import type { TextareaFieldConfig } from '../types';
 
@@ -9,7 +9,7 @@ interface TextareaFieldProps<TFormData extends FieldValues = FieldValues> {
   isSubmitting: boolean;
 }
 
-export default function TextareaField<TFormData extends FieldValues = FieldValues>({
+function TextareaFieldInner<TFormData extends FieldValues = FieldValues>({
   field,
   register,
   errors,
@@ -53,3 +53,6 @@ export default function TextareaField<TFormData extends FieldValues = FieldValue
     </div>
   );
 }
+
+const TextareaField = memo(TextareaFieldInner) as typeof TextareaFieldInner;
+export default TextareaField;

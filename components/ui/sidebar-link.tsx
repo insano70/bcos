@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAppProvider } from '@/app/app-provider';
@@ -7,7 +8,7 @@ interface SidebarLinkProps {
   href: string;
 }
 
-export default function SidebarLink({ children, href }: SidebarLinkProps) {
+function SidebarLinkInner({ children, href }: SidebarLinkProps) {
   const pathname = usePathname();
   const { setSidebarOpen } = useAppProvider();
 
@@ -21,3 +22,6 @@ export default function SidebarLink({ children, href }: SidebarLinkProps) {
     </Link>
   );
 }
+
+const SidebarLink = memo(SidebarLinkInner);
+export default SidebarLink;

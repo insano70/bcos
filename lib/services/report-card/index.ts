@@ -37,5 +37,12 @@ export {
   locationComparison,
 } from './location-comparison';
 
+// Measures module (standalone function for CLI/cron use)
+export { getActiveMeasures } from './measures';
+export { RBACMeasureService, createRBACMeasureService } from './measures';
+
 // Internal types (for use within report-card services)
 export type * from './types';
+
+// Internal modules for testing
+export * as _internal from './internal';

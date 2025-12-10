@@ -1,7 +1,14 @@
-import { and, asc, desc, eq, isNull, like, type SQL, sql } from 'drizzle-orm';
-import { AuthorizationError, NotFoundError } from '@/lib/api/responses/error';
-import { db, staff_members } from '@/lib/db';
+import { and, eq, isNull, like, sql, type SQL } from 'drizzle-orm';
+
+import { db } from '@/lib/db';
+import { staff_members } from '@/lib/db/schema';
+import { DatabaseError, ForbiddenError, NotFoundError } from '@/lib/errors/domain-errors';
 import { calculateChanges, log, logTemplates, SLOW_THRESHOLDS } from '@/lib/logger';
+import {
+  BaseCrudService,
+  type BaseQueryOptions,
+  type CrudServiceConfig,
+} from '@/lib/services/crud';
 import type { UserContext } from '@/lib/types/rbac';
 import { parseEducation, parseSpecialties } from '@/lib/utils/safe-json';
 import { verifyPracticeAccess } from './rbac-practice-utils';
@@ -9,6 +16,8 @@ import { verifyPracticeAccess } from './rbac-practice-utils';
 /**
  * RBAC Staff Members Service
  * Manages practice staff CRUD operations with automatic permission checking
+ *
+ * Migrated to use BaseCrudService infrastructure.
  */
 
 export interface StaffMember {
@@ -16,25 +25,23 @@ export interface StaffMember {
   practice_id: string | null;
   name: string;
   title: string | null;
-  credentials?: string | null;
-  bio?: string | null;
-  photo_url?: string | null;
-  email?: string | null;
-  phone?: string | null;
-  specialties?: unknown;
-  education?: unknown;
-  is_active: boolean | null;
-  display_order: number | null;
-  created_at: Date | null;
-  updated_at: Date | null;
-  deleted_at?: Date | null;
+  credentials: string | null;
+  bio: string | null;
+  photo_url: string | null;
+  email: string | null;
+  phone: string | null;
+  specialties: unknown;
+  education: unknown;
+  is_active: boolean;
+  display_order: number;
+  created_at: Date;
+  updated_at: Date;
 }
 
-export interface StaffFilters {
+export interface StaffQueryOptions extends BaseQueryOptions {
+  practice_id: string;
   is_active?: boolean | undefined;
-  search?: string | undefined;
-  limit?: number | undefined;
-  offset?: number | undefined;
+  // Legacy API compatibility
   sortBy?: string | undefined;
   sortOrder?: 'asc' | 'desc' | undefined;
 }
@@ -50,7 +57,6 @@ export interface CreateStaffData {
   specialties?: unknown;
   education?: unknown;
   is_active?: boolean | undefined;
-  practice_id?: string | undefined;
   display_order?: number | undefined;
 }
 
@@ -68,35 +74,17 @@ export interface UpdateStaffData {
   display_order?: number | undefined;
 }
 
-export interface StaffMembersServiceInterface {
-  getStaffMembers(
-    practiceId: string,
-    filters: StaffFilters
-  ): Promise<{ staff: StaffMember[]; total: number }>;
-  getStaffMember(practiceId: string, staffId: string): Promise<StaffMember>;
-  createStaffMember(practiceId: string, data: CreateStaffData): Promise<StaffMember>;
-  updateStaffMember(
-    practiceId: string,
-    staffId: string,
-    data: UpdateStaffData
-  ): Promise<StaffMember>;
-  deleteStaffMember(practiceId: string, staffId: string): Promise<boolean>;
-  reorderStaff(
-    practiceId: string,
-    staffOrder: { staff_id: string; display_order: number }[]
-  ): Promise<boolean>;
-}
-
-/**
- * Internal Staff Members Service Implementation
- *
- * Uses hybrid pattern: internal class with factory function.
- * Provides full CRUD operations for staff members with automatic RBAC enforcement.
- */
-class StaffMembersService implements StaffMembersServiceInterface {
+export class RBACStaffMembersService extends BaseCrudService<
+  typeof staff_members,
+  StaffMember,
+  CreateStaffData,
+  UpdateStaffData,
+  StaffQueryOptions
+> {
   private readonly canManageStaff: boolean;
 
-  constructor(private readonly userContext: UserContext) {
+  constructor(userContext: UserContext) {
+    super(userContext);
     // Cache permission check once in constructor
     this.canManageStaff =
       userContext.is_super_admin ||
@@ -106,266 +94,288 @@ class StaffMembersService implements StaffMembersServiceInterface {
       false;
   }
 
-  /**
-   * Build where conditions for staff queries
-   * @param practiceId - Practice ID to filter by
-   * @param filters - Additional filters
-   * @returns Array of SQL where conditions
-   */
-  private buildStaffWhereConditions(practiceId: string, filters: StaffFilters): SQL[] {
-    const conditions: SQL[] = [
-      eq(staff_members.practice_id, practiceId),
-      isNull(staff_members.deleted_at),
-    ];
+  protected config: CrudServiceConfig<
+    typeof staff_members,
+    StaffMember,
+    CreateStaffData,
+    UpdateStaffData,
+    StaffQueryOptions
+  > = {
+    table: staff_members,
+    resourceName: 'staff-members',
+    displayName: 'staff member',
+    primaryKeyName: 'staff_id',
+    deletedAtColumnName: 'deleted_at',
+    updatedAtColumnName: 'updated_at',
+    permissions: {
+      // Read permission handled by verifyPracticeAccess (practice owner or super admin)
+      // We set a placeholder here since BaseCrudService requires it
+      read: 'practices:read:own',
+      // Create/update/delete handled by custom methods with canManageStaff check
+    },
+    transformers: {
+      toEntity: (row: Record<string, unknown>): StaffMember => ({
+        staff_id: row.staff_id as string,
+        practice_id: row.practice_id as string | null,
+        name: row.name as string,
+        title: row.title as string | null,
+        credentials: row.credentials as string | null,
+        bio: row.bio as string | null,
+        photo_url: row.photo_url as string | null,
+        email: row.email as string | null,
+        phone: row.phone as string | null,
+        specialties: parseSpecialties(row.specialties as string | null),
+        education: parseEducation(row.education as string | null),
+        is_active: (row.is_active as boolean) ?? true,
+        display_order: (row.display_order as number) ?? 0,
+        created_at: (row.created_at as Date) ?? new Date(),
+        updated_at: (row.updated_at as Date) ?? new Date(),
+      }),
+    },
+  };
 
-    if (filters.is_active !== undefined) {
-      conditions.push(eq(staff_members.is_active, filters.is_active));
+  /**
+   * Build custom conditions for practice_id and is_active filtering
+   */
+  protected buildCustomConditions(options: StaffQueryOptions): SQL[] {
+    const conditions: SQL[] = [];
+
+    // Always filter by practice_id (required)
+    conditions.push(eq(staff_members.practice_id, options.practice_id));
+
+    if (options.is_active !== undefined) {
+      conditions.push(eq(staff_members.is_active, options.is_active));
     }
 
-    if (filters.search) {
-      conditions.push(like(staff_members.name, `%${filters.search}%`));
+    if (options.search) {
+      conditions.push(like(staff_members.name, `%${options.search}%`));
     }
 
     return conditions;
   }
 
   /**
-   * Parse JSON fields in staff member
-   * @param member - Raw staff member from database
-   * @returns Staff member with parsed JSON fields
+   * Validate parent practice access before listing staff
    */
-  private parseStaffMemberJSON(member: typeof staff_members.$inferSelect): StaffMember {
-    return {
-      ...member,
-      specialties: parseSpecialties(member.specialties),
-      education: parseEducation(member.education),
-    };
+  protected async validateParentAccess(options: StaffQueryOptions): Promise<void> {
+    await verifyPracticeAccess(options.practice_id, this.userContext);
   }
 
+  // ===========================================================================
+  // Public API Methods - Maintain backward compatibility
+  // ===========================================================================
+
+  /**
+   * Get staff members for a practice with filtering and pagination
+   */
   async getStaffMembers(
     practiceId: string,
-    filters: StaffFilters
+    options: Omit<StaffQueryOptions, 'practice_id'> = {}
   ): Promise<{ staff: StaffMember[]; total: number }> {
     const startTime = Date.now();
 
-    try {
-      // Verify practice access
-      await verifyPracticeAccess(practiceId, this.userContext);
+    // Verify practice access
+    await verifyPracticeAccess(practiceId, this.userContext);
 
-      // Build where conditions
-      const whereConditions = this.buildStaffWhereConditions(practiceId, filters);
+    // Get total count
+    const countStart = Date.now();
+    const total = await this.getCount({ ...options, practice_id: practiceId });
+    const countDuration = Date.now() - countStart;
 
-      // Get total count with performance tracking
-      const countStart = Date.now();
-      const [countResult] = await db
-        .select({ count: sql<number>`count(*)` })
-        .from(staff_members)
-        .where(and(...whereConditions));
-      const countDuration = Date.now() - countStart;
+    // Get paginated data
+    const queryStart = Date.now();
+    const result = await this.getList({
+      ...options,
+      practice_id: practiceId,
+      limit: options.limit ?? 100,
+      offset: options.offset ?? 0,
+    });
+    const queryDuration = Date.now() - queryStart;
 
-      // Get paginated data with performance tracking
-      const orderByColumn =
-        filters.sortBy === 'name'
-          ? staff_members.name
-          : filters.sortBy === 'title'
-            ? staff_members.title
-            : filters.sortBy === 'created_at'
-              ? staff_members.created_at
-              : staff_members.display_order;
+    // Apply custom ordering: sortBy field or display_order
+    const sortBy = options.sortBy || 'display_order';
+    const sortOrder = options.sortOrder || 'asc';
 
-      const queryStart = Date.now();
-      const staff = await db
-        .select()
-        .from(staff_members)
-        .where(and(...whereConditions))
-        .orderBy(filters.sortOrder === 'desc' ? desc(orderByColumn) : asc(orderByColumn))
-        .limit(filters.limit || 100)
-        .offset(filters.offset || 0);
-      const queryDuration = Date.now() - queryStart;
+    const sortedStaff = result.items.sort((a, b) => {
+      let aVal: string | number | Date;
+      let bVal: string | number | Date;
 
-      // Parse JSON fields
-      const parsedStaff = staff.map((member) => this.parseStaffMemberJSON(member));
+      switch (sortBy) {
+        case 'name':
+          aVal = a.name;
+          bVal = b.name;
+          break;
+        case 'title':
+          aVal = a.title || '';
+          bVal = b.title || '';
+          break;
+        case 'created_at':
+          aVal = a.created_at;
+          bVal = b.created_at;
+          break;
+        default:
+          aVal = a.display_order;
+          bVal = b.display_order;
+      }
 
-      const duration = Date.now() - startTime;
-      const total = Number(countResult?.count || 0);
+      if (aVal < bVal) return sortOrder === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
 
-      // Use logTemplates for structured logging
-      const template = logTemplates.crud.list('staff_members', {
-        userId: this.userContext.user_id,
-        filters: {
-          is_active: filters.is_active,
-          search: filters.search,
-          limit: filters.limit,
-          offset: filters.offset,
-        },
-        results: {
-          returned: staff.length,
-          total,
-          page: Math.floor((filters.offset || 0) / (filters.limit || 100)) + 1,
-        },
-        duration,
-        metadata: {
-          practiceId,
-          countDuration,
-          queryDuration,
-          slowCount: countDuration > SLOW_THRESHOLDS.DB_QUERY,
-          slowQuery: queryDuration > SLOW_THRESHOLDS.DB_QUERY,
-        },
-      });
+    const duration = Date.now() - startTime;
 
-      log.info(template.message, template.context);
-
-      return { staff: parsedStaff, total };
-    } catch (error) {
-      log.error('list staff members failed', error, {
-        operation: 'list_staff_members',
+    // Use logTemplates for structured logging
+    const template = logTemplates.crud.list('staff_members', {
+      userId: this.userContext.user_id,
+      filters: {
+        is_active: options.is_active,
+        search: options.search,
+        limit: options.limit,
+        offset: options.offset,
+      },
+      results: {
+        returned: sortedStaff.length,
+        total,
+        page: Math.floor((options.offset || 0) / (options.limit || 100)) + 1,
+      },
+      duration,
+      metadata: {
         practiceId,
-        userId: this.userContext.user_id,
-        duration: Date.now() - startTime,
-        component: 'service',
-      });
-      throw error;
-    }
+        countDuration,
+        queryDuration,
+        slowCount: countDuration > SLOW_THRESHOLDS.DB_QUERY,
+        slowQuery: queryDuration > SLOW_THRESHOLDS.DB_QUERY,
+      },
+    });
+
+    log.info(template.message, template.context);
+
+    return { staff: sortedStaff, total };
   }
 
+  /**
+   * Get single staff member by ID
+   */
   async getStaffMember(practiceId: string, staffId: string): Promise<StaffMember> {
     const startTime = Date.now();
 
-    try {
-      // Verify practice access
-      await verifyPracticeAccess(practiceId, this.userContext);
+    // Verify practice access
+    await verifyPracticeAccess(practiceId, this.userContext);
 
-      // Get staff member with performance tracking
-      const queryStart = Date.now();
-      const [member] = await db
-        .select()
-        .from(staff_members)
-        .where(
-          and(
-            eq(staff_members.staff_id, staffId),
-            eq(staff_members.practice_id, practiceId),
-            isNull(staff_members.deleted_at)
-          )
-        )
-        .limit(1);
-      const queryDuration = Date.now() - queryStart;
+    // Get staff member
+    const queryStart = Date.now();
+    const member = await this.getById(staffId);
+    const queryDuration = Date.now() - queryStart;
 
-      if (!member) {
-        throw NotFoundError('Staff member');
-      }
-
-      const parsedMember = this.parseStaffMemberJSON(member);
-      const duration = Date.now() - startTime;
-
-      // Use logTemplates for structured logging
-      const template = logTemplates.crud.read('staff_member', {
-        resourceId: staffId,
-        resourceName: member.name,
-        userId: this.userContext.user_id,
-        found: true,
-        duration,
-        metadata: {
-          practiceId,
-          queryDuration,
-          slow: queryDuration > SLOW_THRESHOLDS.DB_QUERY,
-        },
-      });
-
-      log.info(template.message, template.context);
-
-      return parsedMember;
-    } catch (error) {
-      log.error('get staff member failed', error, {
-        operation: 'get_staff_member',
-        practiceId,
-        staffId,
-        userId: this.userContext.user_id,
-        duration: Date.now() - startTime,
-        component: 'service',
-      });
-      throw error;
+    if (!member) {
+      throw new NotFoundError('Staff member', staffId);
     }
+
+    // Verify staff belongs to this practice
+    if (member.practice_id !== practiceId) {
+      throw new NotFoundError('Staff member', staffId);
+    }
+
+    const duration = Date.now() - startTime;
+
+    // Use logTemplates for structured logging
+    const template = logTemplates.crud.read('staff_member', {
+      resourceId: staffId,
+      resourceName: member.name,
+      userId: this.userContext.user_id,
+      found: true,
+      duration,
+      metadata: {
+        practiceId,
+        queryDuration,
+        slow: queryDuration > SLOW_THRESHOLDS.DB_QUERY,
+      },
+    });
+
+    log.info(template.message, template.context);
+
+    return member;
   }
 
+  /**
+   * Create new staff member
+   * Custom implementation for auto display_order and JSON stringify
+   */
   async createStaffMember(practiceId: string, data: CreateStaffData): Promise<StaffMember> {
     const startTime = Date.now();
 
-    try {
-      // Check permission
-      if (!this.canManageStaff) {
-        throw AuthorizationError('You do not have permission to manage staff');
-      }
-
-      // Verify practice access
-      await verifyPracticeAccess(practiceId, this.userContext);
-
-      // Get max display_order for this practice with performance tracking
-      const maxOrderStart = Date.now();
-      const [maxOrder] = await db
-        .select({ maxOrder: sql<number>`COALESCE(MAX(${staff_members.display_order}), 0)` })
-        .from(staff_members)
-        .where(eq(staff_members.practice_id, practiceId));
-      const maxOrderDuration = Date.now() - maxOrderStart;
-
-      // Prepare data for insert
-      const insertData = {
-        practice_id: practiceId,
-        name: data.name,
-        title: data.title,
-        credentials: data.credentials,
-        bio: data.bio || null,
-        photo_url: data.photo_url || null,
-        email: data.email || null,
-        phone: data.phone || null,
-        specialties: data.specialties ? JSON.stringify(data.specialties) : null,
-        education: data.education ? JSON.stringify(data.education) : null,
-        is_active: data.is_active !== undefined ? data.is_active : true,
-        display_order: (Number(maxOrder?.maxOrder) || 0) + 1,
-      };
-
-      // Create staff member with performance tracking
-      const insertStart = Date.now();
-      const [newMember] = await db.insert(staff_members).values(insertData).returning();
-      const insertDuration = Date.now() - insertStart;
-
-      if (!newMember) {
-        throw new Error('Failed to create staff member');
-      }
-
-      const parsedMember = this.parseStaffMemberJSON(newMember);
-      const duration = Date.now() - startTime;
-
-      // Use logTemplates for structured logging
-      const template = logTemplates.crud.create('staff_member', {
-        resourceId: newMember.staff_id,
-        resourceName: newMember.name,
-        userId: this.userContext.user_id,
-        organizationId: practiceId,
-        duration,
-        metadata: {
-          maxOrderDuration,
-          insertDuration,
-          slowMaxOrder: maxOrderDuration > SLOW_THRESHOLDS.DB_QUERY,
-          slowInsert: insertDuration > SLOW_THRESHOLDS.DB_QUERY,
-          displayOrder: insertData.display_order,
-        },
-      });
-
-      log.info(template.message, template.context);
-
-      return parsedMember;
-    } catch (error) {
-      log.error('create staff member failed', error, {
-        operation: 'create_staff_member',
-        practiceId,
-        userId: this.userContext.user_id,
-        duration: Date.now() - startTime,
-        component: 'service',
-      });
-      throw error;
+    // Check permission
+    if (!this.canManageStaff) {
+      throw new ForbiddenError('You do not have permission to manage staff');
     }
+
+    // Verify practice access
+    await verifyPracticeAccess(practiceId, this.userContext);
+
+    // Get max display_order for this practice
+    const maxOrderStart = Date.now();
+    const [maxOrder] = await db
+      .select({ maxOrder: sql<number>`COALESCE(MAX(${staff_members.display_order}), 0)` })
+      .from(staff_members)
+      .where(eq(staff_members.practice_id, practiceId));
+    const maxOrderDuration = Date.now() - maxOrderStart;
+
+    // Prepare data for insert
+    const insertData = {
+      practice_id: practiceId,
+      name: data.name,
+      title: data.title ?? null,
+      credentials: data.credentials ?? null,
+      bio: data.bio ?? null,
+      photo_url: data.photo_url ?? null,
+      email: data.email ?? null,
+      phone: data.phone ?? null,
+      specialties: data.specialties ? JSON.stringify(data.specialties) : null,
+      education: data.education ? JSON.stringify(data.education) : null,
+      is_active: data.is_active ?? true,
+      display_order: data.display_order ?? (Number(maxOrder?.maxOrder) || 0) + 1,
+    };
+
+    // Create staff member
+    const insertStart = Date.now();
+    const [newMember] = await db.insert(staff_members).values(insertData).returning();
+    const insertDuration = Date.now() - insertStart;
+
+    if (!newMember) {
+      throw new DatabaseError('Failed to create staff member', 'write');
+    }
+
+    const duration = Date.now() - startTime;
+
+    // Use logTemplates for structured logging
+    const template = logTemplates.crud.create('staff_member', {
+      resourceId: newMember.staff_id,
+      resourceName: newMember.name,
+      userId: this.userContext.user_id,
+      organizationId: practiceId,
+      duration,
+      metadata: {
+        maxOrderDuration,
+        insertDuration,
+        slowMaxOrder: maxOrderDuration > SLOW_THRESHOLDS.DB_QUERY,
+        slowInsert: insertDuration > SLOW_THRESHOLDS.DB_QUERY,
+        displayOrder: insertData.display_order,
+      },
+    });
+
+    log.info(template.message, template.context);
+
+    // Return with parsed JSON fields
+    return this.config.transformers?.toEntity?.(
+      newMember as unknown as Record<string, unknown>
+    ) as StaffMember;
   }
 
+  /**
+   * Update staff member
+   * Custom implementation for JSON stringify
+   */
   async updateStaffMember(
     practiceId: string,
     staffId: string,
@@ -373,260 +383,213 @@ class StaffMembersService implements StaffMembersServiceInterface {
   ): Promise<StaffMember> {
     const startTime = Date.now();
 
-    try {
-      // Check permission
-      if (!this.canManageStaff) {
-        throw AuthorizationError('You do not have permission to manage staff');
-      }
-
-      // Verify practice access
-      await verifyPracticeAccess(practiceId, this.userContext);
-
-      // Verify staff member exists and belongs to practice
-      const [existing] = await db
-        .select()
-        .from(staff_members)
-        .where(
-          and(
-            eq(staff_members.staff_id, staffId),
-            eq(staff_members.practice_id, practiceId),
-            isNull(staff_members.deleted_at)
-          )
-        )
-        .limit(1);
-
-      if (!existing) {
-        throw NotFoundError('Staff member');
-      }
-
-      // Prepare update data
-      const updateData = {
-        ...data,
-        specialties: data.specialties ? JSON.stringify(data.specialties) : undefined,
-        education: data.education ? JSON.stringify(data.education) : undefined,
-        updated_at: new Date(),
-      };
-
-      // Calculate changes for audit logging (track only fields in update data)
-      const changes = calculateChanges(
-        existing as Record<string, unknown>,
-        updateData as Record<string, unknown>,
-        Object.keys(data) as (keyof typeof existing)[]
-      );
-
-      // Update staff member with performance tracking
-      const updateStart = Date.now();
-      const [updated] = await db
-        .update(staff_members)
-        .set(updateData)
-        .where(and(eq(staff_members.staff_id, staffId), eq(staff_members.practice_id, practiceId)))
-        .returning();
-      const updateDuration = Date.now() - updateStart;
-
-      if (!updated) {
-        throw new Error('Failed to update staff member');
-      }
-
-      const parsedMember = this.parseStaffMemberJSON(updated);
-      const duration = Date.now() - startTime;
-
-      // Use logTemplates for structured logging with change tracking
-      const template = logTemplates.crud.update('staff_member', {
-        resourceId: staffId,
-        resourceName: updated.name,
-        userId: this.userContext.user_id,
-        changes,
-        duration,
-        metadata: {
-          practiceId,
-          updateDuration,
-          slow: updateDuration > SLOW_THRESHOLDS.DB_QUERY,
-          fieldsChanged: Object.keys(changes).length,
-        },
-      });
-
-      log.info(template.message, template.context);
-
-      return parsedMember;
-    } catch (error) {
-      log.error('update staff member failed', error, {
-        operation: 'update_staff_member',
-        practiceId,
-        staffId,
-        userId: this.userContext.user_id,
-        duration: Date.now() - startTime,
-        component: 'service',
-      });
-      throw error;
+    // Check permission
+    if (!this.canManageStaff) {
+      throw new ForbiddenError('You do not have permission to manage staff');
     }
+
+    // Verify practice access
+    await verifyPracticeAccess(practiceId, this.userContext);
+
+    // Verify staff member exists and belongs to practice
+    const [existing] = await db
+      .select()
+      .from(staff_members)
+      .where(
+        and(
+          eq(staff_members.staff_id, staffId),
+          eq(staff_members.practice_id, practiceId),
+          isNull(staff_members.deleted_at)
+        )
+      )
+      .limit(1);
+
+    if (!existing) {
+      throw new NotFoundError('Staff member', staffId);
+    }
+
+    // Prepare update data
+    const updateData = {
+      ...(data.name !== undefined && { name: data.name }),
+      ...(data.title !== undefined && { title: data.title }),
+      ...(data.credentials !== undefined && { credentials: data.credentials }),
+      ...(data.bio !== undefined && { bio: data.bio }),
+      ...(data.photo_url !== undefined && { photo_url: data.photo_url }),
+      ...(data.email !== undefined && { email: data.email }),
+      ...(data.phone !== undefined && { phone: data.phone }),
+      ...(data.specialties !== undefined && { specialties: JSON.stringify(data.specialties) }),
+      ...(data.education !== undefined && { education: JSON.stringify(data.education) }),
+      ...(data.is_active !== undefined && { is_active: data.is_active }),
+      ...(data.display_order !== undefined && { display_order: data.display_order }),
+      updated_at: new Date(),
+    };
+
+    // Calculate changes for audit logging
+    const changes = calculateChanges(
+      existing as unknown as Record<string, unknown>,
+      data as unknown as Record<string, unknown>,
+      Object.keys(data)
+    );
+
+    // Update staff member
+    const updateStart = Date.now();
+    const [updated] = await db
+      .update(staff_members)
+      .set(updateData)
+      .where(and(eq(staff_members.staff_id, staffId), eq(staff_members.practice_id, practiceId)))
+      .returning();
+    const updateDuration = Date.now() - updateStart;
+
+    if (!updated) {
+      throw new DatabaseError('Failed to update staff member', 'write');
+    }
+
+    const duration = Date.now() - startTime;
+
+    // Use logTemplates for structured logging with change tracking
+    const template = logTemplates.crud.update('staff_member', {
+      resourceId: staffId,
+      resourceName: updated.name,
+      userId: this.userContext.user_id,
+      changes,
+      duration,
+      metadata: {
+        practiceId,
+        updateDuration,
+        slow: updateDuration > SLOW_THRESHOLDS.DB_QUERY,
+        fieldsChanged: Object.keys(changes).length,
+      },
+    });
+
+    log.info(template.message, template.context);
+
+    // Return with parsed JSON fields
+    return this.config.transformers?.toEntity?.(
+      updated as unknown as Record<string, unknown>
+    ) as StaffMember;
   }
 
+  /**
+   * Delete staff member (soft delete)
+   */
   async deleteStaffMember(practiceId: string, staffId: string): Promise<boolean> {
     const startTime = Date.now();
 
-    try {
-      // Check permission
-      if (!this.canManageStaff) {
-        throw AuthorizationError('You do not have permission to manage staff');
-      }
-
-      // Verify practice access
-      await verifyPracticeAccess(practiceId, this.userContext);
-
-      // Verify staff member exists
-      const [existing] = await db
-        .select()
-        .from(staff_members)
-        .where(
-          and(
-            eq(staff_members.staff_id, staffId),
-            eq(staff_members.practice_id, practiceId),
-            isNull(staff_members.deleted_at)
-          )
-        )
-        .limit(1);
-
-      if (!existing) {
-        throw NotFoundError('Staff member');
-      }
-
-      // Soft delete with performance tracking
-      const deleteStart = Date.now();
-      await db
-        .update(staff_members)
-        .set({
-          deleted_at: new Date(),
-          updated_at: new Date(),
-        })
-        .where(and(eq(staff_members.staff_id, staffId), eq(staff_members.practice_id, practiceId)));
-      const deleteDuration = Date.now() - deleteStart;
-
-      const duration = Date.now() - startTime;
-
-      // Use logTemplates for structured logging
-      const template = logTemplates.crud.delete('staff_member', {
-        resourceId: staffId,
-        resourceName: existing.name,
-        userId: this.userContext.user_id,
-        soft: true,
-        duration,
-        metadata: {
-          practiceId,
-          deleteDuration,
-          slow: deleteDuration > SLOW_THRESHOLDS.DB_QUERY,
-        },
-      });
-
-      log.info(template.message, template.context);
-
-      return true;
-    } catch (error) {
-      log.error('delete staff member failed', error, {
-        operation: 'delete_staff_member',
-        practiceId,
-        staffId,
-        userId: this.userContext.user_id,
-        duration: Date.now() - startTime,
-        component: 'service',
-      });
-      throw error;
+    // Check permission
+    if (!this.canManageStaff) {
+      throw new ForbiddenError('You do not have permission to manage staff');
     }
+
+    // Verify practice access
+    await verifyPracticeAccess(practiceId, this.userContext);
+
+    // Verify staff member exists
+    const [existing] = await db
+      .select()
+      .from(staff_members)
+      .where(
+        and(
+          eq(staff_members.staff_id, staffId),
+          eq(staff_members.practice_id, practiceId),
+          isNull(staff_members.deleted_at)
+        )
+      )
+      .limit(1);
+
+    if (!existing) {
+      throw new NotFoundError('Staff member', staffId);
+    }
+
+    // Soft delete
+    const deleteStart = Date.now();
+    await db
+      .update(staff_members)
+      .set({
+        deleted_at: new Date(),
+        updated_at: new Date(),
+      })
+      .where(and(eq(staff_members.staff_id, staffId), eq(staff_members.practice_id, practiceId)));
+    const deleteDuration = Date.now() - deleteStart;
+
+    const duration = Date.now() - startTime;
+
+    // Use logTemplates for structured logging
+    const template = logTemplates.crud.delete('staff_member', {
+      resourceId: staffId,
+      resourceName: existing.name,
+      userId: this.userContext.user_id,
+      soft: true,
+      duration,
+      metadata: {
+        practiceId,
+        deleteDuration,
+        slow: deleteDuration > SLOW_THRESHOLDS.DB_QUERY,
+      },
+    });
+
+    log.info(template.message, template.context);
+
+    return true;
   }
 
+  /**
+   * Bulk reorder staff members
+   * Custom method - not part of standard CRUD
+   */
   async reorderStaff(
     practiceId: string,
     staffOrder: { staff_id: string; display_order: number }[]
   ): Promise<boolean> {
     const startTime = Date.now();
 
-    try {
-      // Check permission
-      if (!this.canManageStaff) {
-        throw AuthorizationError('You do not have permission to manage staff');
-      }
-
-      // Verify practice access
-      await verifyPracticeAccess(practiceId, this.userContext);
-
-      // Update each staff member's display_order in a transaction
-      const txStart = Date.now();
-      await db.transaction(async (tx) => {
-        for (const item of staffOrder) {
-          await tx
-            .update(staff_members)
-            .set({
-              display_order: item.display_order,
-              updated_at: new Date(),
-            })
-            .where(
-              and(
-                eq(staff_members.staff_id, item.staff_id),
-                eq(staff_members.practice_id, practiceId)
-              )
-            );
-        }
-      });
-      const txDuration = Date.now() - txStart;
-
-      const duration = Date.now() - startTime;
-
-      // Log reorder operation
-      log.info('staff reordered successfully', {
-        operation: 'reorder_staff',
-        practiceId,
-        userId: this.userContext.user_id,
-        staffCount: staffOrder.length,
-        duration,
-        component: 'service',
-        metadata: {
-          txDuration,
-          slow: txDuration > SLOW_THRESHOLDS.DB_QUERY,
-        },
-      });
-
-      return true;
-    } catch (error) {
-      log.error('reorder staff failed', error, {
-        operation: 'reorder_staff',
-        practiceId,
-        userId: this.userContext.user_id,
-        duration: Date.now() - startTime,
-        component: 'service',
-      });
-      throw error;
+    // Check permission
+    if (!this.canManageStaff) {
+      throw new ForbiddenError('You do not have permission to manage staff');
     }
+
+    // Verify practice access
+    await verifyPracticeAccess(practiceId, this.userContext);
+
+    // Update each staff member's display_order in a transaction
+    const txStart = Date.now();
+    await db.transaction(async (tx) => {
+      for (const item of staffOrder) {
+        await tx
+          .update(staff_members)
+          .set({
+            display_order: item.display_order,
+            updated_at: new Date(),
+          })
+          .where(
+            and(eq(staff_members.staff_id, item.staff_id), eq(staff_members.practice_id, practiceId))
+          );
+      }
+    });
+    const txDuration = Date.now() - txStart;
+
+    const duration = Date.now() - startTime;
+
+    // Log reorder operation
+    log.info('staff reordered successfully', {
+      operation: 'reorder_staff',
+      practiceId,
+      userId: this.userContext.user_id,
+      staffCount: staffOrder.length,
+      duration,
+      component: 'service',
+      metadata: {
+        txDuration,
+        slow: txDuration > SLOW_THRESHOLDS.DB_QUERY,
+      },
+    });
+
+    return true;
   }
 }
 
 /**
- * Create an RBAC-enabled staff members service instance
- *
- * Handles all staff member operations with automatic permission enforcement.
- * Provides full CRUD operations plus bulk reordering with pagination, filtering, and sorting.
- *
- * @param userContext - The authenticated user context with permissions
- * @returns Service interface with all staff management methods
- *
- * @example
- * ```typescript
- * const staffService = createRBACStaffMembersService(userContext);
- * const { staff, total } = await staffService.getStaffMembers(practiceId, { limit: 10 });
- * const newStaff = await staffService.createStaffMember(practiceId, staffData);
- * ```
- *
- * Permissions required:
- * - Read: Automatic (practice owner or super admin)
- * - Create/Update/Delete/Reorder: practices:staff:manage:own or practices:manage:all
- *
- * Features:
- * - Automatic display_order calculation on create
- * - JSON parsing for specialties and education fields
- * - Soft delete support
- * - Transaction-based bulk reordering
- * - Pagination and filtering support
+ * Factory function to create RBACStaffMembersService
  */
-export function createRBACStaffMembersService(
-  userContext: UserContext
-): StaffMembersServiceInterface {
-  return new StaffMembersService(userContext);
+export function createRBACStaffMembersService(userContext: UserContext): RBACStaffMembersService {
+  return new RBACStaffMembersService(userContext);
 }

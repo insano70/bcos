@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import DeleteConfirmationModal from './delete-confirmation-modal';
 import { clientErrorLog } from '@/lib/utils/debug-client';
 import type { DataTableDropdownAction } from './data-table/types';
@@ -10,7 +10,7 @@ interface DataTableDropdownProps<T> {
   actions: DataTableDropdownAction<T>[];
 }
 
-export default function DataTableDropdown<T>({ item, actions }: DataTableDropdownProps<T>) {
+function DataTableDropdownInner<T>({ item, actions }: DataTableDropdownProps<T>) {
   const [isOpen, setIsOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
@@ -186,3 +186,58 @@ export default function DataTableDropdown<T>({ item, actions }: DataTableDropdow
     </div>
   );
 }
+
+/**
+ * Custom comparator for DataTableDropdown memo.
+ * Compares actions by structure (label, variant, icon presence) rather than reference,
+ * since callbacks are often recreated on each parent render.
+ */
+function arePropsEqual<T>(
+  prevProps: DataTableDropdownProps<T>,
+  nextProps: DataTableDropdownProps<T>
+): boolean {
+  // Item changed - need to re-render
+  if (prevProps.item !== nextProps.item) {
+    return false;
+  }
+
+  // Actions array length changed
+  if (prevProps.actions.length !== nextProps.actions.length) {
+    return false;
+  }
+
+  // Compare each action's structural properties (not function references)
+  for (let i = 0; i < prevProps.actions.length; i++) {
+    const prevAction = prevProps.actions[i];
+    const nextAction = nextProps.actions[i];
+
+    if (!prevAction || !nextAction) {
+      return false;
+    }
+
+    // Compare static label (string labels only - function labels need re-render)
+    if (typeof prevAction.label === 'string' && typeof nextAction.label === 'string') {
+      if (prevAction.label !== nextAction.label) {
+        return false;
+      }
+    } else if (prevAction.label !== nextAction.label) {
+      // Function labels - compare reference (usually stable)
+      return false;
+    }
+
+    // Compare variant
+    if (prevAction.variant !== nextAction.variant) {
+      return false;
+    }
+
+    // Compare icon presence (not content, as icons are usually stable)
+    if (Boolean(prevAction.icon) !== Boolean(nextAction.icon)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+const DataTableDropdown = memo(DataTableDropdownInner, arePropsEqual) as typeof DataTableDropdownInner;
+export default DataTableDropdown;

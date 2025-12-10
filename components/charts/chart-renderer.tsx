@@ -13,6 +13,7 @@
  * - Type-safe dispatch with TypeScript
  */
 
+import { memo } from 'react';
 import type { Chart, ChartEvent, ActiveElement } from 'chart.js';
 import type { ChartData, DualAxisConfig } from '@/lib/types/analytics';
 import AnalyticsBarChart from './analytics-bar-chart';
@@ -165,7 +166,7 @@ const CHART_COMPONENTS = {
  * />
  * ```
  */
-export default function ChartRenderer({
+function ChartRendererInner({
   chartType,
   data,
   rawData,
@@ -340,3 +341,6 @@ export default function ChartRenderer({
 
   return <Component {...chartProps} />;
 }
+
+const ChartRenderer = memo(ChartRendererInner);
+export default ChartRenderer;

@@ -1,4 +1,4 @@
-import { useId } from 'react';
+import { memo, useId } from 'react';
 import type { FieldErrors, FieldValues, UseFormRegister } from 'react-hook-form';
 import type { TextFieldConfig } from '../types';
 
@@ -9,7 +9,7 @@ interface TextFieldProps<TFormData extends FieldValues = FieldValues> {
   isSubmitting: boolean;
 }
 
-export default function TextField<TFormData extends FieldValues = FieldValues>({
+function TextFieldInner<TFormData extends FieldValues = FieldValues>({
   field,
   register,
   errors,
@@ -54,3 +54,6 @@ export default function TextField<TFormData extends FieldValues = FieldValues>({
     </div>
   );
 }
+
+const TextField = memo(TextFieldInner) as typeof TextFieldInner;
+export default TextField;

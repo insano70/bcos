@@ -1,16 +1,24 @@
-import { and, desc, eq, isNull } from 'drizzle-orm';
+import { and, eq, isNull, type SQL } from 'drizzle-orm';
+
 import { db } from '@/lib/db';
 import { users, work_item_activity, work_items } from '@/lib/db/schema';
 import { DatabaseError } from '@/lib/errors/domain-errors';
 import { PermissionDeniedError } from '@/lib/errors/rbac-errors';
 import { log } from '@/lib/logger';
-import { BaseRBACService } from '@/lib/rbac/base-service';
+import {
+  BaseCrudService,
+  type BaseQueryOptions,
+  type CrudServiceConfig,
+  type JoinQueryConfig,
+} from '@/lib/services/crud';
 import type { UserContext } from '@/lib/types/rbac';
 import { formatUserNameWithFallback } from '@/lib/utils/user-formatters';
 
 /**
  * Work Item Activity Service with RBAC
  * Phase 2: Manages activity/audit log for work items
+ *
+ * Migrated to use BaseCrudService infrastructure with JOIN support.
  */
 
 export interface CreateWorkItemActivityData {
@@ -22,11 +30,9 @@ export interface CreateWorkItemActivityData {
   description?: string | null | undefined;
 }
 
-export interface WorkItemActivityQueryOptions {
+export interface WorkItemActivityQueryOptions extends BaseQueryOptions {
   work_item_id: string;
   activity_type?: string | undefined;
-  limit?: number | undefined;
-  offset?: number | undefined;
 }
 
 export interface WorkItemActivityWithDetails {
@@ -42,34 +48,66 @@ export interface WorkItemActivityWithDetails {
   created_at: Date;
 }
 
-export class RBACWorkItemActivityService extends BaseRBACService {
+// Dummy update type since this service is read+create only
+type UpdateWorkItemActivityData = Record<string, never>;
+
+export class RBACWorkItemActivityService extends BaseCrudService<
+  typeof work_item_activity,
+  WorkItemActivityWithDetails,
+  CreateWorkItemActivityData,
+  UpdateWorkItemActivityData,
+  WorkItemActivityQueryOptions
+> {
+  protected config: CrudServiceConfig<
+    typeof work_item_activity,
+    WorkItemActivityWithDetails,
+    CreateWorkItemActivityData,
+    UpdateWorkItemActivityData,
+    WorkItemActivityQueryOptions
+  > = {
+    table: work_item_activity,
+    resourceName: 'work-item-activity',
+    displayName: 'work item activity',
+    primaryKeyName: 'work_item_activity_id',
+    // No deletedAtColumnName - activity log is permanent
+    permissions: {
+      read: ['work-items:read:own', 'work-items:read:organization', 'work-items:read:all'],
+      create: ['work-items:update:own', 'work-items:update:organization', 'work-items:update:all'],
+    },
+    transformers: {
+      toEntity: (row: Record<string, unknown>): WorkItemActivityWithDetails => ({
+        work_item_activity_id: row.work_item_activity_id as string,
+        work_item_id: row.work_item_id as string,
+        user_id: row.created_by as string,
+        user_name: formatUserNameWithFallback(
+          row.created_by_first_name as string | null,
+          row.created_by_last_name as string | null
+        ),
+        activity_type: row.activity_type as string,
+        field_name: row.field_name as string | null,
+        old_value: row.old_value as string | null,
+        new_value: row.new_value as string | null,
+        description: row.description as string | null,
+        created_at: (row.created_at as Date) || new Date(),
+      }),
+      toCreateValues: (data, ctx) => ({
+        work_item_id: data.work_item_id,
+        activity_type: data.activity_type,
+        field_name: data.field_name ?? null,
+        old_value: data.old_value ?? null,
+        new_value: data.new_value ?? null,
+        description: data.description ?? null,
+        created_by: ctx.user_id,
+      }),
+    },
+  };
+
   /**
-   * Get activity log for a work item with permission checking
+   * Build JOIN query for activity with user details
    */
-  async getActivity(options: WorkItemActivityQueryOptions): Promise<WorkItemActivityWithDetails[]> {
-    const startTime = Date.now();
-
-    log.info('Work item activity query initiated', {
-      workItemId: options.work_item_id,
-      requestingUserId: this.userContext.user_id,
-    });
-
-    // First verify user has permission to read the work item
-    const canReadWorkItem = await this.canReadWorkItem(options.work_item_id);
-    if (!canReadWorkItem) {
-      throw new PermissionDeniedError('work-items:read:*', options.work_item_id);
-    }
-
-    // Build where conditions
-    const whereConditions = [eq(work_item_activity.work_item_id, options.work_item_id)];
-
-    if (options.activity_type) {
-      whereConditions.push(eq(work_item_activity.activity_type, options.activity_type));
-    }
-
-    // Fetch activity log
-    const results = await db
-      .select({
+  protected buildJoinQuery(): JoinQueryConfig {
+    return {
+      selectFields: {
         work_item_activity_id: work_item_activity.work_item_activity_id,
         work_item_id: work_item_activity.work_item_id,
         activity_type: work_item_activity.activity_type,
@@ -81,38 +119,77 @@ export class RBACWorkItemActivityService extends BaseRBACService {
         created_by_first_name: users.first_name,
         created_by_last_name: users.last_name,
         created_at: work_item_activity.created_at,
-      })
-      .from(work_item_activity)
-      .leftJoin(users, eq(work_item_activity.created_by, users.user_id))
-      .where(and(...whereConditions))
-      .orderBy(desc(work_item_activity.created_at))
-      .limit(options.limit || 1000)
-      .offset(options.offset || 0);
+      },
+      joins: [
+        {
+          table: users,
+          on: eq(work_item_activity.created_by, users.user_id),
+          type: 'left',
+        },
+      ],
+    };
+  }
+
+  /**
+   * Build custom conditions for work_item_id and activity_type filtering
+   */
+  protected buildCustomConditions(options: WorkItemActivityQueryOptions): SQL[] {
+    const conditions: SQL[] = [];
+
+    // Always filter by work_item_id (required)
+    conditions.push(eq(work_item_activity.work_item_id, options.work_item_id));
+
+    if (options.activity_type) {
+      conditions.push(eq(work_item_activity.activity_type, options.activity_type));
+    }
+
+    return conditions;
+  }
+
+  /**
+   * Validate parent work item access before listing activities
+   */
+  protected async validateParentAccess(options: WorkItemActivityQueryOptions): Promise<void> {
+    const canRead = await this.canReadWorkItem(options.work_item_id);
+    if (!canRead) {
+      throw new PermissionDeniedError('work-items:read:*', options.work_item_id);
+    }
+  }
+
+  // ===========================================================================
+  // Public API Methods - Maintain backward compatibility
+  // ===========================================================================
+
+  /**
+   * Get activity log for a work item with permission checking
+   */
+  async getActivity(options: WorkItemActivityQueryOptions): Promise<WorkItemActivityWithDetails[]> {
+    const startTime = Date.now();
+
+    log.info('Work item activity query initiated', {
+      workItemId: options.work_item_id,
+      requestingUserId: this.userContext.user_id,
+    });
+
+    const result = await this.getList({
+      ...options,
+      limit: options.limit ?? 1000,
+      offset: options.offset ?? 0,
+    });
 
     const duration = Date.now() - startTime;
     log.info('Work item activity query completed', {
       workItemId: options.work_item_id,
-      activityCount: results.length,
+      activityCount: result.items.length,
       duration,
     });
 
-    return results.map((result) => ({
-      work_item_activity_id: result.work_item_activity_id,
-      work_item_id: result.work_item_id,
-      user_id: result.created_by,
-      user_name: formatUserNameWithFallback(result.created_by_first_name, result.created_by_last_name),
-      activity_type: result.activity_type,
-      field_name: result.field_name,
-      old_value: result.old_value,
-      new_value: result.new_value,
-      description: result.description,
-      created_at: result.created_at || new Date(),
-    }));
+    return result.items;
   }
 
   /**
    * Create new activity log entry
-   * This is typically called internally by other services, not directly via API
+   * Custom implementation to refetch with JOIN after insert
    */
   async createActivity(
     activityData: CreateWorkItemActivityData
@@ -131,10 +208,10 @@ export class RBACWorkItemActivityService extends BaseRBACService {
       .values({
         work_item_id: activityData.work_item_id,
         activity_type: activityData.activity_type,
-        field_name: activityData.field_name || null,
-        old_value: activityData.old_value || null,
-        new_value: activityData.new_value || null,
-        description: activityData.description || null,
+        field_name: activityData.field_name ?? null,
+        old_value: activityData.old_value ?? null,
+        new_value: activityData.new_value ?? null,
+        description: activityData.description ?? null,
         created_by: this.userContext.user_id,
       })
       .returning();
@@ -150,7 +227,7 @@ export class RBACWorkItemActivityService extends BaseRBACService {
       duration: Date.now() - startTime,
     });
 
-    // Fetch and return the created activity with details
+    // Fetch and return the created activity with user details via JOIN
     const activities = await this.getActivity({
       work_item_id: activityData.work_item_id,
       limit: 1,
@@ -167,7 +244,6 @@ export class RBACWorkItemActivityService extends BaseRBACService {
 
   /**
    * Helper: Log a work item change
-   * Convenience method for logging field changes
    */
   async logChange(
     workItemId: string,

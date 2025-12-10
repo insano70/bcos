@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import type { ContrastLevel } from '@/lib/utils/color-contrast';
 
 interface ColorContrastBadgeProps {
@@ -11,7 +12,7 @@ interface ColorContrastBadgeProps {
 /**
  * Badge showing WCAG contrast compliance level
  */
-export default function ColorContrastBadge({
+function ColorContrastBadgeInner({
   level,
   ratio,
   compact = false,
@@ -86,3 +87,6 @@ export default function ColorContrastBadge({
     </div>
   );
 }
+
+const ColorContrastBadge = memo(ColorContrastBadgeInner);
+export default ColorContrastBadge;

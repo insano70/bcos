@@ -1,4 +1,4 @@
-import { useId } from 'react';
+import { memo, useId } from 'react';
 import type { FieldErrors, FieldValues, UseFormRegister } from 'react-hook-form';
 import type { NumberFieldConfig } from '../types';
 
@@ -9,7 +9,7 @@ interface NumberFieldProps<TFormData extends FieldValues = FieldValues> {
   isSubmitting: boolean;
 }
 
-export default function NumberField<TFormData extends FieldValues = FieldValues>({
+function NumberFieldInner<TFormData extends FieldValues = FieldValues>({
   field,
   register,
   errors,
@@ -55,3 +55,6 @@ export default function NumberField<TFormData extends FieldValues = FieldValues>
     </div>
   );
 }
+
+const NumberField = memo(NumberFieldInner) as typeof NumberFieldInner;
+export default NumberField;

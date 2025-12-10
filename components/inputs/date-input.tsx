@@ -1,6 +1,6 @@
 'use client';
 
-import type { ChangeEvent } from 'react';
+import { memo, type ChangeEvent } from 'react';
 
 /**
  * DateInput Component
@@ -33,7 +33,7 @@ export interface DateInputProps {
   max?: string; // ISO date string (YYYY-MM-DD)
 }
 
-export default function DateInput({
+function DateInputInner({
   value,
   onChange,
   required = false,
@@ -81,3 +81,6 @@ export default function DateInput({
     />
   );
 }
+
+const DateInput = memo(DateInputInner);
+export default DateInput;

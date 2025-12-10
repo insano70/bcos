@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import type { FieldErrors, FieldValues, UseFormSetValue, UseFormWatch } from 'react-hook-form';
 import type { CustomFieldConfig } from '../types';
 
@@ -9,7 +10,7 @@ interface CustomFieldProps<TFormData extends FieldValues = FieldValues> {
   isSubmitting: boolean;
 }
 
-export default function CustomField<TFormData extends FieldValues = FieldValues>({
+function CustomFieldInner<TFormData extends FieldValues = FieldValues>({
   field,
   errors,
   watch,
@@ -45,3 +46,6 @@ export default function CustomField<TFormData extends FieldValues = FieldValues>
     </div>
   );
 }
+
+const CustomField = memo(CustomFieldInner) as typeof CustomFieldInner;
+export default CustomField;

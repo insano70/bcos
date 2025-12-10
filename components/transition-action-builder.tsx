@@ -11,7 +11,7 @@
  */
 
 import { ChevronDown, ChevronRight, HelpCircle, Plus, X } from 'lucide-react';
-import { useState } from 'react';
+import { memo, useState, useCallback } from 'react';
 import { useUsers } from '@/lib/hooks/use-users';
 import { useWorkItemFields } from '@/lib/hooks/use-work-item-fields';
 import type {
@@ -51,6 +51,253 @@ const CONDITIONS = [
   { value: 'status_name_equals:Cancelled', label: 'Status name equals Cancelled' },
 ] as const;
 
+// ============================================
+// MEMOIZED LIST ITEM COMPONENTS
+// ============================================
+
+interface NotificationItemProps {
+  notification: NotificationAction;
+  index: number;
+  onRemove: (index: number) => void;
+  onChange: (index: number, field: keyof NotificationAction, value: string | string[]) => void;
+  onRecipientToggle: (index: number, recipient: string) => void;
+}
+
+const NotificationActionItem = memo(function NotificationActionItem({
+  notification,
+  index,
+  onRemove,
+  onChange,
+  onRecipientToggle,
+}: NotificationItemProps) {
+  return (
+    <div className="border border-gray-200 dark:border-gray-700/60 rounded-lg p-4 bg-white dark:bg-gray-800 space-y-3">
+      <div className="flex items-start justify-between">
+        <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+          Notification #{index + 1}
+        </span>
+        <button
+          type="button"
+          onClick={() => onRemove(index)}
+          className="text-gray-400 hover:text-red-600 dark:hover:text-red-400"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+
+      <div>
+        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
+          Recipients
+        </label>
+        <div className="space-y-1.5">
+          {RECIPIENT_TYPES.map((recipient) => (
+            <label key={recipient.value} className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={notification.recipients.includes(recipient.value)}
+                onChange={() => onRecipientToggle(index, recipient.value)}
+                className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
+              />
+              <span className="text-gray-700 dark:text-gray-300">{recipient.label}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+          Email Subject
+        </label>
+        <input
+          type="text"
+          value={notification.subject || ''}
+          onChange={(e) => onChange(index, 'subject', e.target.value)}
+          placeholder="Work item {work_item.subject} updated"
+          className="form-input w-full text-sm"
+        />
+      </div>
+    </div>
+  );
+});
+
+interface FieldUpdateItemProps {
+  update: FieldUpdateAction;
+  index: number;
+  fields: Array<{ work_item_field_id: string; field_label: string }>;
+  onRemove: (index: number) => void;
+  onChange: (index: number, field: keyof FieldUpdateAction, value: string) => void;
+  onInsertToken: (token: string, textareaId: string) => void;
+}
+
+const FieldUpdateActionItem = memo(function FieldUpdateActionItem({
+  update,
+  index,
+  fields,
+  onRemove,
+  onChange,
+  onInsertToken,
+}: FieldUpdateItemProps) {
+  return (
+    <div className="border border-gray-200 dark:border-gray-700/60 rounded-lg p-4 bg-white dark:bg-gray-800 space-y-3">
+      <div className="flex items-start justify-between">
+        <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+          Field Update #{index + 1}
+        </span>
+        <button
+          type="button"
+          onClick={() => onRemove(index)}
+          className="text-gray-400 hover:text-red-600 dark:hover:text-red-400"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Field
+          </label>
+          <select
+            value={update.field_id}
+            onChange={(e) => onChange(index, 'field_id', e.target.value)}
+            className="form-select w-full text-sm"
+          >
+            <option value="">Select field...</option>
+            {fields.map((field) => (
+              <option key={field.work_item_field_id} value={field.work_item_field_id}>
+                {field.field_label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Condition (optional)
+          </label>
+          <select
+            value={update.condition || ''}
+            onChange={(e) => onChange(index, 'condition', e.target.value)}
+            className="form-select w-full text-sm"
+          >
+            <option value="">Always apply</option>
+            {CONDITIONS.map((cond) => (
+              <option key={cond.value} value={cond.value}>
+                {cond.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+          Value (supports template tokens)
+        </label>
+        <textarea
+          id={`field-value-${index}`}
+          value={update.value}
+          onChange={(e) => onChange(index, 'value', e.target.value)}
+          placeholder="Enter value or use template tokens like {now}"
+          rows={2}
+          className="form-textarea w-full text-sm"
+        />
+        <div className="flex gap-1 mt-1">
+          {TEMPLATE_TOKENS.slice(0, 3).map((item) => (
+            <button
+              key={item.token}
+              type="button"
+              onClick={() => onInsertToken(item.token, `field-value-${index}`)}
+              className="text-xs px-2 py-1 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
+            >
+              {item.token}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+});
+
+interface AssignmentItemProps {
+  assignment: AssignmentAction;
+  index: number;
+  users: Array<{ id: string; first_name: string; last_name: string }>;
+  onRemove: (index: number) => void;
+  onChange: (index: number, field: keyof AssignmentAction, value: string) => void;
+}
+
+const AssignmentActionItem = memo(function AssignmentActionItem({
+  assignment,
+  index,
+  users,
+  onRemove,
+  onChange,
+}: AssignmentItemProps) {
+  return (
+    <div className="border border-gray-200 dark:border-gray-700/60 rounded-lg p-4 bg-white dark:bg-gray-800 space-y-3">
+      <div className="flex items-start justify-between">
+        <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+          Assignment #{index + 1}
+        </span>
+        <button
+          type="button"
+          onClick={() => onRemove(index)}
+          className="text-gray-400 hover:text-red-600 dark:hover:text-red-400"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Assign To
+          </label>
+          <select
+            value={assignment.assign_to}
+            onChange={(e) => onChange(index, 'assign_to', e.target.value)}
+            className="form-select w-full text-sm"
+          >
+            <option value="">Select user...</option>
+            <option value="{creator}">Creator (template)</option>
+            <option value="{assigned_to}">Current Assignee (template)</option>
+            <optgroup label="Specific Users">
+              {users.map((user) => (
+                <option key={user.id} value={user.id}>
+                  {user.first_name} {user.last_name}
+                </option>
+              ))}
+            </optgroup>
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Condition (optional)
+          </label>
+          <select
+            value={assignment.condition || ''}
+            onChange={(e) => onChange(index, 'condition', e.target.value)}
+            className="form-select w-full text-sm"
+          >
+            <option value="">Always assign</option>
+            {CONDITIONS.map((cond) => (
+              <option key={cond.value} value={cond.value}>
+                {cond.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+    </div>
+  );
+});
+
+// ============================================
+// MAIN COMPONENT
+// ============================================
+
 export function TransitionActionBuilder({
   workItemTypeId,
   initialConfig,
@@ -73,118 +320,162 @@ export function TransitionActionBuilder({
 
   const [assignments, setAssignments] = useState<AssignmentAction[]>(initialConfig.assignments);
 
-  const emitChange = (
-    newNotifications: NotificationAction[],
-    newFieldUpdates: FieldUpdateAction[],
-    newAssignments: AssignmentAction[]
-  ) => {
-    onChange({
-      notifications: newNotifications,
-      field_updates: newFieldUpdates,
-      assignments: newAssignments,
-    });
-  };
+  // Memoized emit helper
+  const emitChange = useCallback(
+    (
+      newNotifications: NotificationAction[],
+      newFieldUpdates: FieldUpdateAction[],
+      newAssignments: AssignmentAction[]
+    ) => {
+      onChange({
+        notifications: newNotifications,
+        field_updates: newFieldUpdates,
+        assignments: newAssignments,
+      });
+    },
+    [onChange]
+  );
 
-  // Notification Actions
-  const handleAddNotification = () => {
+  // Notification Actions (memoized for stable references)
+  const handleAddNotification = useCallback(() => {
     const newNotification: NotificationAction = {
+      id: crypto.randomUUID(),
       type: 'notification',
       recipients: [],
       subject: '',
       template: '',
     };
-    const updated = [...notifications, newNotification];
-    setNotifications(updated);
-    emitChange(updated, fieldUpdates, assignments);
-  };
+    setNotifications((prev) => {
+      const updated = [...prev, newNotification];
+      emitChange(updated, fieldUpdates, assignments);
+      return updated;
+    });
+  }, [emitChange, fieldUpdates, assignments]);
 
-  const handleRemoveNotification = (index: number) => {
-    const updated = notifications.filter((_, i) => i !== index);
-    setNotifications(updated);
-    emitChange(updated, fieldUpdates, assignments);
-  };
+  const handleRemoveNotification = useCallback(
+    (index: number) => {
+      setNotifications((prev) => {
+        const updated = prev.filter((_, i) => i !== index);
+        emitChange(updated, fieldUpdates, assignments);
+        return updated;
+      });
+    },
+    [emitChange, fieldUpdates, assignments]
+  );
 
-  const handleNotificationChange = (
-    index: number,
-    field: keyof NotificationAction,
-    value: string | string[]
-  ) => {
-    const updated = notifications.map((notif, i) =>
-      i === index ? { ...notif, [field]: value } : notif
-    );
-    setNotifications(updated);
-    emitChange(updated, fieldUpdates, assignments);
-  };
+  const handleNotificationChange = useCallback(
+    (index: number, field: keyof NotificationAction, value: string | string[]) => {
+      setNotifications((prev) => {
+        const updated = prev.map((notif, i) =>
+          i === index ? { ...notif, [field]: value } : notif
+        );
+        emitChange(updated, fieldUpdates, assignments);
+        return updated;
+      });
+    },
+    [emitChange, fieldUpdates, assignments]
+  );
 
-  const handleRecipientToggle = (index: number, recipient: string) => {
-    const notification = notifications[index];
-    if (!notification) return;
+  const handleRecipientToggle = useCallback(
+    (index: number, recipient: string) => {
+      setNotifications((prev) => {
+        const notification = prev[index];
+        if (!notification) return prev;
 
-    const newRecipients = notification.recipients.includes(recipient)
-      ? notification.recipients.filter((r) => r !== recipient)
-      : [...notification.recipients, recipient];
+        const newRecipients = notification.recipients.includes(recipient)
+          ? notification.recipients.filter((r) => r !== recipient)
+          : [...notification.recipients, recipient];
 
-    handleNotificationChange(index, 'recipients', newRecipients);
-  };
+        const updated = prev.map((notif, i) =>
+          i === index ? { ...notif, recipients: newRecipients } : notif
+        );
+        emitChange(updated, fieldUpdates, assignments);
+        return updated;
+      });
+    },
+    [emitChange, fieldUpdates, assignments]
+  );
 
-  // Field Update Actions
-  const handleAddFieldUpdate = () => {
+  // Field Update Actions (memoized for stable references)
+  const handleAddFieldUpdate = useCallback(() => {
     const newFieldUpdate: FieldUpdateAction = {
+      id: crypto.randomUUID(),
       type: 'field_update',
       field_id: '',
       value: '',
       condition: '',
     };
-    const updated = [...fieldUpdates, newFieldUpdate];
-    setFieldUpdates(updated);
-    emitChange(notifications, updated, assignments);
-  };
+    setFieldUpdates((prev) => {
+      const updated = [...prev, newFieldUpdate];
+      emitChange(notifications, updated, assignments);
+      return updated;
+    });
+  }, [emitChange, notifications, assignments]);
 
-  const handleRemoveFieldUpdate = (index: number) => {
-    const updated = fieldUpdates.filter((_, i) => i !== index);
-    setFieldUpdates(updated);
-    emitChange(notifications, updated, assignments);
-  };
+  const handleRemoveFieldUpdate = useCallback(
+    (index: number) => {
+      setFieldUpdates((prev) => {
+        const updated = prev.filter((_, i) => i !== index);
+        emitChange(notifications, updated, assignments);
+        return updated;
+      });
+    },
+    [emitChange, notifications, assignments]
+  );
 
-  const handleFieldUpdateChange = (
-    index: number,
-    field: keyof FieldUpdateAction,
-    value: string
-  ) => {
-    const updated = fieldUpdates.map((update, i) =>
-      i === index ? { ...update, [field]: value } : update
-    );
-    setFieldUpdates(updated);
-    emitChange(notifications, updated, assignments);
-  };
+  const handleFieldUpdateChange = useCallback(
+    (index: number, field: keyof FieldUpdateAction, value: string) => {
+      setFieldUpdates((prev) => {
+        const updated = prev.map((update, i) =>
+          i === index ? { ...update, [field]: value } : update
+        );
+        emitChange(notifications, updated, assignments);
+        return updated;
+      });
+    },
+    [emitChange, notifications, assignments]
+  );
 
-  // Assignment Actions
-  const handleAddAssignment = () => {
+  // Assignment Actions (memoized for stable references)
+  const handleAddAssignment = useCallback(() => {
     const newAssignment: AssignmentAction = {
+      id: crypto.randomUUID(),
       type: 'assignment',
       assign_to: '',
       condition: '',
     };
-    const updated = [...assignments, newAssignment];
-    setAssignments(updated);
-    emitChange(notifications, fieldUpdates, updated);
-  };
+    setAssignments((prev) => {
+      const updated = [...prev, newAssignment];
+      emitChange(notifications, fieldUpdates, updated);
+      return updated;
+    });
+  }, [emitChange, notifications, fieldUpdates]);
 
-  const handleRemoveAssignment = (index: number) => {
-    const updated = assignments.filter((_, i) => i !== index);
-    setAssignments(updated);
-    emitChange(notifications, fieldUpdates, updated);
-  };
+  const handleRemoveAssignment = useCallback(
+    (index: number) => {
+      setAssignments((prev) => {
+        const updated = prev.filter((_, i) => i !== index);
+        emitChange(notifications, fieldUpdates, updated);
+        return updated;
+      });
+    },
+    [emitChange, notifications, fieldUpdates]
+  );
 
-  const handleAssignmentChange = (index: number, field: keyof AssignmentAction, value: string) => {
-    const updated = assignments.map((assignment, i) =>
-      i === index ? { ...assignment, [field]: value } : assignment
-    );
-    setAssignments(updated);
-    emitChange(notifications, fieldUpdates, updated);
-  };
+  const handleAssignmentChange = useCallback(
+    (index: number, field: keyof AssignmentAction, value: string) => {
+      setAssignments((prev) => {
+        const updated = prev.map((assignment, i) =>
+          i === index ? { ...assignment, [field]: value } : assignment
+        );
+        emitChange(notifications, fieldUpdates, updated);
+        return updated;
+      });
+    },
+    [emitChange, notifications, fieldUpdates]
+  );
 
-  const insertToken = (token: string, textareaId: string) => {
+  const insertToken = useCallback((token: string, textareaId: string) => {
     const textarea = document.getElementById(textareaId) as HTMLTextAreaElement;
     if (textarea) {
       const start = textarea.selectionStart;
@@ -195,7 +486,7 @@ export function TransitionActionBuilder({
       textarea.focus();
       textarea.setSelectionRange(start + token.length, start + token.length);
     }
-  };
+  }, []);
 
   if (fieldsLoading || usersLoading) {
     return (
@@ -277,55 +568,14 @@ export function TransitionActionBuilder({
             </div>
           ) : (
             notifications.map((notification, index) => (
-              <div
-                key={`${notification.recipients}-${notification.template}-${index}`}
-                className="border border-gray-200 dark:border-gray-700/60 rounded-lg p-4 bg-white dark:bg-gray-800 space-y-3"
-              >
-                <div className="flex items-start justify-between">
-                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                    Notification #{index + 1}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveNotification(index)}
-                    className="text-gray-400 hover:text-red-600 dark:hover:text-red-400"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Recipients
-                  </label>
-                  <div className="space-y-1.5">
-                    {RECIPIENT_TYPES.map((recipient) => (
-                      <label key={recipient.value} className="flex items-center gap-2 text-sm">
-                        <input
-                          type="checkbox"
-                          checked={notification.recipients.includes(recipient.value)}
-                          onChange={() => handleRecipientToggle(index, recipient.value)}
-                          className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
-                        />
-                        <span className="text-gray-700 dark:text-gray-300">{recipient.label}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Email Subject
-                  </label>
-                  <input
-                    type="text"
-                    value={notification.subject || ''}
-                    onChange={(e) => handleNotificationChange(index, 'subject', e.target.value)}
-                    placeholder="Work item {work_item.subject} updated"
-                    className="form-input w-full text-sm"
-                  />
-                </div>
-              </div>
+              <NotificationActionItem
+                key={notification.id ?? `notification-${index}`}
+                notification={notification}
+                index={index}
+                onRemove={handleRemoveNotification}
+                onChange={handleNotificationChange}
+                onRecipientToggle={handleRecipientToggle}
+              />
             ))
           )}
         </div>
@@ -359,87 +609,15 @@ export function TransitionActionBuilder({
             </div>
           ) : (
             fieldUpdates.map((update, index) => (
-              <div
-                key={`${update.field_id}-${update.value}-${index}`}
-                className="border border-gray-200 dark:border-gray-700/60 rounded-lg p-4 bg-white dark:bg-gray-800 space-y-3"
-              >
-                <div className="flex items-start justify-between">
-                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                    Field Update #{index + 1}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveFieldUpdate(index)}
-                    className="text-gray-400 hover:text-red-600 dark:hover:text-red-400"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Field
-                    </label>
-                    <select
-                      value={update.field_id}
-                      onChange={(e) => handleFieldUpdateChange(index, 'field_id', e.target.value)}
-                      className="form-select w-full text-sm"
-                    >
-                      <option value="">Select field...</option>
-                      {fields.map((field) => (
-                        <option key={field.work_item_field_id} value={field.work_item_field_id}>
-                          {field.field_label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Condition (optional)
-                    </label>
-                    <select
-                      value={update.condition || ''}
-                      onChange={(e) => handleFieldUpdateChange(index, 'condition', e.target.value)}
-                      className="form-select w-full text-sm"
-                    >
-                      <option value="">Always apply</option>
-                      {CONDITIONS.map((cond) => (
-                        <option key={cond.value} value={cond.value}>
-                          {cond.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Value (supports template tokens)
-                  </label>
-                  <textarea
-                    id={`field-value-${index}`}
-                    value={update.value}
-                    onChange={(e) => handleFieldUpdateChange(index, 'value', e.target.value)}
-                    placeholder="Enter value or use template tokens like {now}"
-                    rows={2}
-                    className="form-textarea w-full text-sm"
-                  />
-                  <div className="flex gap-1 mt-1">
-                    {TEMPLATE_TOKENS.slice(0, 3).map((item) => (
-                      <button
-                        key={item.token}
-                        type="button"
-                        onClick={() => insertToken(item.token, `field-value-${index}`)}
-                        className="text-xs px-2 py-1 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
-                      >
-                        {item.token}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
+              <FieldUpdateActionItem
+                key={update.id ?? `field-update-${index}`}
+                update={update}
+                index={index}
+                fields={fields}
+                onRemove={handleRemoveFieldUpdate}
+                onChange={handleFieldUpdateChange}
+                onInsertToken={insertToken}
+              />
             ))
           )}
         </div>
@@ -472,71 +650,16 @@ export function TransitionActionBuilder({
               No assignments configured. Click "Add Assignment" to create one.
             </div>
           ) : (
-            assignments.map((assignment, index) => {
-              // Use composite key: assign_to, condition, and index for stability
-              const assignmentKey = `${assignment.assign_to || 'unassigned'}-${assignment.condition || 'no-condition'}-${index}`;
-              return (
-              <div
-                key={assignmentKey}
-                className="border border-gray-200 dark:border-gray-700/60 rounded-lg p-4 bg-white dark:bg-gray-800 space-y-3"
-              >
-                <div className="flex items-start justify-between">
-                  <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                    Assignment #{index + 1}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveAssignment(index)}
-                    className="text-gray-400 hover:text-red-600 dark:hover:text-red-400"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Assign To
-                    </label>
-                    <select
-                      value={assignment.assign_to}
-                      onChange={(e) => handleAssignmentChange(index, 'assign_to', e.target.value)}
-                      className="form-select w-full text-sm"
-                    >
-                      <option value="">Select user...</option>
-                      <option value="{creator}">Creator (template)</option>
-                      <option value="{assigned_to}">Current Assignee (template)</option>
-                      <optgroup label="Specific Users">
-                        {users.map((user) => (
-                          <option key={user.id} value={user.id}>
-                            {user.first_name} {user.last_name}
-                          </option>
-                        ))}
-                      </optgroup>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Condition (optional)
-                    </label>
-                    <select
-                      value={assignment.condition || ''}
-                      onChange={(e) => handleAssignmentChange(index, 'condition', e.target.value)}
-                      className="form-select w-full text-sm"
-                    >
-                      <option value="">Always assign</option>
-                      {CONDITIONS.map((cond) => (
-                        <option key={cond.value} value={cond.value}>
-                          {cond.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              </div>
-              );
-            })
+            assignments.map((assignment, index) => (
+              <AssignmentActionItem
+                key={assignment.id ?? `assignment-${index}`}
+                assignment={assignment}
+                index={index}
+                users={users}
+                onRemove={handleRemoveAssignment}
+                onChange={handleAssignmentChange}
+              />
+            ))
           )}
         </div>
       </div>

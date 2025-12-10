@@ -1,4 +1,4 @@
-import { useId } from 'react';
+import { memo, useId } from 'react';
 import type { FieldErrors, FieldValues, UseFormRegister } from 'react-hook-form';
 import type { EmailFieldConfig } from '../types';
 
@@ -9,7 +9,7 @@ interface EmailFieldProps<TFormData extends FieldValues = FieldValues> {
   isSubmitting: boolean;
 }
 
-export default function EmailField<TFormData extends FieldValues = FieldValues>({
+function EmailFieldInner<TFormData extends FieldValues = FieldValues>({
   field,
   register,
   errors,
@@ -53,3 +53,6 @@ export default function EmailField<TFormData extends FieldValues = FieldValues>(
     </div>
   );
 }
+
+const EmailField = memo(EmailFieldInner) as typeof EmailFieldInner;
+export default EmailField;

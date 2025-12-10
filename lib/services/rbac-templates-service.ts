@@ -1,24 +1,22 @@
-import { and, asc, desc, eq, isNull, like, sql } from 'drizzle-orm';
+import type { InferSelectModel, SQL } from 'drizzle-orm';
+import { eq, like } from 'drizzle-orm';
+
 import { db, templates } from '@/lib/db';
-import { ConflictError, InternalServerError, NotFoundError } from '@/lib/errors/api-errors';
-import { log } from '@/lib/logger';
-import { BaseRBACService } from '@/lib/rbac/base-service';
+import { ConflictError } from '@/lib/errors/api-errors';
+import { BaseCrudService, type BaseQueryOptions, type CrudServiceConfig } from '@/lib/services/crud';
 import type { UserContext } from '@/lib/types/rbac';
 
 /**
  * Templates Service with RBAC
  * Provides practice template management with automatic permission checking
+ *
+ * Migrated to use BaseCrudService infrastructure.
  */
 
-export interface TemplateQueryOptions {
-  is_active?: boolean;
-  search?: string;
-  limit?: number;
-  offset?: number;
-  sortField?: 'name' | 'slug' | 'created_at';
-  sortOrder?: 'asc' | 'desc';
-}
+// Entity type derived from Drizzle schema
+export type Template = InferSelectModel<typeof templates>;
 
+// Legacy type alias for backward compatibility
 export interface TemplateData {
   template_id: string;
   name: string;
@@ -29,9 +27,9 @@ export interface TemplateData {
   created_at: Date | null;
 }
 
-export interface PaginatedTemplates {
-  templates: TemplateData[];
-  total: number;
+export interface TemplateQueryOptions extends BaseQueryOptions {
+  is_active?: boolean;
+  sortField?: 'name' | 'slug' | 'created_at';
 }
 
 export interface CreateTemplateData {
@@ -50,264 +48,176 @@ export interface UpdateTemplateData {
   is_active?: boolean;
 }
 
+// Legacy response format maintained for backward compatibility
+export interface PaginatedTemplates {
+  templates: TemplateData[];
+  total: number;
+}
+
 /**
  * RBAC Templates Service
  * Provides secure template management with automatic permission checking
  */
-export class RBACTemplatesService extends BaseRBACService {
+export class RBACTemplatesService extends BaseCrudService<
+  typeof templates,
+  Template,
+  CreateTemplateData,
+  UpdateTemplateData,
+  TemplateQueryOptions
+> {
+  protected config: CrudServiceConfig<
+    typeof templates,
+    Template,
+    CreateTemplateData,
+    UpdateTemplateData,
+    TemplateQueryOptions
+  > = {
+    table: templates,
+    resourceName: 'templates',
+    displayName: 'template',
+    primaryKeyName: 'template_id',
+    deletedAtColumnName: 'deleted_at',
+    updatedAtColumnName: 'updated_at',
+    permissions: {
+      read: 'templates:read:organization',
+      create: 'templates:manage:all',
+      update: 'templates:manage:all',
+      delete: 'templates:manage:all',
+    },
+    // No organization scoping - templates are global
+    transformers: {
+      toCreateValues: (data) => ({
+        name: data.name,
+        slug: data.slug,
+        description: data.description ?? null,
+        preview_image_url: data.preview_image_url ?? null,
+        is_active: data.is_active ?? true,
+      }),
+    },
+    validators: {
+      beforeCreate: async (data) => {
+        // Check if slug already exists
+        const existing = await this.findBySlug(data.slug);
+        if (existing) {
+          throw new ConflictError('Template with this slug already exists');
+        }
+      },
+      beforeUpdate: async (_id, data, existing) => {
+        // If updating slug, check it's not already taken
+        if (data.slug && data.slug !== existing.slug) {
+          const slugExists = await this.findBySlug(data.slug);
+          if (slugExists) {
+            throw new ConflictError('Template with this slug already exists');
+          }
+        }
+      },
+    },
+  };
+
   /**
-   * Get templates list with filtering and pagination
+   * Build search conditions for name and description fields.
    */
-  async getTemplates(options: TemplateQueryOptions = {}): Promise<PaginatedTemplates> {
-    const startTime = Date.now();
+  protected buildSearchConditions(search: string): SQL[] {
+    return [like(templates.name, `%${search}%`), like(templates.description, `%${search}%`)];
+  }
 
-    // Check permissions - templates can be read by organization members
-    this.requirePermission('templates:read:organization', undefined);
-
-    // Build where conditions
-    const whereConditions = [isNull(templates.deleted_at)];
+  /**
+   * Build custom filter conditions for is_active.
+   */
+  protected buildCustomConditions(options: TemplateQueryOptions): SQL[] {
+    const conditions: SQL[] = [];
 
     if (options.is_active !== undefined) {
-      whereConditions.push(eq(templates.is_active, options.is_active));
+      conditions.push(eq(templates.is_active, options.is_active));
     }
 
-    if (options.search) {
-      whereConditions.push(
-        like(templates.name, `%${options.search}%`),
-        like(templates.description, `%${options.search}%`)
-      );
+    return conditions;
+  }
+
+  /**
+   * Find template by slug (internal helper, no permission check).
+   * Used for uniqueness validation.
+   */
+  private async findBySlug(slug: string): Promise<Template | null> {
+    const [result] = await db
+      .select()
+      .from(templates)
+      .where(eq(templates.slug, slug));
+
+    if (!result || result.deleted_at !== null) {
+      return null;
     }
 
-    // Get total count for pagination
-    const [countResult] = await db
-      .select({ count: sql<number>`count(*)` })
-      .from(templates)
-      .where(and(...whereConditions));
+    return result;
+  }
 
-    const totalCount = countResult?.count || 0;
+  // ===========================================================================
+  // Legacy Methods - Maintained for backward compatibility
+  // ===========================================================================
 
-    // Determine sort order
-    const sortField = options.sortField || 'name';
-    const sortOrder = options.sortOrder || 'asc';
-
-    const sortColumn =
-      sortField === 'slug'
-        ? templates.slug
-        : sortField === 'created_at'
-          ? templates.created_at
-          : templates.name;
-
-    // Get paginated data
-    const templatesData = await db
-      .select({
-        template_id: templates.template_id,
-        name: templates.name,
-        slug: templates.slug,
-        description: templates.description,
-        preview_image_url: templates.preview_image_url,
-        is_active: templates.is_active,
-        created_at: templates.created_at,
-      })
-      .from(templates)
-      .where(and(...whereConditions))
-      .orderBy(sortOrder === 'asc' ? asc(sortColumn) : desc(sortColumn))
-      .limit(options.limit || 100)
-      .offset(options.offset || 0);
-
-    log.info('Templates list retrieved', {
-      count: templatesData.length,
-      total: totalCount,
-      duration: Date.now() - startTime,
-      userId: this.userContext.user_id,
-    });
+  /**
+   * Get templates list with filtering and pagination (legacy method)
+   * @deprecated Use getList() instead
+   */
+  async getTemplates(options: TemplateQueryOptions = {}): Promise<PaginatedTemplates> {
+    const result = await this.getList(options);
 
     return {
-      templates: templatesData,
-      total: totalCount,
+      templates: result.items as TemplateData[],
+      total: result.total,
     };
   }
 
   /**
-   * Get template by ID
+   * Get template by ID (legacy method)
+   * @deprecated Use getById() instead
    */
   async getTemplateById(templateId: string): Promise<TemplateData | null> {
-    const startTime = Date.now();
-
-    this.requirePermission('templates:read:organization', undefined);
-
-    const [template] = await db
-      .select({
-        template_id: templates.template_id,
-        name: templates.name,
-        slug: templates.slug,
-        description: templates.description,
-        preview_image_url: templates.preview_image_url,
-        is_active: templates.is_active,
-        created_at: templates.created_at,
-      })
-      .from(templates)
-      .where(and(eq(templates.template_id, templateId), isNull(templates.deleted_at)));
-
-    log.info('Template retrieved by ID', {
-      templateId,
-      found: !!template,
-      duration: Date.now() - startTime,
-      userId: this.userContext.user_id,
-    });
-
-    return template || null;
+    return this.getById(templateId) as Promise<TemplateData | null>;
   }
 
   /**
    * Get template by slug
+   * Note: This is a custom method not provided by BaseCrudService
    */
   async getTemplateBySlug(slug: string): Promise<TemplateData | null> {
-    const startTime = Date.now();
-
+    // Check permission
     this.requirePermission('templates:read:organization', undefined);
 
     const [template] = await db
-      .select({
-        template_id: templates.template_id,
-        name: templates.name,
-        slug: templates.slug,
-        description: templates.description,
-        preview_image_url: templates.preview_image_url,
-        is_active: templates.is_active,
-        created_at: templates.created_at,
-      })
+      .select()
       .from(templates)
-      .where(and(eq(templates.slug, slug), isNull(templates.deleted_at)));
+      .where(eq(templates.slug, slug));
 
-    log.info('Template retrieved by slug', {
-      slug,
-      found: !!template,
-      duration: Date.now() - startTime,
-      userId: this.userContext.user_id,
-    });
+    if (!template || template.deleted_at !== null) {
+      return null;
+    }
 
-    return template || null;
+    return template as TemplateData;
   }
 
   /**
-   * Create new template
+   * Create new template (legacy method)
+   * @deprecated Use create() instead
    */
   async createTemplate(data: CreateTemplateData): Promise<TemplateData> {
-    const startTime = Date.now();
-
-    // Check permissions - only admins can create templates
-    this.requirePermission('templates:manage:all', undefined);
-
-    // Check if slug already exists
-    const existing = await this.getTemplateBySlug(data.slug);
-    if (existing) {
-      throw new ConflictError('Template with this slug already exists');
-    }
-
-    const [newTemplate] = await db
-      .insert(templates)
-      .values({
-        name: data.name,
-        slug: data.slug,
-        description: data.description || null,
-        preview_image_url: data.preview_image_url || null,
-        is_active: data.is_active !== undefined ? data.is_active : true,
-      })
-      .returning();
-
-    if (!newTemplate) {
-      throw new InternalServerError('Failed to create template');
-    }
-
-    log.info('Template created', {
-      templateId: newTemplate.template_id,
-      name: newTemplate.name,
-      slug: newTemplate.slug,
-      createdBy: this.userContext.user_id,
-      duration: Date.now() - startTime,
-    });
-
-    return newTemplate;
+    return this.create(data) as Promise<TemplateData>;
   }
 
   /**
-   * Update template
+   * Update template (legacy method)
+   * @deprecated Use update() instead
    */
   async updateTemplate(templateId: string, data: UpdateTemplateData): Promise<TemplateData> {
-    const startTime = Date.now();
-
-    // Check permissions - only admins can update templates
-    this.requirePermission('templates:manage:all', undefined);
-
-    // Check if template exists
-    const existing = await this.getTemplateById(templateId);
-    if (!existing) {
-      throw new NotFoundError('Template not found');
-    }
-
-    // If updating slug, check it's not already taken
-    if (data.slug && data.slug !== existing.slug) {
-      const slugExists = await this.getTemplateBySlug(data.slug);
-      if (slugExists) {
-        throw new ConflictError('Template with this slug already exists');
-      }
-    }
-
-    const [updatedTemplate] = await db
-      .update(templates)
-      .set({
-        ...(data.name && { name: data.name }),
-        ...(data.slug && { slug: data.slug }),
-        ...(data.description !== undefined && { description: data.description }),
-        ...(data.preview_image_url !== undefined && { preview_image_url: data.preview_image_url }),
-        ...(data.is_active !== undefined && { is_active: data.is_active }),
-        updated_at: new Date(),
-      })
-      .where(eq(templates.template_id, templateId))
-      .returning();
-
-    if (!updatedTemplate) {
-      throw new InternalServerError('Failed to update template');
-    }
-
-    log.info('Template updated', {
-      templateId,
-      updatedBy: this.userContext.user_id,
-      duration: Date.now() - startTime,
-    });
-
-    return updatedTemplate;
+    return this.update(templateId, data) as Promise<TemplateData>;
   }
 
   /**
-   * Delete template (soft delete)
+   * Delete template (soft delete) (legacy method)
+   * @deprecated Use delete() instead
    */
   async deleteTemplate(templateId: string): Promise<void> {
-    const startTime = Date.now();
-
-    // Check permissions - only admins can delete templates
-    this.requirePermission('templates:manage:all', undefined);
-
-    // Check if template exists
-    const existing = await this.getTemplateById(templateId);
-    if (!existing) {
-      throw new NotFoundError('Template not found');
-    }
-
-    // Soft delete
-    await db
-      .update(templates)
-      .set({
-        deleted_at: new Date(),
-        updated_at: new Date(),
-      })
-      .where(eq(templates.template_id, templateId));
-
-    log.info('Template deleted', {
-      templateId,
-      deletedBy: this.userContext.user_id,
-      duration: Date.now() - startTime,
-    });
+    return this.delete(templateId);
   }
 }
 

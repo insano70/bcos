@@ -3,10 +3,10 @@ import { createErrorResponse, handleRouteError } from '@/lib/api/responses/error
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { log, logTemplates } from '@/lib/logger';
-import { createRBACReportCardService } from '@/lib/services/report-card';
+import { createRBACMeasureService } from '@/lib/services/report-card';
 import type { UserContext } from '@/lib/types/rbac';
 import { measureCreateSchema, measureQuerySchema } from '@/lib/validations/report-card';
-import { MeasureDuplicateError } from '@/lib/errors/report-card-errors';
+import { ConflictError } from '@/lib/errors/domain-errors';
 
 /**
  * Report Card API - Measure configuration CRUD
@@ -30,9 +30,9 @@ const getMeasuresHandler = async (
       ? queryResult.data.is_active !== false
       : true;
 
-    // Get measures
-    const service = createRBACReportCardService(userContext);
-    const measures = await service.getMeasures(activeOnly);
+    // Get measures using RBACMeasureService
+    const service = createRBACMeasureService(userContext);
+    const { items: measures } = await service.getList({ activeOnly });
 
     const duration = Date.now() - startTime;
 
@@ -82,9 +82,9 @@ const createMeasureHandler = async (
       return createErrorResponse(`Validation failed: ${errorDetails}`, 400, request);
     }
 
-    // Create measure
-    const service = createRBACReportCardService(userContext);
-    const measure = await service.createMeasure(validationResult.data);
+    // Create measure using RBACMeasureService
+    const service = createRBACMeasureService(userContext);
+    const measure = await service.create(validationResult.data);
 
     const duration = Date.now() - startTime;
 
@@ -104,7 +104,7 @@ const createMeasureHandler = async (
   } catch (error) {
     const duration = Date.now() - startTime;
 
-    if (error instanceof MeasureDuplicateError) {
+    if (error instanceof ConflictError) {
       return createErrorResponse('Measure already exists', 409, request);
     }
 

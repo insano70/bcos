@@ -1,14 +1,9 @@
-import { and, asc, count, eq, isNull } from 'drizzle-orm';
-import { db } from '@/lib/db';
-import { work_item_statuses, work_item_types } from '@/lib/db/schema';
-import {
-  ConflictError,
-  DatabaseError,
-  ForbiddenError,
-  NotFoundError,
-} from '@/lib/errors/domain-errors';
-import { log } from '@/lib/logger';
-import { BaseRBACService } from '@/lib/rbac/base-service';
+import type { InferSelectModel, SQL } from 'drizzle-orm';
+import { and, count, eq, isNull } from 'drizzle-orm';
+
+import { db, work_item_statuses, work_item_types, work_items } from '@/lib/db';
+import { ConflictError, ForbiddenError, NotFoundError } from '@/lib/errors/domain-errors';
+import { BaseCrudService, type BaseQueryOptions, type CrudServiceConfig } from '@/lib/services/crud';
 import type { UserContext } from '@/lib/types/rbac';
 import type { WorkItemStatusWithDetails } from '@/lib/types/work-item-statuses';
 
@@ -18,361 +13,221 @@ export type { WorkItemStatusWithDetails };
 /**
  * Work Item Statuses Service with RBAC
  * Manages work item statuses with automatic permission checking
- * Phase 4: Status management per work item type
+ *
+ * Migrated to use BaseCrudService infrastructure.
+ *
+ * Special considerations:
+ * - Statuses belong to work item types (parent resource)
+ * - Global types (no organization_id) cannot be modified
+ * - Organization access is validated through the parent type
  */
 
-export class RBACWorkItemStatusesService extends BaseRBACService {
+// Entity type derived from Drizzle schema
+export type WorkItemStatus = InferSelectModel<typeof work_item_statuses>;
+
+export interface StatusQueryOptions extends BaseQueryOptions {
+  work_item_type_id?: string;
+}
+
+export interface CreateStatusData {
+  work_item_type_id: string;
+  status_name: string;
+  status_category: string;
+  is_initial?: boolean;
+  is_final?: boolean;
+  color?: string;
+  display_order?: number;
+}
+
+export interface UpdateStatusData {
+  status_name?: string;
+  status_category?: string;
+  is_initial?: boolean;
+  is_final?: boolean;
+  color?: string | null;
+  display_order?: number;
+}
+
+/**
+ * RBAC Work Item Statuses Service
+ * Provides secure status management with automatic permission checking
+ */
+export class RBACWorkItemStatusesService extends BaseCrudService<
+  typeof work_item_statuses,
+  WorkItemStatus,
+  CreateStatusData,
+  UpdateStatusData,
+  StatusQueryOptions
+> {
+  protected config: CrudServiceConfig<
+    typeof work_item_statuses,
+    WorkItemStatus,
+    CreateStatusData,
+    UpdateStatusData,
+    StatusQueryOptions
+  > = {
+    table: work_item_statuses,
+    resourceName: 'work-item-statuses',
+    displayName: 'work item status',
+    primaryKeyName: 'work_item_status_id',
+    // No deletedAtColumnName - statuses use hard delete
+    updatedAtColumnName: 'updated_at',
+    permissions: {
+      // Read is allowed for anyone with org access (validated via parent)
+      read: 'work-items:read:organization',
+      // Create/update/delete permissions are handled in validators
+      // because they depend on whether the parent type is global
+      create: 'work-items:manage:organization',
+      update: 'work-items:manage:organization',
+      delete: 'work-items:manage:organization',
+    },
+    parentResource: {
+      table: work_item_types,
+      foreignKeyColumnName: 'work_item_type_id',
+      parentPrimaryKeyName: 'work_item_type_id',
+      parentOrgColumnName: 'organization_id',
+    },
+    transformers: {
+      toCreateValues: (data) => ({
+        work_item_type_id: data.work_item_type_id,
+        status_name: data.status_name,
+        status_category: data.status_category,
+        is_initial: data.is_initial ?? false,
+        is_final: data.is_final ?? false,
+        color: data.color ?? null,
+        display_order: data.display_order ?? 0,
+      }),
+    },
+    validators: {
+      beforeCreate: async (data) => {
+        await this.validateNotGlobalType(data.work_item_type_id);
+      },
+      beforeUpdate: async (_id, _data, existing) => {
+        await this.validateNotGlobalType(existing.work_item_type_id);
+      },
+      beforeDelete: async (id, existing) => {
+        await this.validateNotGlobalType(existing.work_item_type_id);
+        await this.validateNoWorkItemsUsingStatus(String(id));
+      },
+    },
+  };
+
   /**
-   * Get statuses for a work item type
-   * Validates organization access before returning statuses
+   * Build custom filter conditions for type scoping.
    */
-  async getStatusesByType(typeId: string): Promise<WorkItemStatusWithDetails[]> {
-    const queryStart = Date.now();
+  protected buildCustomConditions(options: StatusQueryOptions): SQL[] {
+    const conditions: SQL[] = [];
 
-    try {
-      // Validate work item type exists and check organization access
-      const [workItemType] = await db
-        .select({ organization_id: work_item_types.organization_id })
-        .from(work_item_types)
-        .where(eq(work_item_types.work_item_type_id, typeId))
-        .limit(1);
-
-      if (!workItemType) {
-        throw new NotFoundError('Work item type', typeId);
-      }
-
-      // Check organization access if type is organization-scoped
-      if (workItemType.organization_id) {
-        this.requireOrganizationAccess(workItemType.organization_id);
-      }
-
-      const results = await db
-        .select({
-          work_item_status_id: work_item_statuses.work_item_status_id,
-          work_item_type_id: work_item_statuses.work_item_type_id,
-          status_name: work_item_statuses.status_name,
-          status_category: work_item_statuses.status_category,
-          is_initial: work_item_statuses.is_initial,
-          is_final: work_item_statuses.is_final,
-          color: work_item_statuses.color,
-          display_order: work_item_statuses.display_order,
-          created_at: work_item_statuses.created_at,
-          updated_at: work_item_statuses.updated_at,
-        })
-        .from(work_item_statuses)
-        .where(eq(work_item_statuses.work_item_type_id, typeId))
-        .orderBy(asc(work_item_statuses.display_order));
-
-      log.info('Work item statuses retrieved', {
-        typeId,
-        count: results.length,
-        duration: Date.now() - queryStart,
-        organizationId: workItemType.organization_id,
-      });
-
-      return results;
-    } catch (error) {
-      log.error('Failed to retrieve work item statuses', error, { typeId });
-      throw error;
+    if (options.work_item_type_id) {
+      conditions.push(eq(work_item_statuses.work_item_type_id, options.work_item_type_id));
     }
+
+    return conditions;
   }
 
   /**
-   * Get status by ID
-   * Validates organization access before returning status
+   * Validate that the work item type is not global (has organization_id).
+   * Global types cannot be modified.
    */
-  async getStatusById(statusId: string): Promise<WorkItemStatusWithDetails | null> {
-    try {
-      const [result] = await db
-        .select({
-          work_item_status_id: work_item_statuses.work_item_status_id,
-          work_item_type_id: work_item_statuses.work_item_type_id,
-          status_name: work_item_statuses.status_name,
-          status_category: work_item_statuses.status_category,
-          is_initial: work_item_statuses.is_initial,
-          is_final: work_item_statuses.is_final,
-          color: work_item_statuses.color,
-          display_order: work_item_statuses.display_order,
-          created_at: work_item_statuses.created_at,
-          updated_at: work_item_statuses.updated_at,
-        })
-        .from(work_item_statuses)
-        .where(eq(work_item_statuses.work_item_status_id, statusId))
-        .limit(1);
-
-      if (!result) {
-        return null;
-      }
-
-      // Validate organization access via the work item type
-      const [workItemType] = await db
-        .select({ organization_id: work_item_types.organization_id })
-        .from(work_item_types)
-        .where(eq(work_item_types.work_item_type_id, result.work_item_type_id))
-        .limit(1);
-
-      if (!workItemType) {
-        throw new NotFoundError('Work item type', result.work_item_type_id);
-      }
-
-      // Check organization access if type is organization-scoped
-      if (workItemType.organization_id) {
-        this.requireOrganizationAccess(workItemType.organization_id);
-      }
-
-      return result;
-    } catch (error) {
-      log.error('Failed to retrieve work item status', error, { statusId });
-      throw error;
-    }
-  }
-
-  /**
-   * Create a new work item status
-   * Phase 4: Add statuses to work item types
-   */
-  async createStatus(data: {
-    work_item_type_id: string;
-    status_name: string;
-    status_category: string;
-    is_initial?: boolean;
-    is_final?: boolean;
-    color?: string;
-    display_order?: number;
-  }): Promise<WorkItemStatusWithDetails> {
-    const startTime = Date.now();
-
-    log.info('Work item status creation initiated', {
-      requestingUserId: this.userContext.user_id,
-      typeId: data.work_item_type_id,
-      operation: 'create_work_item_status',
-    });
-
-    // Get the type to check organization access
+  private async validateNotGlobalType(typeId: string): Promise<void> {
     const [workItemType] = await db
       .select({ organization_id: work_item_types.organization_id })
       .from(work_item_types)
-      .where(eq(work_item_types.work_item_type_id, data.work_item_type_id))
-      .limit(1);
+      .where(eq(work_item_types.work_item_type_id, typeId));
 
     if (!workItemType) {
-      throw new NotFoundError('Work item type', data.work_item_type_id);
+      throw new NotFoundError('Work item type', typeId);
     }
 
-    // Check permission - only for organization-owned types
-    if (workItemType.organization_id) {
-      this.requirePermission(
-        'work-items:manage:organization',
-        undefined,
-        workItemType.organization_id
-      );
-      this.requireOrganizationAccess(workItemType.organization_id);
-    } else {
-      // Global types cannot be modified
-      throw new ForbiddenError('Cannot add statuses to global work item types');
+    if (!workItemType.organization_id) {
+      throw new ForbiddenError('Cannot modify statuses of global work item types');
     }
 
-    try {
-      const [newStatus] = await db
-        .insert(work_item_statuses)
-        .values({
-          work_item_type_id: data.work_item_type_id,
-          status_name: data.status_name,
-          status_category: data.status_category,
-          is_initial: data.is_initial ?? false,
-          is_final: data.is_final ?? false,
-          color: data.color || null,
-          display_order: data.display_order ?? 0,
-        })
-        .returning();
-
-      if (!newStatus) {
-        throw new DatabaseError('Failed to create work item status', 'write');
-      }
-
-      log.info('Work item status created successfully', {
-        statusId: newStatus.work_item_status_id,
-        typeId: data.work_item_type_id,
-        userId: this.userContext.user_id,
-        duration: Date.now() - startTime,
-      });
-
-      return {
-        work_item_status_id: newStatus.work_item_status_id,
-        work_item_type_id: newStatus.work_item_type_id,
-        status_name: newStatus.status_name,
-        status_category: newStatus.status_category,
-        is_initial: newStatus.is_initial,
-        is_final: newStatus.is_final,
-        color: newStatus.color,
-        display_order: newStatus.display_order,
-        created_at: newStatus.created_at,
-        updated_at: newStatus.updated_at,
-      };
-    } catch (error) {
-      log.error('Failed to create work item status', error, {
-        typeId: data.work_item_type_id,
-        duration: Date.now() - startTime,
-      });
-      throw error;
-    }
+    // Verify user has access to this organization
+    this.requireOrganizationAccess(workItemType.organization_id);
   }
 
   /**
-   * Update a work item status
-   * Phase 4: Modify status properties
+   * Validate that no work items are using this status.
    */
-  async updateStatus(
-    statusId: string,
-    data: {
-      status_name?: string;
-      status_category?: string;
-      is_initial?: boolean;
-      is_final?: boolean;
-      color?: string | null;
-      display_order?: number;
-    }
-  ): Promise<WorkItemStatusWithDetails> {
-    const startTime = Date.now();
-
-    log.info('Work item status update initiated', {
-      requestingUserId: this.userContext.user_id,
-      statusId,
-      operation: 'update_work_item_status',
-    });
-
-    // Get existing status and type to check permissions
-    const existingStatus = await this.getStatusById(statusId);
-    if (!existingStatus) {
-      throw new NotFoundError('Work item status', statusId);
-    }
-
-    const [workItemType] = await db
-      .select({ organization_id: work_item_types.organization_id })
-      .from(work_item_types)
-      .where(eq(work_item_types.work_item_type_id, existingStatus.work_item_type_id))
-      .limit(1);
-
-    if (!workItemType) {
-      throw new NotFoundError('Work item type', existingStatus.work_item_type_id);
-    }
-
-    if (workItemType.organization_id) {
-      this.requirePermission(
-        'work-items:manage:organization',
-        undefined,
-        workItemType.organization_id
-      );
-      this.requireOrganizationAccess(workItemType.organization_id);
-    } else {
-      throw new ForbiddenError('Cannot update statuses of global work item types');
-    }
-
-    try {
-      await db
-        .update(work_item_statuses)
-        .set({
-          ...data,
-          updated_at: new Date(),
-        })
-        .where(eq(work_item_statuses.work_item_status_id, statusId));
-
-      log.info('Work item status updated successfully', {
-        statusId,
-        userId: this.userContext.user_id,
-        duration: Date.now() - startTime,
-      });
-
-      const updatedStatus = await this.getStatusById(statusId);
-      if (!updatedStatus) {
-        throw new DatabaseError('Failed to retrieve updated work item status', 'read');
-      }
-
-      return updatedStatus;
-    } catch (error) {
-      log.error('Failed to update work item status', error, {
-        statusId,
-        duration: Date.now() - startTime,
-      });
-      throw error;
-    }
-  }
-
-  /**
-   * Delete a work item status
-   * Phase 4: Remove status if not in use
-   */
-  async deleteStatus(statusId: string): Promise<void> {
-    const startTime = Date.now();
-
-    log.info('Work item status deletion initiated', {
-      requestingUserId: this.userContext.user_id,
-      statusId,
-      operation: 'delete_work_item_status',
-    });
-
-    const existingStatus = await this.getStatusById(statusId);
-    if (!existingStatus) {
-      throw new NotFoundError('Work item status', statusId);
-    }
-
-    const [workItemType] = await db
-      .select({ organization_id: work_item_types.organization_id })
-      .from(work_item_types)
-      .where(eq(work_item_types.work_item_type_id, existingStatus.work_item_type_id))
-      .limit(1);
-
-    if (!workItemType) {
-      throw new NotFoundError('Work item type', existingStatus.work_item_type_id);
-    }
-
-    if (workItemType.organization_id) {
-      this.requirePermission(
-        'work-items:manage:organization',
-        undefined,
-        workItemType.organization_id
-      );
-      this.requireOrganizationAccess(workItemType.organization_id);
-    } else {
-      throw new ForbiddenError('Cannot delete statuses from global work item types');
-    }
-
-    // Check if any work items use this status
-    const { work_items } = await import('@/lib/db/schema');
+  private async validateNoWorkItemsUsingStatus(statusId: string): Promise<void> {
     const [workItemCount] = await db
       .select({ count: count() })
       .from(work_items)
       .where(and(eq(work_items.status_id, statusId), isNull(work_items.deleted_at)));
 
-    if (!workItemCount) {
-      throw new DatabaseError('Failed to check work item count', 'read');
-    }
-
-    if (workItemCount.count > 0) {
+    if (workItemCount && workItemCount.count > 0) {
       throw new ConflictError(
         `Cannot delete work item status with existing work items (${workItemCount.count} items found)`,
         'state_conflict',
         { workItemCount: workItemCount.count }
       );
     }
+  }
 
-    try {
-      await db
-        .delete(work_item_statuses)
-        .where(eq(work_item_statuses.work_item_status_id, statusId));
+  // ===========================================================================
+  // Legacy Methods - Maintained for backward compatibility
+  // ===========================================================================
 
-      log.info('Work item status deleted successfully', {
-        statusId,
-        userId: this.userContext.user_id,
-        duration: Date.now() - startTime,
-      });
-    } catch (error) {
-      log.error('Failed to delete work item status', error, {
-        statusId,
-        duration: Date.now() - startTime,
-      });
-      throw error;
+  /**
+   * Get statuses for a work item type (legacy method)
+   * @deprecated Use getList({ work_item_type_id: typeId }) instead
+   */
+  async getStatusesByType(typeId: string): Promise<WorkItemStatusWithDetails[]> {
+    // Validate the type exists and check org access
+    const [workItemType] = await db
+      .select({ organization_id: work_item_types.organization_id })
+      .from(work_item_types)
+      .where(eq(work_item_types.work_item_type_id, typeId));
+
+    if (!workItemType) {
+      throw new NotFoundError('Work item type', typeId);
     }
+
+    if (workItemType.organization_id) {
+      this.requireOrganizationAccess(workItemType.organization_id);
+    }
+
+    const result = await this.getList({
+      work_item_type_id: typeId,
+      limit: 1000,
+      sortField: 'display_order',
+      sortOrder: 'asc',
+    });
+
+    return result.items as WorkItemStatusWithDetails[];
+  }
+
+  /**
+   * Get status by ID (legacy method)
+   * @deprecated Use getById() instead
+   */
+  async getStatusById(statusId: string): Promise<WorkItemStatusWithDetails | null> {
+    return this.getById(statusId) as Promise<WorkItemStatusWithDetails | null>;
+  }
+
+  /**
+   * Create a new work item status (legacy method)
+   * @deprecated Use create() instead
+   */
+  async createStatus(data: CreateStatusData): Promise<WorkItemStatusWithDetails> {
+    return this.create(data) as Promise<WorkItemStatusWithDetails>;
+  }
+
+  /**
+   * Update a work item status (legacy method)
+   * @deprecated Use update() instead
+   */
+  async updateStatus(statusId: string, data: UpdateStatusData): Promise<WorkItemStatusWithDetails> {
+    return this.update(statusId, data) as Promise<WorkItemStatusWithDetails>;
+  }
+
+  /**
+   * Delete a work item status (legacy method)
+   * @deprecated Use delete() instead
+   */
+  async deleteStatus(statusId: string): Promise<void> {
+    return this.delete(statusId);
   }
 }
 

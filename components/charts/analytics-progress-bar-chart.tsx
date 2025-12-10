@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 import { getPaletteColors } from '@/lib/services/color-palettes';
 
 interface ProgressBarData {
@@ -17,7 +17,7 @@ interface AnalyticsProgressBarChartProps {
   height?: number;
 }
 
-export default function AnalyticsProgressBarChart({
+function AnalyticsProgressBarChartInner({
   data,
   colorPalette = 'default',
   measureType = 'number',
@@ -147,3 +147,6 @@ export default function AnalyticsProgressBarChart({
     </div>
   );
 }
+
+const AnalyticsProgressBarChart = memo(AnalyticsProgressBarChartInner);
+export default AnalyticsProgressBarChart;

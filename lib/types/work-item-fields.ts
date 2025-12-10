@@ -35,6 +35,7 @@ export interface FieldOption {
  * Conditional visibility rule for fields
  */
 export interface ConditionalVisibilityRule {
+  id?: string; // Client-side ID for React key stability
   field_id: string;
   operator:
     | 'equals'

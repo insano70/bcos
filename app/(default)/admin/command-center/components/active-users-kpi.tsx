@@ -5,6 +5,8 @@
  * Shows trend indicator if peak data is available.
  */
 
+import { memo } from 'react';
+
 interface ActiveUsersKPIProps {
   activeUsers: {
     current: number;
@@ -13,7 +15,7 @@ interface ActiveUsersKPIProps {
   };
 }
 
-export default function ActiveUsersKPI({ activeUsers }: ActiveUsersKPIProps) {
+function ActiveUsersKPIInner({ activeUsers }: ActiveUsersKPIProps) {
   const { current, peak, peakTime } = activeUsers;
 
   // Calculate trend if we have peak data
@@ -71,3 +73,6 @@ export default function ActiveUsersKPI({ activeUsers }: ActiveUsersKPIProps) {
     </div>
   );
 }
+
+const ActiveUsersKPI = memo(ActiveUsersKPIInner);
+export default ActiveUsersKPI;

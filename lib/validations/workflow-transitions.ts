@@ -27,6 +27,7 @@ const validationRuleOperatorSchema = z.enum([
  * Individual validation rule schema
  */
 const validationRuleSchema = z.object({
+  id: z.string().optional(), // Client-side ID for React key stability
   field: z.string().min(1, 'Field is required'),
   operator: validationRuleOperatorSchema,
   value: z.string(),
@@ -45,6 +46,7 @@ export const validationConfigSchema = z.object({
  * Notification action schema
  */
 const notificationActionSchema = z.object({
+  id: z.string().optional(), // Client-side ID for React key stability
   type: z.literal('notification'),
   recipients: z.array(z.string()).min(1, 'At least one recipient is required'),
   template: z.string().optional(),
@@ -55,6 +57,7 @@ const notificationActionSchema = z.object({
  * Field update action schema
  */
 const fieldUpdateActionSchema = z.object({
+  id: z.string().optional(), // Client-side ID for React key stability
   type: z.literal('field_update'),
   field_id: z.string().min(1, 'Field ID is required'),
   value: z.string(), // Supports template tokens like {creator}
@@ -65,6 +68,7 @@ const fieldUpdateActionSchema = z.object({
  * Assignment action schema
  */
 const assignmentActionSchema = z.object({
+  id: z.string().optional(), // Client-side ID for React key stability
   type: z.literal('assignment'),
   assign_to: z.string().min(1, 'Assignee is required'), // User ID or template token
   condition: z.string().optional(),

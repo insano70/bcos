@@ -175,7 +175,7 @@ export async function updateRolePermissionsWithInvalidation(
  * Get cache statistics for monitoring
  * Now uses Redis cache
  */
-export async function getCacheStats() {
+export async function getCacheStats(): Promise<{ backend: string; note: string }> {
   // Redis cache stats would need to be implemented in rbacCache
   // For now, return basic info
   return {

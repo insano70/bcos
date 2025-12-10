@@ -1,8 +1,8 @@
 'use client';
 
+import { memo, useState } from 'react';
 import type { StaticImageData } from 'next/image';
 import Image from 'next/image';
-import { useState } from 'react';
 
 interface RichItem {
   id: number;
@@ -20,7 +20,7 @@ interface RichItemProps {
   item: RichItem;
 }
 
-export default function AccordionTableRichItem({ item }: RichItemProps) {
+function AccordionTableRichItemInner({ item }: RichItemProps) {
   const [open, setOpen] = useState<boolean>(false);
 
   return (
@@ -90,3 +90,6 @@ export default function AccordionTableRichItem({ item }: RichItemProps) {
     </tbody>
   );
 }
+
+const AccordionTableRichItem = memo(AccordionTableRichItemInner);
+export default AccordionTableRichItem;

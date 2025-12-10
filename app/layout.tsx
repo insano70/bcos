@@ -2,6 +2,7 @@ import './css/style.css';
 
 import { Inter } from 'next/font/google';
 import { RBACAuthProvider } from '@/components/auth/rbac-auth-provider';
+import { ToastProvider } from '@/components/toast';
 import { NonceProvider } from '@/lib/security/nonce-context';
 import { getServerNonces } from '@/lib/security/nonce-server';
 import AppProvider from './app-provider';
@@ -61,7 +62,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <RBACAuthProvider>
             <QueryProvider>
               <Theme>
-                <AppProvider>{children}</AppProvider>
+                <ToastProvider>
+                  <AppProvider>{children}</AppProvider>
+                </ToastProvider>
               </Theme>
             </QueryProvider>
           </RBACAuthProvider>

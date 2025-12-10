@@ -1,7 +1,7 @@
 'use client';
 
+import { memo, useState } from 'react';
 import Image, { type StaticImageData } from 'next/image';
-import { useState } from 'react';
 
 interface Item {
   id: number;
@@ -19,7 +19,7 @@ interface ItemProps {
   item: Item;
 }
 
-export default function AccordionTableItem({ item }: ItemProps) {
+function AccordionTableItemInner({ item }: ItemProps) {
   const [open, setOpen] = useState<boolean>(false);
 
   return (
@@ -103,3 +103,6 @@ export default function AccordionTableItem({ item }: ItemProps) {
     </tbody>
   );
 }
+
+const AccordionTableItem = memo(AccordionTableItemInner);
+export default AccordionTableItem;

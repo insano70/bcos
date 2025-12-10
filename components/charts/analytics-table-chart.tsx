@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 
 interface TableColumn {
   columnName: string;
@@ -33,7 +33,7 @@ interface AnalyticsTableChartProps {
   height?: number;
 }
 
-export default function AnalyticsTableChart({
+function AnalyticsTableChartInner({
   data,
   formattedData,
   columns,
@@ -508,3 +508,6 @@ export default function AnalyticsTableChart({
     </div>
   );
 }
+
+const AnalyticsTableChart = memo(AnalyticsTableChartInner);
+export default AnalyticsTableChart;

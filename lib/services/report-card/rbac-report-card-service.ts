@@ -5,44 +5,34 @@
  * Reuses existing analytics:read:* permissions.
  */
 
-import { eq, and, desc, inArray, sql } from 'drizzle-orm';
+import { eq, and, desc, sql } from 'drizzle-orm';
 import { BaseRBACService } from '@/lib/rbac/base-service';
 import { PermissionDeniedError } from '@/lib/errors/rbac-errors';
 import { db } from '@/lib/db';
 import { reportCardCache } from '@/lib/cache/report-card-cache';
 import {
   report_card_results,
-  report_card_measures,
-  report_card_statistics,
   report_card_trends,
   practice_size_buckets,
 } from '@/lib/db/schema';
-import { log, logTemplates, calculateChanges } from '@/lib/logger';
-import {
-  ReportCardNotFoundError,
-  MeasureNotFoundError,
-  MeasureDuplicateError,
-} from '@/lib/errors/report-card-errors';
+import { log, logTemplates } from '@/lib/logger';
+import { ReportCardNotFoundError } from '@/lib/errors/report-card-errors';
 import type { UserContext } from '@/lib/types/rbac';
 import type {
   ReportCard,
   PeerComparison,
-  MeasureConfig,
-  MeasureCreateInput,
-  MeasureUpdateInput,
   PreviousMonthSummary,
   GradeHistoryEntry,
   AnnualReview,
-  MonthlyScore,
-  YearOverYearComparison,
-  AnnualForecast,
-  MeasureYoYComparison,
-  MonthlyProjection,
   PracticeTrend,
 } from '@/lib/types/report-card';
 import type { SizeBucket } from '@/lib/constants/report-card';
 import { getLetterGrade as sharedGetLetterGrade, compareGrades as sharedCompareGrades } from '@/lib/utils/format-value';
-import { reportCardGenerator } from './report-card-generator';
+
+// Extracted modules
+import { resultMapper } from './data';
+import { annualReviewCalculator, peerStatisticsCalculator } from './analytics';
+import { getActiveMeasures } from './measures';
 
 /**
  * RBAC Report Card Service
@@ -53,36 +43,6 @@ import { reportCardGenerator } from './report-card-generator';
 export class RBACReportCardService extends BaseRBACService {
   constructor(userContext: UserContext) {
     super(userContext, db);
-  }
-
-  // ============================================================================
-  // Database Result Mapping
-  // ============================================================================
-
-  /**
-   * Map database result to ReportCard domain object
-   *
-   * Centralizes all result transformation logic to ensure consistency
-   * across getReportCardByOrganization and getReportCardByOrganizationAndMonth.
-   *
-   * @param result - Raw database result from report_card_results table
-   * @returns Fully mapped ReportCard object
-   */
-  private mapDbResultToReportCard(
-    result: typeof report_card_results.$inferSelect
-  ): ReportCard {
-    return {
-      result_id: result.result_id,
-      practice_uid: result.practice_uid,
-      organization_id: result.organization_id,
-      report_card_month: result.report_card_month,
-      generated_at: result.generated_at?.toISOString() || new Date().toISOString(),
-      overall_score: parseFloat(result.overall_score || '0'),
-      size_bucket: (result.size_bucket as SizeBucket) || 'medium',
-      percentile_rank: parseFloat(result.percentile_rank || '0'),
-      insights: (result.insights as string[]) || [],
-      measure_scores: (result.measure_scores as Record<string, ReportCard['measure_scores'][string]>) || {},
-    };
   }
 
   // ============================================================================
@@ -209,7 +169,7 @@ export class RBACReportCardService extends BaseRBACService {
         throw new ReportCardNotFoundError(`organization:${organizationId}`);
       }
 
-      const reportCard = this.mapDbResultToReportCard(result);
+      const reportCard = resultMapper.mapDbResultToReportCard(result);
 
       // Cache the result (keyed by organization_id)
       await reportCardCache.setReportCardByOrg(organizationId, reportCard);
@@ -275,7 +235,7 @@ export class RBACReportCardService extends BaseRBACService {
         throw new ReportCardNotFoundError(`organization:${organizationId}:month:${month}`);
       }
 
-      const reportCard = this.mapDbResultToReportCard(result);
+      const reportCard = resultMapper.mapDbResultToReportCard(result);
 
       const duration = Date.now() - startTime;
       log.info('Report card retrieved by org and month', {
@@ -570,211 +530,24 @@ export class RBACReportCardService extends BaseRBACService {
       // Get practice_uid from results (for return type compatibility)
       const practiceUid = results[0]?.practice_uid ?? 0;
 
-      if (results.length === 0) {
-        return {
-          practiceUid,
-          currentYear: new Date().getFullYear(),
-          monthlyScores: [],
-          yearOverYear: null,
-          measureYoY: [],
-          summary: {
-            averageScore: 0,
-            highestScore: 0,
-            lowestScore: 0,
-            monthsAnalyzed: 0,
-            trend: 'stable',
-            improvementPercentage: 0,
-          },
-          forecast: null,
-        };
-      }
-
       // Get active measures for per-measure YoY calculation
-      const activeMeasures = await reportCardGenerator.getActiveMeasures();
+      const activeMeasures = await getActiveMeasures();
 
-      // Calculate monthly scores with grades
-      // Use T00:00:00 suffix to parse in local time, not UTC
-      const monthlyScores: MonthlyScore[] = results.map((r) => {
-        const score = parseFloat(r.overall_score || '0');
-        return {
-          month: r.report_card_month,
-          monthLabel: new Date(`${r.report_card_month}T00:00:00`).toLocaleDateString('en-US', {
-            month: 'short',
-            year: 'numeric',
-          }),
-          score,
-          grade: sharedGetLetterGrade(score),
-          percentileRank: parseFloat(r.percentile_rank || '0'),
-        };
-      });
+      // Transform results to the format expected by annualReviewCalculator
+      const transformedResults = results.map((r) => ({
+        report_card_month: r.report_card_month ?? '',
+        overall_score: r.overall_score ?? '0',
+        percentile_rank: r.percentile_rank ?? '0',
+        size_bucket: r.size_bucket ?? 'medium',
+        measure_scores: r.measure_scores,
+      }));
 
-      // Calculate year-over-year comparison
-      const currentYear = new Date().getFullYear();
-      const thisYearScores = monthlyScores.filter((m) => {
-        const year = new Date(`${m.month}T00:00:00`).getFullYear();
-        return year === currentYear;
-      });
-      const lastYearScores = monthlyScores.filter((m) => {
-        const year = new Date(`${m.month}T00:00:00`).getFullYear();
-        return year === currentYear - 1;
-      });
-
-      let yearOverYear: YearOverYearComparison | null = null;
-      if (thisYearScores.length > 0 && lastYearScores.length > 0) {
-        const thisYearAvg = thisYearScores.reduce((sum, m) => sum + m.score, 0) / thisYearScores.length;
-        const lastYearAvg = lastYearScores.reduce((sum, m) => sum + m.score, 0) / lastYearScores.length;
-        const changePercent = lastYearAvg > 0 ? ((thisYearAvg - lastYearAvg) / lastYearAvg) * 100 : 0;
-
-        yearOverYear = {
-          currentYear,
-          previousYear: currentYear - 1,
-          currentYearAverage: Math.round(thisYearAvg * 10) / 10,
-          previousYearAverage: Math.round(lastYearAvg * 10) / 10,
-          changePercent: Math.round(changePercent * 10) / 10,
-          currentYearGrade: sharedGetLetterGrade(thisYearAvg),
-          previousYearGrade: sharedGetLetterGrade(lastYearAvg),
-          monthsCompared: Math.min(thisYearScores.length, lastYearScores.length),
-        };
-      }
-
-      // Calculate per-measure YoY comparison
-      const measureYoY: MeasureYoYComparison[] = [];
-      const thisYearResults = results.filter((r) => new Date(`${r.report_card_month}T00:00:00`).getFullYear() === currentYear);
-      const lastYearResults = results.filter((r) => new Date(`${r.report_card_month}T00:00:00`).getFullYear() === currentYear - 1);
-
-      if (thisYearResults.length > 0 && lastYearResults.length > 0) {
-        for (const measure of activeMeasures) {
-          const thisYearValues: number[] = [];
-          for (const result of thisYearResults) {
-            const measureScores = result.measure_scores as Record<string, { value: number }> | null;
-            const measureScore = measureScores?.[measure.measure_name];
-            if (measureScore?.value !== undefined) {
-              thisYearValues.push(measureScore.value);
-            }
-          }
-
-          const lastYearValues: number[] = [];
-          for (const result of lastYearResults) {
-            const measureScores = result.measure_scores as Record<string, { value: number }> | null;
-            const measureScore = measureScores?.[measure.measure_name];
-            if (measureScore?.value !== undefined) {
-              lastYearValues.push(measureScore.value);
-            }
-          }
-
-          if (thisYearValues.length > 0 && lastYearValues.length > 0) {
-            const thisYearAvg = thisYearValues.reduce((sum, v) => sum + v, 0) / thisYearValues.length;
-            const lastYearAvg = lastYearValues.reduce((sum, v) => sum + v, 0) / lastYearValues.length;
-            const changePercent = lastYearAvg !== 0 ? ((thisYearAvg - lastYearAvg) / Math.abs(lastYearAvg)) * 100 : 0;
-            const isPositiveChange = changePercent > 0;
-            const improved = measure.higher_is_better ? isPositiveChange : !isPositiveChange;
-
-            measureYoY.push({
-              measureName: measure.measure_name,
-              displayName: measure.display_name,
-              previousYearAverage: Math.round(lastYearAvg * 100) / 100,
-              currentYearAverage: Math.round(thisYearAvg * 100) / 100,
-              changePercent: Math.round(changePercent * 10) / 10,
-              improved,
-              formatType: measure.format_type,
-            });
-          }
-        }
-      }
-
-      // Calculate summary statistics
-      const scores = monthlyScores.map((m) => m.score);
-      const avgScore = scores.reduce((sum, s) => sum + s, 0) / scores.length;
-      const highestScore = Math.max(...scores);
-      const lowestScore = Math.min(...scores);
-
-      let trend: 'improving' | 'declining' | 'stable' = 'stable';
-      let improvementPercentage = 0;
-
-      if (monthlyScores.length >= 3) {
-        const midpoint = Math.floor(scores.length / 2);
-        const recentScores = scores.slice(0, midpoint);
-        const olderScores = scores.slice(midpoint);
-        const recentAvg = recentScores.length > 0 ? recentScores.reduce((sum, s) => sum + s, 0) / recentScores.length : 0;
-        const olderAvg = olderScores.length > 0 ? olderScores.reduce((sum, s) => sum + s, 0) / olderScores.length : 0;
-
-        if (olderAvg > 0) {
-          const changePercent = ((recentAvg - olderAvg) / olderAvg) * 100;
-          improvementPercentage = Math.round(changePercent * 10) / 10;
-          if (changePercent >= 3) trend = 'improving';
-          else if (changePercent <= -3) trend = 'declining';
-        }
-      }
-
-      // Simple forecast
-      let forecast: AnnualForecast | null = null;
-      if (monthlyScores.length >= 3) {
-        const recentMonths = monthlyScores.slice(0, Math.min(6, monthlyScores.length));
-        const firstMonth = recentMonths[0];
-        const lastMonth = recentMonths[recentMonths.length - 1];
-
-        if (firstMonth && lastMonth) {
-          const avgRecentChange = recentMonths.length > 1
-            ? (firstMonth.score - lastMonth.score) / (recentMonths.length - 1)
-            : 0;
-
-          const monthlyProjections: MonthlyProjection[] = [];
-          // Use T00:00:00 suffix to parse in local time, not UTC
-          const latestMonthDate = new Date(`${firstMonth.month}T00:00:00`);
-          const currentYearEnd = new Date(currentYear, 11, 31);
-
-          let projMonth = new Date(latestMonthDate.getFullYear(), latestMonthDate.getMonth() + 1, 1);
-          let cumulativeChange = 0;
-
-          while (projMonth <= currentYearEnd && monthlyProjections.length < 6) {
-            cumulativeChange += avgRecentChange;
-            const projectedMonthScore = Math.min(100, Math.max(70, firstMonth.score + cumulativeChange));
-
-            monthlyProjections.push({
-              month: `${projMonth.getFullYear()}-${String(projMonth.getMonth() + 1).padStart(2, '0')}-01`,
-              monthLabel: projMonth.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
-              projectedScore: Math.round(projectedMonthScore * 10) / 10,
-              projectedGrade: sharedGetLetterGrade(projectedMonthScore),
-            });
-
-            projMonth = new Date(projMonth.getFullYear(), projMonth.getMonth() + 1, 1);
-          }
-
-          const finalProjection = monthlyProjections[Math.min(2, monthlyProjections.length - 1)];
-          const projectedScore = finalProjection?.projectedScore ?? Math.min(100, Math.max(70, firstMonth.score + (avgRecentChange * 3)));
-          const projectedGrade = sharedGetLetterGrade(projectedScore);
-
-          forecast = {
-            projectedScore: Math.round(projectedScore * 10) / 10,
-            projectedGrade,
-            confidence: recentMonths.length >= 6 ? 'high' : recentMonths.length >= 3 ? 'medium' : 'low',
-            basedOnMonths: recentMonths.length,
-            projectionNote: avgRecentChange > 0
-              ? 'Based on recent positive trends, score is projected to improve.'
-              : avgRecentChange < 0
-                ? 'Based on recent trends, focus on improvement is recommended.'
-                : 'Score is projected to remain stable based on recent performance.',
-            monthlyProjections,
-          };
-        }
-      }
-
-      const annualReview: AnnualReview = {
+      // Use extracted calculator for all computation
+      const annualReview = annualReviewCalculator.buildAnnualReview(
         practiceUid,
-        currentYear,
-        monthlyScores,
-        yearOverYear,
-        measureYoY,
-        summary: {
-          averageScore: Math.round(avgScore * 10) / 10,
-          highestScore: Math.round(highestScore * 10) / 10,
-          lowestScore: Math.round(lowestScore * 10) / 10,
-          monthsAnalyzed: monthlyScores.length,
-          trend,
-          improvementPercentage,
-        },
-        forecast,
-      };
+        transformedResults,
+        activeMeasures
+      );
 
       // Cache the result
       await reportCardCache.setAnnualReview(organizationId, annualReview);
@@ -784,7 +557,7 @@ export class RBACReportCardService extends BaseRBACService {
       log.info('Fetched annual review by organization', {
         operation: 'get_annual_review_by_org',
         organizationId,
-        monthsAnalyzed: monthlyScores.length,
+        monthsAnalyzed: annualReview.monthlyScores.length,
         userId: this.userContext.user_id,
         duration,
         cached: false,
@@ -841,10 +614,10 @@ export class RBACReportCardService extends BaseRBACService {
         .where(eq(practice_size_buckets.size_bucket, targetBucket));
 
       // Get measures
-      const measures = await reportCardGenerator.getActiveMeasures();
+      const measures = await getActiveMeasures();
 
-      // Calculate averages and percentiles for ALL measures in a single query
-      const { averages, percentiles } = await this.calculateAllMeasureStats(
+      // Calculate averages and percentiles for ALL measures using extracted calculator
+      const { averages, percentiles } = await peerStatisticsCalculator.calculateAllMeasureStats(
         practices.map((p) => p.practice_uid),
         measures.map((m) => m.measure_name)
       );
@@ -875,379 +648,6 @@ export class RBACReportCardService extends BaseRBACService {
     } catch (error) {
       log.error('Failed to get peer comparison', error as Error, {
         sizeBucket,
-        userId: this.userContext.user_id,
-        component: 'report-card',
-      });
-      throw error;
-    }
-  }
-
-  /**
-   * Calculate statistics for ALL measures in a single bulk query
-   * Returns averages and percentile breakdowns for each measure
-   * 
-   * OPTIMIZATION: Replaced N queries (1 per measure) with 1 bulk query
-   */
-  private async calculateAllMeasureStats(
-    practiceUids: number[],
-    measureNames: string[]
-  ): Promise<{
-    averages: Record<string, number>;
-    percentiles: Record<string, { p25: number; p50: number; p75: number }>;
-  }> {
-    const averages: Record<string, number> = {};
-    const percentiles: Record<string, { p25: number; p50: number; p75: number }> = {};
-
-    // Initialize defaults for all measures
-    for (const measureName of measureNames) {
-      averages[measureName] = 0;
-      percentiles[measureName] = { p25: 0, p50: 0, p75: 0 };
-    }
-
-    if (practiceUids.length === 0 || measureNames.length === 0) {
-      return { averages, percentiles };
-    }
-
-    // Bulk query: Get latest value for each practice/measure combination
-    const stats = await db
-      .select({
-        measure_name: report_card_statistics.measure_name,
-        practice_uid: report_card_statistics.practice_uid,
-        value: report_card_statistics.value,
-        period_date: report_card_statistics.period_date,
-      })
-      .from(report_card_statistics)
-      .where(
-        and(
-          inArray(report_card_statistics.practice_uid, practiceUids),
-          inArray(report_card_statistics.measure_name, measureNames)
-        )
-      )
-      .orderBy(
-        report_card_statistics.practice_uid,
-        report_card_statistics.measure_name,
-        desc(report_card_statistics.period_date)
-      );
-
-    // Group values by measure (taking only the latest value per practice)
-    const measureValuesMap: Map<string, number[]> = new Map();
-    const seenPractices: Map<string, Set<number>> = new Map();
-
-    for (const stat of stats) {
-      const measureKey = stat.measure_name.toLowerCase();
-
-      // Initialize if needed
-      if (!measureValuesMap.has(measureKey)) {
-        measureValuesMap.set(measureKey, []);
-        seenPractices.set(measureKey, new Set());
-      }
-
-      // Only take the first (latest) value per practice/measure
-      const seen = seenPractices.get(measureKey);
-      if (seen && !seen.has(stat.practice_uid)) {
-        seen.add(stat.practice_uid);
-        measureValuesMap.get(measureKey)?.push(parseFloat(stat.value));
-      }
-    }
-
-    // Calculate stats for each measure
-    for (const measureName of measureNames) {
-      const measureKey = measureName.toLowerCase();
-      const values = measureValuesMap.get(measureKey);
-
-      if (!values || values.length === 0) {
-        continue;
-      }
-
-      // Sort for percentile calculation
-      const sortedValues = [...values].sort((a, b) => a - b);
-
-      // Calculate average
-      averages[measureName] = Math.round(
-        (sortedValues.reduce((sum, v) => sum + v, 0) / sortedValues.length) * 100
-      ) / 100;
-
-      // Calculate percentiles
-      const getPercentile = (arr: number[], percentile: number): number => {
-        if (arr.length === 0) return 0;
-        const index = Math.ceil((percentile / 100) * arr.length) - 1;
-        const clampedIndex = Math.max(0, Math.min(index, arr.length - 1));
-        return arr[clampedIndex] ?? 0;
-      };
-
-      percentiles[measureName] = {
-        p25: getPercentile(sortedValues, 25),
-        p50: getPercentile(sortedValues, 50),
-        p75: getPercentile(sortedValues, 75),
-      };
-    }
-
-    return { averages, percentiles };
-  }
-
-  // ============================================================================
-  // Measure Configuration (Admin)
-  // ============================================================================
-
-  /**
-   * Get all measure configurations
-   * SECURITY: Admin-only - measure config is business intelligence
-   */
-  async getMeasures(activeOnly: boolean = true): Promise<MeasureConfig[]> {
-    const startTime = Date.now();
-
-    // SECURITY: Measure configuration is admin-only
-    this.requirePermission('analytics:read:all');
-
-    try {
-      const conditions = activeOnly ? [eq(report_card_measures.is_active, true)] : [];
-
-      const measures = await db
-        .select()
-        .from(report_card_measures)
-        .where(conditions.length > 0 ? and(...conditions) : undefined)
-        .orderBy(desc(report_card_measures.weight));
-
-      const duration = Date.now() - startTime;
-
-      log.info('Fetched measure configurations', {
-        operation: 'get_measures',
-        activeOnly,
-        measureCount: measures.length,
-        userId: this.userContext.user_id,
-        duration,
-        component: 'report-card',
-      });
-
-      return measures.map((m) => ({
-        measure_id: m.measure_id,
-        measure_name: m.measure_name,
-        display_name: m.display_name,
-        weight: parseFloat(m.weight || '5'),
-        is_active: m.is_active ?? true,
-        higher_is_better: m.higher_is_better ?? true,
-        format_type: (m.format_type as 'number' | 'currency' | 'percentage') || 'number',
-        data_source_id: m.data_source_id,
-        value_column: m.value_column ?? 'numeric_value',
-        filter_criteria: (m.filter_criteria as Record<string, string>) || {},
-        created_at: m.created_at?.toISOString() || new Date().toISOString(),
-        updated_at: m.updated_at?.toISOString() || new Date().toISOString(),
-      }));
-    } catch (error) {
-      log.error('Failed to get measures', error as Error, {
-        userId: this.userContext.user_id,
-        component: 'report-card',
-      });
-      throw error;
-    }
-  }
-
-  /**
-   * Create a new measure configuration
-   */
-  async createMeasure(data: MeasureCreateInput): Promise<MeasureConfig> {
-    const startTime = Date.now();
-
-    // Admin operations require full access
-    this.requirePermission('analytics:read:all');
-
-    try {
-      // Check for duplicate
-      const [existing] = await db
-        .select({ measure_id: report_card_measures.measure_id })
-        .from(report_card_measures)
-        .where(eq(report_card_measures.measure_name, data.measure_name))
-        .limit(1);
-
-      if (existing) {
-        throw new MeasureDuplicateError(data.measure_name);
-      }
-
-      const [inserted] = await db
-        .insert(report_card_measures)
-        .values({
-          measure_name: data.measure_name,
-          display_name: data.display_name,
-          weight: String(data.weight),
-          higher_is_better: data.higher_is_better,
-          format_type: data.format_type,
-          data_source_id: data.data_source_id ?? null,
-          value_column: data.value_column ?? 'numeric_value',
-          filter_criteria: data.filter_criteria ?? {},
-        })
-        .returning();
-
-      if (!inserted) {
-        throw new Error('Failed to create measure - no result returned');
-      }
-
-      const duration = Date.now() - startTime;
-
-      const template = logTemplates.crud.create('measure', {
-        resourceId: String(inserted.measure_id),
-        resourceName: inserted.measure_name,
-        userId: this.userContext.user_id,
-        duration,
-      });
-
-      log.info(template.message, { ...template.context, component: 'report-card' });
-
-      return {
-        measure_id: inserted.measure_id,
-        measure_name: inserted.measure_name,
-        display_name: inserted.display_name,
-        weight: parseFloat(inserted.weight || '5'),
-        is_active: inserted.is_active ?? true,
-        higher_is_better: inserted.higher_is_better ?? true,
-        format_type: (inserted.format_type as 'number' | 'currency' | 'percentage') || 'number',
-        data_source_id: inserted.data_source_id,
-        value_column: inserted.value_column ?? 'numeric_value',
-        filter_criteria: (inserted.filter_criteria as Record<string, string>) || {},
-        created_at: inserted.created_at?.toISOString() || new Date().toISOString(),
-        updated_at: inserted.updated_at?.toISOString() || new Date().toISOString(),
-      };
-    } catch (error) {
-      if (error instanceof MeasureDuplicateError) {
-        throw error;
-      }
-
-      log.error('Failed to create measure', error as Error, {
-        userId: this.userContext.user_id,
-        component: 'report-card',
-      });
-      throw error;
-    }
-  }
-
-  /**
-   * Update a measure configuration
-   */
-  async updateMeasure(measureId: number, data: MeasureUpdateInput): Promise<MeasureConfig> {
-    const startTime = Date.now();
-
-    this.requirePermission('analytics:read:all');
-
-    try {
-      // Get existing measure
-      const [existing] = await db
-        .select()
-        .from(report_card_measures)
-        .where(eq(report_card_measures.measure_id, measureId))
-        .limit(1);
-
-      if (!existing) {
-        throw new MeasureNotFoundError(measureId);
-      }
-
-      const [updated] = await db
-        .update(report_card_measures)
-        .set({
-          ...(data.measure_name && { measure_name: data.measure_name }),
-          ...(data.display_name && { display_name: data.display_name }),
-          ...(data.weight !== undefined && { weight: String(data.weight) }),
-          ...(data.higher_is_better !== undefined && { higher_is_better: data.higher_is_better }),
-          ...(data.format_type && { format_type: data.format_type }),
-          ...(data.is_active !== undefined && { is_active: data.is_active }),
-          ...(data.data_source_id !== undefined && { data_source_id: data.data_source_id }),
-          ...(data.value_column !== undefined && { value_column: data.value_column }),
-          ...(data.filter_criteria !== undefined && { filter_criteria: data.filter_criteria }),
-          updated_at: new Date(),
-        })
-        .where(eq(report_card_measures.measure_id, measureId))
-        .returning();
-
-      if (!updated) {
-        throw new Error('Failed to update measure - no result returned');
-      }
-
-      const duration = Date.now() - startTime;
-
-      const changes = calculateChanges(existing, data);
-      const template = logTemplates.crud.update('measure', {
-        resourceId: String(measureId),
-        resourceName: updated.measure_name,
-        userId: this.userContext.user_id,
-        changes,
-        duration,
-      });
-
-      log.info(template.message, { ...template.context, component: 'report-card' });
-
-      return {
-        measure_id: updated.measure_id,
-        measure_name: updated.measure_name,
-        display_name: updated.display_name,
-        weight: parseFloat(updated.weight || '5'),
-        is_active: updated.is_active ?? true,
-        higher_is_better: updated.higher_is_better ?? true,
-        format_type: (updated.format_type as 'number' | 'currency' | 'percentage') || 'number',
-        data_source_id: updated.data_source_id,
-        value_column: updated.value_column ?? 'numeric_value',
-        filter_criteria: (updated.filter_criteria as Record<string, string>) || {},
-        created_at: updated.created_at?.toISOString() || new Date().toISOString(),
-        updated_at: updated.updated_at?.toISOString() || new Date().toISOString(),
-      };
-    } catch (error) {
-      if (error instanceof MeasureNotFoundError) {
-        throw error;
-      }
-
-      log.error('Failed to update measure', error as Error, {
-        measureId,
-        userId: this.userContext.user_id,
-        component: 'report-card',
-      });
-      throw error;
-    }
-  }
-
-  /**
-   * Delete a measure configuration (soft delete)
-   */
-  async deleteMeasure(measureId: number): Promise<boolean> {
-    const startTime = Date.now();
-
-    this.requirePermission('analytics:read:all');
-
-    try {
-      const [existing] = await db
-        .select()
-        .from(report_card_measures)
-        .where(eq(report_card_measures.measure_id, measureId))
-        .limit(1);
-
-      if (!existing) {
-        throw new MeasureNotFoundError(measureId);
-      }
-
-      await db
-        .update(report_card_measures)
-        .set({
-          is_active: false,
-          updated_at: new Date(),
-        })
-        .where(eq(report_card_measures.measure_id, measureId));
-
-      const duration = Date.now() - startTime;
-
-      const template = logTemplates.crud.delete('measure', {
-        resourceId: String(measureId),
-        resourceName: existing.measure_name,
-        userId: this.userContext.user_id,
-        soft: true,
-        duration,
-      });
-
-      log.info(template.message, { ...template.context, component: 'report-card' });
-
-      return true;
-    } catch (error) {
-      if (error instanceof MeasureNotFoundError) {
-        throw error;
-      }
-
-      log.error('Failed to delete measure', error as Error, {
-        measureId,
         userId: this.userContext.user_id,
         component: 'report-card',
       });

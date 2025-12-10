@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import Banner02 from '@/components/banner-02';
+import Banner from '@/components/banner';
 
 export default function Banners02() {
   const [banner2WarningOpen, setBanner2WarningOpen] = useState<boolean>(true);
@@ -11,25 +11,25 @@ export default function Banners02() {
 
   return (
     <div className="space-y-3">
-      <Banner02 type="warning" open={banner2WarningOpen} setOpen={setBanner2WarningOpen}>
+      <Banner variant="light" type="warning" open={banner2WarningOpen} setOpen={setBanner2WarningOpen}>
         We're currently experiencing an increase in inquiries. There may be a delay in responses
         from the Support.
-      </Banner02>
+      </Banner>
 
-      <Banner02 type="success" open={banner2SuccessOpen} setOpen={setBanner2SuccessOpen}>
+      <Banner variant="light" type="success" open={banner2SuccessOpen} setOpen={setBanner2SuccessOpen}>
         We're currently experiencing an increase in inquiries. There may be a delay in responses
         from the Support.
-      </Banner02>
+      </Banner>
 
-      <Banner02 type="error" open={banner2ErrorOpen} setOpen={setBanner2ErrorOpen}>
+      <Banner variant="light" type="error" open={banner2ErrorOpen} setOpen={setBanner2ErrorOpen}>
         We're currently experiencing an increase in inquiries. There may be a delay in responses
         from the Support.
-      </Banner02>
+      </Banner>
 
-      <Banner02 open={banner2InfoOpen} setOpen={setBanner2InfoOpen}>
+      <Banner variant="light" open={banner2InfoOpen} setOpen={setBanner2InfoOpen}>
         We're currently experiencing an increase in inquiries. There may be a delay in responses
         from the Support.
-      </Banner02>
+      </Banner>
     </div>
   );
 }

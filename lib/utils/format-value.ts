@@ -186,7 +186,7 @@ export function getReportCardMonthDate(): Date {
 
 /**
  * Get the report card month as an ISO date string (YYYY-MM-DD)
- * 
+ *
  * Used for database queries and API parameters.
  * Returns the first day of the last full month in ISO format.
  */
@@ -195,6 +195,41 @@ export function getReportCardMonthString(): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
   return `${year}-${month}-01`;
+}
+
+/**
+ * Format a date as YYYY-MM-DD (first of month)
+ *
+ * General-purpose date formatter for monthly data.
+ * For the standard report card month, use getReportCardMonthString() instead.
+ *
+ * @param date - Date to format
+ * @returns ISO date string (e.g., "2024-11-01")
+ */
+export function formatMonthString(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  return `${year}-${month}-01`;
+}
+
+/**
+ * Get the last N months as an array of date strings
+ *
+ * Used for historical report card generation and trend analysis.
+ *
+ * @param months - Number of months to go back
+ * @returns Array of month strings (e.g., ["2025-10-01", "2025-09-01", ...])
+ */
+export function getHistoricalMonths(months: number): string[] {
+  const result: string[] = [];
+  const now = new Date();
+
+  for (let i = 1; i <= months; i++) {
+    const targetMonth = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    result.push(formatMonthString(targetMonth));
+  }
+
+  return result;
 }
 
 /**

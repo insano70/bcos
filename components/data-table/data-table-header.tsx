@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import type { DataTableColumn } from './types';
 import { getAlignmentClass } from './utils';
 
@@ -24,7 +25,7 @@ interface DataTableHeaderProps<T> {
     density?: 'normal' | 'compact' | undefined;
 }
 
-export function DataTableHeader<T>({
+function DataTableHeaderInner<T>({
     columns,
     sortable,
     onSort,
@@ -125,3 +126,5 @@ export function DataTableHeader<T>({
         </thead>
     );
 }
+
+export const DataTableHeader = memo(DataTableHeaderInner) as typeof DataTableHeaderInner;

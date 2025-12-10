@@ -1,6 +1,6 @@
 'use client';
 
-import type { ChangeEvent } from 'react';
+import { memo, type ChangeEvent } from 'react';
 import { clientErrorLog } from '@/lib/utils/debug-client';
 
 /**
@@ -37,7 +37,7 @@ export interface DateTimeInputProps {
   max?: string; // ISO datetime string
 }
 
-export default function DateTimeInput({
+function DateTimeInputInner({
   value,
   onChange,
   required = false,
@@ -97,3 +97,6 @@ export default function DateTimeInput({
     />
   );
 }
+
+const DateTimeInput = memo(DateTimeInputInner);
+export default DateTimeInput;

@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import type { DashboardUniversalFilters } from '@/hooks/use-dashboard-data';
 import { useOrganizations } from '@/lib/hooks/use-organizations';
 
@@ -57,7 +58,7 @@ const DATE_PRESETS: DatePreset[] = [
   { id: 'last_year', label: 'Last Year' },
 ];
 
-export default function DashboardFilterPills({
+function DashboardFilterPillsInner({
   filters,
   defaultFilters = {},
   onRemoveFilter,
@@ -260,3 +261,6 @@ export default function DashboardFilterPills({
     </div>
   );
 }
+
+const DashboardFilterPills = memo(DashboardFilterPillsInner);
+export default DashboardFilterPills;

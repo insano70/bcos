@@ -1,5 +1,6 @@
-import { and, asc, count, eq, isNull } from 'drizzle-orm';
+import { and, eq, isNull, type SQL } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
+
 import { db } from '@/lib/db';
 import { work_item_type_relationships, work_item_types } from '@/lib/db/schema';
 import {
@@ -9,22 +10,28 @@ import {
   ValidationError,
 } from '@/lib/errors/domain-errors';
 import { log } from '@/lib/logger';
-import { BaseRBACService } from '@/lib/rbac/base-service';
+import {
+  BaseCrudService,
+  type BaseQueryOptions,
+  type CrudServiceConfig,
+  type JoinQueryConfig,
+} from '@/lib/services/crud';
 import type { UserContext } from '@/lib/types/rbac';
 import type { AutoCreateConfig } from '@/lib/validations/work-item-type-relationships';
 
 /**
  * Work Item Type Relationships Service with RBAC
  * Phase 6: Manages parent-child type relationships with auto-creation
+ *
+ * Migrated to use BaseCrudService infrastructure with self-JOIN support.
+ * Uses Drizzle's alias() for self-joins on work_item_types table.
  */
 
-export interface WorkItemTypeRelationshipQueryOptions {
+export interface WorkItemTypeRelationshipQueryOptions extends BaseQueryOptions {
   parent_type_id?: string | undefined;
   child_type_id?: string | undefined;
   is_required?: boolean | undefined;
   auto_create?: boolean | undefined;
-  limit?: number | undefined;
-  offset?: number | undefined;
 }
 
 export interface WorkItemTypeRelationshipWithDetails {
@@ -46,150 +53,173 @@ export interface WorkItemTypeRelationshipWithDetails {
   updated_at: Date;
 }
 
-export class RBACWorkItemTypeRelationshipsService extends BaseRBACService {
+export interface CreateWorkItemTypeRelationshipData {
+  parent_type_id: string;
+  child_type_id: string;
+  relationship_name: string;
+  is_required?: boolean | undefined;
+  min_count?: number | undefined;
+  max_count?: number | undefined;
+  auto_create?: boolean | undefined;
+  auto_create_config?: AutoCreateConfig | undefined;
+  display_order?: number | undefined;
+}
+
+export interface UpdateWorkItemTypeRelationshipData {
+  relationship_name?: string | undefined;
+  is_required?: boolean | undefined;
+  min_count?: number | null | undefined;
+  max_count?: number | null | undefined;
+  auto_create?: boolean | undefined;
+  auto_create_config?: AutoCreateConfig | null | undefined;
+  display_order?: number | undefined;
+}
+
+export class RBACWorkItemTypeRelationshipsService extends BaseCrudService<
+  typeof work_item_type_relationships,
+  WorkItemTypeRelationshipWithDetails,
+  CreateWorkItemTypeRelationshipData,
+  UpdateWorkItemTypeRelationshipData,
+  WorkItemTypeRelationshipQueryOptions
+> {
+  protected config: CrudServiceConfig<
+    typeof work_item_type_relationships,
+    WorkItemTypeRelationshipWithDetails,
+    CreateWorkItemTypeRelationshipData,
+    UpdateWorkItemTypeRelationshipData,
+    WorkItemTypeRelationshipQueryOptions
+  > = {
+    table: work_item_type_relationships,
+    resourceName: 'work-item-type-relationships',
+    displayName: 'work item type relationship',
+    primaryKeyName: 'work_item_type_relationship_id',
+    deletedAtColumnName: 'deleted_at',
+    updatedAtColumnName: 'updated_at',
+    permissions: {
+      read: ['work-items:read:organization', 'work-items:read:all'],
+      // Create/update/delete handled by custom methods due to complex org-based permission logic
+    },
+    transformers: {
+      toEntity: (row: Record<string, unknown>): WorkItemTypeRelationshipWithDetails => ({
+        work_item_type_relationship_id: row.work_item_type_relationship_id as string,
+        parent_type_id: row.parent_type_id as string,
+        parent_type_name: row.parent_type_name as string,
+        parent_type_organization_id: row.parent_type_organization_id as string | null,
+        child_type_id: row.child_type_id as string,
+        child_type_name: row.child_type_name as string,
+        child_type_organization_id: row.child_type_organization_id as string | null,
+        relationship_name: row.relationship_name as string,
+        is_required: row.is_required as boolean,
+        min_count: row.min_count as number | null,
+        max_count: row.max_count as number | null,
+        auto_create: row.auto_create as boolean,
+        auto_create_config: row.auto_create_config as AutoCreateConfig | null,
+        display_order: row.display_order as number,
+        created_at: (row.created_at as Date) ?? new Date(),
+        updated_at: (row.updated_at as Date) ?? new Date(),
+      }),
+    },
+  };
+
   /**
-   * Get work item type relationships with filtering
+   * Build JOIN query with self-joins for parent and child type names.
+   * Uses Drizzle's alias() to create distinct table references for the same table.
+   */
+  protected buildJoinQuery(): JoinQueryConfig {
+    // Create aliases for self-join on work_item_types table
+    const parentType = alias(work_item_types, 'parent_type');
+    const childType = alias(work_item_types, 'child_type');
+
+    return {
+      selectFields: {
+        work_item_type_relationship_id:
+          work_item_type_relationships.work_item_type_relationship_id,
+        parent_type_id: work_item_type_relationships.parent_type_id,
+        parent_type_name: parentType.name,
+        parent_type_organization_id: parentType.organization_id,
+        child_type_id: work_item_type_relationships.child_type_id,
+        child_type_name: childType.name,
+        child_type_organization_id: childType.organization_id,
+        relationship_name: work_item_type_relationships.relationship_name,
+        is_required: work_item_type_relationships.is_required,
+        min_count: work_item_type_relationships.min_count,
+        max_count: work_item_type_relationships.max_count,
+        auto_create: work_item_type_relationships.auto_create,
+        auto_create_config: work_item_type_relationships.auto_create_config,
+        display_order: work_item_type_relationships.display_order,
+        created_at: work_item_type_relationships.created_at,
+        updated_at: work_item_type_relationships.updated_at,
+      },
+      joins: [
+        {
+          table: parentType,
+          on: eq(work_item_type_relationships.parent_type_id, parentType.work_item_type_id),
+          type: 'inner',
+        },
+        {
+          table: childType,
+          on: eq(work_item_type_relationships.child_type_id, childType.work_item_type_id),
+          type: 'inner',
+        },
+      ],
+    };
+  }
+
+  /**
+   * Build custom conditions for relationship filtering
+   */
+  protected buildCustomConditions(options: WorkItemTypeRelationshipQueryOptions): SQL[] {
+    const conditions: SQL[] = [];
+
+    if (options.parent_type_id) {
+      conditions.push(eq(work_item_type_relationships.parent_type_id, options.parent_type_id));
+    }
+
+    if (options.child_type_id) {
+      conditions.push(eq(work_item_type_relationships.child_type_id, options.child_type_id));
+    }
+
+    if (options.is_required !== undefined) {
+      conditions.push(eq(work_item_type_relationships.is_required, options.is_required));
+    }
+
+    if (options.auto_create !== undefined) {
+      conditions.push(eq(work_item_type_relationships.auto_create, options.auto_create));
+    }
+
+    return conditions;
+  }
+
+  // ===========================================================================
+  // Public API Methods - Maintain backward compatibility
+  // ===========================================================================
+
+  /**
+   * Get work item type relationships with filtering and ordering
    */
   async getRelationships(
     options: WorkItemTypeRelationshipQueryOptions = {}
   ): Promise<WorkItemTypeRelationshipWithDetails[]> {
-    const {
-      parent_type_id,
-      child_type_id,
-      is_required,
-      auto_create,
-      limit = 50,
-      offset = 0,
-    } = options;
+    const result = await this.getList({
+      ...options,
+      limit: options.limit ?? 50,
+      offset: options.offset ?? 0,
+    });
 
-    const queryStart = Date.now();
-
-    try {
-      // Build WHERE conditions
-      const conditions = [isNull(work_item_type_relationships.deleted_at)];
-
-      if (parent_type_id) {
-        conditions.push(eq(work_item_type_relationships.parent_type_id, parent_type_id));
+    // Apply custom ordering: display_order, then relationship_name
+    return result.items.sort((a, b) => {
+      if (a.display_order !== b.display_order) {
+        return a.display_order - b.display_order;
       }
-
-      if (child_type_id) {
-        conditions.push(eq(work_item_type_relationships.child_type_id, child_type_id));
-      }
-
-      if (is_required !== undefined) {
-        conditions.push(eq(work_item_type_relationships.is_required, is_required));
-      }
-
-      if (auto_create !== undefined) {
-        conditions.push(eq(work_item_type_relationships.auto_create, auto_create));
-      }
-
-      // Create proper table aliases for self-join
-      const parentType = alias(work_item_types, 'parent_type');
-      const childType = alias(work_item_types, 'child_type');
-
-      // Execute query with joins
-      const results = await db
-        .select({
-          work_item_type_relationship_id:
-            work_item_type_relationships.work_item_type_relationship_id,
-          parent_type_id: work_item_type_relationships.parent_type_id,
-          parent_type_name: parentType.name,
-          parent_type_organization_id: parentType.organization_id,
-          child_type_id: work_item_type_relationships.child_type_id,
-          child_type_name: childType.name,
-          child_type_organization_id: childType.organization_id,
-          relationship_name: work_item_type_relationships.relationship_name,
-          is_required: work_item_type_relationships.is_required,
-          min_count: work_item_type_relationships.min_count,
-          max_count: work_item_type_relationships.max_count,
-          auto_create: work_item_type_relationships.auto_create,
-          auto_create_config: work_item_type_relationships.auto_create_config,
-          display_order: work_item_type_relationships.display_order,
-          created_at: work_item_type_relationships.created_at,
-          updated_at: work_item_type_relationships.updated_at,
-        })
-        .from(work_item_type_relationships)
-        .innerJoin(
-          parentType,
-          eq(work_item_type_relationships.parent_type_id, parentType.work_item_type_id)
-        )
-        .innerJoin(
-          childType,
-          eq(work_item_type_relationships.child_type_id, childType.work_item_type_id)
-        )
-        .where(and(...conditions))
-        .orderBy(
-          asc(work_item_type_relationships.display_order),
-          asc(work_item_type_relationships.relationship_name)
-        )
-        .limit(limit)
-        .offset(offset);
-
-      log.info('Work item type relationships retrieved', {
-        count: results.length,
-        duration: Date.now() - queryStart,
-      });
-
-      return results.map((row) => ({
-        work_item_type_relationship_id: row.work_item_type_relationship_id,
-        parent_type_id: row.parent_type_id,
-        parent_type_name: row.parent_type_name,
-        parent_type_organization_id: row.parent_type_organization_id,
-        child_type_id: row.child_type_id,
-        child_type_name: row.child_type_name,
-        child_type_organization_id: row.child_type_organization_id,
-        relationship_name: row.relationship_name,
-        is_required: row.is_required,
-        min_count: row.min_count,
-        max_count: row.max_count,
-        auto_create: row.auto_create,
-        auto_create_config: row.auto_create_config as AutoCreateConfig | null,
-        display_order: row.display_order,
-        created_at: row.created_at,
-        updated_at: row.updated_at,
-      }));
-    } catch (error) {
-      log.error('Failed to retrieve work item type relationships', error);
-      throw error;
-    }
+      return a.relationship_name.localeCompare(b.relationship_name);
+    });
   }
 
   /**
    * Get total count of relationships
    */
   async getRelationshipCount(options: WorkItemTypeRelationshipQueryOptions = {}): Promise<number> {
-    const { parent_type_id, child_type_id, is_required, auto_create } = options;
-
-    try {
-      const conditions = [isNull(work_item_type_relationships.deleted_at)];
-
-      if (parent_type_id) {
-        conditions.push(eq(work_item_type_relationships.parent_type_id, parent_type_id));
-      }
-
-      if (child_type_id) {
-        conditions.push(eq(work_item_type_relationships.child_type_id, child_type_id));
-      }
-
-      if (is_required !== undefined) {
-        conditions.push(eq(work_item_type_relationships.is_required, is_required));
-      }
-
-      if (auto_create !== undefined) {
-        conditions.push(eq(work_item_type_relationships.auto_create, auto_create));
-      }
-
-      const [result] = await db
-        .select({ count: count() })
-        .from(work_item_type_relationships)
-        .where(and(...conditions));
-
-      return result?.count || 0;
-    } catch (error) {
-      log.error('Failed to count work item type relationships', error);
-      throw error;
-    }
+    return this.getCount(options);
   }
 
   /**
@@ -198,94 +228,16 @@ export class RBACWorkItemTypeRelationshipsService extends BaseRBACService {
   async getRelationshipById(
     relationshipId: string
   ): Promise<WorkItemTypeRelationshipWithDetails | null> {
-    try {
-      // Create proper table aliases for self-join
-      const parentType = alias(work_item_types, 'parent_type');
-      const childType = alias(work_item_types, 'child_type');
-
-      const results = await db
-        .select({
-          work_item_type_relationship_id:
-            work_item_type_relationships.work_item_type_relationship_id,
-          parent_type_id: work_item_type_relationships.parent_type_id,
-          parent_type_name: parentType.name,
-          parent_type_organization_id: parentType.organization_id,
-          child_type_id: work_item_type_relationships.child_type_id,
-          child_type_name: childType.name,
-          child_type_organization_id: childType.organization_id,
-          relationship_name: work_item_type_relationships.relationship_name,
-          is_required: work_item_type_relationships.is_required,
-          min_count: work_item_type_relationships.min_count,
-          max_count: work_item_type_relationships.max_count,
-          auto_create: work_item_type_relationships.auto_create,
-          auto_create_config: work_item_type_relationships.auto_create_config,
-          display_order: work_item_type_relationships.display_order,
-          created_at: work_item_type_relationships.created_at,
-          updated_at: work_item_type_relationships.updated_at,
-        })
-        .from(work_item_type_relationships)
-        .innerJoin(
-          parentType,
-          eq(work_item_type_relationships.parent_type_id, parentType.work_item_type_id)
-        )
-        .innerJoin(
-          childType,
-          eq(work_item_type_relationships.child_type_id, childType.work_item_type_id)
-        )
-        .where(
-          and(
-            eq(work_item_type_relationships.work_item_type_relationship_id, relationshipId),
-            isNull(work_item_type_relationships.deleted_at)
-          )
-        )
-        .limit(1);
-
-      const row = results[0];
-      if (!row) {
-        return null;
-      }
-
-      return {
-        work_item_type_relationship_id: row.work_item_type_relationship_id,
-        parent_type_id: row.parent_type_id,
-        parent_type_name: row.parent_type_name,
-        parent_type_organization_id: row.parent_type_organization_id,
-        child_type_id: row.child_type_id,
-        child_type_name: row.child_type_name,
-        child_type_organization_id: row.child_type_organization_id,
-        relationship_name: row.relationship_name,
-        is_required: row.is_required,
-        min_count: row.min_count,
-        max_count: row.max_count,
-        auto_create: row.auto_create,
-        auto_create_config: row.auto_create_config as AutoCreateConfig | null,
-        display_order: row.display_order,
-        created_at: row.created_at,
-        updated_at: row.updated_at,
-      };
-    } catch (error) {
-      log.error('Failed to retrieve work item type relationship', error, {
-        relationshipId,
-      });
-      throw error;
-    }
+    return this.getById(relationshipId);
   }
 
   /**
    * Create a new work item type relationship
-   * Phase 6: Type relationships with auto-creation
+   * Custom implementation required - permission depends on parent type's organization
    */
-  async createRelationship(data: {
-    parent_type_id: string;
-    child_type_id: string;
-    relationship_name: string;
-    is_required?: boolean;
-    min_count?: number;
-    max_count?: number;
-    auto_create?: boolean;
-    auto_create_config?: AutoCreateConfig;
-    display_order?: number;
-  }): Promise<WorkItemTypeRelationshipWithDetails> {
+  async createRelationship(
+    data: CreateWorkItemTypeRelationshipData
+  ): Promise<WorkItemTypeRelationshipWithDetails> {
     const startTime = Date.now();
 
     log.info('Work item type relationship creation initiated', {
@@ -381,8 +333,8 @@ export class RBACWorkItemTypeRelationshipsService extends BaseRBACService {
           child_type_id: data.child_type_id,
           relationship_name: data.relationship_name,
           is_required: data.is_required ?? false,
-          min_count: data.min_count || null,
-          max_count: data.max_count || null,
+          min_count: data.min_count ?? null,
+          max_count: data.max_count ?? null,
           auto_create: data.auto_create ?? false,
           auto_create_config: data.auto_create_config ?? null,
           display_order: data.display_order ?? 0,
@@ -399,7 +351,7 @@ export class RBACWorkItemTypeRelationshipsService extends BaseRBACService {
         duration: Date.now() - startTime,
       });
 
-      // Return full details
+      // Return full details via JOIN query
       const relationshipWithDetails = await this.getRelationshipById(
         newRelationship.work_item_type_relationship_id
       );
@@ -420,19 +372,11 @@ export class RBACWorkItemTypeRelationshipsService extends BaseRBACService {
 
   /**
    * Update a work item type relationship
-   * Phase 6: Type relationships with auto-creation
+   * Custom implementation required - permission depends on existing relationship's parent type org
    */
   async updateRelationship(
     relationshipId: string,
-    data: {
-      relationship_name?: string;
-      is_required?: boolean;
-      min_count?: number | null;
-      max_count?: number | null;
-      auto_create?: boolean;
-      auto_create_config?: AutoCreateConfig | null;
-      display_order?: number;
-    }
+    data: UpdateWorkItemTypeRelationshipData
   ): Promise<WorkItemTypeRelationshipWithDetails> {
     const startTime = Date.now();
 
@@ -477,7 +421,7 @@ export class RBACWorkItemTypeRelationshipsService extends BaseRBACService {
         duration: Date.now() - startTime,
       });
 
-      // Return updated details
+      // Return updated details via JOIN query
       const updatedRelationship = await this.getRelationshipById(relationshipId);
       if (!updatedRelationship) {
         throw new DatabaseError('Failed to retrieve updated relationship', 'read');
@@ -495,7 +439,7 @@ export class RBACWorkItemTypeRelationshipsService extends BaseRBACService {
 
   /**
    * Delete (soft delete) a work item type relationship
-   * Phase 6: Type relationships with auto-creation
+   * Custom implementation required - permission depends on existing relationship's parent type org
    */
   async deleteRelationship(relationshipId: string): Promise<void> {
     const startTime = Date.now();

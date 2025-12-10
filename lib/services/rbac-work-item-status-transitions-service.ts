@@ -1,22 +1,27 @@
+import type { InferSelectModel, SQL } from 'drizzle-orm';
 import { and, eq } from 'drizzle-orm';
-import { db } from '@/lib/db';
-import { work_item_status_transitions, work_item_statuses, work_item_types } from '@/lib/db/schema';
-import {
-  DatabaseError,
-  ForbiddenError,
-  NotFoundError,
-  ValidationError,
-} from '@/lib/errors/domain-errors';
-import { log } from '@/lib/logger';
-import { BaseRBACService } from '@/lib/rbac/base-service';
+
+import { db, work_item_status_transitions, work_item_statuses, work_item_types } from '@/lib/db';
+import { ForbiddenError, NotFoundError, ValidationError } from '@/lib/errors/domain-errors';
+import { BaseCrudService, type BaseQueryOptions, type CrudServiceConfig } from '@/lib/services/crud';
 import type { UserContext } from '@/lib/types/rbac';
 
 /**
  * Work Item Status Transitions Service with RBAC
  * Manages status transition rules with automatic permission checking
- * Phase 4: Status workflow configuration per work item type
+ *
+ * Migrated to use BaseCrudService infrastructure.
+ *
+ * Special considerations:
+ * - Transitions belong to work item types (parent resource)
+ * - Global types (no organization_id) cannot be modified
+ * - Must validate from/to statuses belong to the type
  */
 
+// Entity type derived from Drizzle schema
+export type WorkItemStatusTransition = InferSelectModel<typeof work_item_status_transitions>;
+
+// Legacy type maintained for backward compatibility
 export interface WorkItemStatusTransitionWithDetails {
   work_item_status_transition_id: string;
   work_item_type_id: string;
@@ -29,423 +34,289 @@ export interface WorkItemStatusTransitionWithDetails {
   updated_at: Date;
 }
 
-export class RBACWorkItemStatusTransitionsService extends BaseRBACService {
+export interface TransitionQueryOptions extends BaseQueryOptions {
+  work_item_type_id?: string;
+  from_status_id?: string;
+  to_status_id?: string;
+}
+
+export interface CreateTransitionData {
+  work_item_type_id: string;
+  from_status_id: string;
+  to_status_id: string;
+  is_allowed?: boolean;
+}
+
+export interface UpdateTransitionData {
+  is_allowed?: boolean;
+  validation_config?: unknown;
+  action_config?: unknown;
+}
+
+/**
+ * RBAC Work Item Status Transitions Service
+ * Provides secure transition rule management with automatic permission checking
+ */
+export class RBACWorkItemStatusTransitionsService extends BaseCrudService<
+  typeof work_item_status_transitions,
+  WorkItemStatusTransition,
+  CreateTransitionData,
+  UpdateTransitionData,
+  TransitionQueryOptions
+> {
+  protected config: CrudServiceConfig<
+    typeof work_item_status_transitions,
+    WorkItemStatusTransition,
+    CreateTransitionData,
+    UpdateTransitionData,
+    TransitionQueryOptions
+  > = {
+    table: work_item_status_transitions,
+    resourceName: 'work-item-status-transitions',
+    displayName: 'status transition',
+    primaryKeyName: 'work_item_status_transition_id',
+    // No deletedAtColumnName - transitions use hard delete
+    updatedAtColumnName: 'updated_at',
+    permissions: {
+      read: 'work-items:read:organization',
+      create: 'work-items:manage:organization',
+      update: 'work-items:manage:organization',
+      delete: 'work-items:manage:organization',
+    },
+    parentResource: {
+      table: work_item_types,
+      foreignKeyColumnName: 'work_item_type_id',
+      parentPrimaryKeyName: 'work_item_type_id',
+      parentOrgColumnName: 'organization_id',
+    },
+    transformers: {
+      toCreateValues: (data) => ({
+        work_item_type_id: data.work_item_type_id,
+        from_status_id: data.from_status_id,
+        to_status_id: data.to_status_id,
+        is_allowed: data.is_allowed ?? true,
+      }),
+      toUpdateValues: (data) => {
+        const values: Record<string, unknown> = {};
+        if (data.is_allowed !== undefined) values.is_allowed = data.is_allowed;
+        if (data.validation_config !== undefined) values.validation_config = data.validation_config;
+        if (data.action_config !== undefined) values.action_config = data.action_config;
+        return values;
+      },
+    },
+    validators: {
+      beforeCreate: async (data) => {
+        await this.validateNotGlobalType(data.work_item_type_id);
+        await this.validateStatusesBelongToType(
+          data.work_item_type_id,
+          data.from_status_id,
+          data.to_status_id
+        );
+        await this.validateNoDuplicateTransition(
+          data.work_item_type_id,
+          data.from_status_id,
+          data.to_status_id
+        );
+      },
+      beforeUpdate: async (_id, _data, existing) => {
+        await this.validateNotGlobalType(existing.work_item_type_id);
+      },
+      beforeDelete: async (_id, existing) => {
+        await this.validateNotGlobalType(existing.work_item_type_id);
+      },
+    },
+  };
+
   /**
-   * Get all transitions for a work item type
+   * Build custom filter conditions for type and status filtering.
+   */
+  protected buildCustomConditions(options: TransitionQueryOptions): SQL[] {
+    const conditions: SQL[] = [];
+
+    if (options.work_item_type_id) {
+      conditions.push(
+        eq(work_item_status_transitions.work_item_type_id, options.work_item_type_id)
+      );
+    }
+
+    if (options.from_status_id) {
+      conditions.push(eq(work_item_status_transitions.from_status_id, options.from_status_id));
+    }
+
+    if (options.to_status_id) {
+      conditions.push(eq(work_item_status_transitions.to_status_id, options.to_status_id));
+    }
+
+    return conditions;
+  }
+
+  /**
+   * Validate that the work item type is not global.
+   */
+  private async validateNotGlobalType(typeId: string): Promise<void> {
+    const [workItemType] = await db
+      .select({ organization_id: work_item_types.organization_id })
+      .from(work_item_types)
+      .where(eq(work_item_types.work_item_type_id, typeId));
+
+    if (!workItemType) {
+      throw new NotFoundError('Work item type', typeId);
+    }
+
+    if (!workItemType.organization_id) {
+      throw new ForbiddenError('Cannot modify global work item types');
+    }
+
+    this.requireOrganizationAccess(workItemType.organization_id);
+  }
+
+  /**
+   * Validate that from/to statuses belong to the type.
+   */
+  private async validateStatusesBelongToType(
+    typeId: string,
+    fromStatusId: string,
+    toStatusId: string
+  ): Promise<void> {
+    const [fromStatus] = await db
+      .select({ work_item_status_id: work_item_statuses.work_item_status_id })
+      .from(work_item_statuses)
+      .where(
+        and(
+          eq(work_item_statuses.work_item_status_id, fromStatusId),
+          eq(work_item_statuses.work_item_type_id, typeId)
+        )
+      );
+
+    if (!fromStatus) {
+      throw new ValidationError('From status does not belong to this work item type');
+    }
+
+    const [toStatus] = await db
+      .select({ work_item_status_id: work_item_statuses.work_item_status_id })
+      .from(work_item_statuses)
+      .where(
+        and(
+          eq(work_item_statuses.work_item_status_id, toStatusId),
+          eq(work_item_statuses.work_item_type_id, typeId)
+        )
+      );
+
+    if (!toStatus) {
+      throw new ValidationError('To status does not belong to this work item type');
+    }
+  }
+
+  /**
+   * Validate that a transition doesn't already exist for this combination.
+   */
+  private async validateNoDuplicateTransition(
+    typeId: string,
+    fromStatusId: string,
+    toStatusId: string
+  ): Promise<void> {
+    const [existing] = await db
+      .select({
+        work_item_status_transition_id: work_item_status_transitions.work_item_status_transition_id,
+      })
+      .from(work_item_status_transitions)
+      .where(
+        and(
+          eq(work_item_status_transitions.work_item_type_id, typeId),
+          eq(work_item_status_transitions.from_status_id, fromStatusId),
+          eq(work_item_status_transitions.to_status_id, toStatusId)
+        )
+      );
+
+    if (existing) {
+      throw new ValidationError(
+        'A transition rule already exists for this from/to status combination. Update or delete the existing rule instead.'
+      );
+    }
+  }
+
+  // ===========================================================================
+  // Legacy Methods - Maintained for backward compatibility
+  // ===========================================================================
+
+  /**
+   * Get all transitions for a work item type (legacy method)
+   * @deprecated Use getList({ work_item_type_id: typeId }) instead
    */
   async getTransitionsByType(
     typeId: string,
     filters?: { from_status_id?: string; to_status_id?: string }
   ): Promise<WorkItemStatusTransitionWithDetails[]> {
-    const queryStart = Date.now();
-
-    try {
-      const conditions = [eq(work_item_status_transitions.work_item_type_id, typeId)];
-
-      if (filters?.from_status_id) {
-        conditions.push(eq(work_item_status_transitions.from_status_id, filters.from_status_id));
-      }
-
-      if (filters?.to_status_id) {
-        conditions.push(eq(work_item_status_transitions.to_status_id, filters.to_status_id));
-      }
-
-      const results = await db
-        .select({
-          work_item_status_transition_id:
-            work_item_status_transitions.work_item_status_transition_id,
-          work_item_type_id: work_item_status_transitions.work_item_type_id,
-          from_status_id: work_item_status_transitions.from_status_id,
-          to_status_id: work_item_status_transitions.to_status_id,
-          is_allowed: work_item_status_transitions.is_allowed,
-          validation_config: work_item_status_transitions.validation_config,
-          action_config: work_item_status_transitions.action_config,
-          created_at: work_item_status_transitions.created_at,
-          updated_at: work_item_status_transitions.updated_at,
-        })
-        .from(work_item_status_transitions)
-        .where(and(...conditions));
-
-      const duration = Date.now() - queryStart;
-      log.info(`Retrieved ${results.length} transitions for type ${typeId}`, {
-        typeId,
-        filters,
-        count: results.length,
-        duration,
-      });
-
-      return results;
-    } catch (error) {
-      const duration = Date.now() - queryStart;
-      log.error(`Failed to retrieve transitions for type ${typeId}`, error, {
-        typeId,
-        filters,
-        error: error instanceof Error ? error.message : String(error),
-        duration,
-      });
-      throw error;
+    const options: TransitionQueryOptions = {
+      work_item_type_id: typeId,
+      limit: 1000,
+    };
+    if (filters?.from_status_id) {
+      options.from_status_id = filters.from_status_id;
     }
+    if (filters?.to_status_id) {
+      options.to_status_id = filters.to_status_id;
+    }
+
+    const result = await this.getList(options);
+
+    return result.items.map((item) => ({
+      ...item,
+      validation_config: item.validation_config ?? null,
+      action_config: item.action_config ?? null,
+    }));
   }
 
   /**
-   * Get a single transition by ID
+   * Get a single transition by ID (legacy method)
+   * @deprecated Use getById() instead
    */
-  async getTransitionById(
-    transitionId: string
-  ): Promise<WorkItemStatusTransitionWithDetails | null> {
-    const queryStart = Date.now();
+  async getTransitionById(transitionId: string): Promise<WorkItemStatusTransitionWithDetails | null> {
+    const result = await this.getById(transitionId);
+    if (!result) return null;
 
-    try {
-      const results = await db
-        .select({
-          work_item_status_transition_id:
-            work_item_status_transitions.work_item_status_transition_id,
-          work_item_type_id: work_item_status_transitions.work_item_type_id,
-          from_status_id: work_item_status_transitions.from_status_id,
-          to_status_id: work_item_status_transitions.to_status_id,
-          is_allowed: work_item_status_transitions.is_allowed,
-          validation_config: work_item_status_transitions.validation_config,
-          action_config: work_item_status_transitions.action_config,
-          created_at: work_item_status_transitions.created_at,
-          updated_at: work_item_status_transitions.updated_at,
-        })
-        .from(work_item_status_transitions)
-        .where(eq(work_item_status_transitions.work_item_status_transition_id, transitionId))
-        .limit(1);
-
-      const duration = Date.now() - queryStart;
-      const found = results.length > 0;
-
-      log.info(`Retrieved transition ${transitionId}`, {
-        transitionId,
-        found,
-        duration,
-      });
-
-      return found && results[0] ? results[0] : null;
-    } catch (error) {
-      const duration = Date.now() - queryStart;
-      log.error(`Failed to retrieve transition ${transitionId}`, error, {
-        transitionId,
-        duration,
-      });
-      throw error;
-    }
+    return {
+      ...result,
+      validation_config: result.validation_config ?? null,
+      action_config: result.action_config ?? null,
+    };
   }
 
   /**
-   * Create a status transition rule
+   * Create a status transition rule (legacy method)
+   * @deprecated Use create() instead
    */
-  async createTransition(data: {
-    work_item_type_id: string;
-    from_status_id: string;
-    to_status_id: string;
-    is_allowed?: boolean;
-  }): Promise<WorkItemStatusTransitionWithDetails> {
-    const queryStart = Date.now();
-
-    try {
-      // Check permission
-      this.requirePermission('work-items:manage:organization');
-
-      // Get the work item type to check organization ownership
-      const typeResults = await db
-        .select({
-          work_item_type_id: work_item_types.work_item_type_id,
-          organization_id: work_item_types.organization_id,
-        })
-        .from(work_item_types)
-        .where(eq(work_item_types.work_item_type_id, data.work_item_type_id))
-        .limit(1);
-
-      if (typeResults.length === 0) {
-        throw new NotFoundError('Work item type', data.work_item_type_id);
-      }
-
-      const type = typeResults[0];
-      if (!type) {
-        throw new NotFoundError('Work item type', data.work_item_type_id);
-      }
-
-      // Prevent creating transitions for global types
-      if (type.organization_id === null) {
-        throw new ForbiddenError('Cannot modify global work item types');
-      }
-
-      // Verify user has access to the organization
-      if (!this.canAccessOrganization(type.organization_id)) {
-        throw new ForbiddenError('Access denied to this organization');
-      }
-
-      // Verify both statuses exist and belong to this type
-      const fromStatusResults = await db
-        .select({ work_item_status_id: work_item_statuses.work_item_status_id })
-        .from(work_item_statuses)
-        .where(
-          and(
-            eq(work_item_statuses.work_item_status_id, data.from_status_id),
-            eq(work_item_statuses.work_item_type_id, data.work_item_type_id)
-          )
-        )
-        .limit(1);
-
-      if (fromStatusResults.length === 0) {
-        throw new ValidationError('From status does not belong to this work item type');
-      }
-
-      const toStatusResults = await db
-        .select({ work_item_status_id: work_item_statuses.work_item_status_id })
-        .from(work_item_statuses)
-        .where(
-          and(
-            eq(work_item_statuses.work_item_status_id, data.to_status_id),
-            eq(work_item_statuses.work_item_type_id, data.work_item_type_id)
-          )
-        )
-        .limit(1);
-
-      if (toStatusResults.length === 0) {
-        throw new ValidationError('To status does not belong to this work item type');
-      }
-
-      // Check for existing transition with same type + from + to combination
-      const existingTransition = await db
-        .select({ work_item_status_transition_id: work_item_status_transitions.work_item_status_transition_id })
-        .from(work_item_status_transitions)
-        .where(
-          and(
-            eq(work_item_status_transitions.work_item_type_id, data.work_item_type_id),
-            eq(work_item_status_transitions.from_status_id, data.from_status_id),
-            eq(work_item_status_transitions.to_status_id, data.to_status_id)
-          )
-        )
-        .limit(1);
-
-      if (existingTransition.length > 0) {
-        throw new ValidationError(
-          'A transition rule already exists for this from/to status combination. Update or delete the existing rule instead.'
-        );
-      }
-
-      // Create the transition
-      const results = await db
-        .insert(work_item_status_transitions)
-        .values({
-          work_item_type_id: data.work_item_type_id,
-          from_status_id: data.from_status_id,
-          to_status_id: data.to_status_id,
-          is_allowed: data.is_allowed ?? true,
-        })
-        .returning();
-
-      const result = results[0];
-      if (!result) {
-        throw new DatabaseError('Failed to create transition', 'write');
-      }
-
-      const duration = Date.now() - queryStart;
-      log.info(`Created status transition`, {
-        transitionId: result.work_item_status_transition_id,
-        typeId: data.work_item_type_id,
-        fromStatusId: data.from_status_id,
-        toStatusId: data.to_status_id,
-        isAllowed: data.is_allowed ?? true,
-        organizationId: type.organization_id,
-        userId: this.userContext.user_id,
-        duration,
-      });
-
-      return {
-        ...result,
-        validation_config: result.validation_config ?? null,
-        action_config: result.action_config ?? null,
-      };
-    } catch (error) {
-      const duration = Date.now() - queryStart;
-      log.error(`Failed to create status transition`, error, {
-        data,
-        userId: this.userContext.user_id,
-        duration,
-      });
-      throw error;
-    }
+  async createTransition(data: CreateTransitionData): Promise<WorkItemStatusTransitionWithDetails> {
+    const result = await this.create(data);
+    return {
+      ...result,
+      validation_config: result.validation_config ?? null,
+      action_config: result.action_config ?? null,
+    };
   }
 
   /**
-   * Update a status transition rule
+   * Update a status transition rule (legacy method)
+   * @deprecated Use update() instead
    */
   async updateTransition(
     transitionId: string,
-    data: {
-      is_allowed?: boolean;
-      validation_config?: unknown;
-      action_config?: unknown;
-    }
+    data: UpdateTransitionData
   ): Promise<WorkItemStatusTransitionWithDetails> {
-    const queryStart = Date.now();
-
-    try {
-      // Check permission
-      this.requirePermission('work-items:manage:organization');
-
-      // Get the transition and verify it exists
-      const existingTransition = await this.getTransitionById(transitionId);
-      if (!existingTransition) {
-        throw new NotFoundError('Status transition', transitionId);
-      }
-
-      // Get the work item type to check organization ownership
-      const typeResults = await db
-        .select({
-          work_item_type_id: work_item_types.work_item_type_id,
-          organization_id: work_item_types.organization_id,
-        })
-        .from(work_item_types)
-        .where(eq(work_item_types.work_item_type_id, existingTransition.work_item_type_id))
-        .limit(1);
-
-      if (typeResults.length === 0) {
-        throw new NotFoundError('Work item type', existingTransition.work_item_type_id);
-      }
-
-      const type = typeResults[0];
-      if (!type) {
-        throw new NotFoundError('Work item type', existingTransition.work_item_type_id);
-      }
-
-      // Prevent updating transitions for global types
-      if (type.organization_id === null) {
-        throw new ForbiddenError('Cannot modify global work item types');
-      }
-
-      // Verify user has access to the organization
-      if (!this.canAccessOrganization(type.organization_id)) {
-        throw new ForbiddenError('Access denied to this organization');
-      }
-
-      // Update the transition
-      const updateData: {
-        is_allowed?: boolean;
-        validation_config?: unknown;
-        action_config?: unknown;
-        updated_at: Date;
-      } = {
-        updated_at: new Date(),
-      };
-
-      if (data.is_allowed !== undefined) {
-        updateData.is_allowed = data.is_allowed;
-      }
-      if (data.validation_config !== undefined) {
-        updateData.validation_config = data.validation_config;
-      }
-      if (data.action_config !== undefined) {
-        updateData.action_config = data.action_config;
-      }
-
-      const results = await db
-        .update(work_item_status_transitions)
-        .set(updateData)
-        .where(eq(work_item_status_transitions.work_item_status_transition_id, transitionId))
-        .returning();
-
-      const result = results[0];
-      if (!result) {
-        throw new DatabaseError('Failed to update transition', 'write');
-      }
-
-      const duration = Date.now() - queryStart;
-      log.info(`Updated status transition ${transitionId}`, {
-        transitionId,
-        updates: data,
-        organizationId: type.organization_id,
-        userId: this.userContext.user_id,
-        duration,
-      });
-
-      return {
-        ...result,
-        validation_config: result.validation_config ?? null,
-        action_config: result.action_config ?? null,
-      };
-    } catch (error) {
-      const duration = Date.now() - queryStart;
-      log.error(`Failed to update status transition ${transitionId}`, error, {
-        transitionId,
-        data,
-        userId: this.userContext.user_id,
-        duration,
-      });
-      throw error;
-    }
+    const result = await this.update(transitionId, data);
+    return {
+      ...result,
+      validation_config: result.validation_config ?? null,
+      action_config: result.action_config ?? null,
+    };
   }
 
   /**
-   * Delete a status transition rule
+   * Delete a status transition rule (legacy method)
+   * @deprecated Use delete() instead
    */
   async deleteTransition(transitionId: string): Promise<void> {
-    const queryStart = Date.now();
-
-    try {
-      // Check permission
-      this.requirePermission('work-items:manage:organization');
-
-      // Get the transition and verify it exists
-      const existingTransition = await this.getTransitionById(transitionId);
-      if (!existingTransition) {
-        throw new NotFoundError('Status transition', transitionId);
-      }
-
-      // Get the work item type to check organization ownership
-      const typeResults = await db
-        .select({
-          work_item_type_id: work_item_types.work_item_type_id,
-          organization_id: work_item_types.organization_id,
-        })
-        .from(work_item_types)
-        .where(eq(work_item_types.work_item_type_id, existingTransition.work_item_type_id))
-        .limit(1);
-
-      if (typeResults.length === 0) {
-        throw new NotFoundError('Work item type', existingTransition.work_item_type_id);
-      }
-
-      const type = typeResults[0];
-      if (!type) {
-        throw new NotFoundError('Work item type', existingTransition.work_item_type_id);
-      }
-
-      // Prevent deleting transitions from global types
-      if (type.organization_id === null) {
-        throw new ForbiddenError('Cannot modify global work item types');
-      }
-
-      // Verify user has access to the organization
-      if (!this.canAccessOrganization(type.organization_id)) {
-        throw new ForbiddenError('Access denied to this organization');
-      }
-
-      // Delete the transition
-      await db
-        .delete(work_item_status_transitions)
-        .where(eq(work_item_status_transitions.work_item_status_transition_id, transitionId));
-
-      const duration = Date.now() - queryStart;
-      log.info(`Deleted status transition ${transitionId}`, {
-        transitionId,
-        organizationId: type.organization_id,
-        userId: this.userContext.user_id,
-        duration,
-      });
-    } catch (error) {
-      const duration = Date.now() - queryStart;
-      log.error(`Failed to delete status transition ${transitionId}`, error, {
-        transitionId,
-        userId: this.userContext.user_id,
-        duration,
-      });
-      throw error;
-    }
+    return this.delete(transitionId);
   }
 }
 

@@ -1,11 +1,10 @@
-import { and, desc, eq, isNull, sql } from 'drizzle-orm';
+import { and, eq, isNull, sql, type SQL } from 'drizzle-orm';
+
 import { db } from '@/lib/db';
 import { users, work_item_attachments, work_items } from '@/lib/db/schema';
 import { DatabaseError, NotFoundError } from '@/lib/errors/domain-errors';
 import { PermissionDeniedError } from '@/lib/errors/rbac-errors';
 import { log } from '@/lib/logger';
-import { BaseRBACService } from '@/lib/rbac/base-service';
-import { formatUserNameWithFallback } from '@/lib/utils/user-formatters';
 import {
   deleteFile,
   generateDownloadUrl,
@@ -13,12 +12,20 @@ import {
   generateUploadUrl,
 } from '@/lib/s3/private-assets';
 import { FILE_SIZE_LIMITS, IMAGE_MIME_TYPES } from '@/lib/s3/private-assets/constants';
+import {
+  BaseCrudService,
+  type BaseQueryOptions,
+  type CrudServiceConfig,
+  type JoinQueryConfig,
+} from '@/lib/services/crud';
 import type { UserContext } from '@/lib/types/rbac';
+import { formatUserNameWithFallback } from '@/lib/utils/user-formatters';
 
 /**
  * Work Item Attachments Service with RBAC
  * Phase 2: Manages file attachments on work items with automatic permission checking
- * 
+ *
+ * Migrated to use BaseCrudService infrastructure with JOIN support.
  * Uses the generic private S3 assets system for secure file uploads with presigned URLs.
  */
 
@@ -29,10 +36,11 @@ export interface CreateWorkItemAttachmentData {
   file_type: string;
 }
 
-export interface WorkItemAttachmentQueryOptions {
+// Dummy update type since attachments are immutable after creation
+type UpdateWorkItemAttachmentData = Record<string, never>;
+
+export interface WorkItemAttachmentQueryOptions extends BaseQueryOptions {
   work_item_id: string;
-  limit?: number | undefined;
-  offset?: number | undefined;
 }
 
 export interface WorkItemAttachmentWithDetails {
@@ -48,7 +56,103 @@ export interface WorkItemAttachmentWithDetails {
   uploaded_at: Date;
 }
 
-export class RBACWorkItemAttachmentsService extends BaseRBACService {
+export class RBACWorkItemAttachmentsService extends BaseCrudService<
+  typeof work_item_attachments,
+  WorkItemAttachmentWithDetails,
+  CreateWorkItemAttachmentData,
+  UpdateWorkItemAttachmentData,
+  WorkItemAttachmentQueryOptions
+> {
+  protected config: CrudServiceConfig<
+    typeof work_item_attachments,
+    WorkItemAttachmentWithDetails,
+    CreateWorkItemAttachmentData,
+    UpdateWorkItemAttachmentData,
+    WorkItemAttachmentQueryOptions
+  > = {
+    table: work_item_attachments,
+    resourceName: 'work-item-attachments',
+    displayName: 'work item attachment',
+    primaryKeyName: 'work_item_attachment_id',
+    deletedAtColumnName: 'deleted_at',
+    // No updatedAtColumnName - attachments are immutable
+    permissions: {
+      read: ['work-items:read:own', 'work-items:read:organization', 'work-items:read:all'],
+      // Create/delete handled by custom methods due to S3 integration
+    },
+    transformers: {
+      toEntity: (row: Record<string, unknown>): WorkItemAttachmentWithDetails => ({
+        work_item_attachment_id: row.work_item_attachment_id as string,
+        work_item_id: row.work_item_id as string,
+        file_name: row.file_name as string,
+        file_size: row.file_size as number,
+        file_type: row.file_type as string,
+        s3_key: row.s3_key as string,
+        s3_bucket: row.s3_bucket as string,
+        uploaded_by: row.uploaded_by as string,
+        uploaded_by_name: formatUserNameWithFallback(
+          row.uploaded_by_first_name as string | null,
+          row.uploaded_by_last_name as string | null
+        ),
+        uploaded_at: (row.uploaded_at as Date) || new Date(),
+      }),
+    },
+  };
+
+  /**
+   * Build JOIN query for attachment with user details
+   */
+  protected buildJoinQuery(): JoinQueryConfig {
+    return {
+      selectFields: {
+        work_item_attachment_id: work_item_attachments.work_item_attachment_id,
+        work_item_id: work_item_attachments.work_item_id,
+        file_name: work_item_attachments.file_name,
+        file_size: work_item_attachments.file_size,
+        file_type: work_item_attachments.file_type,
+        s3_key: work_item_attachments.s3_key,
+        s3_bucket: work_item_attachments.s3_bucket,
+        uploaded_by: work_item_attachments.uploaded_by,
+        uploaded_by_first_name: users.first_name,
+        uploaded_by_last_name: users.last_name,
+        uploaded_at: work_item_attachments.uploaded_at,
+      },
+      joins: [
+        {
+          table: users,
+          on: eq(work_item_attachments.uploaded_by, users.user_id),
+          type: 'left',
+        },
+      ],
+    };
+  }
+
+  /**
+   * Build custom conditions for work_item_id filtering
+   */
+  protected buildCustomConditions(options: WorkItemAttachmentQueryOptions): SQL[] {
+    const conditions: SQL[] = [];
+
+    // Always filter by work_item_id (required)
+    conditions.push(eq(work_item_attachments.work_item_id, options.work_item_id));
+
+    return conditions;
+  }
+
+  /**
+   * Validate parent work item access before listing attachments
+   */
+  protected async validateParentAccess(options: WorkItemAttachmentQueryOptions): Promise<void> {
+    const canRead = await this.canReadWorkItem(options.work_item_id);
+    if (!canRead) {
+      throw new PermissionDeniedError('work-items:read:*', options.work_item_id);
+    }
+  }
+
+  // ===========================================================================
+  // Public API Methods - Maintain backward compatibility
+  // ===========================================================================
+
   /**
    * Get attachments for a work item with permission checking
    */
@@ -62,58 +166,23 @@ export class RBACWorkItemAttachmentsService extends BaseRBACService {
       requestingUserId: this.userContext.user_id,
     });
 
-    // First verify user has permission to read the work item
-    const canReadWorkItem = await this.canReadWorkItem(options.work_item_id);
-    if (!canReadWorkItem) {
-      throw new PermissionDeniedError('work-items:read:*', options.work_item_id);
-    }
-
-    // Fetch attachments
-    const results = await db
-      .select({
-        work_item_attachment_id: work_item_attachments.work_item_attachment_id,
-        work_item_id: work_item_attachments.work_item_id,
-        file_name: work_item_attachments.file_name,
-        file_size: work_item_attachments.file_size,
-        file_type: work_item_attachments.file_type,
-        s3_key: work_item_attachments.s3_key,
-        s3_bucket: work_item_attachments.s3_bucket,
-        uploaded_by: work_item_attachments.uploaded_by,
-        uploaded_by_first_name: users.first_name,
-        uploaded_by_last_name: users.last_name,
-        uploaded_at: work_item_attachments.uploaded_at,
-      })
-      .from(work_item_attachments)
-      .leftJoin(users, eq(work_item_attachments.uploaded_by, users.user_id))
-      .where(
-        and(
-          eq(work_item_attachments.work_item_id, options.work_item_id),
-          isNull(work_item_attachments.deleted_at)
-        )
-      )
-      .orderBy(desc(work_item_attachments.uploaded_at))
-      .limit(options.limit || 1000)
-      .offset(options.offset || 0);
+    const result = await this.getList({
+      ...options,
+      limit: options.limit ?? 1000,
+      offset: options.offset ?? 0,
+    });
 
     const duration = Date.now() - startTime;
     log.info('Work item attachments query completed', {
       workItemId: options.work_item_id,
-      attachmentCount: results.length,
+      attachmentCount: result.items.length,
       duration,
     });
 
-    return results.map((result) => ({
-      work_item_attachment_id: result.work_item_attachment_id,
-      work_item_id: result.work_item_id,
-      file_name: result.file_name,
-      file_size: result.file_size,
-      file_type: result.file_type,
-      s3_key: result.s3_key,
-      s3_bucket: result.s3_bucket,
-      uploaded_by: result.uploaded_by,
-      uploaded_by_name: formatUserNameWithFallback(result.uploaded_by_first_name, result.uploaded_by_last_name),
-      uploaded_at: result.uploaded_at || new Date(),
-    }));
+    // Sort by uploaded_at DESC (newest first)
+    return result.items.sort(
+      (a, b) => new Date(b.uploaded_at).getTime() - new Date(a.uploaded_at).getTime()
+    );
   }
 
   /**
@@ -127,37 +196,14 @@ export class RBACWorkItemAttachmentsService extends BaseRBACService {
       requestingUserId: this.userContext.user_id,
     });
 
-    // Fetch the attachment
-    const results = await db
-      .select({
-        work_item_attachment_id: work_item_attachments.work_item_attachment_id,
-        work_item_id: work_item_attachments.work_item_id,
-        file_name: work_item_attachments.file_name,
-        file_size: work_item_attachments.file_size,
-        file_type: work_item_attachments.file_type,
-        s3_key: work_item_attachments.s3_key,
-        s3_bucket: work_item_attachments.s3_bucket,
-        uploaded_by: work_item_attachments.uploaded_by,
-        uploaded_by_first_name: users.first_name,
-        uploaded_by_last_name: users.last_name,
-        uploaded_at: work_item_attachments.uploaded_at,
-      })
-      .from(work_item_attachments)
-      .leftJoin(users, eq(work_item_attachments.uploaded_by, users.user_id))
-      .where(
-        and(
-          eq(work_item_attachments.work_item_attachment_id, attachmentId),
-          isNull(work_item_attachments.deleted_at)
-        )
-      )
-      .limit(1);
+    const attachment = await this.getById(attachmentId);
 
-    if (results.length === 0) {
-      return null;
-    }
-
-    const attachment = results[0];
     if (!attachment) {
+      const duration = Date.now() - startTime;
+      log.info('Work item attachment not found', {
+        attachmentId,
+        duration,
+      });
       return null;
     }
 
@@ -173,23 +219,13 @@ export class RBACWorkItemAttachmentsService extends BaseRBACService {
       duration,
     });
 
-    return {
-      work_item_attachment_id: attachment.work_item_attachment_id,
-      work_item_id: attachment.work_item_id,
-      file_name: attachment.file_name,
-      file_size: attachment.file_size,
-      file_type: attachment.file_type,
-      s3_key: attachment.s3_key,
-      s3_bucket: attachment.s3_bucket,
-      uploaded_by: attachment.uploaded_by,
-      uploaded_by_name: formatUserNameWithFallback(attachment.uploaded_by_first_name, attachment.uploaded_by_last_name),
-      uploaded_at: attachment.uploaded_at || new Date(),
-    };
+    return attachment;
   }
 
   /**
    * Create new attachment and generate upload URL
    * Two-step process: 1) Create record with presigned URL, 2) Client uploads to S3
+   * Custom implementation required for S3 presigned URL generation
    */
   async createAttachment(attachmentData: CreateWorkItemAttachmentData): Promise<{
     attachment: WorkItemAttachmentWithDetails;
@@ -263,7 +299,7 @@ export class RBACWorkItemAttachmentsService extends BaseRBACService {
 
     await this.logPermissionCheck('work-items:update:attachment', newAttachment.work_item_id);
 
-    // Fetch and return the created attachment with full details
+    // Fetch and return the created attachment with full details via JOIN
     const attachmentWithDetails = await this.getAttachmentById(
       newAttachment.work_item_attachment_id
     );
@@ -289,7 +325,7 @@ export class RBACWorkItemAttachmentsService extends BaseRBACService {
       requestingUserId: this.userContext.user_id,
     });
 
-    // Get attachment details
+    // Get attachment details (includes permission check via getAttachmentById)
     const attachment = await this.getAttachmentById(attachmentId);
     if (!attachment) {
       throw new NotFoundError('Attachment', attachmentId);
@@ -312,6 +348,7 @@ export class RBACWorkItemAttachmentsService extends BaseRBACService {
 
   /**
    * Delete attachment (soft delete in DB, hard delete from S3)
+   * Custom implementation required for S3 deletion
    */
   async deleteAttachment(attachmentId: string): Promise<void> {
     const startTime = Date.now();
@@ -388,63 +425,77 @@ export class RBACWorkItemAttachmentsService extends BaseRBACService {
   }
 
   /**
-   * Helper method to check if user can read a work item
+   * Helper: Check if user can read a work item
    */
   private async canReadWorkItem(workItemId: string): Promise<boolean> {
-    const canReadOwn = this.checker.hasPermission('work-items:read:own', workItemId);
-    const canReadOrg = this.checker.hasPermission('work-items:read:organization');
-    const canReadAll = this.checker.hasPermission('work-items:read:all');
+    const accessScope = this.getAccessScope('work-items', 'read');
 
-    if (!canReadOwn && !canReadOrg && !canReadAll) {
+    // Get the work item to check organization
+    const [workItem] = await db
+      .select({
+        organization_id: work_items.organization_id,
+        created_by: work_items.created_by,
+      })
+      .from(work_items)
+      .where(and(eq(work_items.work_item_id, workItemId), isNull(work_items.deleted_at)))
+      .limit(1);
+
+    if (!workItem) {
       return false;
     }
 
-    // If org or all scope, verify organization access
-    if ((canReadOrg || canReadAll) && !canReadAll) {
-      const [workItem] = await db
-        .select({ organization_id: work_items.organization_id })
-        .from(work_items)
-        .where(eq(work_items.work_item_id, workItemId))
-        .limit(1);
+    switch (accessScope.scope) {
+      case 'own':
+        return workItem.created_by === this.userContext.user_id;
 
-      if (!workItem) {
-        return false;
+      case 'organization': {
+        const accessibleOrgIds = accessScope.organizationIds || [];
+        return accessibleOrgIds.includes(workItem.organization_id);
       }
 
-      return this.canAccessOrganization(workItem.organization_id);
-    }
+      case 'all':
+        return true;
 
-    return true;
+      default:
+        return false;
+    }
   }
 
   /**
-   * Helper method to check if user can update a work item
+   * Helper: Check if user can update a work item
    */
   private async canUpdateWorkItem(workItemId: string): Promise<boolean> {
-    const canUpdateOwn = this.checker.hasPermission('work-items:update:own', workItemId);
-    const canUpdateOrg = this.checker.hasPermission('work-items:update:organization');
-    const canUpdateAll = this.checker.hasPermission('work-items:update:all');
+    const accessScope = this.getAccessScope('work-items', 'update');
 
-    if (!canUpdateOwn && !canUpdateOrg && !canUpdateAll) {
+    // Get the work item to check organization
+    const [workItem] = await db
+      .select({
+        organization_id: work_items.organization_id,
+        created_by: work_items.created_by,
+      })
+      .from(work_items)
+      .where(and(eq(work_items.work_item_id, workItemId), isNull(work_items.deleted_at)))
+      .limit(1);
+
+    if (!workItem) {
       return false;
     }
 
-    // If org or all scope, verify organization access
-    if ((canUpdateOrg || canUpdateAll) && !canUpdateAll) {
-      const [workItem] = await db
-        .select({ organization_id: work_items.organization_id })
-        .from(work_items)
-        .where(eq(work_items.work_item_id, workItemId))
-        .limit(1);
+    switch (accessScope.scope) {
+      case 'own':
+        return workItem.created_by === this.userContext.user_id;
 
-      if (!workItem) {
-        return false;
+      case 'organization': {
+        const accessibleOrgIds = accessScope.organizationIds || [];
+        return accessibleOrgIds.includes(workItem.organization_id);
       }
 
-      return this.canAccessOrganization(workItem.organization_id);
-    }
+      case 'all':
+        return true;
 
-    return true;
+      default:
+        return false;
+    }
   }
 }
 

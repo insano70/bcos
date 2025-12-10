@@ -11,7 +11,7 @@
 
 import { eq, like } from 'drizzle-orm';
 import { AuthorizationError, NotFoundError, ValidationError } from '@/lib/api/responses/error';
-import { db } from '@/lib/db';
+import { db, type DbContext } from '@/lib/db';
 import { work_items } from '@/lib/db/schema';
 import { log, SLOW_THRESHOLDS } from '@/lib/logger';
 import type { UserContext } from '@/lib/types/rbac';
@@ -176,24 +176,40 @@ class WorkItemHierarchyService implements WorkItemHierarchyServiceInterface {
         });
       }
 
-      // Update the work item with new hierarchy values
-      const updateStart = Date.now();
-      await db
-        .update(work_items)
-        .set({
-          parent_work_item_id: newParentId,
-          root_work_item_id: newRootId,
-          depth: newDepth,
-          path: newPath,
-          updated_at: new Date(),
-        })
-        .where(eq(work_items.work_item_id, workItemId));
-      const updateDuration = Date.now() - updateStart;
+      // Update the work item and all descendants in a transaction for atomicity
+      const { updateDuration, descendantsUpdated, descendantsDuration } = await db.transaction(
+        async (tx) => {
+          // Update the work item with new hierarchy values
+          const txUpdateStart = Date.now();
+          await tx
+            .update(work_items)
+            .set({
+              parent_work_item_id: newParentId,
+              root_work_item_id: newRootId,
+              depth: newDepth,
+              path: newPath,
+              updated_at: new Date(),
+            })
+            .where(eq(work_items.work_item_id, workItemId));
+          const txUpdateDuration = Date.now() - txUpdateStart;
 
-      // Update all descendants recursively
-      const descendantsStart = Date.now();
-      const descendantsUpdated = await this.updateDescendantPaths(workItemId, newPath, newRootId);
-      const descendantsDuration = Date.now() - descendantsStart;
+          // Update all descendants in parallel within transaction
+          const txDescendantsStart = Date.now();
+          const txDescendantsUpdated = await this.updateDescendantPaths(
+            tx,
+            workItemId,
+            newPath,
+            newRootId
+          );
+          const txDescendantsDuration = Date.now() - txDescendantsStart;
+
+          return {
+            updateDuration: txUpdateDuration,
+            descendantsUpdated: txDescendantsUpdated,
+            descendantsDuration: txDescendantsDuration,
+          };
+        }
+      );
 
       // Fetch the updated work item
       const updatedWorkItem = await workItemsService.getWorkItemById(workItemId);
@@ -250,24 +266,26 @@ class WorkItemHierarchyService implements WorkItemHierarchyServiceInterface {
   }
 
   /**
-   * Update descendant paths recursively when a work item is moved
+   * Update descendant paths when a work item is moved
    *
    * Finds all descendants by path pattern and updates their path, depth, and root.
-   * This ensures the entire subtree remains consistent after a move operation.
+   * Uses parallel updates within the transaction for performance (eliminates N+1).
    *
+   * @param tx - Database transaction context
    * @param workItemId - Work item that was moved
    * @param newParentPath - New path of the moved work item
    * @param newRootId - New root ID for all descendants
    * @returns Number of descendants updated
    */
   private async updateDescendantPaths(
+    tx: DbContext,
     workItemId: string,
     newParentPath: string,
     newRootId: string
   ): Promise<number> {
     try {
       // Get all descendants using path pattern matching
-      const descendants = await db
+      const descendants = await tx
         .select({
           work_item_id: work_items.work_item_id,
           path: work_items.path,
@@ -284,8 +302,8 @@ class WorkItemHierarchyService implements WorkItemHierarchyServiceInterface {
         return 0;
       }
 
-      // Update each descendant with new path, depth, and root
-      for (const descendant of descendants) {
+      // Calculate all updates upfront
+      const updates = descendants.map((descendant) => {
         const oldPath = descendant.path || '';
         // Extract the relative path after this work item
         const relativePath = oldPath.replace(new RegExp(`^.*/${workItemId}/`), '');
@@ -293,16 +311,28 @@ class WorkItemHierarchyService implements WorkItemHierarchyServiceInterface {
         // Calculate new depth by counting path segments
         const updatedDepth = updatedPath.split('/').filter((id) => id).length - 1;
 
-        await db
-          .update(work_items)
-          .set({
-            path: updatedPath,
-            depth: updatedDepth,
-            root_work_item_id: newRootId,
-            updated_at: new Date(),
-          })
-          .where(eq(work_items.work_item_id, descendant.work_item_id));
-      }
+        return {
+          work_item_id: descendant.work_item_id,
+          path: updatedPath,
+          depth: updatedDepth,
+        };
+      });
+
+      // Execute all updates in parallel within the transaction (eliminates N+1)
+      const updatedAt = new Date();
+      await Promise.all(
+        updates.map((update) =>
+          tx
+            .update(work_items)
+            .set({
+              path: update.path,
+              depth: update.depth,
+              root_work_item_id: newRootId,
+              updated_at: updatedAt,
+            })
+            .where(eq(work_items.work_item_id, update.work_item_id))
+        )
+      );
 
       log.debug('descendants updated successfully', {
         workItemId,
@@ -318,7 +348,7 @@ class WorkItemHierarchyService implements WorkItemHierarchyServiceInterface {
         newRootId,
       });
 
-      // Re-throw to fail the move operation
+      // Re-throw to fail the move operation (transaction will rollback)
       throw error;
     }
   }

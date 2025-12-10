@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import type React from 'react';
 
 interface SkeletonProps {
@@ -8,7 +9,7 @@ interface SkeletonProps {
 }
 
 // Basic skeleton component with shimmer effect
-export function Skeleton({ className = '', style }: SkeletonProps) {
+function SkeletonInner({ className = '', style }: SkeletonProps) {
   // Use CSS custom properties for dynamic styling (CSP-compliant)
   const dynamicStyle =
     style && Object.keys(style).length > 0
@@ -26,8 +27,10 @@ export function Skeleton({ className = '', style }: SkeletonProps) {
   );
 }
 
+export const Skeleton = memo(SkeletonInner);
+
 // Shimmer card for chart loading - entire card shimmers
-export function ChartSkeleton({ width, height }: { width?: number; height?: number }) {
+function ChartSkeletonInner({ width, height }: { width?: number; height?: number }) {
   // If width/height not specified, fill container with w-full h-full
   const sizeClasses = !width && !height ? 'w-full h-full' : '';
   const inlineStyles =
@@ -43,8 +46,10 @@ export function ChartSkeleton({ width, height }: { width?: number; height?: numb
   );
 }
 
+export const ChartSkeleton = memo(ChartSkeletonInner);
+
 // Table skeleton
-export function TableSkeleton({ rows = 5, columns = 4 }: { rows?: number; columns?: number }) {
+function TableSkeletonInner({ rows = 5, columns = 4 }: { rows?: number; columns?: number }) {
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg overflow-hidden">
       {/* Header */}
@@ -77,8 +82,10 @@ export function TableSkeleton({ rows = 5, columns = 4 }: { rows?: number; column
   );
 }
 
+export const TableSkeleton = memo(TableSkeletonInner);
+
 // Card skeleton
-export function CardSkeleton() {
+function CardSkeletonInner() {
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm">
       <div className="space-y-4">
@@ -94,8 +101,10 @@ export function CardSkeleton() {
   );
 }
 
+export const CardSkeleton = memo(CardSkeletonInner);
+
 // Form skeleton
-export function FormSkeleton({ fields = 6 }: { fields?: number }) {
+function FormSkeletonInner({ fields = 6 }: { fields?: number }) {
   return (
     <div className="space-y-6">
       {/* Note: Using index in key for static skeleton array - acceptable as array never changes */}
@@ -113,8 +122,10 @@ export function FormSkeleton({ fields = 6 }: { fields?: number }) {
   );
 }
 
+export const FormSkeleton = memo(FormSkeletonInner);
+
 // Dashboard grid skeleton
-export function DashboardSkeleton() {
+function DashboardSkeletonInner() {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       {[...Array(6)].map((_, i) => (
@@ -124,8 +135,10 @@ export function DashboardSkeleton() {
   );
 }
 
+export const DashboardSkeleton = memo(DashboardSkeletonInner);
+
 // Loading spinner with text
-export function LoadingSpinner({
+function LoadingSpinnerInner({
   text = 'Loading...',
   size = 'md',
   className = '',
@@ -150,8 +163,10 @@ export function LoadingSpinner({
   );
 }
 
+export const LoadingSpinner = memo(LoadingSpinnerInner);
+
 // Full page loading overlay
-export function LoadingOverlay({
+function LoadingOverlayInner({
   text = 'Loading...',
   isVisible = true,
 }: {
@@ -168,3 +183,5 @@ export function LoadingOverlay({
     </div>
   );
 }
+
+export const LoadingOverlay = memo(LoadingOverlayInner);

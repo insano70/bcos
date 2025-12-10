@@ -8,6 +8,7 @@
  * - Red (<70): Unhealthy
  */
 
+import { memo } from 'react';
 import {
   getFactorColor,
   getFactorIndicator,
@@ -20,7 +21,7 @@ interface SystemHealthKPIProps {
   systemHealth: SystemHealth;
 }
 
-export default function SystemHealthKPI({ systemHealth }: SystemHealthKPIProps) {
+function SystemHealthKPIInner({ systemHealth }: SystemHealthKPIProps) {
   const { status, score, factors } = systemHealth;
 
   // Determine status icon and text
@@ -87,7 +88,7 @@ interface HealthFactorProps {
   status: 'healthy' | 'degraded' | 'unhealthy';
 }
 
-function HealthFactor({ label, status }: HealthFactorProps) {
+const HealthFactor = memo(function HealthFactor({ label, status }: HealthFactorProps) {
   return (
     <div className="flex items-center justify-between text-sm">
       <span className="text-gray-600 dark:text-gray-400">{label}</span>
@@ -96,4 +97,7 @@ function HealthFactor({ label, status }: HealthFactorProps) {
       </span>
     </div>
   );
-}
+});
+
+const SystemHealthKPI = memo(SystemHealthKPIInner);
+export default SystemHealthKPI;

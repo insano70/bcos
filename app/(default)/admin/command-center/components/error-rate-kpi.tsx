@@ -10,12 +10,14 @@
  * - Red: > 5%
  */
 
+import { memo } from 'react';
+
 interface ErrorRateKPIProps {
   errorRate: number; // Percentage (0-100)
   total: number; // Total error count
 }
 
-export default function ErrorRateKPI({ errorRate, total }: ErrorRateKPIProps) {
+function ErrorRateKPIInner({ errorRate, total }: ErrorRateKPIProps) {
   // Determine status color based on error rate thresholds
   const getStatusColor = () => {
     if (errorRate < 1) return 'text-green-600 dark:text-green-400';
@@ -62,3 +64,6 @@ export default function ErrorRateKPI({ errorRate, total }: ErrorRateKPIProps) {
     </div>
   );
 }
+
+const ErrorRateKPI = memo(ErrorRateKPIInner);
+export default ErrorRateKPI;

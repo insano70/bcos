@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { memo, useState, useCallback } from 'react';
 import type { ChartFilter } from '@/lib/types/analytics';
 
 /**
@@ -51,6 +51,191 @@ const OPERATORS = [
   { value: 'between', label: 'between' },
 ];
 
+// ============================================
+// MEMOIZED FILTER ITEM COMPONENT
+// ============================================
+
+interface FilterItemRowProps {
+  filter: ChartFilter;
+  index: number;
+  groupId: string;
+  availableFields: Array<{
+    name: string;
+    displayName: string;
+    type: string;
+    allowedValues?: string[];
+  }>;
+  onUpdateFilter: (groupId: string, filterIndex: number, updates: Partial<ChartFilter>) => void;
+  onRemoveFilter: (groupId: string, filterIndex: number) => void;
+}
+
+const FilterItemRow = memo(function FilterItemRow({
+  filter,
+  index,
+  groupId,
+  availableFields,
+  onUpdateFilter,
+  onRemoveFilter,
+}: FilterItemRowProps) {
+  const field = availableFields.find((f) => f.name === filter.field);
+
+  const renderValueInput = () => {
+    if (filter.operator === 'in' || filter.operator === 'not_in') {
+      return (
+        <textarea
+          value={Array.isArray(filter.value) ? filter.value.join('\n') : (filter.value ?? '')}
+          onChange={(e) =>
+            onUpdateFilter(groupId, index, {
+              value: e.target.value.split('\n').filter((v) => v.trim()),
+            })
+          }
+          placeholder="Enter values (one per line)"
+          rows={3}
+          className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+        />
+      );
+    }
+
+    if (filter.operator === 'between') {
+      const values = Array.isArray(filter.value) ? filter.value : ['', ''];
+      return (
+        <div className="flex gap-2 flex-1">
+          <input
+            type={field?.type === 'number' ? 'number' : field?.type === 'date' ? 'date' : 'text'}
+            value={values[0]?.toString() || ''}
+            onChange={(e) => {
+              let parsedFromValue: string | number = e.target.value;
+              if (field?.type === 'number' && e.target.value.trim() !== '') {
+                const numValue = Number(e.target.value);
+                if (!Number.isNaN(numValue)) {
+                  parsedFromValue = numValue;
+                }
+              }
+              onUpdateFilter(groupId, index, {
+                value: [parsedFromValue, values[1] || ''],
+              });
+            }}
+            placeholder="From"
+            className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+          />
+          <input
+            type={field?.type === 'number' ? 'number' : field?.type === 'date' ? 'date' : 'text'}
+            value={values[1]?.toString() || ''}
+            onChange={(e) => {
+              let parsedToValue: string | number = e.target.value;
+              if (field?.type === 'number' && e.target.value.trim() !== '') {
+                const numValue = Number(e.target.value);
+                if (!Number.isNaN(numValue)) {
+                  parsedToValue = numValue;
+                }
+              }
+              onUpdateFilter(groupId, index, {
+                value: [values[0] || '', parsedToValue],
+              });
+            }}
+            placeholder="To"
+            className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+          />
+        </div>
+      );
+    }
+
+    if (field?.allowedValues && field.allowedValues.length > 0) {
+      return (
+        <select
+          value={
+            typeof filter.value === 'string' || typeof filter.value === 'number' ? filter.value : ''
+          }
+          onChange={(e) => onUpdateFilter(groupId, index, { value: e.target.value })}
+          className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+        >
+          <option value="">Select value...</option>
+          {field.allowedValues.map((value) => (
+            <option key={value} value={value}>
+              {value}
+            </option>
+          ))}
+        </select>
+      );
+    }
+
+    return (
+      <input
+        type={field?.type === 'number' ? 'number' : field?.type === 'date' ? 'date' : 'text'}
+        value={filter.value?.toString() || ''}
+        onChange={(e) => {
+          let parsedValue: string | number = e.target.value;
+          if (field?.type === 'number' && e.target.value.trim() !== '') {
+            const numValue = Number(e.target.value);
+            if (!Number.isNaN(numValue)) {
+              parsedValue = numValue;
+            }
+          }
+          onUpdateFilter(groupId, index, { value: parsedValue });
+        }}
+        placeholder="Enter value"
+        className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+      />
+    );
+  };
+
+  return (
+    <div className="flex items-center gap-3 mb-3">
+      {/* Field Selector */}
+      <select
+        value={filter.field}
+        onChange={(e) => onUpdateFilter(groupId, index, { field: e.target.value })}
+        className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+      >
+        {availableFields.map((f) => (
+          <option key={f.name} value={f.name}>
+            {f.displayName}
+          </option>
+        ))}
+      </select>
+
+      {/* Operator Selector */}
+      <select
+        value={filter.operator}
+        onChange={(e) =>
+          onUpdateFilter(groupId, index, { operator: e.target.value as FilterOperator })
+        }
+        className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+      >
+        {OPERATORS.map((op) => (
+          <option key={op.value} value={op.value}>
+            {op.label}
+          </option>
+        ))}
+      </select>
+
+      {/* Value Input */}
+      {renderValueInput()}
+
+      {/* Remove Filter Button */}
+      <button
+        type="button"
+        onClick={() => onRemoveFilter(groupId, index)}
+        className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+        title="Remove filter"
+      >
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M6 18L18 6M6 6l12 12"
+          />
+        </svg>
+      </button>
+    </div>
+  );
+});
+
+// ============================================
+// MAIN COMPONENT
+// ============================================
+
 export default function AdvancedFilterBuilder({
   availableFields,
   onFiltersChange,
@@ -63,75 +248,91 @@ export default function AdvancedFilterBuilder({
     groups: [],
   });
 
-  const addFilter = (groupId: string) => {
-    const newFilter: ChartFilter = {
-      field: availableFields[0]?.name || '',
-      operator: 'eq',
-      value: '',
-    };
-
-    updateGroup(groupId, (group) => ({
-      ...group,
-      filters: [...group.filters, newFilter],
-    }));
-  };
-
-  const removeFilter = (groupId: string, filterIndex: number) => {
-    updateGroup(groupId, (group) => ({
-      ...group,
-      filters: group.filters.filter((_, index) => index !== filterIndex),
-    }));
-  };
-
-  const updateFilter = (groupId: string, filterIndex: number, updates: Partial<ChartFilter>) => {
-    updateGroup(groupId, (group) => ({
-      ...group,
-      filters: group.filters.map((filter, index) =>
-        index === filterIndex ? { ...filter, ...updates } : filter
-      ),
-    }));
-  };
-
-  const addGroup = (parentGroupId: string) => {
-    const newGroup: FilterGroup = {
-      id: `group_${Date.now()}`,
-      logic: 'AND',
-      filters: [],
-      groups: [],
-    };
-
-    updateGroup(parentGroupId, (group) => ({
-      ...group,
-      groups: [...group.groups, newGroup],
-    }));
-  };
-
-  const updateGroup = (groupId: string, updater: (group: FilterGroup) => FilterGroup) => {
-    const updateGroupRecursive = (group: FilterGroup): FilterGroup => {
-      if (group.id === groupId) {
-        return updater(group);
-      }
-      return {
-        ...group,
-        groups: group.groups.map(updateGroupRecursive),
-      };
-    };
-
-    const updatedRoot = updateGroupRecursive(rootGroup);
-    setRootGroup(updatedRoot);
-
-    // Convert to flat filter array and notify parent
-    const flatFilters = flattenFilters(updatedRoot);
-    onFiltersChange(flatFilters);
-  };
-
-  const flattenFilters = (group: FilterGroup): ChartFilter[] => {
+  const flattenFilters = useCallback((group: FilterGroup): ChartFilter[] => {
     const filters = [...group.filters];
     group.groups.forEach((subGroup) => {
       filters.push(...flattenFilters(subGroup));
     });
     return filters;
-  };
+  }, []);
+
+  const updateGroup = useCallback(
+    (groupId: string, updater: (group: FilterGroup) => FilterGroup) => {
+      setRootGroup((prev) => {
+        const updateGroupRecursive = (group: FilterGroup): FilterGroup => {
+          if (group.id === groupId) {
+            return updater(group);
+          }
+          return {
+            ...group,
+            groups: group.groups.map(updateGroupRecursive),
+          };
+        };
+
+        const updatedRoot = updateGroupRecursive(prev);
+        // Convert to flat filter array and notify parent
+        const flatFilters = flattenFilters(updatedRoot);
+        onFiltersChange(flatFilters);
+        return updatedRoot;
+      });
+    },
+    [flattenFilters, onFiltersChange]
+  );
+
+  const addFilter = useCallback(
+    (groupId: string) => {
+      const newFilter: ChartFilter = {
+        field: availableFields[0]?.name || '',
+        operator: 'eq',
+        value: '',
+      };
+
+      updateGroup(groupId, (group) => ({
+        ...group,
+        filters: [...group.filters, newFilter],
+      }));
+    },
+    [availableFields, updateGroup]
+  );
+
+  const removeFilter = useCallback(
+    (groupId: string, filterIndex: number) => {
+      updateGroup(groupId, (group) => ({
+        ...group,
+        filters: group.filters.filter((_, index) => index !== filterIndex),
+      }));
+    },
+    [updateGroup]
+  );
+
+  const updateFilter = useCallback(
+    (groupId: string, filterIndex: number, updates: Partial<ChartFilter>) => {
+      updateGroup(groupId, (group) => ({
+        ...group,
+        filters: group.filters.map((filter, index) =>
+          index === filterIndex ? { ...filter, ...updates } : filter
+        ),
+      }));
+    },
+    [updateGroup]
+  );
+
+  const addGroup = useCallback(
+    (parentGroupId: string) => {
+      const newGroup: FilterGroup = {
+        id: `group_${Date.now()}`,
+        logic: 'AND',
+        filters: [],
+        groups: [],
+      };
+
+      updateGroup(parentGroupId, (group) => ({
+        ...group,
+        groups: [...group.groups, newGroup],
+      }));
+    },
+    [updateGroup]
+  );
 
   const renderFilterGroup = (group: FilterGroup, depth: number = 0) => {
     return (
@@ -160,53 +361,15 @@ export default function AdvancedFilterBuilder({
 
         {/* Filters */}
         {group.filters.map((filter, index) => (
-          <div key={`${group.id}-filter-${index}`} className="flex items-center gap-3 mb-3">
-            {/* Field Selector */}
-            <select
-              value={filter.field}
-              onChange={(e) => updateFilter(group.id, index, { field: e.target.value })}
-              className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-            >
-              {availableFields.map((field) => (
-                <option key={field.name} value={field.name}>
-                  {field.displayName}
-                </option>
-              ))}
-            </select>
-
-            {/* Operator Selector */}
-            <select
-              value={filter.operator}
-              onChange={(e) =>
-                updateFilter(group.id, index, { operator: e.target.value as FilterOperator })
-              }
-              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-            >
-              {OPERATORS.map((op) => (
-                <option key={op.value} value={op.value}>
-                  {op.label}
-                </option>
-              ))}
-            </select>
-
-            {/* Value Input */}
-            {renderValueInput(group.id, index, filter)}
-
-            {/* Remove Filter Button */}
-            <button type="button" onClick={() => removeFilter(group.id, index)}
-              className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
-              title="Remove filter"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
-          </div>
+          <FilterItemRow
+            key={`${group.id}-filter-${index}`}
+            filter={filter}
+            index={index}
+            groupId={group.id}
+            availableFields={availableFields}
+            onUpdateFilter={updateFilter}
+            onRemoveFilter={removeFilter}
+          />
         ))}
 
         {/* Nested Groups */}
@@ -229,117 +392,6 @@ export default function AdvancedFilterBuilder({
           )}
         </div>
       </div>
-    );
-  };
-
-  const renderValueInput = (groupId: string, filterIndex: number, filter: ChartFilter) => {
-    const field = availableFields.find((f) => f.name === filter.field);
-
-    if (filter.operator === 'in' || filter.operator === 'not_in') {
-      return (
-        <textarea
-          value={Array.isArray(filter.value) ? filter.value.join('\n') : (filter.value ?? '')}
-          onChange={(e) =>
-            updateFilter(groupId, filterIndex, {
-              value: e.target.value.split('\n').filter((v) => v.trim()),
-            })
-          }
-          placeholder="Enter values (one per line)"
-          rows={3}
-          className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-        />
-      );
-    }
-
-    if (filter.operator === 'between') {
-      const values = Array.isArray(filter.value) ? filter.value : ['', ''];
-      return (
-        <div className="flex gap-2 flex-1">
-          <input
-            type={field?.type === 'number' ? 'number' : field?.type === 'date' ? 'date' : 'text'}
-            value={values[0]?.toString() || ''}
-            onChange={(e) => {
-              let parsedFromValue: string | number = e.target.value;
-
-              // Parse number fields to ensure correct type for database queries
-              if (field?.type === 'number' && e.target.value.trim() !== '') {
-                const numValue = Number(e.target.value);
-                if (!Number.isNaN(numValue)) {
-                  parsedFromValue = numValue;
-                }
-              }
-
-              updateFilter(groupId, filterIndex, {
-                value: [parsedFromValue, values[1] || ''],
-              });
-            }}
-            placeholder="From"
-            className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-          />
-          <input
-            type={field?.type === 'number' ? 'number' : field?.type === 'date' ? 'date' : 'text'}
-            value={values[1]?.toString() || ''}
-            onChange={(e) => {
-              let parsedToValue: string | number = e.target.value;
-
-              // Parse number fields to ensure correct type for database queries
-              if (field?.type === 'number' && e.target.value.trim() !== '') {
-                const numValue = Number(e.target.value);
-                if (!Number.isNaN(numValue)) {
-                  parsedToValue = numValue;
-                }
-              }
-
-              updateFilter(groupId, filterIndex, {
-                value: [values[0] || '', parsedToValue],
-              });
-            }}
-            placeholder="To"
-            className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-          />
-        </div>
-      );
-    }
-
-    if (field?.allowedValues && field.allowedValues.length > 0) {
-      return (
-        <select
-          value={
-            typeof filter.value === 'string' || typeof filter.value === 'number' ? filter.value : ''
-          }
-          onChange={(e) => updateFilter(groupId, filterIndex, { value: e.target.value })}
-          className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-        >
-          <option value="">Select value...</option>
-          {field.allowedValues.map((value) => (
-            <option key={value} value={value}>
-              {value}
-            </option>
-          ))}
-        </select>
-      );
-    }
-
-    return (
-      <input
-        type={field?.type === 'number' ? 'number' : field?.type === 'date' ? 'date' : 'text'}
-        value={filter.value?.toString() || ''}
-        onChange={(e) => {
-          let parsedValue: string | number = e.target.value;
-
-          // Parse number fields to ensure correct type for database queries
-          if (field?.type === 'number' && e.target.value.trim() !== '') {
-            const numValue = Number(e.target.value);
-            if (!Number.isNaN(numValue)) {
-              parsedValue = numValue;
-            }
-          }
-
-          updateFilter(groupId, filterIndex, { value: parsedValue });
-        }}
-        placeholder="Enter value"
-        className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-      />
     );
   };
 

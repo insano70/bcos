@@ -15,7 +15,7 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 import type { Chart, Chart as ChartType, ChartTypeRegistry } from 'chart.js';
 import type { ChartData } from '@/lib/types/analytics';
 import { formatValue } from '@/lib/utils/chart-data/formatters/value-formatter';
@@ -47,7 +47,7 @@ interface ChartLegendProps {
 /**
  * Individual legend item component
  */
-function LegendItemComponent({
+const LegendItemComponent = memo(function LegendItemComponent({
   item,
   measureType,
   onClick,
@@ -77,7 +77,7 @@ function LegendItemComponent({
       </div>
     </li>
   );
-}
+});
 
 /**
  * Chart Legend Component
@@ -88,7 +88,7 @@ function LegendItemComponent({
  * @param props - Component props
  * @returns Legend component
  */
-export default function ChartLegend({
+function ChartLegendInner({
   chart,
   chartData,
   hasPeriodComparison,
@@ -193,3 +193,6 @@ export default function ChartLegend({
     </ScrollableLegendContainer>
   );
 }
+
+const ChartLegend = memo(ChartLegendInner);
+export default ChartLegend;

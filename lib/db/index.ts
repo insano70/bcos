@@ -127,22 +127,11 @@ export const closeDb = async () => {
 // Database connections will be closed automatically by postgres.js when process exits
 // Registering handlers here causes issues with Next.js worker processes
 
+// Re-export all schemas
 export * from './analytics-schema';
 export * from './audit-schema';
 export * from './chart-config-schema';
 export * from './csrf-schema';
 export * from './rbac-schema';
 export * from './refresh-token-schema';
-// Re-export all schemas
-export * from './schema';
-
-// Registering handlers here causes issues with Next.js worker processes
-
-export * from './analytics-schema';
-export * from './audit-schema';
-export * from './chart-config-schema';
-export * from './csrf-schema';
-export * from './rbac-schema';
-export * from './refresh-token-schema';
-// Re-export all schemas
 export * from './schema';

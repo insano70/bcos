@@ -18,7 +18,7 @@
 'use client';
 
 import { Download, Maximize2, RefreshCcw, X } from 'lucide-react';
-import { useState, useRef, useEffect } from 'react';
+import { memo, useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import type { ExportFormat } from '@/lib/utils/chart-export-formats';
@@ -72,7 +72,7 @@ interface ChartHeaderProps {
  * />
  * ```
  */
-export default function ChartHeader({
+function ChartHeaderInner({
   title,
   onExport,
   availableExportFormats,
@@ -282,3 +282,6 @@ export default function ChartHeader({
     </header>
   );
 }
+
+const ChartHeader = memo(ChartHeaderInner);
+export default ChartHeader;

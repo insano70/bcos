@@ -3,10 +3,10 @@ import { createErrorResponse, handleRouteError } from '@/lib/api/responses/error
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { log } from '@/lib/logger';
-import { createRBACReportCardService } from '@/lib/services/report-card';
+import { createRBACMeasureService } from '@/lib/services/report-card';
 import type { UserContext } from '@/lib/types/rbac';
 import { measureParamsSchema, measureUpdateSchema } from '@/lib/validations/report-card';
-import { MeasureNotFoundError } from '@/lib/errors/report-card-errors';
+import { NotFoundError } from '@/lib/errors/domain-errors';
 
 /**
  * Report Card API - Individual measure CRUD
@@ -45,9 +45,9 @@ const updateMeasureHandler = async (
 
     const measureIdNum = parseInt(paramsResult.data.measureId, 10);
 
-    // Update measure
-    const service = createRBACReportCardService(userContext);
-    const measure = await service.updateMeasure(measureIdNum, validationResult.data);
+    // Update measure using RBACMeasureService
+    const service = createRBACMeasureService(userContext);
+    const measure = await service.update(measureIdNum, validationResult.data);
 
     const duration = Date.now() - startTime;
 
@@ -67,7 +67,7 @@ const updateMeasureHandler = async (
   } catch (error) {
     const duration = Date.now() - startTime;
 
-    if (error instanceof MeasureNotFoundError) {
+    if (error instanceof NotFoundError) {
       return createErrorResponse('Measure not found', 404, request);
     }
 
@@ -103,9 +103,9 @@ const deleteMeasureHandler = async (
 
     const measureIdNum = parseInt(paramsResult.data.measureId, 10);
 
-    // Delete measure
-    const service = createRBACReportCardService(userContext);
-    await service.deleteMeasure(measureIdNum);
+    // Delete measure using RBACMeasureService
+    const service = createRBACMeasureService(userContext);
+    await service.delete(measureIdNum);
 
     const duration = Date.now() - startTime;
 
@@ -125,7 +125,7 @@ const deleteMeasureHandler = async (
   } catch (error) {
     const duration = Date.now() - startTime;
 
-    if (error instanceof MeasureNotFoundError) {
+    if (error instanceof NotFoundError || (error instanceof Error && error.message.includes('not found'))) {
       return createErrorResponse('Measure not found', 404, request);
     }
 

@@ -10,6 +10,7 @@
  * - Red: > 5s (slow, needs optimization)
  */
 
+import { memo } from 'react';
 import type { PercentileStats } from '@/lib/monitoring/types';
 
 interface AnalyticsPerformanceKPIProps {
@@ -18,7 +19,7 @@ interface AnalyticsPerformanceKPIProps {
   slowCount: number;
 }
 
-export default function AnalyticsPerformanceKPI({
+function AnalyticsPerformanceKPIInner({
   responseTime,
   requestCount,
   slowCount,
@@ -128,3 +129,6 @@ export default function AnalyticsPerformanceKPI({
     </div>
   );
 }
+
+const AnalyticsPerformanceKPI = memo(AnalyticsPerformanceKPIInner);
+export default AnalyticsPerformanceKPI;

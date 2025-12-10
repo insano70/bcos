@@ -1,16 +1,24 @@
-import { and, desc, eq, isNull } from 'drizzle-orm';
+import { and, eq, isNull, type SQL } from 'drizzle-orm';
+
 import { db } from '@/lib/db';
 import { users, work_item_comments, work_items } from '@/lib/db/schema';
 import { DatabaseError, NotFoundError } from '@/lib/errors/domain-errors';
 import { PermissionDeniedError } from '@/lib/errors/rbac-errors';
 import { log } from '@/lib/logger';
-import { BaseRBACService } from '@/lib/rbac/base-service';
+import {
+  BaseCrudService,
+  type BaseQueryOptions,
+  type CrudServiceConfig,
+  type JoinQueryConfig,
+} from '@/lib/services/crud';
 import type { UserContext } from '@/lib/types/rbac';
 import { formatUserNameWithFallback } from '@/lib/utils/user-formatters';
 
 /**
  * Work Item Comments Service with RBAC
  * Phase 2: Manages comments on work items with automatic permission checking
+ *
+ * Migrated to use BaseCrudService infrastructure with JOIN support.
  */
 
 export interface CreateWorkItemCommentData {
@@ -23,10 +31,8 @@ export interface UpdateWorkItemCommentData {
   comment_text: string;
 }
 
-export interface WorkItemCommentQueryOptions {
+export interface WorkItemCommentQueryOptions extends BaseQueryOptions {
   work_item_id: string;
-  limit?: number | undefined;
-  offset?: number | undefined;
 }
 
 export interface WorkItemCommentWithDetails {
@@ -40,7 +46,105 @@ export interface WorkItemCommentWithDetails {
   updated_at: Date;
 }
 
-export class RBACWorkItemCommentsService extends BaseRBACService {
+export class RBACWorkItemCommentsService extends BaseCrudService<
+  typeof work_item_comments,
+  WorkItemCommentWithDetails,
+  CreateWorkItemCommentData,
+  UpdateWorkItemCommentData,
+  WorkItemCommentQueryOptions
+> {
+  protected config: CrudServiceConfig<
+    typeof work_item_comments,
+    WorkItemCommentWithDetails,
+    CreateWorkItemCommentData,
+    UpdateWorkItemCommentData,
+    WorkItemCommentQueryOptions
+  > = {
+    table: work_item_comments,
+    resourceName: 'work-item-comments',
+    displayName: 'work item comment',
+    primaryKeyName: 'work_item_comment_id',
+    deletedAtColumnName: 'deleted_at',
+    updatedAtColumnName: 'updated_at',
+    permissions: {
+      read: ['work-items:read:own', 'work-items:read:organization', 'work-items:read:all'],
+      // Create/update/delete handled by custom methods due to creator-or-admin logic
+    },
+    transformers: {
+      toEntity: (row: Record<string, unknown>): WorkItemCommentWithDetails => ({
+        work_item_comment_id: row.work_item_comment_id as string,
+        work_item_id: row.work_item_id as string,
+        parent_comment_id: row.parent_comment_id as string | null,
+        comment_text: row.comment_text as string,
+        created_by: row.created_by as string,
+        created_by_name: formatUserNameWithFallback(
+          row.created_by_first_name as string | null,
+          row.created_by_last_name as string | null
+        ),
+        created_at: (row.created_at as Date) || new Date(),
+        updated_at: (row.updated_at as Date) || new Date(),
+      }),
+      toCreateValues: (data, ctx) => ({
+        work_item_id: data.work_item_id,
+        parent_comment_id: data.parent_comment_id ?? null,
+        comment_text: data.comment_text,
+        created_by: ctx.user_id,
+      }),
+    },
+  };
+
+  /**
+   * Build JOIN query for comment with user details
+   */
+  protected buildJoinQuery(): JoinQueryConfig {
+    return {
+      selectFields: {
+        work_item_comment_id: work_item_comments.work_item_comment_id,
+        work_item_id: work_item_comments.work_item_id,
+        parent_comment_id: work_item_comments.parent_comment_id,
+        comment_text: work_item_comments.comment_text,
+        created_by: work_item_comments.created_by,
+        created_by_first_name: users.first_name,
+        created_by_last_name: users.last_name,
+        created_at: work_item_comments.created_at,
+        updated_at: work_item_comments.updated_at,
+      },
+      joins: [
+        {
+          table: users,
+          on: eq(work_item_comments.created_by, users.user_id),
+          type: 'left',
+        },
+      ],
+    };
+  }
+
+  /**
+   * Build custom conditions for work_item_id filtering
+   */
+  protected buildCustomConditions(options: WorkItemCommentQueryOptions): SQL[] {
+    const conditions: SQL[] = [];
+
+    // Always filter by work_item_id (required)
+    conditions.push(eq(work_item_comments.work_item_id, options.work_item_id));
+
+    return conditions;
+  }
+
+  /**
+   * Validate parent work item access before listing comments
+   */
+  protected async validateParentAccess(options: WorkItemCommentQueryOptions): Promise<void> {
+    const canRead = await this.canReadWorkItem(options.work_item_id);
+    if (!canRead) {
+      throw new PermissionDeniedError('work-items:read:*', options.work_item_id);
+    }
+  }
+
+  // ===========================================================================
+  // Public API Methods - Maintain backward compatibility
+  // ===========================================================================
+
   /**
    * Get comments for a work item with permission checking
    */
@@ -52,101 +156,35 @@ export class RBACWorkItemCommentsService extends BaseRBACService {
       requestingUserId: this.userContext.user_id,
     });
 
-    // First verify user has permission to read the work item
-    const canReadWorkItem = await this.canReadWorkItem(options.work_item_id);
-    if (!canReadWorkItem) {
-      throw new PermissionDeniedError('work-items:read:*', options.work_item_id);
-    }
-
-    // Fetch comments
-    const results = await db
-      .select({
-        work_item_comment_id: work_item_comments.work_item_comment_id,
-        work_item_id: work_item_comments.work_item_id,
-        parent_comment_id: work_item_comments.parent_comment_id,
-        comment_text: work_item_comments.comment_text,
-        created_by: work_item_comments.created_by,
-        created_by_first_name: users.first_name,
-        created_by_last_name: users.last_name,
-        created_at: work_item_comments.created_at,
-        updated_at: work_item_comments.updated_at,
-      })
-      .from(work_item_comments)
-      .leftJoin(users, eq(work_item_comments.created_by, users.user_id))
-      .where(
-        and(
-          eq(work_item_comments.work_item_id, options.work_item_id),
-          isNull(work_item_comments.deleted_at)
-        )
-      )
-      .orderBy(desc(work_item_comments.created_at))
-      .limit(options.limit || 1000)
-      .offset(options.offset || 0);
+    const result = await this.getList({
+      ...options,
+      limit: options.limit ?? 1000,
+      offset: options.offset ?? 0,
+    });
 
     const duration = Date.now() - startTime;
     log.info('Work item comments query completed', {
       workItemId: options.work_item_id,
-      commentCount: results.length,
+      commentCount: result.items.length,
       duration,
     });
 
-    return results.map((result) => ({
-      work_item_comment_id: result.work_item_comment_id,
-      work_item_id: result.work_item_id,
-      parent_comment_id: result.parent_comment_id,
-      comment_text: result.comment_text,
-      created_by: result.created_by,
-      created_by_name: formatUserNameWithFallback(result.created_by_first_name, result.created_by_last_name),
-      created_at: result.created_at || new Date(),
-      updated_at: result.updated_at || new Date(),
-    }));
+    // Sort by created_at DESC (newest first)
+    return result.items.sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
   }
 
   /**
    * Get single comment by ID
    */
   async getCommentById(commentId: string): Promise<WorkItemCommentWithDetails | null> {
-    const results = await db
-      .select({
-        work_item_comment_id: work_item_comments.work_item_comment_id,
-        work_item_id: work_item_comments.work_item_id,
-        parent_comment_id: work_item_comments.parent_comment_id,
-        comment_text: work_item_comments.comment_text,
-        created_by: work_item_comments.created_by,
-        created_by_first_name: users.first_name,
-        created_by_last_name: users.last_name,
-        created_at: work_item_comments.created_at,
-        updated_at: work_item_comments.updated_at,
-      })
-      .from(work_item_comments)
-      .leftJoin(users, eq(work_item_comments.created_by, users.user_id))
-      .where(
-        and(
-          eq(work_item_comments.work_item_comment_id, commentId),
-          isNull(work_item_comments.deleted_at)
-        )
-      )
-      .limit(1);
-
-    const result = results[0];
-    if (!result) {
-      return null;
-    }
-
-    return {
-      work_item_comment_id: result.work_item_comment_id,
-      work_item_id: result.work_item_id,
-      parent_comment_id: result.parent_comment_id,
-      comment_text: result.comment_text,
-      created_by: result.created_by,
-      created_by_name: formatUserNameWithFallback(result.created_by_first_name, result.created_by_last_name),
-      created_at: result.created_at || new Date(),
-      updated_at: result.updated_at || new Date(),
-    };
+    return this.getById(commentId);
   }
 
   /**
    * Create new comment
+   * Custom implementation to handle auto-watcher addition
    */
   async createComment(commentData: CreateWorkItemCommentData): Promise<WorkItemCommentWithDetails> {
     const startTime = Date.now();
@@ -167,7 +205,7 @@ export class RBACWorkItemCommentsService extends BaseRBACService {
       .insert(work_item_comments)
       .values({
         work_item_id: commentData.work_item_id,
-        parent_comment_id: commentData.parent_comment_id || null,
+        parent_comment_id: commentData.parent_comment_id ?? null,
         comment_text: commentData.comment_text,
         created_by: this.userContext.user_id,
       })
@@ -207,6 +245,7 @@ export class RBACWorkItemCommentsService extends BaseRBACService {
       });
     }
 
+    // Fetch and return the comment with user details via JOIN
     const comment = await this.getCommentById(newComment.work_item_comment_id);
     if (!comment) {
       throw new DatabaseError('Failed to retrieve created comment', 'read');
@@ -217,6 +256,7 @@ export class RBACWorkItemCommentsService extends BaseRBACService {
 
   /**
    * Update comment (only by creator or admin)
+   * Custom implementation due to creator-or-admin permission logic
    */
   async updateComment(
     commentId: string,
@@ -263,6 +303,7 @@ export class RBACWorkItemCommentsService extends BaseRBACService {
       duration: Date.now() - startTime,
     });
 
+    // Fetch and return updated comment with user details via JOIN
     const updatedCommentWithDetails = await this.getCommentById(commentId);
     if (!updatedCommentWithDetails) {
       throw new DatabaseError('Failed to retrieve updated comment', 'read');
@@ -273,6 +314,7 @@ export class RBACWorkItemCommentsService extends BaseRBACService {
 
   /**
    * Delete comment (soft delete, only by creator or admin)
+   * Custom implementation due to creator-or-admin permission logic
    */
   async deleteComment(commentId: string): Promise<void> {
     const startTime = Date.now();

@@ -3,14 +3,15 @@
  * Shared across work item types services and hooks
  */
 
+import type { BaseQueryOptions } from '@/lib/services/crud';
+
 /**
  * Query options for fetching work item types
+ * Extends BaseQueryOptions for compatibility with BaseCrudService
  */
-export interface WorkItemTypeQueryOptions {
+export interface WorkItemTypeQueryOptions extends BaseQueryOptions {
   organization_id?: string | undefined;
   is_active?: boolean | undefined;
-  limit?: number | undefined;
-  offset?: number | undefined;
 }
 
 /**

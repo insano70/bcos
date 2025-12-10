@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { memo, useCallback, useState } from 'react';
 import type {
   ChartDefinition,
   ChartFilter,
@@ -53,7 +53,7 @@ interface ChartSlotPlaceholderProps {
   height: number;
 }
 
-function ChartSlotPlaceholder({ chartName, chartType, onLoad, isLoading, height }: ChartSlotPlaceholderProps) {
+const ChartSlotPlaceholder = memo(function ChartSlotPlaceholder({ chartName, chartType, onLoad, isLoading, height }: ChartSlotPlaceholderProps) {
   return (
     <div 
       className="w-full h-full flex flex-col bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700"
@@ -101,9 +101,9 @@ function ChartSlotPlaceholder({ chartName, chartType, onLoad, isLoading, height 
       </div>
     </div>
   );
-}
+});
 
-export default function DashboardRowBuilder({
+function DashboardRowBuilderInner({
   row,
   availableCharts,
   onUpdateRow,
@@ -604,3 +604,6 @@ export default function DashboardRowBuilder({
     </div>
   );
 }
+
+const DashboardRowBuilder = memo(DashboardRowBuilderInner);
+export default DashboardRowBuilder;

@@ -1,23 +1,18 @@
-import { eq } from 'drizzle-orm';
-import { chart_categories, db } from '@/lib/db';
-import { InternalServerError } from '@/lib/errors/api-errors';
-import { log } from '@/lib/logger';
-import { BaseRBACService } from '@/lib/rbac/base-service';
+import type { InferSelectModel } from 'drizzle-orm';
+
+import { chart_categories } from '@/lib/db';
+import { BaseCrudService, type CrudServiceConfig } from '@/lib/services/crud';
 import type { UserContext } from '@/lib/types/rbac';
 
 /**
  * Chart Categories Service with RBAC
  * Manages chart categories for organizing charts with automatic permission checking
+ *
+ * Migrated to use BaseCrudService infrastructure.
  */
 
-export interface ChartCategory {
-  chart_category_id: number;
-  category_name: string;
-  category_description: string | null;
-  parent_category_id: number | null;
-  created_at: Date | null;
-  updated_at: Date | null;
-}
+// Entity type derived from Drizzle schema
+export type ChartCategory = InferSelectModel<typeof chart_categories>;
 
 export interface CreateCategoryData {
   category_name: string;
@@ -25,6 +20,13 @@ export interface CreateCategoryData {
   parent_category_id?: number;
 }
 
+export interface UpdateCategoryData {
+  category_name?: string;
+  category_description?: string | null;
+  parent_category_id?: number | null;
+}
+
+// Legacy response format maintained for backward compatibility
 export interface CategoriesListResponse {
   categories: ChartCategory[];
   metadata: {
@@ -37,90 +39,98 @@ export interface CategoriesListResponse {
  * RBAC Categories Service
  * Provides secure chart category management with automatic permission checking
  */
-export class RBACCategoriesService extends BaseRBACService {
+export class RBACCategoriesService extends BaseCrudService<
+  typeof chart_categories,
+  ChartCategory,
+  CreateCategoryData,
+  UpdateCategoryData
+> {
+  protected config: CrudServiceConfig<
+    typeof chart_categories,
+    ChartCategory,
+    CreateCategoryData,
+    UpdateCategoryData
+  > = {
+    table: chart_categories,
+    resourceName: 'chart-categories',
+    displayName: 'chart category',
+    primaryKeyName: 'chart_category_id',
+    // No deletedAtColumnName - this table uses hard delete
+    updatedAtColumnName: 'updated_at',
+    permissions: {
+      read: 'analytics:read:all',
+      create: 'analytics:read:all',
+      update: 'analytics:read:all',
+      delete: 'analytics:read:all',
+    },
+    // No organization scoping - categories are global
+    transformers: {
+      toCreateValues: (data) => ({
+        category_name: data.category_name,
+        category_description: data.category_description ?? null,
+        parent_category_id: data.parent_category_id ?? null,
+      }),
+    },
+  };
+
   /**
-   * Get all chart categories
+   * Get all chart categories (legacy method maintained for backward compatibility)
+   * @returns CategoriesListResponse with categories array and metadata
    */
   async getCategories(): Promise<CategoriesListResponse> {
-    const startTime = Date.now();
+    // Use the base getList with high limit to get all categories
+    // Note: For truly large datasets, consider pagination
+    const result = await this.getList({ limit: 1000 });
 
-    // Check permissions
-    this.requirePermission('analytics:read:all', undefined);
-
-    // Fetch all categories with hierarchy
-    const categories = await db
-      .select()
-      .from(chart_categories)
-      .orderBy(chart_categories.category_name);
-
-    log.info('Chart categories list retrieved', {
-      count: categories.length,
-      duration: Date.now() - startTime,
-      userId: this.userContext.user_id,
-    });
+    // Sort by category_name (since getList doesn't support custom sorting yet)
+    const sortedCategories = result.items.sort((a, b) =>
+      a.category_name.localeCompare(b.category_name)
+    );
 
     return {
-      categories,
+      categories: sortedCategories,
       metadata: {
-        total_count: categories.length,
+        total_count: result.total,
         generatedAt: new Date().toISOString(),
       },
     };
   }
 
   /**
-   * Create new chart category
+   * Create new chart category (legacy method wrapper)
+   * @param data - Category creation data
+   * @returns Created ChartCategory
    */
   async createCategory(data: CreateCategoryData): Promise<ChartCategory> {
-    const startTime = Date.now();
-
-    this.requirePermission('analytics:read:all', undefined);
-
-    // Create new category
-    const [newCategory] = await db
-      .insert(chart_categories)
-      .values({
-        category_name: data.category_name,
-        category_description: data.category_description || null,
-        parent_category_id: data.parent_category_id || null,
-      })
-      .returning();
-
-    if (!newCategory) {
-      throw new InternalServerError('Failed to create category');
-    }
-
-    log.info('Chart category created', {
-      categoryId: newCategory.chart_category_id,
-      categoryName: newCategory.category_name,
-      createdBy: this.userContext.user_id,
-      duration: Date.now() - startTime,
-    });
-
-    return newCategory;
+    return this.create(data);
   }
 
   /**
-   * Get category by ID
+   * Get category by ID (legacy method wrapper)
+   * @param categoryId - Category ID to retrieve
+   * @returns ChartCategory or null if not found
    */
   async getCategoryById(categoryId: number): Promise<ChartCategory | null> {
-    const startTime = Date.now();
+    return this.getById(categoryId);
+  }
 
-    this.requirePermission('analytics:read:all', undefined);
+  /**
+   * Update category (new method provided by BaseCrudService)
+   * @param categoryId - Category ID to update
+   * @param data - Update data
+   * @returns Updated ChartCategory
+   */
+  async updateCategory(categoryId: number, data: UpdateCategoryData): Promise<ChartCategory> {
+    return this.update(categoryId, data);
+  }
 
-    const [category] = await db
-      .select()
-      .from(chart_categories)
-      .where(eq(chart_categories.chart_category_id, categoryId));
-
-    log.info('Chart category retrieved by ID', {
-      categoryId,
-      found: !!category,
-      duration: Date.now() - startTime,
-      userId: this.userContext.user_id,
-    });
-
-    return category || null;
+  /**
+   * Delete category (new method provided by BaseCrudService)
+   * Note: This is a hard delete as the table has no deleted_at column
+   * @param categoryId - Category ID to delete
+   */
+  async deleteCategory(categoryId: number): Promise<void> {
+    return this.delete(categoryId);
   }
 }
 
