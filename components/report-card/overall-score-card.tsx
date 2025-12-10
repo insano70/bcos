@@ -4,7 +4,7 @@ import { motion, useSpring, useTransform } from 'framer-motion';
 import { useEffect, useState } from 'react';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { CHARGE_BASED_THRESHOLDS, type SizeBucket } from '@/lib/constants/report-card';
-import type { PreviousMonthSummary } from '@/lib/types/report-card';
+import type { PreviousMonthSummary, MeasureScore } from '@/lib/types/report-card';
 import { applyGradeFloor, getLetterGrade as getGrade, getGradeColor } from '@/lib/utils/format-value';
 import ScoreHelpTooltip from './score-help-tooltip';
 
@@ -14,6 +14,7 @@ interface OverallScoreCardProps {
   percentileRank: number;
   reportCardMonth?: string; // e.g., "November 2025"
   previousMonth?: PreviousMonthSummary | null | undefined;
+  measureScores?: Record<string, MeasureScore>;
   className?: string;
 }
 
@@ -199,6 +200,7 @@ export default function OverallScoreCard({
   percentileRank,
   reportCardMonth,
   previousMonth,
+  measureScores,
   className = '',
 }: OverallScoreCardProps) {
   const displayScore = applyGradeFloor(score);
@@ -240,7 +242,12 @@ export default function OverallScoreCard({
           <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-300">
             {reportCardMonth ? `${reportCardMonth} Report Card` : 'Practice Report Card'}
           </h3>
-          <ScoreHelpTooltip />
+          <ScoreHelpTooltip
+            overallScore={score}
+            percentileRank={percentileRank}
+            measureScores={measureScores}
+            reportCardMonth={reportCardMonth}
+          />
         </div>
         {reportCardMonth && (
           <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">

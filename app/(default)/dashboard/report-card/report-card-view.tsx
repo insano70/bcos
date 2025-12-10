@@ -324,6 +324,7 @@ export default function ReportCardView() {
                 year: 'numeric',
               })}
               previousMonth={previousMonth}
+              measureScores={reportCard.measure_scores}
             />
           </div>
 
