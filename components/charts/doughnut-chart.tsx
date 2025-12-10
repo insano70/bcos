@@ -5,6 +5,7 @@ import { ArcElement, Chart, DoughnutController, TimeScale, Tooltip } from 'chart
 import { useTheme } from 'next-themes';
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { chartColors } from '@/components/charts/chartjs-config';
+import { ScrollableLegendContainer, COMPACT_LEGEND_STYLES } from '@/components/ui/scrollable-legend';
 import 'chartjs-adapter-moment';
 
 Chart.register(DoughnutController, ArcElement, TimeScale, Tooltip);
@@ -92,8 +93,8 @@ const DoughnutChart = forwardRef<HTMLCanvasElement, DoughnutProps>(function Doug
             const items = c.options.plugins?.legend?.labels?.generateLabels?.(c);
             items?.forEach((item) => {
               const li = document.createElement('li');
-              li.style.margin = '2px';
-              // Button element - 36px min height for mobile touch targets
+              li.style.margin = COMPACT_LEGEND_STYLES.button.margin;
+              // Button element - compact design
               const button = document.createElement('button');
               button.classList.add(
                 'btn-xs',
@@ -106,29 +107,29 @@ const DoughnutChart = forwardRef<HTMLCanvasElement, DoughnutProps>(function Doug
                 'rounded-full'
               );
               button.style.opacity = item.hidden ? '.3' : '';
-              button.style.minHeight = '32px'; // Mobile touch target
-              button.style.padding = '6px 12px'; // Better touch padding
+              button.style.minHeight = COMPACT_LEGEND_STYLES.button.minHeight;
+              button.style.padding = COMPACT_LEGEND_STYLES.button.padding;
               button.style.display = 'inline-flex';
               button.style.alignItems = 'center';
               button.onclick = () => {
                 c.toggleDataVisibility(item.index!);
                 c.update();
               };
-              // Color box
+              // Color box - compact sizing
               const box = document.createElement('span');
               box.style.display = 'block';
-              box.style.width = '10px';
-              box.style.height = '10px';
+              box.style.width = COMPACT_LEGEND_STYLES.colorBox.width;
+              box.style.height = COMPACT_LEGEND_STYLES.colorBox.height;
               box.style.backgroundColor = item.fillStyle as string;
               box.style.borderRadius = '50%';
-              box.style.marginRight = '6px';
+              box.style.marginRight = COMPACT_LEGEND_STYLES.colorBox.marginRight;
               box.style.flexShrink = '0';
               box.style.pointerEvents = 'none';
               // Label
               const label = document.createElement('span');
               label.style.display = 'flex';
               label.style.alignItems = 'center';
-              label.style.fontSize = '0.75rem'; // Responsive rem unit
+              label.style.fontSize = COMPACT_LEGEND_STYLES.label.fontSize;
               label.style.whiteSpace = 'nowrap';
               const labelText = document.createTextNode(item.text);
               label.appendChild(labelText);
@@ -224,17 +225,13 @@ const DoughnutChart = forwardRef<HTMLCanvasElement, DoughnutProps>(function Doug
           }}
         />
       </div>
-      <div className="px-3 pt-2 pb-4 flex-shrink-0 overflow-hidden">
+      {/* Legend with scroll indicators */}
+      <ScrollableLegendContainer maxHeight={52} className="flex-shrink-0 mx-1 mb-1">
         <ul
           ref={legend}
-          className="flex flex-wrap justify-center gap-x-2 gap-y-1"
-          style={{
-            maxHeight: '80px', // Limit legend height
-            overflowY: 'auto',
-            overflowX: 'hidden',
-          }}
-        ></ul>
-      </div>
+          className="flex flex-wrap justify-center gap-x-1 gap-y-0.5"
+        />
+      </ScrollableLegendContainer>
     </div>
   );
 });

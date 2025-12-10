@@ -10,33 +10,13 @@
 
 /**
  * Base interface for work items used in template interpolation.
- * Includes core work item fields and allows additional properties.
+ * Uses Record type for flexibility with dynamic field access.
  * Compatible with WorkItemWithDetails from work items service.
  */
-export interface WorkItemForInterpolation {
-  work_item_id: string;
-  work_item_type_id: string;
-  organization_id: string;
-  subject: string;
-  description: string | null;
-  status_id: string;
-  priority: string;
-  assigned_to: string | null;
-  due_date: Date | null;
-  started_at: Date | null;
-  completed_at: Date | null;
-  parent_work_item_id: string | null;
-  root_work_item_id: string | null;
-  depth: number;
-  path: string | null;
-  created_by: string;
-  created_at: Date;
-  updated_at: Date;
-  custom_fields?: Record<string, unknown> | undefined;
-  // Allow additional fields (like work_item_type_name, organization_name, etc.)
-  // This makes the interface compatible with WorkItemWithDetails
-  [key: string]: string | number | Date | boolean | Record<string, unknown> | null | undefined;
-}
+export type WorkItemForInterpolation = Record<
+  string,
+  string | number | Date | boolean | Record<string, unknown> | null | undefined
+>;
 
 /**
  * Interpolate a template string with parent work item data

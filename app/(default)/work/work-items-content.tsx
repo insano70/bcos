@@ -39,7 +39,7 @@ export default function WorkItemsContent() {
       group: 'Status',
       options: [
         { label: 'All', value: 'all', field: 'status_category' },
-        { label: 'To Do', value: 'todo', field: 'status_category', comparator: 'todo' },
+        { label: 'Backlog', value: 'backlog', field: 'status_category', comparator: 'backlog' },
         {
           label: 'In Progress',
           value: 'in_progress',
@@ -148,9 +148,9 @@ export default function WorkItemsContent() {
         return 'text-green-700 bg-green-100 dark:bg-green-900/30 dark:text-green-400';
       case 'in_progress':
         return 'text-blue-700 bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400';
-      case 'todo':
-        return 'text-gray-700 bg-gray-100 dark:bg-gray-900/30 dark:text-gray-400';
-      default:
+      case 'cancelled':
+        return 'text-red-700 bg-red-100 dark:bg-red-900/30 dark:text-red-400';
+      default: // 'backlog' and any unknown categories
         return 'text-gray-700 bg-gray-100 dark:bg-gray-900/30 dark:text-gray-400';
     }
   }, []);

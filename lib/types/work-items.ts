@@ -37,6 +37,10 @@ export interface WorkItemQueryOptions {
   assigned_to?: string | undefined;
   created_by?: string | undefined;
   search?: string | undefined;
+  /** Filter: created on or after this date */
+  created_after?: Date | undefined;
+  /** Filter: created on or before this date */
+  created_before?: Date | undefined;
   limit?: number | undefined;
   offset?: number | undefined;
   sortBy?: string | undefined;
@@ -44,6 +48,12 @@ export interface WorkItemQueryOptions {
   show_hierarchy?: 'root_only' | 'all' | undefined;
 }
 
+/**
+ * Work item with all details including joined fields.
+ * 
+ * Note: For template interpolation, cast to WorkItemForInterpolation
+ * from lib/utils/template-interpolation.ts which includes the index signature.
+ */
 export interface WorkItemWithDetails {
   work_item_id: string;
   work_item_type_id: string;
@@ -70,6 +80,4 @@ export interface WorkItemWithDetails {
   created_at: Date;
   updated_at: Date;
   custom_fields?: Record<string, unknown> | undefined;
-  // Allow additional fields for template interpolation compatibility
-  [key: string]: string | number | Date | boolean | Record<string, unknown> | null | undefined;
 }

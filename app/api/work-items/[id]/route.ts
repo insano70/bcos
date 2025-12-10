@@ -1,12 +1,14 @@
 import type { NextRequest } from 'next/server';
 import { validateRequest } from '@/lib/api/middleware/validation';
-import { createErrorResponse, getErrorStatusCode, NotFoundError } from '@/lib/api/responses/error';
+import { handleRouteError, NotFoundError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { extractRouteParams } from '@/lib/api/utils/params';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
 import { calculateChanges, log, logTemplates } from '@/lib/logger';
 import { createRBACWorkItemFieldValuesService } from '@/lib/services/rbac-work-item-field-values-service';
+import { createRBACWorkItemWatchersService } from '@/lib/services/rbac-work-item-watchers-service';
+import { createNotificationService } from '@/lib/services/notification-service';
 import { createRBACWorkItemsService } from '@/lib/services/work-items';
 import type { UserContext } from '@/lib/types/rbac';
 import { workItemParamsSchema, workItemUpdateSchema } from '@/lib/validations/work-items';
@@ -88,11 +90,7 @@ const getWorkItemHandler = async (
       component: 'work-items',
     });
 
-    return createErrorResponse(
-      error instanceof Error ? error.message : 'Unknown error',
-      getErrorStatusCode(error),
-      request
-    );
+    return handleRouteError(error, 'Failed to get work item', request);
   }
 };
 
@@ -104,8 +102,11 @@ export const GET = rbacRoute(getWorkItemHandler, {
 });
 
 /**
- * PUT /api/work-items/[id]
- * Update a work item
+ * PATCH /api/work-items/[id]
+ * Partially update a work item (only provided fields are updated)
+ * 
+ * Note: PUT is also exported as an alias for backward compatibility,
+ * but PATCH is the correct REST verb for partial updates.
  */
 const updateWorkItemHandler = async (
   request: NextRequest,
@@ -145,7 +146,6 @@ const updateWorkItemHandler = async (
     let statusChangeNotificationSent = false;
     if (validatedData.status_id && before.status_id !== updatedWorkItem.status_id) {
       try {
-        const { createNotificationService } = await import('@/lib/services/notification-service');
         const notificationService = createNotificationService();
 
         await notificationService.sendStatusChangeNotification(
@@ -200,9 +200,6 @@ const updateWorkItemHandler = async (
     // Add assignee as watcher when assignment changes
     let watcherAdded = false;
     if (validatedData.assigned_to && updatedWorkItem.assigned_to) {
-      const { createRBACWorkItemWatchersService } = await import(
-        '@/lib/services/rbac-work-item-watchers-service'
-      );
       const watchersService = createRBACWorkItemWatchersService(userContext);
 
       try {
@@ -305,16 +302,20 @@ const updateWorkItemHandler = async (
       component: 'work-items',
     });
 
-    return createErrorResponse(error as Error, 500, request);
+    return handleRouteError(error, 'Failed to update work item', request);
   }
 };
 
-export const PUT = rbacRoute(updateWorkItemHandler, {
+// Primary: PATCH for partial updates (correct REST semantics)
+export const PATCH = rbacRoute(updateWorkItemHandler, {
   permission: ['work-items:update:own', 'work-items:update:organization', 'work-items:update:all'],
   extractResourceId: extractors.workItemId,
   extractOrganizationId: extractors.organizationId,
   rateLimit: 'api',
 });
+
+// Alias: PUT for backward compatibility
+export const PUT = PATCH;
 
 /**
  * DELETE /api/work-items/[id]
@@ -364,11 +365,7 @@ const deleteWorkItemHandler = async (
       component: 'work-items',
     });
 
-    return createErrorResponse(
-      error instanceof Error ? error.message : 'Unknown error',
-      getErrorStatusCode(error),
-      request
-    );
+    return handleRouteError(error, 'Failed to delete work item', request);
   }
 };
 

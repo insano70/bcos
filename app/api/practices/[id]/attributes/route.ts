@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { validateRequest } from '@/lib/api/middleware/validation';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { handleRouteError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { extractRouteParams } from '@/lib/api/utils/params';
@@ -56,7 +56,7 @@ const getPracticeAttributesHandler = async (
         : 'Unknown error';
     const clientErrorMessage =
       process.env.NODE_ENV === 'development' ? errorMessage : 'Internal server error';
-    return createErrorResponse(clientErrorMessage, 500, request);
+    return handleRouteError(error, clientErrorMessage, request);
   }
 };
 
@@ -116,7 +116,7 @@ const updatePracticeAttributesHandler = async (
         : 'Unknown error';
     const clientErrorMessage =
       process.env.NODE_ENV === 'development' ? errorMessage : 'Internal server error';
-    return createErrorResponse(clientErrorMessage, 500, request);
+    return handleRouteError(error, clientErrorMessage, request);
   }
 };
 

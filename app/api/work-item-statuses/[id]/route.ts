@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { validateRequest } from '@/lib/api/middleware/validation';
-import { createErrorResponse, getErrorStatusCode, NotFoundError } from '@/lib/api/responses/error';
+import { handleRouteError, NotFoundError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { extractRouteParams } from '@/lib/api/utils/params';
@@ -74,11 +74,7 @@ const getStatusHandler = async (
       component: 'work-items',
     });
 
-    return createErrorResponse(
-      error instanceof Error ? error.message : 'Unknown error',
-      getErrorStatusCode(error),
-      request
-    );
+    return handleRouteError(error, 'Failed to get work item status', request);
   }
 };
 
@@ -190,11 +186,7 @@ const updateStatusHandler = async (
       component: 'work-items',
     });
 
-    return createErrorResponse(
-      error instanceof Error ? error.message : 'Unknown error',
-      getErrorStatusCode(error),
-      request
-    );
+    return handleRouteError(error, 'Failed to update work item status', request);
   }
 };
 
@@ -256,11 +248,7 @@ const deleteStatusHandler = async (
       component: 'work-items',
     });
 
-    return createErrorResponse(
-      error instanceof Error ? error.message : 'Unknown error',
-      getErrorStatusCode(error),
-      request
-    );
+    return handleRouteError(error, 'Failed to delete work item status', request);
   }
 };
 

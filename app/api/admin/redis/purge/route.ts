@@ -25,7 +25,7 @@
  */
 
 import type { NextRequest } from 'next/server';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { createErrorResponse, handleRouteError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { AuditLogger } from '@/lib/api/services/audit';
@@ -139,11 +139,7 @@ const redisPurgeHandler = async (request: NextRequest, userContext: UserContext)
       }
     );
 
-    return createErrorResponse(
-      error instanceof Error ? error : new Error(String(error)),
-      500,
-      request
-    );
+    return handleRouteError(error, 'Failed to purge Redis keys', request);
   }
 };
 

@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { validateQuery, validateRequest } from '@/lib/api/middleware/validation';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { handleRouteError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { extractRouteParams } from '@/lib/api/utils/params';
@@ -81,11 +81,7 @@ const getWorkItemCommentsHandler = async (
       component: 'work-items',
     });
 
-    return createErrorResponse(
-      error instanceof Error ? error.message : 'Unknown error',
-      500,
-      request
-    );
+    return handleRouteError(error, 'Failed to process work item comments', request);
   }
 };
 
@@ -177,11 +173,7 @@ const createWorkItemCommentHandler = async (
       component: 'work-items',
     });
 
-    return createErrorResponse(
-      error instanceof Error ? error.message : 'Unknown error',
-      500,
-      request
-    );
+    return handleRouteError(error, 'Failed to process work item comments', request);
   }
 };
 

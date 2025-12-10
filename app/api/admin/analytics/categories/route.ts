@@ -1,9 +1,8 @@
 import type { NextRequest } from 'next/server';
 import { validateRequest } from '@/lib/api/middleware/validation';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { handleRouteError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
-import { getErrorStatusCode } from '@/lib/errors/api-errors';
 import { log } from '@/lib/logger';
 import { createRBACCategoriesService } from '@/lib/services/rbac-categories-service';
 import type { UserContext } from '@/lib/types/rbac';
@@ -39,15 +38,7 @@ const getCategoriesHandler = async (request: NextRequest, userContext: UserConte
       requestingUserId: userContext.user_id,
     });
 
-    const statusCode = getErrorStatusCode(error);
-    const errorMessage =
-      process.env.NODE_ENV === 'development'
-        ? error instanceof Error
-          ? error.message
-          : 'Unknown error'
-        : 'Internal server error';
-
-    return createErrorResponse(errorMessage, statusCode, request);
+    return handleRouteError(error, 'Failed to list chart categories', request);
   }
 };
 
@@ -87,14 +78,7 @@ const createCategoryHandler = async (request: NextRequest, userContext: UserCont
       requestingUserId: userContext.user_id,
     });
 
-    const errorMessage =
-      process.env.NODE_ENV === 'development'
-        ? error instanceof Error
-          ? error.message
-          : 'Unknown error'
-        : 'Internal server error';
-
-    return createErrorResponse(errorMessage, 500, request);
+    return handleRouteError(error, 'Failed to create chart category', request);
   }
 };
 

@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { validateRequest } from '@/lib/api/middleware/validation';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { handleRouteError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { publicRoute } from '@/lib/api/route-handlers';
 import { log } from '@/lib/logger';
@@ -163,7 +163,7 @@ const validateTokenHandler = async (request: NextRequest) => {
       component: 'security',
     });
 
-    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
+    return handleRouteError(error, 'CSRF validation failed', request);
   }
 };
 

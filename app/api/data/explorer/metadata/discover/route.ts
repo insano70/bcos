@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { createSuccessResponse } from '@/lib/api/responses/success';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { createErrorResponse, handleRouteError } from '@/lib/api/responses/error';
 import { createRBACExplorerSchemaDiscoveryService } from '@/lib/services/data-explorer';
 import { log, SLOW_THRESHOLDS } from '@/lib/logger';
 import type { UserContext } from '@/lib/types/rbac';
@@ -54,11 +54,7 @@ const discoverSchemaHandler = async (
       return createErrorResponse(`Validation failed: ${errorMessages}`, 400, request);
     }
 
-    return createErrorResponse(
-      error instanceof Error ? error.message : 'Schema discovery failed',
-      500,
-      request
-    );
+    return handleRouteError(error, 'Failed to process data explorer request', request);
   }
 };
 

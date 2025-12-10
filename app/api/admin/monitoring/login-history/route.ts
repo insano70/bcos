@@ -13,7 +13,7 @@
 import type { NextRequest } from 'next/server';
 
 // API responses
-import { createErrorResponse, toError } from '@/lib/api/responses/error';
+import { createErrorResponse, handleRouteError, toError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 
 // API route handlers
@@ -80,7 +80,7 @@ const loginHistoryHandler = async (request: NextRequest, userContext: UserContex
       component: 'api',
     });
 
-    return createErrorResponse(toError(error), 500, request);
+    return handleRouteError(toError(error), 'Failed to retrieve login history', request);
   }
 };
 

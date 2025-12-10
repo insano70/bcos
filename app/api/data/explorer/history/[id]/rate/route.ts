@@ -2,7 +2,7 @@ import type { NextRequest } from 'next/server';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { validateRequest } from '@/lib/api/middleware/validation';
 import { createSuccessResponse } from '@/lib/api/responses/success';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { createErrorResponse, handleRouteError } from '@/lib/api/responses/error';
 import { createRBACExplorerHistoryService } from '@/lib/services/data-explorer';
 import { log } from '@/lib/logger';
 import type { UserContext } from '@/lib/types/rbac';
@@ -53,11 +53,7 @@ const rateQueryHandler = async (
       component: 'business-logic',
     });
 
-    return createErrorResponse(
-      error instanceof Error ? error.message : 'Failed to rate query',
-      500,
-      request
-    );
+    return handleRouteError(error, 'Failed to process data explorer request', request);
   }
 };
 

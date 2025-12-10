@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { validateRequest } from '@/lib/api/middleware/validation';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { handleRouteError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { loginSchema } from '@/lib/validations/auth';
 
@@ -147,7 +147,7 @@ const loginHandler = async (request: NextRequest) => {
       component: 'auth',
     });
 
-    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
+    return handleRouteError(error, 'Login failed', request);
   }
 };
 

@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { createErrorResponse, handleRouteError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { log, logTemplates, sanitizeFilters, SLOW_THRESHOLDS } from '@/lib/logger';
@@ -98,7 +98,7 @@ const getChartsHandler = async (request: NextRequest, userContext: UserContext) 
           : 'Unknown error'
         : 'Internal server error';
 
-    return createErrorResponse(errorMessage, 500, request);
+    return handleRouteError(error, errorMessage, request);
   }
 };
 
@@ -191,7 +191,7 @@ const createChartHandler = async (request: NextRequest, userContext: UserContext
           : 'Unknown error'
         : 'Internal server error';
 
-    return createErrorResponse(errorMessage, 500, request);
+    return handleRouteError(error, errorMessage, request);
   }
 };
 

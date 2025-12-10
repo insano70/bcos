@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { validateRequest } from '@/lib/api/middleware/validation';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { createErrorResponse, handleRouteError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { analyticsCache } from '@/lib/cache/analytics-cache';
@@ -52,7 +52,7 @@ const getChartHandler = async (
           : 'Unknown error'
         : 'Internal server error';
 
-    return createErrorResponse(errorMessage, 500, request);
+    return handleRouteError(error, errorMessage, request);
   }
 };
 
@@ -138,7 +138,7 @@ const updateChartHandler = async (
           : 'Unknown error'
         : 'Internal server error';
 
-    return createErrorResponse(errorMessage, 500, request);
+    return handleRouteError(error, errorMessage, request);
   }
 };
 
@@ -198,7 +198,7 @@ const deleteChartHandler = async (
           : 'Unknown error'
         : 'Internal server error';
 
-    return createErrorResponse(errorMessage, 500, request);
+    return handleRouteError(error, errorMessage, request);
   }
 };
 

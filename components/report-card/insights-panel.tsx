@@ -45,7 +45,7 @@ function categorizeInsight(insight: string): {
   if (lowerInsight.includes('declining') || lowerInsight.includes('decrease') || lowerInsight.includes('down')) {
     return {
       icon: <TrendingDown className="w-5 h-5" />,
-      color: 'text-rose-500',
+      color: 'text-rose-500 dark:text-white',
       bgColor: 'bg-rose-50 dark:bg-rose-900/20',
     };
   }

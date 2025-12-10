@@ -68,7 +68,7 @@ const postFieldHandler = async (
       component: 'work-items',
     });
 
-    return handleRouteError(error, 'Failed to create work item field');
+    return handleRouteError(error, 'Failed to create work item field', request);
   }
 };
 
@@ -140,7 +140,7 @@ const getFieldsHandler = async (
       component: 'work-items',
     });
 
-    return handleRouteError(error, 'Failed to retrieve work item fields');
+    return handleRouteError(error, 'Failed to retrieve work item fields', request);
   }
 };
 

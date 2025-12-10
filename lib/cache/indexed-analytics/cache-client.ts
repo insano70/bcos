@@ -78,19 +78,24 @@ export class IndexedCacheClient extends CacheService<Record<string, unknown>[]> 
 
         // Measure JSON parsing time
         const parseStart = Date.now();
-        for (const value of values) {
+        for (let j = 0; j < values.length; j++) {
+          const value = values[j];
           if (value) {
             try {
               const parsed = JSON.parse(value) as Record<string, unknown>[];
               results.push(parsed);
               totalRows += parsed.length;
             } catch (parseError) {
+              // Log the specific key that failed to help diagnose corrupted cache entries
+              const failedKey = batch[j];
               log.error(
                 'Failed to parse cached data in mget',
                 parseError instanceof Error ? parseError : new Error(String(parseError)),
                 {
                   component: 'indexed-cache-client',
                   operation: 'mget',
+                  failedKey,
+                  valuePreview: value.substring(0, 100),
                 }
               );
             }

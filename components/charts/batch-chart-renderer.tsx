@@ -29,6 +29,9 @@ import { buildDrillDownConfig } from '@/lib/services/drill-down';
 import type { DrillDownFilter, DrillDownResult } from '@/lib/types/drill-down';
 import { createChartClickHandler, getPrimaryFieldFromConfig, getSeriesFieldFromConfig } from '@/lib/utils/chart-click-handler';
 import { filterChartDataClientSide, canFilterClientSide } from '@/lib/utils/chart-data-filter';
+import { chartExportService } from '@/lib/services/chart-export';
+import { extractLegendData } from '@/lib/utils/chart-export-legend';
+import { getAvailableExportFormats } from '@/lib/utils/chart-export-formats';
 import ChartError from './chart-error';
 import ChartHeader from './chart-header';
 import ChartRenderer from './chart-renderer';
@@ -397,19 +400,54 @@ export default function BatchChartRenderer({
   const chartHeight = position.h * 150; // Grid height to pixels
 
   // Handle export functionality
-  const handleExport = (format: 'png' | 'pdf' | 'csv') => {
+  const handleExport = async (format: 'png' | 'pdf' | 'csv') => {
     if (onExport) {
       onExport(format);
       return;
     }
 
-    // Default export behavior
+    // CSV export - use raw data
     if (format === 'csv') {
-      // Export raw data as CSV (use active data which may be filtered)
       const csv = convertToCSV(activeChartData.rawData);
       downloadCSV(csv, `${chartDefinition.chart_name}.csv`);
+      return;
     }
-    // PNG/PDF export handled by chart component internally
+
+    // PNG/PDF export - use chartRef to capture canvas with title and legend
+    if (chartRef.current) {
+      try {
+        // Extract legend data for export
+        const legendData = extractLegendData(
+          activeChartData.chartData,
+          activeChartData.chartData.measureType
+        );
+
+        const result =
+          format === 'pdf'
+            ? await chartExportService.exportChartAsPDF(chartRef.current, {
+                format,
+                filename: `${chartDefinition.chart_name}.pdf`,
+                title: chartDefinition.chart_name,
+                legendData,
+              })
+            : await chartExportService.exportChartAsImage(chartRef.current, {
+                format,
+                filename: `${chartDefinition.chart_name}.png`,
+                title: chartDefinition.chart_name,
+                legendData,
+              });
+
+        if (result.success) {
+          chartExportService.downloadFile(result);
+        }
+      } catch (error) {
+        // Client-side export error - use console for debugging
+        if (process.env.NODE_ENV === 'development') {
+          // eslint-disable-next-line no-console
+          console.error('Export failed:', error);
+        }
+      }
+    }
   };
 
   return (
@@ -426,6 +464,7 @@ export default function BatchChartRenderer({
             </>
           }
           onExport={handleExport}
+          availableExportFormats={getAvailableExportFormats(chartDefinition.chart_type)}
           onRefresh={handleRefresh}
           {...((chartDefinition.chart_type === 'bar' ||
             chartDefinition.chart_type === 'stacked-bar' ||

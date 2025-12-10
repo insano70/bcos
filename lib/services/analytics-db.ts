@@ -155,6 +155,39 @@ export const executeAnalyticsQuery = async <T = Record<string, unknown>>(
 };
 
 /**
+ * Get connection pool configuration for monitoring
+ * 
+ * Returns pool configuration to help diagnose potential connection exhaustion.
+ * Note: postgres.js doesn't expose live connection counts - only configuration.
+ * For active connection monitoring, consider adding query instrumentation.
+ * 
+ * @returns Pool config or null if connection not initialized
+ */
+export const getAnalyticsPoolConfig = (): {
+  /** Maximum pool size configured */
+  max: number;
+  /** Idle timeout in seconds */
+  idleTimeout: number;
+  /** Connect timeout in seconds */
+  connectTimeout: number;
+  /** Whether connection is initialized */
+  initialized: boolean;
+} | null => {
+  const config = getAnalyticsDatabaseConfig();
+  
+  if (!config.url) {
+    return null;
+  }
+
+  return {
+    max: config.max || 5,
+    idleTimeout: config.idleTimeoutMillis ? config.idleTimeoutMillis / 1000 : 20,
+    connectTimeout: config.connectionTimeoutMillis ? config.connectionTimeoutMillis / 1000 : 10,
+    initialized: analyticsConnection !== null,
+  };
+};
+
+/**
  * Graceful shutdown of analytics database connections
  */
 export const closeAnalyticsDb = async () => {

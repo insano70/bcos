@@ -2,7 +2,7 @@ import type { NextRequest } from 'next/server';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { validateRequest } from '@/lib/api/middleware/validation';
 import { createSuccessResponse } from '@/lib/api/responses/success';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { handleRouteError } from '@/lib/api/responses/error';
 import { createRBACExplorerFeedbackService } from '@/lib/services/data-explorer';
 import { resolveFeedbackSchema } from '@/lib/validations/data-explorer';
 import { log } from '@/lib/logger';
@@ -52,11 +52,7 @@ const resolveFeedbackHandler = async (
       component: 'business-logic',
     });
 
-    return createErrorResponse(
-      error instanceof Error ? error.message : 'Feedback resolution failed',
-      500,
-      request
-    );
+    return handleRouteError(error, 'Failed to process data explorer request', request);
   }
 };
 

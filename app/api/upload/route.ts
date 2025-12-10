@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { createErrorResponse, handleRouteError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { AuditLogger } from '@/lib/api/services/audit';
@@ -137,7 +137,7 @@ const uploadFilesHandler = async (request: NextRequest, userContext: UserContext
       const fileUrl = result.files[0]?.fileUrl;
 
       if (!fileUrl) {
-        return createErrorResponse('File upload succeeded but no URL was generated', 500, request);
+        return handleRouteError(new Error('File upload succeeded but no URL was generated'), 'File upload failed', request);
       }
 
       try {
@@ -268,11 +268,7 @@ const uploadFilesHandler = async (request: NextRequest, userContext: UserContext
       duration: totalDuration,
     });
 
-    const errorMessage =
-      error && typeof error === 'object' && 'message' in error
-        ? String(error.message)
-        : 'Unknown error';
-    return createErrorResponse(errorMessage, 500, request);
+    return handleRouteError(error, 'File upload failed', request);
   }
 };
 

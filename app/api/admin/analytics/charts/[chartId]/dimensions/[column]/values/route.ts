@@ -13,7 +13,7 @@
 
 import type { NextRequest } from 'next/server';
 import { rbacRoute } from '@/lib/api/route-handlers';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { createErrorResponse, handleRouteError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { dimensionDiscoveryService } from '@/lib/services/analytics/dimension-discovery-service';
 import { createRBACChartsService } from '@/lib/services/rbac-charts-service';
@@ -102,7 +102,7 @@ const getDimensionValuesHandler = async (
       column: resolvedParams.column,
       userId: userContext.user_id,
     });
-    return createErrorResponse('Failed to get dimension values', 500);
+    return handleRouteError(error, 'Failed to get dimension values', request);
   }
 };
 
@@ -224,7 +224,7 @@ const postDimensionValuesHandler = async (
       column: params.column,
       userId: userContext.user_id,
     });
-    return createErrorResponse('Failed to get dimension values', 500);
+    return handleRouteError(error, 'Failed to get dimension values', request);
   }
 };
 

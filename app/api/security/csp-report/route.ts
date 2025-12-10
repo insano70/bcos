@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { createErrorResponse, handleRouteError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { publicRoute } from '@/lib/api/route-handlers';
 import { log } from '@/lib/logger';
@@ -121,7 +121,7 @@ const postHandler = async (request: NextRequest) => {
     return createSuccessResponse({ received: true }, 'CSP report received');
   } catch (error) {
     log.error('Failed to process CSP violation report', error);
-    return createErrorResponse('Internal server error', 500, request);
+    return handleRouteError(error, 'Failed to process CSP report', request);
   }
 };
 

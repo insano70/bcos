@@ -105,7 +105,7 @@ function getComparisonIndicator(
   if (isAbove) {
     return {
       icon: <ArrowUp className="w-5 h-5" />,
-      color: isGood ? 'text-emerald-600' : 'text-rose-600',
+      color: isGood ? 'text-emerald-600' : 'text-rose-600 dark:text-white',
       bgColor: isGood ? 'bg-emerald-100 dark:bg-emerald-900/30' : 'bg-rose-100 dark:bg-rose-900/30',
       label: `${Math.abs(percentDiff).toFixed(0)}% above peers`,
       isGood,
@@ -115,7 +115,7 @@ function getComparisonIndicator(
 
   return {
     icon: <ArrowDown className="w-5 h-5" />,
-    color: isGood ? 'text-emerald-600' : 'text-rose-600',
+    color: isGood ? 'text-emerald-600' : 'text-rose-600 dark:text-rose-100',
     bgColor: isGood ? 'bg-emerald-100 dark:bg-emerald-900/30' : 'bg-rose-100 dark:bg-rose-900/30',
     label: `${Math.abs(percentDiff).toFixed(0)}% below peers`,
     isGood,
@@ -132,20 +132,20 @@ function PercentileBar({ percentileRank }: { percentileRank: number }) {
 
   return (
     <div className="relative h-3 mt-3">
-      {/* Percentile ranges background */}
+      {/* Percentile ranges background - more vibrant colors */}
       <div className="absolute inset-y-0 left-0 right-0 flex rounded-full overflow-hidden">
-        <div className="bg-rose-200 dark:bg-rose-900/40" style={{ width: '25%' }} />
-        <div className="bg-amber-200 dark:bg-amber-900/40" style={{ width: '25%' }} />
-        <div className="bg-teal-200 dark:bg-teal-900/40" style={{ width: '25%' }} />
-        <div className="bg-emerald-200 dark:bg-emerald-900/40" style={{ width: '25%' }} />
+        <div className="bg-rose-300 dark:bg-rose-600/70" style={{ width: '25%' }} />
+        <div className="bg-amber-300 dark:bg-amber-600/70" style={{ width: '25%' }} />
+        <div className="bg-teal-300 dark:bg-teal-600/70" style={{ width: '25%' }} />
+        <div className="bg-emerald-300 dark:bg-emerald-500/70" style={{ width: '25%' }} />
       </div>
 
-      {/* Practice position marker */}
+      {/* Practice position marker - matches percentile label color */}
       <motion.div
         initial={{ left: '50%' }}
         animate={{ left: `${position}%` }}
         transition={{ duration: 0.8, ease: 'easeOut' }}
-        className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-violet-600 rounded-full transform -translate-x-1/2 shadow-lg border-2 border-white dark:border-slate-900"
+        className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-violet-600 dark:bg-violet-400 rounded-full transform -translate-x-1/2 shadow-lg border-2 border-white dark:border-slate-900"
       />
 
       {/* Labels */}

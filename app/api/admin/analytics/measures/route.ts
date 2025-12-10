@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { createErrorResponse, handleRouteError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { log } from '@/lib/logger';
@@ -277,7 +277,7 @@ const analyticsHandler = async (request: NextRequest, userContext: UserContext) 
     });
 
     log.info('Analytics request failed', { duration: Date.now() - startTime });
-    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
+    return handleRouteError(error, 'Failed to process analytics measures request', request);
   } finally {
     log.info('Measures analytics total', { duration: Date.now() - startTime });
   }

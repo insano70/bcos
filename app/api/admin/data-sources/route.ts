@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { validateRequest } from '@/lib/api/middleware/validation';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { handleRouteError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { log, logTemplates, sanitizeFilters, SLOW_THRESHOLDS } from '@/lib/logger';
@@ -98,7 +98,7 @@ const getDataSourcesHandler = async (request: NextRequest, userContext: UserCont
       component: 'admin',
     });
 
-    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
+    return handleRouteError(error, 'Failed to process data sources request', request);
   }
 };
 
@@ -138,7 +138,7 @@ const createDataSourceHandler = async (request: NextRequest, userContext: UserCo
       component: 'admin',
     });
 
-    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
+    return handleRouteError(error, 'Failed to process data sources request', request);
   }
 };
 
@@ -207,7 +207,7 @@ const getTableColumnsHandler = async (request: NextRequest, userContext: UserCon
       component: 'admin',
     });
 
-    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
+    return handleRouteError(error, 'Failed to process data sources request', request);
   }
 };
 

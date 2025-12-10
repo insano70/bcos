@@ -1,9 +1,8 @@
 import type { NextRequest } from 'next/server';
 import { validateRequest } from '@/lib/api/middleware/validation';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { handleRouteError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
-import { getErrorStatusCode } from '@/lib/errors/api-errors';
 import { log } from '@/lib/logger';
 import { createRBACFavoritesService } from '@/lib/services/rbac-favorites-service';
 import type { UserContext } from '@/lib/types/rbac';
@@ -45,7 +44,7 @@ const getFavoritesHandler = async (request: NextRequest, userContext: UserContex
       component: 'analytics',
     });
 
-    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
+    return handleRouteError(error, 'Failed to process analytics favorites request', request);
   }
 };
 
@@ -81,15 +80,7 @@ const addFavoriteHandler = async (request: NextRequest, userContext: UserContext
       component: 'analytics',
     });
 
-    const statusCode = getErrorStatusCode(error);
-    const errorMessage =
-      process.env.NODE_ENV === 'development'
-        ? error instanceof Error
-          ? error.message
-          : 'Unknown error'
-        : 'Internal server error';
-
-    return createErrorResponse(errorMessage, statusCode, request);
+    return handleRouteError(error, 'Failed to add chart to favorites', request);
   }
 };
 
@@ -125,15 +116,7 @@ const removeFavoriteHandler = async (request: NextRequest, userContext: UserCont
       component: 'analytics',
     });
 
-    const statusCode = getErrorStatusCode(error);
-    const errorMessage =
-      process.env.NODE_ENV === 'development'
-        ? error instanceof Error
-          ? error.message
-          : 'Unknown error'
-        : 'Internal server error';
-
-    return createErrorResponse(errorMessage, statusCode, request);
+    return handleRouteError(error, 'Failed to remove chart from favorites', request);
   }
 };
 

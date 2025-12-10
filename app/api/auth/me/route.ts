@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { createErrorResponse, handleRouteError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { authRoute, type AuthSession } from '@/lib/api/route-handlers';
 import { log } from '@/lib/logger';
@@ -93,11 +93,7 @@ const handler = async (request: NextRequest, session?: AuthSession) => {
       duration: Date.now() - startTime,
       component: 'auth',
     });
-    return createErrorResponse(
-      error instanceof Error ? error.message : 'Failed to retrieve user context',
-      500,
-      request
-    );
+    return handleRouteError(error, 'Failed to retrieve user context', request);
   }
 };
 

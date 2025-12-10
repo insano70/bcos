@@ -17,7 +17,14 @@ import { createSafeTextSchema } from '@/lib/validations/sanitization';
 import Toast from './toast';
 import { clientErrorLog } from '@/lib/utils/debug-client';
 
-const createWorkItemSchema = z.object({
+/**
+ * Client-side form schema for work item creation
+ * 
+ * Note: This extends the base validation patterns from lib/validations/work-items.ts
+ * but adds form-specific transforms (empty string to undefined for optional fields).
+ * The base patterns are reused via createSafeTextSchema for consistency.
+ */
+const createWorkItemFormSchema = z.object({
   work_item_type_id: z.string().min(1, 'Work item type is required').uuid('Invalid work item type'),
   organization_id: z
     .string()
@@ -42,7 +49,7 @@ const createWorkItemSchema = z.object({
     .pipe(z.string().uuid('Invalid parent work item ID').optional()),
 });
 
-type CreateWorkItemForm = z.infer<typeof createWorkItemSchema>;
+type CreateWorkItemForm = z.infer<typeof createWorkItemFormSchema>;
 
 interface AddWorkItemModalProps {
   isOpen: boolean;
@@ -90,7 +97,7 @@ export default function AddWorkItemModal({ isOpen, onClose, onSuccess, parentWor
     watch,
     setValue,
   } = useForm<CreateWorkItemForm>({
-    resolver: zodResolver(createWorkItemSchema),
+    resolver: zodResolver(createWorkItemFormSchema),
     defaultValues: {
       work_item_type_id: '',
       organization_id: undefined,

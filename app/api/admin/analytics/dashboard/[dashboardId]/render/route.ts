@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { validateRequest } from '@/lib/api/middleware/validation';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { handleRouteError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { log, SLOW_THRESHOLDS } from '@/lib/logger';
@@ -134,26 +134,7 @@ const renderDashboardHandler = async (
       errorType: error instanceof Error ? error.constructor.name : 'Unknown',
     });
 
-    // Determine appropriate error code
-    const statusCode =
-      error instanceof Error && error.message.includes('not found')
-        ? 404
-        : error instanceof Error && error.message.includes('Access denied')
-          ? 403
-          : 500;
-
-    const errorMessage =
-      process.env.NODE_ENV === 'development'
-        ? error instanceof Error
-          ? error.message
-          : 'Unknown error occurred'
-        : statusCode === 404
-          ? 'Dashboard not found'
-          : statusCode === 403
-            ? 'Access denied'
-            : 'Internal server error';
-
-    return createErrorResponse(errorMessage, statusCode, request);
+    return handleRouteError(error, 'Failed to render dashboard', request);
   }
 };
 

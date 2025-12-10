@@ -11,7 +11,7 @@
 import type { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { requireFreshAuth } from '@/lib/api/middleware/auth';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { handleRouteError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { authRoute, type AuthSession } from '@/lib/api/route-handlers';
 import { extractRouteParams } from '@/lib/api/utils/params';
@@ -74,7 +74,7 @@ const deleteHandler = async (
       component: 'auth',
     });
 
-    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
+    return handleRouteError(error, 'Failed to delete passkey credential', request);
   }
 };
 
@@ -134,7 +134,7 @@ const renameHandler = async (
       component: 'auth',
     });
 
-    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
+    return handleRouteError(error, 'Failed to rename passkey credential', request);
   }
 };
 

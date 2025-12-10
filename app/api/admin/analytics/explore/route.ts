@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { handleRouteError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { log } from '@/lib/logger';
@@ -82,7 +82,7 @@ const exploreHandler = async (request: NextRequest, userContext: UserContext) =>
       operation: 'explore_analytics_data',
       component: 'analytics',
     });
-    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
+    return handleRouteError(error, 'Failed to process analytics explore request', request);
   } finally {
     log.info('Analytics explore total', {
       duration: Date.now() - startTime,

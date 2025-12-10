@@ -24,7 +24,6 @@ import { indexedAnalyticsCache } from '../indexed-analytics-cache';
 import type { CacheQueryFilters } from '../indexed-analytics-cache';
 import type { CacheKeyComponents } from './cache-key-builder';
 import { cacheKeyBuilder } from './cache-key-builder';
-import { cacheWarmingService } from './cache-warming';
 
 /**
  * Cached data entry structure
@@ -185,9 +184,14 @@ export class CacheOperations {
             warmingNeeded: shouldWarm,
           });
 
-          // FIRE-AND-FORGET: Trigger warming of ALL datasources if cache is stale
+          // Background scheduler handles warming - user requests never trigger it
+          // This prevents event loop blocking and ensures consistent performance
           if (shouldWarm) {
-            cacheWarmingService.triggerAutoWarmingIfNeeded(datasourceId);
+            log.debug('Cache stale - background scheduler will handle warming', {
+              datasourceId,
+              cacheAgeHours: cacheAgeHours ? Math.round(cacheAgeHours * 10) / 10 : null,
+              component: 'cache-operations',
+            });
           }
 
           return {
@@ -222,9 +226,14 @@ export class CacheOperations {
               warmingNeeded: shouldWarm,
             });
 
-            // FIRE-AND-FORGET: Trigger warming of ALL datasources if cache is stale
+            // Background scheduler handles warming - user requests never trigger it
+            // This prevents event loop blocking and ensures consistent performance
             if (shouldWarm) {
-              cacheWarmingService.triggerAutoWarmingIfNeeded(datasourceId);
+              log.debug('Cache stale - background scheduler will handle warming', {
+                datasourceId,
+                cacheAgeHours: cacheAgeHours ? Math.round(cacheAgeHours * 10) / 10 : null,
+                component: 'cache-operations',
+              });
             }
 
             return {
@@ -251,10 +260,16 @@ export class CacheOperations {
       warmingNeeded: shouldWarm,
     });
 
-    // FIRE-AND-FORGET: Trigger warming of ALL datasources if needed
-    // This handles both cold cache (never warmed) and cache miss scenarios
+    // Background scheduler handles warming - user requests never trigger it
+    // This prevents event loop blocking and ensures consistent performance
     if (shouldWarm) {
-      cacheWarmingService.triggerAutoWarmingIfNeeded(datasourceId);
+      log.debug('Cache needs warming - background scheduler will handle it', {
+        datasourceId,
+        isWarm,
+        cacheAgeHours: cacheAgeHours ? Math.round(cacheAgeHours * 10) / 10 : null,
+        staleness,
+        component: 'cache-operations',
+      });
     }
 
     return null;

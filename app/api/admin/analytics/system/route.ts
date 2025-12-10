@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { handleRouteError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { log } from '@/lib/logger';
@@ -43,7 +43,7 @@ const analyticsHandler = async (request: NextRequest, userContext: UserContext) 
     });
 
     log.info('Analytics request failed', { duration: Date.now() - startTime });
-    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
+    return handleRouteError(error, 'Failed to retrieve analytics system info', request);
   } finally {
     log.info('System analytics total', { duration: Date.now() - startTime });
   }

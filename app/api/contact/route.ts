@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { validateRequest } from '@/lib/api/middleware/validation';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { handleRouteError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { publicRoute } from '@/lib/api/route-handlers';
 import { emailService } from '@/lib/api/services/email';
@@ -139,11 +139,7 @@ const handler = async (request: NextRequest) => {
       isPublic: true,
     });
 
-    return createErrorResponse(
-      error instanceof Error ? error.message : 'Failed to submit contact form',
-      500,
-      request
-    );
+    return handleRouteError(error, 'Failed to submit contact form', request);
   }
 };
 

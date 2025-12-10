@@ -90,7 +90,7 @@ const handler = async (request: NextRequest) => {
       component: 'auth',
     });
 
-    return handleRouteError(error, 'Failed to check WebAuthn capabilities');
+    return handleRouteError(error, 'Failed to check WebAuthn capabilities', request);
   }
 };
 

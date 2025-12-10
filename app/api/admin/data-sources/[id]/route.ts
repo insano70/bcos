@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { validateRequest } from '@/lib/api/middleware/validation';
-import { createErrorResponse, NotFoundError } from '@/lib/api/responses/error';
+import { createErrorResponse, handleRouteError, NotFoundError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { extractRouteParams } from '@/lib/api/utils/params';
@@ -69,7 +69,7 @@ const getDataSourceHandler = async (
       component: 'admin',
     });
 
-    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
+    return handleRouteError(error, 'Failed to process data source request', request);
   }
 };
 
@@ -105,7 +105,7 @@ const updateDataSourceHandler = async (
         dataSourceId,
         userId: userContext.user_id,
       });
-      return createErrorResponse('Data source update failed', 500, request);
+      return handleRouteError(new Error('Data source update failed'), 'Data source update failed', request);
     }
 
     const duration = Date.now() - startTime;
@@ -151,7 +151,7 @@ const updateDataSourceHandler = async (
       component: 'admin',
     });
 
-    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
+    return handleRouteError(error, 'Failed to process data source request', request);
   }
 };
 
@@ -184,7 +184,7 @@ const deleteDataSourceHandler = async (
         dataSourceId,
         userId: userContext.user_id,
       });
-      return createErrorResponse('Data source delete failed', 500, request);
+      return handleRouteError(new Error('Data source delete failed'), 'Data source delete failed', request);
     }
 
     const duration = Date.now() - startTime;
@@ -211,7 +211,7 @@ const deleteDataSourceHandler = async (
       component: 'admin',
     });
 
-    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
+    return handleRouteError(error, 'Failed to process data source request', request);
   }
 };
 

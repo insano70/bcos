@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { validateRequest } from '@/lib/api/middleware/validation';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { handleRouteError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { extractRouteParams } from '@/lib/api/utils/params';
@@ -74,11 +74,7 @@ const getOrganizationUsersHandler = async (
       component: 'api',
     });
 
-    return createErrorResponse(
-      error instanceof Error ? error.message : 'Unknown error',
-      500,
-      request
-    );
+    return handleRouteError(error, 'Failed to process organization users request', request);
   }
 };
 
@@ -146,11 +142,7 @@ const updateOrganizationUsersHandler = async (
       component: 'api',
     });
 
-    return createErrorResponse(
-      error instanceof Error ? error.message : 'Unknown error',
-      500,
-      request
-    );
+    return handleRouteError(error, 'Failed to process organization users request', request);
   }
 };
 

@@ -298,7 +298,7 @@ export default function ChartFullscreenModal({
         </header>
 
         {/* Chart Content */}
-        <div className={`flex-1 p-6 ${dimension.expandedData ? 'overflow-hidden' : 'overflow-auto'}`}>
+        <div className={`flex-1 pt-3 px-6 pb-6 ${dimension.expandedData ? 'overflow-hidden' : 'overflow-auto'}`}>
           {/* Dimension error message */}
           {dimension.error && (
             <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/30 dark:text-red-200">
@@ -334,7 +334,26 @@ export default function ChartFullscreenModal({
           {/* Show normal chart if not in dimension mode (keep visible while loading) */}
           {!dimension.expandedData && (
             <>
-              <div className="relative w-full h-[calc(90vh-200px)] min-h-[400px]">
+              {/* Legend at TOP for consistency with dashboard view */}
+              {hasPeriodComparison ? (
+                // Period comparison legend uses legacy DOM manipulation
+                <div className="mb-4">
+                  <ul
+                    ref={legendRef}
+                    className="flex flex-wrap gap-x-6 gap-y-2 max-h-60 overflow-y-auto px-2 py-1"
+                  />
+                </div>
+              ) : (
+                // Standard legend uses declarative component
+                <ChartLegend
+                  chart={chart}
+                  chartData={chartData}
+                  hasPeriodComparison={hasPeriodComparison}
+                  frequency={frequency}
+                />
+              )}
+
+              <div className="relative w-full h-[calc(90vh-240px)] min-h-[400px]">
                 <canvas ref={canvasRef} />
                 
                 {/* Loading overlay while dimension expansion is in progress */}
@@ -351,26 +370,6 @@ export default function ChartFullscreenModal({
                   </div>
                 )}
               </div>
-
-              {/* Legend - now declarative! */}
-              {hasPeriodComparison ? (
-                // Period comparison legend uses legacy DOM manipulation
-                // Keep the ul ref for backwards compatibility
-                <div className="mt-4">
-                  <ul
-                    ref={legendRef}
-                    className="flex flex-wrap gap-x-6 gap-y-2 max-h-60 overflow-y-auto px-2 py-1"
-                  />
-                </div>
-              ) : (
-                // Standard legend uses new declarative component
-                <ChartLegend
-                  chart={chart}
-                  chartData={chartData}
-                  hasPeriodComparison={hasPeriodComparison}
-                  frequency={frequency}
-                />
-              )}
 
               {/* Drill-Down Icon - Mobile only */}
               {drillDownConfig?.enabled && isMobile && (

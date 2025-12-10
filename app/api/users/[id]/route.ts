@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server';
 import type { z } from 'zod';
 import { validateRequest } from '@/lib/api/middleware/validation';
-import { createErrorResponse, NotFoundError } from '@/lib/api/responses/error';
+import { handleRouteError, NotFoundError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { extractRouteParams } from '@/lib/api/utils/params';
@@ -77,11 +77,7 @@ const getUserHandler = async (
       component: 'business-logic',
     });
 
-    return createErrorResponse(
-      error instanceof Error ? error.message : 'Unknown error',
-      error instanceof Error && error.name === 'NotFoundError' ? 404 : 500,
-      request
-    );
+    return handleRouteError(error, 'Failed to get user', request);
   }
 };
 
@@ -199,11 +195,7 @@ const updateUserHandler = async (
       component: 'business-logic',
     });
 
-    return createErrorResponse(
-      error instanceof Error ? error.message : 'Unknown error',
-      500,
-      request
-    );
+    return handleRouteError(error, 'Failed to process user request', request);
   }
 };
 
@@ -261,11 +253,7 @@ const deleteUserHandler = async (
       component: 'business-logic',
     });
 
-    return createErrorResponse(
-      error instanceof Error ? error.message : 'Unknown error',
-      500,
-      request
-    );
+    return handleRouteError(error, 'Failed to process user request', request);
   }
 };
 

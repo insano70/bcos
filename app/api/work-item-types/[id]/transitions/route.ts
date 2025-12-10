@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { validateRequest } from '@/lib/api/middleware/validation';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { handleRouteError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { extractRouteParams } from '@/lib/api/utils/params';
@@ -63,11 +63,7 @@ const getTransitionsHandler = async (
       operation: 'list_status_transitions',
       component: 'work-items',
     });
-    return createErrorResponse(
-      error instanceof Error ? error : new Error(String(error)),
-      500,
-      request
-    );
+    return handleRouteError(error, 'Failed to process work item transitions', request);
   }
 };
 
@@ -120,11 +116,7 @@ const createTransitionHandler = async (
       operation: 'create_status_transition',
       component: 'work-items',
     });
-    return createErrorResponse(
-      error instanceof Error ? error : new Error(String(error)),
-      500,
-      request
-    );
+    return handleRouteError(error, 'Failed to process work item transitions', request);
   }
 };
 

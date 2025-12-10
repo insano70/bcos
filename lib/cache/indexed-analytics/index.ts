@@ -25,6 +25,7 @@ import { CacheWarmingService, type WarmResult, type ProgressCallback } from './w
 // Re-export types for external use
 export type { CacheEntry, CacheQueryFilters, CacheStats, WarmResult, ProgressCallback };
 export { KeyGenerator } from './key-generator';
+import { KeyGenerator } from './key-generator';
 
 /**
  * Indexed Analytics Cache Service
@@ -111,7 +112,7 @@ export class IndexedAnalyticsCache {
    * @returns True if cache is warm, false otherwise
    */
   async isCacheWarm(datasourceId: number): Promise<boolean> {
-    const metadataKey = `cache:meta:{ds:${datasourceId}}:last_warm`;
+    const metadataKey = KeyGenerator.getMetadataKey(datasourceId);
     const metadata = await this.client.getCached(metadataKey);
     return metadata !== null && metadata.length > 0;
   }
@@ -126,7 +127,7 @@ export class IndexedAnalyticsCache {
    * @returns ISO timestamp string or null if never warmed
    */
   async getLastWarmedTime(datasourceId: number): Promise<string | null> {
-    const metadataKey = `cache:meta:{ds:${datasourceId}}:last_warm`;
+    const metadataKey = KeyGenerator.getMetadataKey(datasourceId);
     const metadata = await this.client.getCached(metadataKey);
 
     if (!metadata || metadata.length === 0) {

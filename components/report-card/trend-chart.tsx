@@ -65,7 +65,7 @@ function getTrendDisplay(
       };
     case 'declining':
       return {
-        color: 'text-rose-600',
+        color: 'text-rose-600 dark:text-white',
         bgColor: 'bg-rose-100 dark:bg-rose-900/30',
         icon: <TrendingDown className="w-4 h-4" />,
         label: `${shortMonth}: ${sign}${percentage.toFixed(1)}%`,

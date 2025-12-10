@@ -20,6 +20,7 @@ import type { Chart, Chart as ChartType, ChartTypeRegistry } from 'chart.js';
 import type { ChartData } from '@/lib/types/analytics';
 import { formatValue } from '@/lib/utils/chart-data/formatters/value-formatter';
 import { createPeriodComparisonHtmlLegend } from '@/lib/utils/period-comparison-legend';
+import { ScrollableLegendContainer } from '@/components/ui/scrollable-legend';
 
 /**
  * Legend item data structure
@@ -57,23 +58,23 @@ function LegendItemComponent({
 }) {
   return (
     <li
-      className="flex items-center justify-between px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded transition-colors cursor-pointer"
+      className="flex items-center justify-between px-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-700/50 rounded transition-colors cursor-pointer"
       onClick={onClick}
     >
       <div className="flex items-center flex-1 min-w-0">
         <span
-          className="block w-3 h-3 rounded-sm mr-2 flex-shrink-0"
+          className="block w-2 h-2 rounded-full mr-1.5 flex-shrink-0"
           style={{
             backgroundColor: item.fillStyle,
             borderColor: item.strokeStyle,
             borderWidth: `${item.lineWidth}px`,
           }}
         />
-        <span className="text-sm text-gray-600 dark:text-gray-400 truncate">{item.text}</span>
+        <span className="text-[13px] font-semibold text-gray-800 dark:text-gray-100 mr-1">
+          {formatValue(item.total, measureType)}
+        </span>
+        <span className="text-[11px] text-gray-500 dark:text-gray-400 truncate max-w-[90px]">{item.text}</span>
       </div>
-      <span className="text-[15px] font-semibold text-gray-800 dark:text-gray-100 ml-3">
-        {formatValue(item.total, measureType)}
-      </span>
     </li>
   );
 }
@@ -178,8 +179,8 @@ export default function ChartLegend({
   const measureType = chartData.measureType || 'number';
 
   return (
-    <div className="mt-4">
-      <ul className="flex flex-wrap gap-x-6 gap-y-2 max-h-60 overflow-y-auto px-2 py-1">
+    <ScrollableLegendContainer maxHeight={64} className="mb-3">
+      <ul className="flex flex-wrap gap-x-1 gap-y-0.5">
         {legendItems.map((item) => (
           <LegendItemComponent
             key={item.datasetIndex}
@@ -189,6 +190,6 @@ export default function ChartLegend({
           />
         ))}
       </ul>
-    </div>
+    </ScrollableLegendContainer>
   );
 }

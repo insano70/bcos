@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { handleRouteError } from '@/lib/api/responses/error';
 import { publicRoute } from '@/lib/api/route-handlers';
 import { log, SLOW_THRESHOLDS } from '@/lib/logger';
 import { generateAnonymousToken, setCSRFToken } from '@/lib/security/csrf-unified';
@@ -92,7 +92,7 @@ const getCSRFTokenHandler = async (request: NextRequest) => {
       userId,
       duration,
     });
-    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
+    return handleRouteError(error, 'CSRF token generation failed', request);
   }
 };
 

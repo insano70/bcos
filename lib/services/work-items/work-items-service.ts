@@ -12,6 +12,14 @@ import { createWorkItemCoreService } from './core-service';
 import { createWorkItemHierarchyService } from './hierarchy-service';
 
 /**
+ * Result type for paginated work items query
+ */
+export interface WorkItemsWithCount {
+  items: WorkItemWithDetails[];
+  total: number;
+}
+
+/**
  * Work Items Service Interface
  *
  * Complete interface for work items operations:
@@ -25,6 +33,8 @@ export interface WorkItemsServiceInterface {
   getWorkItemById(workItemId: string): Promise<WorkItemWithDetails | null>;
   getWorkItemCount(options?: WorkItemQueryOptions): Promise<number>;
   getWorkItems(options?: WorkItemQueryOptions): Promise<WorkItemWithDetails[]>;
+  /** Optimized: Returns items and total count in single operation (avoids double query) */
+  getWorkItemsWithCount(options?: WorkItemQueryOptions): Promise<WorkItemsWithCount>;
   createWorkItem(workItemData: CreateWorkItemData): Promise<WorkItemWithDetails>;
   updateWorkItem(workItemId: string, updateData: UpdateWorkItemData): Promise<WorkItemWithDetails>;
   deleteWorkItem(workItemId: string): Promise<void>;
@@ -76,6 +86,10 @@ class WorkItemsService implements WorkItemsServiceInterface {
 
   async getWorkItems(options?: WorkItemQueryOptions): Promise<WorkItemWithDetails[]> {
     return this.coreService.getWorkItems(options);
+  }
+
+  async getWorkItemsWithCount(options?: WorkItemQueryOptions): Promise<WorkItemsWithCount> {
+    return this.coreService.getWorkItemsWithCount(options);
   }
 
   async createWorkItem(workItemData: CreateWorkItemData): Promise<WorkItemWithDetails> {

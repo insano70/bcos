@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { validateQuery } from '@/lib/api/middleware/validation';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { handleRouteError } from '@/lib/api/responses/error';
 import { createPaginatedResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { getPagination } from '@/lib/api/utils/request';
@@ -81,11 +81,7 @@ const getRolesHandler = async (request: NextRequest, userContext: UserContext) =
       component: 'rbac',
     });
 
-    return createErrorResponse(
-      error instanceof Error ? error.message : 'Unknown error',
-      500,
-      request
-    );
+    return handleRouteError(error, 'Failed to list roles', request);
   }
 };
 

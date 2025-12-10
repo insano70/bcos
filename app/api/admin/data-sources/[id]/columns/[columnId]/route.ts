@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { validateRequest } from '@/lib/api/middleware/validation';
-import { createErrorResponse, NotFoundError } from '@/lib/api/responses/error';
+import { createErrorResponse, handleRouteError, NotFoundError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { extractRouteParams } from '@/lib/api/utils/params';
@@ -77,7 +77,7 @@ const getDataSourceColumnHandler = async (
       component: 'admin',
     });
 
-    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
+    return handleRouteError(error, 'Failed to process data source column request', request);
   }
 };
 
@@ -113,7 +113,7 @@ const updateDataSourceColumnHandler = async (
         columnId,
         userId: userContext.user_id,
       });
-      return createErrorResponse('Data source column update failed', 500, request);
+      return handleRouteError(new Error('Data source column update failed'), 'Data source column update failed', request);
     }
 
     const duration = Date.now() - startTime;
@@ -169,7 +169,7 @@ const updateDataSourceColumnHandler = async (
       component: 'admin',
     });
 
-    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
+    return handleRouteError(error, 'Failed to process data source column request', request);
   }
 };
 
@@ -202,7 +202,7 @@ const deleteDataSourceColumnHandler = async (
         columnId,
         userId: userContext.user_id,
       });
-      return createErrorResponse('Data source column delete failed', 500, request);
+      return handleRouteError(new Error('Data source column delete failed'), 'Data source column delete failed', request);
     }
 
     const duration = Date.now() - startTime;
@@ -230,7 +230,7 @@ const deleteDataSourceColumnHandler = async (
       component: 'admin',
     });
 
-    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
+    return handleRouteError(error, 'Failed to process data source column request', request);
   }
 };
 

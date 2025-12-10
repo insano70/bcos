@@ -11,7 +11,7 @@
 import type { NextRequest } from 'next/server';
 import { and, eq, ne, sql } from 'drizzle-orm';
 import { rbacRoute } from '@/lib/api/route-handlers';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { createErrorResponse, handleRouteError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { db } from '@/lib/db';
 import { chart_definitions } from '@/lib/db/schema';
@@ -27,7 +27,7 @@ interface RouteParams {
  * GET handler - List charts compatible as drill-down targets
  */
 const getDrillDownTargetsHandler = async (
-  _request: NextRequest,
+  request: NextRequest,
   userContext: UserContext,
   ...args: unknown[]
 ) => {
@@ -120,7 +120,7 @@ const getDrillDownTargetsHandler = async (
       operation: 'get_drill_down_targets',
       component: 'analytics',
     });
-    return createErrorResponse('Failed to get drill-down targets', 500);
+    return handleRouteError(error, 'Failed to get drill-down targets', request);
   }
 };
 

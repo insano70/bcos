@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { createPaginatedResponse } from '@/lib/api/responses/success';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { createErrorResponse, handleRouteError } from '@/lib/api/responses/error';
 import { createRBACExplorerHistoryService } from '@/lib/services/data-explorer';
 import { queryHistoryParamsSchema } from '@/lib/validations/data-explorer';
 import { log } from '@/lib/logger';
@@ -55,11 +55,7 @@ const getHistoryHandler = async (
       return createErrorResponse(`Validation failed: ${errorMessages}`, 400, request);
     }
 
-    return createErrorResponse(
-      error instanceof Error ? error.message : 'Failed to fetch query history',
-      500,
-      request
-    );
+    return handleRouteError(error, 'Failed to process data explorer request', request);
   }
 };
 

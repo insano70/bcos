@@ -70,7 +70,7 @@ const handler = async (request: NextRequest) => {
       component: 'cron',
     });
 
-    return handleRouteError(error, 'WebAuthn cleanup cron failed');
+    return handleRouteError(error, 'WebAuthn cleanup cron failed', request);
   }
 };
 

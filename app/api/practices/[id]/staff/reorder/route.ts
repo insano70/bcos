@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { validateRequest } from '@/lib/api/middleware/validation';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { handleRouteError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { extractRouteParams } from '@/lib/api/utils/params';
@@ -77,7 +77,7 @@ const reorderStaffHandler = async (
       component: 'api',
     });
 
-    return createErrorResponse(errorMessage, 500, request);
+    return handleRouteError(error, errorMessage, request);
   }
 };
 

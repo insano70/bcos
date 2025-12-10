@@ -2,7 +2,7 @@ import type { NextRequest } from 'next/server';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { validateRequest } from '@/lib/api/middleware/validation';
 import { createSuccessResponse } from '@/lib/api/responses/success';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { createErrorResponse, handleRouteError } from '@/lib/api/responses/error';
 import { createRBACExplorerMetadataService } from '@/lib/services/data-explorer';
 import { tableMetadataUpdateSchema } from '@/lib/validations/data-explorer';
 import { log, calculateChanges } from '@/lib/logger';
@@ -33,11 +33,7 @@ const getTableHandler = async (
       component: 'business-logic',
     });
 
-    return createErrorResponse(
-      error instanceof Error ? error.message : 'Failed to fetch table metadata',
-      500,
-      request
-    );
+    return handleRouteError(error, 'Failed to process data explorer request', request);
   }
 };
 
@@ -93,11 +89,7 @@ const updateTableHandler = async (
       component: 'business-logic',
     });
 
-    return createErrorResponse(
-      error instanceof Error ? error.message : 'Failed to update table metadata',
-      500,
-      request
-    );
+    return handleRouteError(error, 'Failed to process data explorer request', request);
   }
 };
 
@@ -130,11 +122,7 @@ const deleteTableHandler = async (
       component: 'business-logic',
     });
 
-    return createErrorResponse(
-      error instanceof Error ? error.message : 'Failed to delete table metadata',
-      500,
-      request
-    );
+    return handleRouteError(error, 'Failed to process data explorer request', request);
   }
 };
 

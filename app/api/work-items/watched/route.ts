@@ -60,7 +60,7 @@ const getWatchedHandler = async (
       component: 'work-items',
     });
 
-    return handleRouteError(error, 'Failed to get watched work items');
+    return handleRouteError(error, 'Failed to get watched work items', _request);
   }
 };
 

@@ -10,7 +10,7 @@
  */
 
 import type { NextRequest } from 'next/server';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { createErrorResponse, handleRouteError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { log } from '@/lib/logger';
@@ -35,7 +35,7 @@ const redisStatsHandler = async (request: NextRequest) => {
     const stats = await redisAdminService.getStats();
 
     if (!stats) {
-      return createErrorResponse('Failed to retrieve Redis statistics', 500, request);
+      return handleRouteError(new Error('Failed to retrieve Redis statistics'), 'Failed to retrieve Redis statistics', request);
     }
 
     const duration = Date.now() - startTime;

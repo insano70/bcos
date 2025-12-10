@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { validateQuery, validateRequest } from '@/lib/api/middleware/validation';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { handleRouteError } from '@/lib/api/responses/error';
 import { createPaginatedResponse, createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
@@ -104,11 +104,7 @@ const getOrganizationsHandler = async (request: NextRequest, userContext: UserCo
       component: 'business-logic',
     });
 
-    return createErrorResponse(
-      error instanceof Error ? error.message : 'Unknown error',
-      500,
-      request
-    );
+    return handleRouteError(error, 'Failed to process organizations request', request);
   }
 };
 
@@ -193,11 +189,7 @@ const createOrganizationHandler = async (request: NextRequest, userContext: User
       component: 'business-logic',
     });
 
-    return createErrorResponse(
-      error instanceof Error ? error.message : 'Unknown error',
-      500,
-      request
-    );
+    return handleRouteError(error, 'Failed to process organizations request', request);
   }
 };
 

@@ -12,7 +12,7 @@
 
 import type { NextRequest } from 'next/server';
 import { rbacRoute } from '@/lib/api/route-handlers';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { handleRouteError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { dimensionExpansionRenderer } from '@/lib/services/analytics/dimension-expansion-renderer';
 import { log } from '@/lib/logger';
@@ -114,7 +114,7 @@ const expandChartHandler = async (
       operation: 'expand_chart_by_dimension',
       component: 'analytics',
     });
-    return createErrorResponse('Failed to expand chart by dimension', 500);
+    return handleRouteError(error, 'Failed to expand chart by dimension', request);
   }
 };
 

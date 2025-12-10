@@ -31,6 +31,7 @@ import type {
 import { DimensionCheckboxes } from './dimension-checkboxes';
 import { DimensionValueSelector } from './dimension-value-selector';
 import DimensionComparisonView from './dimension-comparison-view';
+import { ScrollableLegendContainer } from '@/components/ui/scrollable-legend';
 
 // Register zoom plugin
 let pluginsRegistered = false;
@@ -468,7 +469,7 @@ export default function DualAxisFullscreenModal({
         </header>
 
         {/* Chart Content */}
-        <div className={`flex-1 p-6 ${dimension.expandedData ? 'overflow-hidden' : 'overflow-auto'}`}>
+        <div className={`flex-1 pt-3 px-6 pb-6 ${dimension.expandedData ? 'overflow-hidden' : 'overflow-auto'}`}>
           {dimension.error && (
             <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/30 dark:text-red-200">
               {dimension.error}
@@ -502,18 +503,20 @@ export default function DualAxisFullscreenModal({
 
           {/* Show normal chart if not in dimension mode */}
           {!dimension.expandedData && (
-            <div className="w-full h-[calc(90vh-200px)] min-h-[400px]">
-              <canvas ref={setCanvasRef} />
-            </div>
-          )}
+            <>
+              {/* Legend at TOP for consistency with other fullscreen modals */}
+              <ScrollableLegendContainer maxHeight={64} className="mb-3">
+                <ul
+                  ref={legendRef}
+                  className="flex flex-wrap gap-x-1 gap-y-0.5"
+                />
+              </ScrollableLegendContainer>
 
-          {/* Legend */}
-          <div className="mt-4">
-            <ul
-              ref={legendRef}
-              className="flex flex-wrap gap-x-6 gap-y-2 max-h-60 overflow-y-auto px-2 py-1"
-            />
-          </div>
+              <div className="w-full h-[calc(90vh-240px)] min-h-[400px]">
+                <canvas ref={setCanvasRef} />
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

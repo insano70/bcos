@@ -75,8 +75,8 @@ export default function ScoreHelpTooltip() {
                     </p>
                     <div className="ml-8 mt-2 grid grid-cols-3 gap-2 text-xs">
                       <div className="p-2 rounded bg-rose-50 dark:bg-rose-900/20 text-center">
-                        <div className="font-medium text-rose-700 dark:text-rose-300">0th percentile</div>
-                        <div className="text-rose-600 dark:text-rose-400">→ 70 (C-)</div>
+                        <div className="font-medium text-rose-700 dark:text-white">0th percentile</div>
+                        <div className="text-rose-600 dark:text-white/80">→ 70 (C-)</div>
                       </div>
                       <div className="p-2 rounded bg-amber-50 dark:bg-amber-900/20 text-center">
                         <div className="font-medium text-amber-700 dark:text-amber-300">50th percentile</div>
@@ -106,7 +106,7 @@ export default function ScoreHelpTooltip() {
                         <span className="text-slate-600 dark:text-slate-400">+3 points</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-rose-500">↓ Declining:</span>
+                        <span className="text-rose-500 dark:text-rose-300">↓ Declining:</span>
                         <span className="text-slate-600 dark:text-slate-400">-3 points</span>
                       </div>
                       <div className="flex items-center gap-2">

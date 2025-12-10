@@ -2,7 +2,7 @@ import type { NextRequest } from 'next/server';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { validateRequest } from '@/lib/api/middleware/validation';
 import { createSuccessResponse } from '@/lib/api/responses/success';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { handleRouteError } from '@/lib/api/responses/error';
 import { createRBACExplorerMetadataService } from '@/lib/services/data-explorer';
 import { log } from '@/lib/logger';
 import type { UserContext } from '@/lib/types/rbac';
@@ -58,11 +58,7 @@ const updateInstructionHandler = async (
       component: 'business-logic',
     });
 
-    return createErrorResponse(
-      error instanceof Error ? error.message : 'Failed to update schema instruction',
-      500,
-      request
-    );
+    return handleRouteError(error, 'Failed to process data explorer request', request);
   }
 };
 
@@ -94,11 +90,7 @@ const deleteInstructionHandler = async (
       component: 'business-logic',
     });
 
-    return createErrorResponse(
-      error instanceof Error ? error.message : 'Failed to delete schema instruction',
-      500,
-      request
-    );
+    return handleRouteError(error, 'Failed to process data explorer request', request);
   }
 };
 

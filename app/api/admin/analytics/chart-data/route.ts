@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { validateRequest } from '@/lib/api/middleware/validation';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { handleRouteError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { log, SLOW_THRESHOLDS } from '@/lib/logger';
@@ -214,11 +214,7 @@ const transformChartDataHandler = async (request: NextRequest, userContext: User
       component: 'analytics',
     });
 
-    return createErrorResponse(
-      error instanceof Error ? error.message : 'Failed to transform chart data',
-      500,
-      request
-    );
+    return handleRouteError(error, 'Failed to process analytics request', request);
   }
 };
 

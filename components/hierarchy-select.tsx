@@ -1,5 +1,6 @@
 'use client';
 
+import { motion, type PanInfo } from 'framer-motion';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 /**
@@ -102,6 +103,10 @@ export default function HierarchySelect<T extends HierarchyItemBase>({
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [isMobile, setIsMobile] = useState(false);
   const [keyboardOffset, setKeyboardOffset] = useState(0);
+  
+  // Drag-to-dismiss state for mobile bottom sheet
+  const [dragY, setDragY] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
 
   // Detect mobile viewport
   useEffect(() => {
@@ -270,6 +275,43 @@ export default function HierarchySelect<T extends HierarchyItemBase>({
     }
   }, [isOpen, isMobile]);
 
+  // Reset drag state when sheet closes
+  useEffect(() => {
+    if (!isOpen) {
+      setDragY(0);
+      setIsDragging(false);
+    }
+  }, [isOpen]);
+
+  // Drag handlers for swipe-to-dismiss on mobile
+  const handleDragStart = () => {
+    setIsDragging(true);
+  };
+
+  const handleDrag = (_event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+    // Only allow downward dragging (positive Y)
+    if (info.offset.y > 0) {
+      setDragY(info.offset.y);
+    }
+  };
+
+  const handleDragEnd = (_event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+    setIsDragging(false);
+    
+    // Dismiss thresholds:
+    // - Distance: dragged more than 100px down
+    // - Velocity: flicked down faster than 500px/s
+    const shouldDismiss = info.offset.y > 100 || info.velocity.y > 500;
+    
+    if (shouldDismiss) {
+      setIsOpen(false);
+      setSearchTerm('');
+    }
+    
+    // Reset drag position (springs back if not dismissed)
+    setDragY(0);
+  };
+
   // Render tree lines helper
   const getTreePrefix = (level: number, isLast: boolean) => {
     if (!showTreeLines || level === 0) return '';
@@ -379,20 +421,19 @@ export default function HierarchySelect<T extends HierarchyItemBase>({
             />
           )}
 
-          {/* Dropdown Container */}
-          <div
+          {/* Dropdown Container - Uses motion.div on mobile for swipe-to-dismiss */}
+          <motion.div
             className={`
               ${
                 isMobile
-                  ? 'fixed inset-x-0 z-50 rounded-t-2xl md:hidden'
+                  ? 'fixed inset-x-0 z-50 rounded-t-2xl md:hidden touch-none'
                   : 'absolute z-50 w-full mt-1 rounded-lg max-h-80 hidden md:flex'
               }
               bg-white dark:bg-gray-800
               border border-gray-300 dark:border-gray-600
               shadow-lg
               flex flex-col
-              ${isMobile ? 'animate-slide-up' : ''}
-              ${isMobile && keyboardOffset > 0 ? 'transition-[bottom,max-height] duration-150 ease-out' : ''}
+              ${isMobile && keyboardOffset > 0 && !isDragging ? 'transition-[bottom,max-height] duration-150 ease-out' : ''}
             `}
             style={
               isMobile
@@ -404,15 +445,31 @@ export default function HierarchySelect<T extends HierarchyItemBase>({
                       ? `calc(100vh - ${keyboardOffset}px - env(safe-area-inset-top, 0px) - 20px)`
                       : '85vh',
                   }
-                : undefined
+                : {}
             }
+            // Framer Motion drag props (only active on mobile)
+            drag={isMobile ? 'y' : false}
+            dragConstraints={{ top: 0, bottom: 0 }}
+            dragElastic={{ top: 0, bottom: 0.2 }}
+            // Apply drag offset and entry animation
+            initial={isMobile ? { y: '100%' } : { opacity: 1 }}
+            animate={isMobile ? { y: dragY } : { opacity: 1 }}
+            transition={isDragging ? { type: 'tween', duration: 0 } : { type: 'spring', stiffness: 300, damping: 30 }}
+            // Conditionally spread drag handlers only on mobile (avoids exactOptionalPropertyTypes issues)
+            {...(isMobile ? {
+              onDragStart: handleDragStart,
+              onDrag: handleDrag,
+              onDragEnd: handleDragEnd,
+            } : {})}
             role="listbox"
             aria-label={label || 'Select an option'}
           >
-            {/* Mobile Handle */}
+            {/* Mobile Handle - Visual indicator for swipe gesture */}
             {isMobile && (
-              <div className="flex justify-center py-2 border-b border-gray-200 dark:border-gray-700">
-                <div className="w-12 h-1 bg-gray-300 dark:bg-gray-600 rounded-full" />
+              <div 
+                className="flex justify-center py-3 border-b border-gray-200 dark:border-gray-700 cursor-grab active:cursor-grabbing"
+              >
+                <div className="w-10 h-1.5 bg-gray-300 dark:bg-gray-500 rounded-full" />
               </div>
             )}
 
@@ -424,8 +481,12 @@ export default function HierarchySelect<T extends HierarchyItemBase>({
             )}
 
             {/* Search Input - Larger touch target on mobile */}
+            {/* touch-auto prevents triggering sheet drag when interacting with search */}
             {showSearch && (
-              <div className={`p-3 md:p-2 border-b border-gray-200 dark:border-gray-700`}>
+              <div 
+                className={`p-3 md:p-2 border-b border-gray-200 dark:border-gray-700 touch-auto`}
+                onPointerDownCapture={(e) => e.stopPropagation()}
+              >
                 <div className="relative">
                   <svg
                     className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 md:w-4 md:h-4 text-gray-400"
@@ -463,9 +524,11 @@ export default function HierarchySelect<T extends HierarchyItemBase>({
             )}
 
             {/* Items List - Scrollable with momentum on mobile */}
+            {/* touch-auto allows normal scrolling within the list without triggering sheet drag */}
             <div
-              className="overflow-y-auto flex-1 overscroll-contain"
+              className="overflow-y-auto flex-1 overscroll-contain touch-auto"
               style={{ WebkitOverflowScrolling: 'touch' }}
+              onPointerDownCapture={(e) => e.stopPropagation()}
             >
               {/* Root/None Option */}
               {allowClear && (
@@ -556,7 +619,7 @@ export default function HierarchySelect<T extends HierarchyItemBase>({
               {/* Mobile Safe Area Bottom Padding */}
               {isMobile && <div className="h-8" />}
             </div>
-          </div>
+          </motion.div>
         </>
       )}
 

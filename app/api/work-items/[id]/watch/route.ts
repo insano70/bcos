@@ -57,7 +57,7 @@ const postWatchHandler = async (
       component: 'work-items',
     });
 
-    return handleRouteError(error, 'Failed to watch work item');
+    return handleRouteError(error, 'Failed to watch work item', _request);
   }
 };
 
@@ -107,7 +107,7 @@ const deleteWatchHandler = async (
       component: 'work-items',
     });
 
-    return handleRouteError(error, 'Failed to unwatch work item');
+    return handleRouteError(error, 'Failed to unwatch work item', _request);
   }
 };
 

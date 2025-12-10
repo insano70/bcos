@@ -26,6 +26,12 @@ import { chart_data_sources } from '@/lib/db/chart-config-schema';
 import { eq } from 'drizzle-orm';
 import { cacheOperations } from './cache-operations';
 import { executeAnalyticsQuery } from '@/lib/services/analytics-db';
+import {
+  isSchemaAllowed,
+  isTableNameValid,
+  buildSafeTableReference,
+  ALLOWED_ANALYTICS_SCHEMAS,
+} from '@/lib/constants/cache-security';
 
 /**
  * Cache warming result
@@ -54,7 +60,6 @@ export interface WarmAllResult {
 export class CacheWarmingService {
   private readonly RATE_LIMIT_SECONDS = 6 * 60; // 6 minutes (10 triggers/hour per datasource)
   private readonly MAX_TABLE_ROWS = 100000; // 100K rows max for table-based warming
-  private readonly ALLOWED_SCHEMAS = ['ih', 'public']; // Whitelist of allowed schemas
 
   /**
    * Trigger cache warming if needed (non-blocking)
@@ -177,15 +182,16 @@ export class CacheWarmingService {
   ): Promise<WarmResult> {
     const startTime = Date.now();
 
-    // SECURITY: Validate schema and table names to prevent SQL injection
-    if (!this.ALLOWED_SCHEMAS.includes(schemaName)) {
-      throw new Error(`Invalid schema name: ${schemaName}. Must be one of: ${this.ALLOWED_SCHEMAS.join(', ')}`);
+    // SECURITY: Validate schema using centralized whitelist
+    if (!isSchemaAllowed(schemaName)) {
+      throw new Error(
+        `Invalid schema name: ${schemaName}. Must be one of: ${ALLOWED_ANALYTICS_SCHEMAS.join(', ')}`
+      );
     }
 
-    // Validate table name format (alphanumeric, underscore only)
-    const TABLE_NAME_PATTERN = /^[a-z_][a-z0-9_]*$/;
-    if (!TABLE_NAME_PATTERN.test(tableName)) {
-      throw new Error(`Invalid table name format: ${tableName}. Must match pattern: ${TABLE_NAME_PATTERN.source}`);
+    // SECURITY: Validate table name using centralized pattern
+    if (!isTableNameValid(tableName)) {
+      throw new Error(`Invalid table name format: ${tableName}`);
     }
 
     log.info('Warming table-based data source', {
@@ -195,9 +201,10 @@ export class CacheWarmingService {
       type: 'table-based',
     });
 
-    // SECURITY: Use parameterized query to safely interpolate table name via identifier quotes
+    // SECURITY: Build safe query using centralized function with quoted identifiers
     // PERFORMANCE: Add LIMIT to prevent memory exhaustion on large tables
-    const query = `SELECT * FROM "${schemaName}"."${tableName}" LIMIT ${this.MAX_TABLE_ROWS}`;
+    const safeTableRef = buildSafeTableReference(schemaName, tableName);
+    const query = `SELECT * FROM ${safeTableRef} LIMIT ${this.MAX_TABLE_ROWS}`;
     const rows = await executeAnalyticsQuery<Record<string, unknown>>(query, []);
 
     const totalRows = rows.length;

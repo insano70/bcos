@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { validateRequest } from '@/lib/api/middleware/validation';
-import { createErrorResponse, NotFoundError } from '@/lib/api/responses/error';
+import { handleRouteError, NotFoundError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { extractRouteParams } from '@/lib/api/utils/params';
@@ -57,11 +57,7 @@ const getTransitionHandler = async (
       duration,
       userId: userContext.user_id,
     });
-    return createErrorResponse(
-      error instanceof Error ? error : new Error(String(error)),
-      500,
-      request
-    );
+    return handleRouteError(error, 'Failed to process status transition', request);
   }
 };
 
@@ -114,11 +110,7 @@ const updateTransitionHandler = async (
       duration,
       userId: userContext.user_id,
     });
-    return createErrorResponse(
-      error instanceof Error ? error : new Error(String(error)),
-      500,
-      request
-    );
+    return handleRouteError(error, 'Failed to process status transition', request);
   }
 };
 
@@ -156,11 +148,7 @@ const deleteTransitionHandler = async (
       duration,
       userId: userContext.user_id,
     });
-    return createErrorResponse(
-      error instanceof Error ? error : new Error(String(error)),
-      500,
-      request
-    );
+    return handleRouteError(error, 'Failed to process status transition', request);
   }
 };
 

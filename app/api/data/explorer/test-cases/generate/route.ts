@@ -2,7 +2,7 @@ import type { NextRequest } from 'next/server';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { validateRequest } from '@/lib/api/middleware/validation';
 import { createSuccessResponse } from '@/lib/api/responses/success';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { handleRouteError } from '@/lib/api/responses/error';
 import { createRBACExplorerTestCaseGeneratorService } from '@/lib/services/data-explorer';
 import { log } from '@/lib/logger';
 import { z } from 'zod';
@@ -47,11 +47,7 @@ const generateTestCasesHandler = async (
       component: 'api',
     });
 
-    return createErrorResponse(
-      error instanceof Error ? error.message : 'Failed to generate test cases',
-      500,
-      request
-    );
+    return handleRouteError(error, 'Failed to process data explorer request', request);
   }
 };
 

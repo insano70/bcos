@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { createSuccessResponse } from '@/lib/api/responses/success';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { handleRouteError } from '@/lib/api/responses/error';
 import { db } from '@/lib/db';
 import { explorerQueryPatterns } from '@/lib/db/schema';
 import { desc, gte } from 'drizzle-orm';
@@ -35,11 +35,7 @@ const getPatternsHandler = async (
       component: 'business-logic',
     });
 
-    return createErrorResponse(
-      error instanceof Error ? error.message : 'Failed to fetch patterns',
-      500,
-      _request
-    );
+    return handleRouteError(error, 'Failed to fetch patterns', _request);
   }
 };
 

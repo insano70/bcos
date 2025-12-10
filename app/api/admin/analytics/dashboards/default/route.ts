@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { handleRouteError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { publicRoute } from '@/lib/api/route-handlers';
 import { log } from '@/lib/logger';
@@ -61,7 +61,7 @@ const getDefaultDashboardHandler = async (request: NextRequest) => {
           : 'Unknown error'
         : 'Internal server error';
 
-    return createErrorResponse(errorMessage, 500, request);
+    return handleRouteError(error, errorMessage, request);
   }
 };
 

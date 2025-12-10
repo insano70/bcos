@@ -1,8 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api/client';
+import { WORK_ITEM_CACHE_TIMES } from '@/lib/constants/work-items';
 import { clientDebugLog } from '@/lib/utils/debug-client';
 
+/**
+ * Frontend Work Item type
+ * 
+ * Note: This uses `id` as the primary identifier for consistency with
+ * frontend conventions. The backend type uses `work_item_id`.
+ * The API routes handle the mapping: work_item_id -> id in responses.
+ */
 export interface WorkItem {
+  /** Primary identifier (mapped from work_item_id in backend) */
   id: string;
   work_item_type_id: string;
   work_item_type_name: string;
@@ -23,7 +32,7 @@ export interface WorkItem {
   created_by_name: string;
   created_at: Date;
   updated_at: Date;
-  custom_fields?: Record<string, unknown> | undefined; // Phase 3: Custom field values
+  custom_fields?: Record<string, unknown> | undefined;
 }
 
 interface WorkItemsQueryParams {
@@ -61,8 +70,8 @@ export function useWorkItems(params?: WorkItemsQueryParams) {
       const data = await apiClient.get<WorkItem[]>(url);
       return data;
     },
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 10 * 60 * 1000, // 10 minutes
+    staleTime: WORK_ITEM_CACHE_TIMES.STALE_TIME,
+    gcTime: WORK_ITEM_CACHE_TIMES.GC_TIME,
   });
 }
 
@@ -77,8 +86,8 @@ export function useWorkItem(id: string | null) {
       return data;
     },
     enabled: !!id,
-    staleTime: 5 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
+    staleTime: WORK_ITEM_CACHE_TIMES.STALE_TIME,
+    gcTime: WORK_ITEM_CACHE_TIMES.GC_TIME,
   });
 }
 
@@ -128,28 +137,29 @@ export function useCreateWorkItem() {
       // Create optimistic work item with temporary ID
       // Note: We use 'as WorkItem' since we can't create a complete WorkItem before the server responds
       // The server will provide the complete object with all required fields
-      const optimisticWorkItem = {
+      // Use consistent null handling: null for optional fields, placeholder strings for required fields
+      const optimisticWorkItem: WorkItem = {
         id: `temp-${Date.now()}`,
         work_item_type_id: data.work_item_type_id,
         work_item_type_name: 'Loading...',
-        organization_id: data.organization_id ?? '',
+        organization_id: data.organization_id ?? 'pending',
         organization_name: 'Loading...',
         subject: data.subject,
         description: data.description ?? null,
-        status_id: '',
+        status_id: 'pending',
         status_name: 'New',
-        status_category: 'new',
+        status_category: 'backlog',
         priority: data.priority ?? 'medium',
         assigned_to: data.assigned_to ?? null,
         assigned_to_name: null,
         due_date: data.due_date ? new Date(data.due_date) : null,
         started_at: null,
         completed_at: null,
-        created_by: '',
+        created_by: 'pending',
         created_by_name: 'You',
         created_at: new Date(),
         updated_at: new Date(),
-      } as WorkItem;
+      };
 
       // Optimistically add the work item to lists
       queryClient.setQueriesData<WorkItem[]>({ queryKey: ['work-items'] }, (old) => {
@@ -172,6 +182,8 @@ export function useCreateWorkItem() {
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['work-items'] });
       queryClient.invalidateQueries({ queryKey: ['work-item-children'] });
+      queryClient.invalidateQueries({ queryKey: ['work-item-ancestors'] });
+      queryClient.invalidateQueries({ queryKey: ['work-item-activity'] });
     },
   });
 }
@@ -184,7 +196,7 @@ export function useUpdateWorkItem() {
 
   return useMutation({
     mutationFn: async ({ id, data }: { id: string; data: UpdateWorkItemInput }) => {
-      const result = await apiClient.put<WorkItem>(`/api/work-items/${id}`, data);
+      const result = await apiClient.patch<WorkItem>(`/api/work-items/${id}`, data);
       return result;
     },
     // Optimistic update: immediately update the cache before server responds
@@ -249,6 +261,8 @@ export function useUpdateWorkItem() {
       queryClient.invalidateQueries({ queryKey: ['work-items'] });
       queryClient.invalidateQueries({ queryKey: ['work-items', variables.id] });
       queryClient.invalidateQueries({ queryKey: ['work-item-children'] });
+      queryClient.invalidateQueries({ queryKey: ['work-item-ancestors'] });
+      queryClient.invalidateQueries({ queryKey: ['work-item-activity', { work_item_id: variables.id }] });
     },
   });
 }
@@ -293,9 +307,11 @@ export function useDeleteWorkItem() {
       }
     },
     // Always refetch after error or success to sync with server
-    onSettled: () => {
+    onSettled: (_, __, id) => {
       queryClient.invalidateQueries({ queryKey: ['work-items'] });
       queryClient.invalidateQueries({ queryKey: ['work-item-children'] });
+      queryClient.invalidateQueries({ queryKey: ['work-item-ancestors'] });
+      queryClient.invalidateQueries({ queryKey: ['work-item-activity', { work_item_id: id }] });
     },
   });
 }
@@ -320,8 +336,8 @@ export function useWorkItemChildren(parentId: string | null) {
     },
     enabled: !!parentId,
     placeholderData: [], // Use placeholderData instead of initialData to allow fetch
-    staleTime: 5 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
+    staleTime: WORK_ITEM_CACHE_TIMES.STALE_TIME,
+    gcTime: WORK_ITEM_CACHE_TIMES.GC_TIME,
   });
 }
 
@@ -342,8 +358,8 @@ export function useWorkItemAncestors(workItemId: string | null) {
       }
     },
     enabled: !!workItemId,
-    staleTime: 5 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
+    staleTime: WORK_ITEM_CACHE_TIMES.STALE_TIME,
+    gcTime: WORK_ITEM_CACHE_TIMES.GC_TIME,
   });
 }
 
@@ -418,8 +434,8 @@ export function useWorkItemComments(params: CommentsQueryParams) {
       return data;
     },
     enabled: !!params.work_item_id,
-    staleTime: 2 * 60 * 1000, // 2 minutes (comments change frequently)
-    gcTime: 5 * 60 * 1000,
+    staleTime: WORK_ITEM_CACHE_TIMES.COMMENTS_STALE_TIME,
+    gcTime: WORK_ITEM_CACHE_TIMES.COMMENTS_GC_TIME,
   });
 }
 
@@ -538,8 +554,8 @@ export function useWorkItemActivity(params: ActivityQueryParams) {
       return data;
     },
     enabled: !!params.work_item_id,
-    staleTime: 1 * 60 * 1000, // 1 minute (activity is frequently updated)
-    gcTime: 5 * 60 * 1000,
+    staleTime: WORK_ITEM_CACHE_TIMES.ACTIVITY_STALE_TIME,
+    gcTime: WORK_ITEM_CACHE_TIMES.ACTIVITY_GC_TIME,
   });
 }
 
@@ -583,8 +599,8 @@ export function useWorkItemAttachments(params: AttachmentsQueryParams) {
       return data;
     },
     enabled: !!params.work_item_id,
-    staleTime: 5 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
+    staleTime: WORK_ITEM_CACHE_TIMES.STALE_TIME,
+    gcTime: WORK_ITEM_CACHE_TIMES.GC_TIME,
   });
 }
 

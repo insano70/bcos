@@ -4,7 +4,7 @@ import { AttachmentFieldService } from '@/lib/services/work-items/attachment-fie
 import { generateThumbnailForExistingFile } from '@/lib/s3/private-assets';
 import type { UserContext } from '@/lib/types/rbac';
 import { createSuccessResponse } from '@/lib/api/responses/success';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { createErrorResponse, handleRouteError } from '@/lib/api/responses/error';
 
 /**
  * POST /api/work-items/[id]/fields/[fieldId]/attachments/[attachmentId]/generate-thumbnail
@@ -47,10 +47,7 @@ const generateThumbnailHandler = async (
       message: 'Thumbnail generated successfully',
     });
   } catch (error) {
-    if (error instanceof Error) {
-      return createErrorResponse(error.message, 400);
-    }
-    return createErrorResponse('Failed to generate thumbnail', 500);
+    return handleRouteError(error, 'Failed to generate thumbnail', request);
   }
 };
 

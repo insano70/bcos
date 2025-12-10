@@ -13,7 +13,11 @@
  */
 
 // Main service (backward compatible)
-export { createRBACWorkItemsService, type WorkItemsServiceInterface } from './work-items-service';
+export {
+  createRBACWorkItemsService,
+  type WorkItemsServiceInterface,
+  type WorkItemsWithCount,
+} from './work-items-service';
 
 // Sub-services (for advanced use cases)
 export { createWorkItemCoreService } from './core-service';

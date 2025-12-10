@@ -2,7 +2,7 @@ import type { NextRequest } from 'next/server';
 import { publicRoute } from '@/lib/api/route-handlers';
 import { createClinectService } from '@/lib/services/clinect-service';
 import { createSuccessResponse } from '@/lib/api/responses/success';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { handleRouteError } from '@/lib/api/responses/error';
 import { log } from '@/lib/logger';
 
 /**
@@ -50,7 +50,7 @@ const handler = async (request: NextRequest, ...args: unknown[]) => {
     const clientErrorMessage =
       process.env.NODE_ENV === 'development' ? errorMessage : 'Failed to fetch ratings data';
 
-    return createErrorResponse(clientErrorMessage, 500, request);
+    return handleRouteError(error, clientErrorMessage, request);
   }
 };
 

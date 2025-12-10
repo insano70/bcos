@@ -77,7 +77,9 @@ export class NotificationService {
         return;
       }
 
-      // Send notification to each recipient
+      // Send notifications in parallel to all recipients
+      // Note: Each email is personalized per-recipient. For higher volume,
+      // consider implementing BCC-based batching for identical content.
       const emailPromises = recipients.map((recipient) => {
         const template = getStatusChangeTemplate(workItem, oldStatus, newStatus, recipient);
         return this.emailService
@@ -91,6 +93,7 @@ export class NotificationService {
           });
       });
 
+      // Execute all sends in parallel for better performance
       await Promise.allSettled(emailPromises);
 
       const duration = Date.now() - startTime;

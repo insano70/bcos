@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { z } from 'zod';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { createErrorResponse, handleRouteError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { buildCacheControlHeader } from '@/lib/constants/analytics';
@@ -280,24 +280,7 @@ const universalChartDataHandler = async (
       component: 'analytics',
     });
 
-    // Determine appropriate HTTP status code based on error type
-    let statusCode = 500;
-    if (error instanceof Error) {
-      // Check error message for common patterns
-      if (error.message.includes('not found')) {
-        statusCode = 404;
-      } else if (error.message.includes('validation') || error.message.includes('invalid')) {
-        statusCode = 400;
-      } else if (error.message.includes('permission') || error.message.includes('access denied')) {
-        statusCode = 403;
-      }
-    }
-
-    return createErrorResponse(
-      error instanceof Error ? error.message : 'Failed to fetch chart data',
-      statusCode,
-      request
-    );
+    return handleRouteError(error, 'Failed to fetch chart data', request);
   }
 };
 

@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers';
 import type { NextRequest } from 'next/server';
 import { validateRequest } from '@/lib/api/middleware/validation';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { createErrorResponse, handleRouteError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import type { UserContext } from '@/lib/types/rbac';
@@ -68,7 +68,7 @@ const getSessionsHandler = async (request: NextRequest, userContext: UserContext
       component: 'auth',
     });
 
-    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
+    return handleRouteError(error, 'Failed to retrieve sessions', request);
   }
 };
 
@@ -103,12 +103,7 @@ const revokeSessionHandler = async (request: NextRequest, userContext: UserConte
       component: 'auth',
     });
 
-    // Handle specific error cases
-    if (error instanceof Error && error.message.includes('not found')) {
-      return createErrorResponse(error.message, 404, request);
-    }
-
-    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
+    return handleRouteError(error, 'Failed to revoke session', request);
   }
 };
 

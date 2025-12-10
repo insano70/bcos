@@ -51,7 +51,7 @@ export const workItemTypeQuerySchema = z.object({
     .optional(),
   limit: z
     .string()
-    .default('1000')
+    .default('50')
     .transform((val) => parseInt(val, 10))
     .pipe(z.number().int().min(1).max(1000)),
   offset: z
@@ -155,9 +155,20 @@ export const workItemQuerySchema = z.object({
   assigned_to: z.string().uuid('Invalid user ID').optional(),
   created_by: z.string().uuid('Invalid user ID').optional(),
   search: createSafeTextSchema(0, 500, 'Search').optional(),
+  // Date range filters for created_at
+  created_after: z
+    .string()
+    .datetime('Invalid date format')
+    .transform((val) => new Date(val))
+    .optional(),
+  created_before: z
+    .string()
+    .datetime('Invalid date format')
+    .transform((val) => new Date(val))
+    .optional(),
   limit: z
     .string()
-    .default('1000')
+    .default('50')
     .transform((val) => parseInt(val, 10))
     .pipe(z.number().int().min(1).max(1000)),
   offset: z
@@ -216,7 +227,7 @@ export const workItemCommentUpdateSchema = z.object({
 export const workItemCommentQuerySchema = z.object({
   limit: z
     .string()
-    .default('1000')
+    .default('50')
     .transform((val) => parseInt(val, 10))
     .pipe(z.number().int().min(1).max(1000)),
   offset: z
@@ -251,7 +262,7 @@ export const workItemAttachmentQuerySchema = z.object({
   // Note: work_item_id comes from route params, not query params
   limit: z
     .string()
-    .default('1000')
+    .default('50')
     .transform((val) => parseInt(val, 10))
     .pipe(z.number().int().min(1).max(1000)),
   offset: z
@@ -286,7 +297,7 @@ export const workItemActivityQuerySchema = z.object({
   activity_type: z.string().optional(),
   limit: z
     .string()
-    .default('1000')
+    .default('50')
     .transform((val) => parseInt(val, 10))
     .pipe(z.number().int().min(1).max(1000)),
   offset: z
@@ -385,7 +396,7 @@ export const workItemStatusTransitionQuerySchema = z.object({
   to_status_id: z.string().uuid('Invalid to status ID').optional(),
   limit: z
     .string()
-    .default('1000')
+    .default('50')
     .transform((val) => parseInt(val, 10))
     .pipe(z.number().int().min(1).max(1000)),
   offset: z

@@ -14,6 +14,7 @@ import {
 import { useTheme } from 'next-themes';
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { chartColors } from '@/components/charts/chartjs-config';
+import { ScrollableLegendContainer, COMPACT_LEGEND_STYLES } from '@/components/ui/scrollable-legend';
 import 'chartjs-adapter-moment';
 import moment from 'moment';
 import type { ChartData } from '@/lib/types/analytics';
@@ -252,16 +253,16 @@ const AnalyticsBarChart = forwardRef<HTMLCanvasElement, AnalyticsBarChartProps>(
 
                   itemsWithTotals.forEach(({ item, total: theValue }) => {
                     const li = document.createElement('li');
-                    // Button element - 36px min height for mobile touch targets
+                    // Button element - compact design with touch-friendly sizing
                     const button = document.createElement('button');
                     button.style.display = 'inline-flex';
                     button.style.alignItems = 'center';
                     button.style.opacity = item.hidden ? '.3' : '';
-                    button.style.minHeight = '36px'; // Mobile touch target
-                    button.style.maxWidth = '220px'; // Slightly wider for better readability
-                    button.style.padding = '4px 8px'; // Better touch padding
-                    button.style.margin = '2px';
-                    button.style.borderRadius = '6px'; // Rounded for better touch feedback
+                    button.style.minHeight = COMPACT_LEGEND_STYLES.button.minHeight;
+                    button.style.maxWidth = '200px';
+                    button.style.padding = COMPACT_LEGEND_STYLES.button.padding;
+                    button.style.margin = COMPACT_LEGEND_STYLES.button.margin;
+                    button.style.borderRadius = COMPACT_LEGEND_STYLES.button.borderRadius;
                     button.onclick = () => {
                       c.setDatasetVisibility(
                         item.datasetIndex!,
@@ -269,13 +270,13 @@ const AnalyticsBarChart = forwardRef<HTMLCanvasElement, AnalyticsBarChartProps>(
                       );
                       c.update();
                     };
-                    // Color box
+                    // Color box - compact sizing
                     const box = document.createElement('span');
                     box.style.display = 'block';
-                    box.style.width = '10px';
-                    box.style.height = '10px';
+                    box.style.width = COMPACT_LEGEND_STYLES.colorBox.width;
+                    box.style.height = COMPACT_LEGEND_STYLES.colorBox.height;
                     box.style.borderRadius = '50%';
-                    box.style.marginRight = '8px';
+                    box.style.marginRight = COMPACT_LEGEND_STYLES.colorBox.marginRight;
                     box.style.flexShrink = '0';
                     box.style.backgroundColor = item.fillStyle as string;
                     box.style.pointerEvents = 'none';
@@ -286,20 +287,20 @@ const AnalyticsBarChart = forwardRef<HTMLCanvasElement, AnalyticsBarChartProps>(
                     labelContainer.style.minWidth = '0'; // Allow text truncation
                     const value = document.createElement('span');
                     value.classList.add('text-gray-800', 'dark:text-gray-100');
-                    value.style.fontSize = '0.875rem'; // 14px - responsive rem unit
-                    value.style.lineHeight = '1.4';
+                    value.style.fontSize = COMPACT_LEGEND_STYLES.value.fontSize;
+                    value.style.lineHeight = COMPACT_LEGEND_STYLES.value.lineHeight;
                     value.style.fontWeight = '600';
-                    value.style.marginRight = '6px';
+                    value.style.marginRight = COMPACT_LEGEND_STYLES.value.marginRight;
                     value.style.pointerEvents = 'none';
                     value.style.flexShrink = '0'; // Don't shrink values
                     const label = document.createElement('span');
                     label.classList.add('text-gray-500', 'dark:text-gray-400');
-                    label.style.fontSize = '0.75rem'; // 12px - responsive rem unit
-                    label.style.lineHeight = '1.3';
+                    label.style.fontSize = COMPACT_LEGEND_STYLES.label.fontSize;
+                    label.style.lineHeight = COMPACT_LEGEND_STYLES.label.lineHeight;
                     label.style.whiteSpace = 'nowrap';
                     label.style.overflow = 'hidden';
                     label.style.textOverflow = 'ellipsis';
-                    label.style.maxWidth = '100px'; // Slightly reduced for mobile
+                    label.style.maxWidth = COMPACT_LEGEND_STYLES.label.maxWidth;
 
                     // theValue already calculated during sorting step
                     // Get measure type from chart data, fallback to 'number'
@@ -406,17 +407,13 @@ const AnalyticsBarChart = forwardRef<HTMLCanvasElement, AnalyticsBarChartProps>(
 
     return (
       <div className="w-full h-full flex flex-col">
-        <div className="px-2 py-1 flex-shrink-0 overflow-hidden">
+        {/* Legend with scroll indicators */}
+        <ScrollableLegendContainer maxHeight={52} className="flex-shrink-0 mx-1 mt-1">
           <ul
             ref={legend}
-            className="flex flex-wrap gap-x-2 gap-y-1"
-            style={{
-              maxHeight: '60px', // Reduced max height for tighter layout
-              overflowY: 'auto',
-              overflowX: 'hidden',
-            }}
-          ></ul>
-        </div>
+            className="flex flex-wrap gap-x-1 gap-y-0.5"
+          />
+        </ScrollableLegendContainer>
         <div className="flex-1 min-h-0">
           <canvas
             ref={canvas}

@@ -60,7 +60,7 @@ const patchWatcherHandler = async (
       duration,
     });
 
-    return handleRouteError(error, 'Failed to update watcher preferences');
+    return handleRouteError(error, 'Failed to update watcher preferences', request);
   }
 };
 

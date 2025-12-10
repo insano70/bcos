@@ -19,6 +19,8 @@
  * - Master index: idx:{ds:1}:master
  */
 
+import { buildWarmingLockKey } from '@/lib/constants/cache-security';
+
 /**
  * Cache entry structure (partial - only fields needed for key generation)
  */
@@ -218,6 +220,9 @@ export const KeyGenerator = {
   /**
    * Generate lock key for distributed locking
    *
+   * Delegates to centralized buildWarmingLockKey for consistency
+   * across all cache warming services.
+   *
    * @param datasourceId - Data source ID
    * @returns Lock key
    *
@@ -225,7 +230,7 @@ export const KeyGenerator = {
    * getLockKey(1) // => "lock:cache:warm:{ds:1}"
    */
   getLockKey(datasourceId: number): string {
-    return `lock:cache:warm:{ds:${datasourceId}}`;
+    return buildWarmingLockKey(datasourceId);
   },
 
   /**

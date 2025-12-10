@@ -58,7 +58,7 @@ const getWatchersHandler = async (
       component: 'work-items',
     });
 
-    return handleRouteError(error, 'Failed to retrieve work item watchers');
+    return handleRouteError(error, 'Failed to retrieve work item watchers', _request);
   }
 };
 

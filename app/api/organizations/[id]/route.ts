@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { validateRequest } from '@/lib/api/middleware/validation';
-import { createErrorResponse, getErrorStatusCode, NotFoundError } from '@/lib/api/responses/error';
+import { handleRouteError, NotFoundError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { extractRouteParams } from '@/lib/api/utils/params';
@@ -66,11 +66,7 @@ const getOrganizationHandler = async (
       component: 'business-logic',
     });
 
-    return createErrorResponse(
-      error instanceof Error ? error.message : 'Unknown error',
-      getErrorStatusCode(error),
-      request
-    );
+    return handleRouteError(error, 'Failed to get organization', request);
   }
 };
 
@@ -162,11 +158,7 @@ const updateOrganizationHandler = async (
       component: 'business-logic',
     });
 
-    return createErrorResponse(
-      error instanceof Error ? error.message : 'Unknown error',
-      500,
-      request
-    );
+    return handleRouteError(error, 'Failed to update organization', request);
   }
 };
 
@@ -220,11 +212,7 @@ const deleteOrganizationHandler = async (
       component: 'business-logic',
     });
 
-    return createErrorResponse(
-      error instanceof Error ? error.message : 'Unknown error',
-      500,
-      request
-    );
+    return handleRouteError(error, 'Failed to delete organization', request);
   }
 };
 

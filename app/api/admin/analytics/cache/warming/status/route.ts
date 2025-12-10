@@ -12,7 +12,7 @@
  */
 
 import type { NextRequest } from 'next/server';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { handleRouteError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { log } from '@/lib/logger';
@@ -99,11 +99,7 @@ const warmingStatusHandler = async (_request: NextRequest) => {
       }
     );
 
-    return createErrorResponse(
-      error instanceof Error ? error : new Error(String(error)),
-      500,
-      _request
-    );
+    return handleRouteError(error, 'Failed to get cache warming status', _request);
   }
 };
 

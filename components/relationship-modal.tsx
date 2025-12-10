@@ -7,6 +7,7 @@ import type { FieldConfig, CustomFieldProps } from './crud-modal/types';
 import {
   useCreateTypeRelationship,
   useUpdateTypeRelationship,
+  useTypeRelationshipsForParent,
   type WorkItemTypeRelationship,
 } from '@/lib/hooks/use-work-item-type-relationships';
 import { useWorkItemTypes } from '@/lib/hooks/use-work-item-types';
@@ -133,8 +134,16 @@ export default function RelationshipModal({
       : { is_active: true }
   );
 
-  // Filter out the parent type from available child types
-  const availableChildTypes = workItemTypes.filter((type) => type.id !== parentTypeId);
+  // Get existing relationships to filter out already-configured child types
+  const { data: existingRelationships = [] } = useTypeRelationshipsForParent(
+    mode === 'create' ? parentTypeId : undefined
+  );
+
+  // Filter out the parent type AND already-configured child types from available options
+  const existingChildTypeIds = new Set(existingRelationships.map((r) => r.child_type_id));
+  const availableChildTypes = workItemTypes.filter(
+    (type) => type.id !== parentTypeId && !existingChildTypeIds.has(type.id)
+  );
 
   // Transform entity for edit mode
   const transformedEntity = relationship

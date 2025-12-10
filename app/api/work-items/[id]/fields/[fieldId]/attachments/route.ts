@@ -63,7 +63,7 @@ async function handlePost(request: NextRequest, userContext: UserContext) {
       duration: Date.now() - startTime,
     });
 
-    return handleRouteError(error, 'Failed to create field attachment');
+    return handleRouteError(error, 'Failed to create field attachment', request);
   }
 }
 
@@ -110,7 +110,7 @@ async function handleGet(request: NextRequest, userContext: UserContext) {
       duration: Date.now() - startTime,
     });
 
-    return handleRouteError(error, 'Failed to retrieve field attachments');
+    return handleRouteError(error, 'Failed to retrieve field attachments', request);
   }
 }
 

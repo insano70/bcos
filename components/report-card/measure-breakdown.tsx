@@ -33,7 +33,7 @@ function getTrendDisplay(trend: TrendDirection, percentage: number): {
     case 'declining':
       return {
         icon: <TrendingDown className="w-4 h-4" />,
-        color: 'text-rose-600',
+        color: 'text-rose-600 dark:text-white',
         bgColor: 'bg-rose-100 dark:bg-rose-900/30',
         label: `-${absPercent.toFixed(1)}%`,
       };
@@ -94,16 +94,16 @@ function PercentileBar({ percentile }: { percentile: number | null }) {
   return (
     <div className="relative h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
       <div className="absolute inset-y-0 left-0 flex w-full">
-        <div className="bg-rose-300 dark:bg-rose-800" style={{ width: '25%' }} />
-        <div className="bg-orange-300 dark:bg-orange-800" style={{ width: '25%' }} />
-        <div className="bg-amber-300 dark:bg-amber-800" style={{ width: '25%' }} />
-        <div className="bg-emerald-300 dark:bg-emerald-800" style={{ width: '25%' }} />
+        <div className="bg-rose-300 dark:bg-rose-600/70" style={{ width: '25%' }} />
+        <div className="bg-orange-300 dark:bg-orange-500/70" style={{ width: '25%' }} />
+        <div className="bg-amber-300 dark:bg-amber-500/70" style={{ width: '25%' }} />
+        <div className="bg-emerald-300 dark:bg-emerald-500/70" style={{ width: '25%' }} />
       </div>
       <motion.div
         initial={{ left: '50%' }}
         animate={{ left: `${position}%` }}
         transition={{ duration: 0.6, ease: 'easeOut' }}
-        className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-violet-600 rounded-full transform -translate-x-1/2 border-2 border-white dark:border-slate-900 shadow"
+        className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-violet-600 dark:bg-violet-400 rounded-full transform -translate-x-1/2 border-2 border-white dark:border-slate-900 shadow"
       />
     </div>
   );

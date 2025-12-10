@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { inArray } from 'drizzle-orm';
 import { validateQuery, validateRequest } from '@/lib/api/middleware/validation';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { handleRouteError } from '@/lib/api/responses/error';
 import { createPaginatedResponse, createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
@@ -143,11 +143,7 @@ const getUsersHandler = async (request: NextRequest, userContext: UserContext) =
       component: 'business-logic',
     });
 
-    return createErrorResponse(
-      error instanceof Error ? error.message : 'Unknown error',
-      500,
-      request
-    );
+    return handleRouteError(error, 'Failed to process users request', request);
   }
 };
 
@@ -247,11 +243,7 @@ const createUserHandler = async (request: NextRequest, userContext: UserContext)
       component: 'business-logic',
     });
 
-    return createErrorResponse(
-      error instanceof Error ? error.message : 'Unknown error',
-      500,
-      request
-    );
+    return handleRouteError(error, 'Failed to process users request', request);
   }
 };
 

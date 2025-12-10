@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { validateRequest } from '@/lib/api/middleware/validation';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { handleRouteError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { extractRouteParams } from '@/lib/api/utils/params';
@@ -63,11 +63,7 @@ const getStatusesHandler = async (
     const totalDuration = Date.now() - startTime;
     log.error('Get work item statuses request failed', error, { totalDuration });
 
-    return createErrorResponse(
-      error instanceof Error ? error.message : 'Unknown error',
-      500,
-      request
-    );
+    return handleRouteError(error, 'Failed to process work item statuses', request);
   }
 };
 
@@ -141,11 +137,7 @@ const createStatusHandler = async (
     const totalDuration = Date.now() - startTime;
     log.error('Create work item status request failed', error, { totalDuration });
 
-    return createErrorResponse(
-      error instanceof Error ? error.message : 'Unknown error',
-      500,
-      request
-    );
+    return handleRouteError(error, 'Failed to process work item statuses', request);
   }
 };
 

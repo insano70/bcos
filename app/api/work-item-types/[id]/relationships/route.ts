@@ -68,7 +68,7 @@ const postRelationshipHandler = async (
       component: 'work-items',
     });
 
-    return handleRouteError(error, 'Failed to create work item type relationship');
+    return handleRouteError(error, 'Failed to create work item type relationship', request);
   }
 };
 
@@ -154,7 +154,7 @@ const getRelationshipsHandler = async (
       component: 'work-items',
     });
 
-    return handleRouteError(error, 'Failed to retrieve work item type relationships');
+    return handleRouteError(error, 'Failed to retrieve work item type relationships', request);
   }
 };
 

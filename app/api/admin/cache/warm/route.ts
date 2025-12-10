@@ -63,7 +63,7 @@ const warmCacheHandler = async (request: NextRequest, userContext: UserContext) 
     });
   } catch (error) {
     log.error('Cache warming failed via API', error);
-    return handleRouteError(error, 'Cache warming failed');
+    return handleRouteError(error, 'Cache warming failed', request);
   }
 };
 

@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { createPaginatedResponse, createSuccessResponse } from '@/lib/api/responses/success';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { createErrorResponse, handleRouteError } from '@/lib/api/responses/error';
 import { createRBACExplorerMetadataService } from '@/lib/services/data-explorer';
 import { metadataTablesQuerySchema } from '@/lib/validations/data-explorer';
 import { log } from '@/lib/logger';
@@ -73,11 +73,7 @@ const getTablesHandler = async (
       return createErrorResponse(`Validation failed: ${errorMessages}`, 400, request);
     }
 
-    return createErrorResponse(
-      error instanceof Error ? error.message : 'Failed to fetch table metadata',
-      500,
-      request
-    );
+    return handleRouteError(error, 'Failed to process data explorer request', request);
   }
 };
 
@@ -123,11 +119,7 @@ const createTableHandler = async (
       component: 'business-logic',
     });
 
-    return createErrorResponse(
-      error instanceof Error ? error.message : 'Failed to create table metadata',
-      500,
-      request
-    );
+    return handleRouteError(error, 'Failed to process data explorer request', request);
   }
 };
 

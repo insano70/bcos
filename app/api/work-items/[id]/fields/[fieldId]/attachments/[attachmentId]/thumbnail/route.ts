@@ -3,7 +3,7 @@ import { rbacRoute } from '@/lib/api/route-handlers';
 import { AttachmentFieldService } from '@/lib/services/work-items/attachment-field-service';
 import type { UserContext } from '@/lib/types/rbac';
 import { createSuccessResponse } from '@/lib/api/responses/success';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { createErrorResponse, handleRouteError } from '@/lib/api/responses/error';
 
 /**
  * GET /api/work-items/[id]/fields/[fieldId]/attachments/[attachmentId]/thumbnail
@@ -34,10 +34,7 @@ const getThumbnailHandler = async (
       thumbnail_url: thumbnailUrl,
     });
   } catch (error) {
-    if (error instanceof Error) {
-      return createErrorResponse(error.message, 400);
-    }
-    return createErrorResponse('Failed to generate thumbnail URL', 500);
+    return handleRouteError(error, 'Failed to generate thumbnail URL', request);
   }
 };
 

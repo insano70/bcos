@@ -52,7 +52,7 @@ async function handleGet(request: NextRequest, userContext: UserContext) {
       duration: Date.now() - startTime,
     });
 
-    return handleRouteError(error, 'Failed to generate download URL');
+    return handleRouteError(error, 'Failed to generate download URL', request);
   }
 }
 

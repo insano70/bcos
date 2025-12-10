@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { validateRequest } from '@/lib/api/middleware/validation';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { handleRouteError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { log, logTemplates, sanitizeFilters, SLOW_THRESHOLDS } from '@/lib/logger';
@@ -112,11 +112,7 @@ const getDashboardsHandler = async (request: NextRequest, userContext: UserConte
       component: 'analytics',
     });
 
-    return createErrorResponse(
-      error instanceof Error ? error.message : 'Internal server error',
-      500,
-      request
-    );
+    return handleRouteError(error, 'Failed to process dashboard request', request);
   }
 };
 
@@ -182,11 +178,7 @@ const createDashboardHandler = async (request: NextRequest, userContext: UserCon
       component: 'analytics',
     });
 
-    return createErrorResponse(
-      error instanceof Error ? error.message : 'Internal server error',
-      500,
-      request
-    );
+    return handleRouteError(error, 'Failed to process dashboard request', request);
   }
 };
 

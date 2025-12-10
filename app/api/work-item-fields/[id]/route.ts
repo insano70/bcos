@@ -55,7 +55,7 @@ const getFieldHandler = async (
       duration,
     });
 
-    return handleRouteError(error, 'Failed to retrieve work item field');
+    return handleRouteError(error, 'Failed to retrieve work item field', _request);
   }
 };
 
@@ -112,7 +112,7 @@ const patchFieldHandler = async (
       duration,
     });
 
-    return handleRouteError(error, 'Failed to update work item field');
+    return handleRouteError(error, 'Failed to update work item field', request);
   }
 };
 
@@ -162,7 +162,7 @@ const deleteFieldHandler = async (
       duration,
     });
 
-    return handleRouteError(error, 'Failed to delete work item field');
+    return handleRouteError(error, 'Failed to delete work item field', _request);
   }
 };
 

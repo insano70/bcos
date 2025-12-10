@@ -208,6 +208,25 @@ export class RBACWorkItemStatusTransitionsService extends BaseRBACService {
         throw new ValidationError('To status does not belong to this work item type');
       }
 
+      // Check for existing transition with same type + from + to combination
+      const existingTransition = await db
+        .select({ work_item_status_transition_id: work_item_status_transitions.work_item_status_transition_id })
+        .from(work_item_status_transitions)
+        .where(
+          and(
+            eq(work_item_status_transitions.work_item_type_id, data.work_item_type_id),
+            eq(work_item_status_transitions.from_status_id, data.from_status_id),
+            eq(work_item_status_transitions.to_status_id, data.to_status_id)
+          )
+        )
+        .limit(1);
+
+      if (existingTransition.length > 0) {
+        throw new ValidationError(
+          'A transition rule already exists for this from/to status combination. Update or delete the existing rule instead.'
+        );
+      }
+
       // Create the transition
       const results = await db
         .insert(work_item_status_transitions)

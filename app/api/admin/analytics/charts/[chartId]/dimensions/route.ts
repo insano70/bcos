@@ -9,7 +9,7 @@
 
 import type { NextRequest } from 'next/server';
 import { rbacRoute } from '@/lib/api/route-handlers';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { handleRouteError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { dimensionDiscoveryService } from '@/lib/services/analytics/dimension-discovery-service';
 import type { UserContext } from '@/lib/types/rbac';
@@ -61,7 +61,7 @@ const getDimensionsHandler = async (
       chartId: params.chartId,
       userId: userContext.user_id,
     });
-    return createErrorResponse('Failed to get chart expansion dimensions', 500);
+    return handleRouteError(error, 'Failed to get chart expansion dimensions', request);
   }
 };
 

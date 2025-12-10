@@ -9,7 +9,7 @@
 import type { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { requireAdmin } from '@/lib/api/middleware/auth';
-import { AuthorizationError, createErrorResponse } from '@/lib/api/responses/error';
+import { AuthorizationError, handleRouteError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { authRoute, type AuthSession } from '@/lib/api/route-handlers';
 import { extractRouteParams } from '@/lib/api/utils/params';
@@ -73,7 +73,7 @@ const handler = async (request: NextRequest, session?: AuthSession, ...args: unk
       component: 'auth',
     });
 
-    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
+    return handleRouteError(error, 'Failed to reset MFA for user', request);
   }
 };
 

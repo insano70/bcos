@@ -28,7 +28,7 @@ import { z } from 'zod';
 import { validateRequest } from '@/lib/api/middleware/validation';
 
 // API responses
-import { createErrorResponse, toError } from '@/lib/api/responses/error';
+import { handleRouteError, toError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 
 // API route handlers
@@ -99,7 +99,7 @@ const unlockAccountHandler = async (
       component: 'api',
     });
 
-    return createErrorResponse(toError(error), 500, request);
+    return handleRouteError(toError(error), 'Failed to unlock user account', request);
   }
 };
 

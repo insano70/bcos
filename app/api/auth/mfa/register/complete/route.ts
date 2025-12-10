@@ -10,7 +10,7 @@
 import { cookies } from 'next/headers';
 import type { NextRequest } from 'next/server';
 import { requireAuth } from '@/lib/api/middleware/auth';
-import { AuthenticationError, createErrorResponse } from '@/lib/api/responses/error';
+import { AuthenticationError, handleRouteError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { publicRoute } from '@/lib/api/route-handlers';
 import { COOKIE_NAMES } from '@/lib/auth/cookie-names';
@@ -224,7 +224,7 @@ const handler = async (request: NextRequest) => {
       component: 'auth',
     });
 
-    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
+    return handleRouteError(error, 'Passkey registration failed', request);
   }
 };
 

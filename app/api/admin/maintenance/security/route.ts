@@ -7,7 +7,7 @@
  */
 
 import type { NextRequest } from 'next/server';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { handleRouteError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { cleanupExpiredChallenges } from '@/lib/auth/webauthn';
@@ -58,11 +58,7 @@ const handler = async (request: NextRequest, userContext: UserContext) => {
       }
     );
 
-    return createErrorResponse(
-      error instanceof Error ? error.message : 'Security maintenance failed',
-      500,
-      request
-    );
+    return handleRouteError(error, 'Security maintenance failed', request);
   }
 };
 

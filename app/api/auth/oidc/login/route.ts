@@ -25,7 +25,7 @@ import { sealData } from 'iron-session';
 import { cookies } from 'next/headers';
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { createErrorResponse, handleRouteError } from '@/lib/api/responses/error';
 import { publicRoute } from '@/lib/api/route-handlers';
 import { AuditLogger } from '@/lib/api/services/audit';
 import { isOIDCEnabled } from '@/lib/env';
@@ -170,7 +170,7 @@ const oidcLoginHandler = async (request: NextRequest) => {
       },
     });
 
-    return createErrorResponse('Failed to initiate OIDC login. Please try again.', 500, request);
+    return handleRouteError(error, 'Failed to initiate OIDC login', request);
   }
 };
 

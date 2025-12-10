@@ -2,7 +2,7 @@ import type { NextRequest } from 'next/server';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { validateRequest } from '@/lib/api/middleware/validation';
 import { createSuccessResponse } from '@/lib/api/responses/success';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { createErrorResponse, handleRouteError } from '@/lib/api/responses/error';
 import {
   createRBACExplorerQueryExecutorService,
   createRBACExplorerHistoryService,
@@ -77,11 +77,7 @@ const executeQueryHandler = async (
     // Note: validatedData may be undefined if error occurred during validation
     // Skip history update in that case
 
-    return createErrorResponse(
-      error instanceof Error ? error.message : 'Query execution failed',
-      500,
-      request
-    );
+    return handleRouteError(error, 'Query execution failed', request);
   }
 };
 

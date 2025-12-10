@@ -24,6 +24,7 @@ import {
   extractInheritFields,
   interpolateFieldValues,
   interpolateTemplate,
+  type WorkItemForInterpolation,
 } from '@/lib/utils/template-interpolation';
 import { createRBACWorkItemsService } from './work-items';
 
@@ -140,11 +141,14 @@ class WorkItemAutomationService implements WorkItemAutomationServiceInterface {
             continue;
           }
 
+          // Cast to WorkItemForInterpolation for template processing (requires unknown intermediate)
+          const parentForInterpolation = parentWorkItem as unknown as WorkItemForInterpolation;
+
           // Interpolate subject template
           const subject = config.subject_template
             ? interpolateTemplate(
                 config.subject_template,
-                parentWorkItem,
+                parentForInterpolation,
                 parentWorkItem.custom_fields
               )
             : `Child of ${parentWorkItem.subject}`;
@@ -153,7 +157,7 @@ class WorkItemAutomationService implements WorkItemAutomationServiceInterface {
           const interpolatedFieldValues = config.field_values
             ? interpolateFieldValues(
                 config.field_values,
-                parentWorkItem,
+                parentForInterpolation,
                 parentWorkItem.custom_fields
               )
             : {};
@@ -162,7 +166,7 @@ class WorkItemAutomationService implements WorkItemAutomationServiceInterface {
           const inheritedFields = config.inherit_fields
             ? extractInheritFields(
                 config.inherit_fields,
-                parentWorkItem,
+                parentForInterpolation,
                 parentWorkItem.custom_fields
               )
             : {};
@@ -172,26 +176,93 @@ class WorkItemAutomationService implements WorkItemAutomationServiceInterface {
           const rootWorkItemId = parentWorkItem.root_work_item_id || parentWorkItem.work_item_id;
           const childDepth = (parentWorkItem.depth ?? 0) + 1;
 
-          // Create child work item
+          // Create child work item atomically with all related data
           const insertStart = Date.now();
-          const [childWorkItem] = await db
-            .insert(work_items)
-            .values({
-              work_item_type_id: relationship.child_type_id,
-              organization_id: parentWorkItem.organization_id,
-              subject,
-              description: null,
-              status_id: childInitialStatus.work_item_status_id,
-              priority: (inheritedFields.priority as string) || parentWorkItem.priority || 'medium',
-              assigned_to:
-                (inheritedFields.assigned_to as string) || parentWorkItem.assigned_to || null,
-              due_date: (inheritedFields.due_date as Date) || parentWorkItem.due_date || null,
-              parent_work_item_id: parentWorkItemId,
-              root_work_item_id: rootWorkItemId,
-              depth: childDepth,
-              created_by: this.userContext.user_id,
-            })
-            .returning();
+          let childWorkItem: typeof work_items.$inferSelect | undefined;
+          let customFieldsCount = 0;
+          let pathDuration = 0;
+
+          // Use transaction to ensure atomic creation of work item + path + custom fields
+          await db.transaction(async (tx) => {
+            // Insert the child work item
+            const [insertedChild] = await tx
+              .insert(work_items)
+              .values({
+                work_item_type_id: relationship.child_type_id,
+                organization_id: parentWorkItem.organization_id,
+                subject,
+                description: null,
+                status_id: childInitialStatus.work_item_status_id,
+                priority: (inheritedFields.priority as string) || parentWorkItem.priority || 'medium',
+                assigned_to:
+                  (inheritedFields.assigned_to as string) || parentWorkItem.assigned_to || null,
+                due_date: (inheritedFields.due_date as Date) || parentWorkItem.due_date || null,
+                parent_work_item_id: parentWorkItemId,
+                root_work_item_id: rootWorkItemId,
+                depth: childDepth,
+                created_by: this.userContext.user_id,
+              })
+              .returning();
+
+            if (!insertedChild) {
+              throw new Error('Failed to create child work item');
+            }
+
+            childWorkItem = insertedChild;
+
+            // Update path - build on parent's path for proper hierarchy
+            const pathStart = Date.now();
+            const parentPath = parentWorkItem.path || `/${parentWorkItem.work_item_id}`;
+            const path = `${parentPath}/${insertedChild.work_item_id}`;
+            await tx
+              .update(work_items)
+              .set({ path })
+              .where(eq(work_items.work_item_id, insertedChild.work_item_id));
+            pathDuration = Date.now() - pathStart;
+
+            // Create custom field values from interpolated field values
+            if (Object.keys(interpolatedFieldValues).length > 0) {
+              // Get custom field definitions for child type
+              const fieldDefinitions = await tx
+                .select()
+                .from(work_item_fields)
+                .where(
+                  and(
+                    eq(work_item_fields.work_item_type_id, relationship.child_type_id),
+                    isNull(work_item_fields.deleted_at)
+                  )
+                );
+
+              const fieldMap = new Map(
+                fieldDefinitions.map((f) => [f.field_name, f.work_item_field_id])
+              );
+
+              // Collect field values for batch insert
+              const fieldValuesToInsert: Array<{
+                work_item_id: string;
+                work_item_field_id: string;
+                field_value: string;
+              }> = [];
+
+              for (const [fieldName, fieldValue] of Object.entries(interpolatedFieldValues)) {
+                const fieldId = fieldMap.get(fieldName);
+                if (fieldId) {
+                  fieldValuesToInsert.push({
+                    work_item_id: insertedChild.work_item_id,
+                    work_item_field_id: fieldId,
+                    field_value: fieldValue,
+                  });
+                }
+              }
+
+              // Batch insert all field values in a single query
+              if (fieldValuesToInsert.length > 0) {
+                await tx.insert(work_item_field_values).values(fieldValuesToInsert);
+                customFieldsCount = fieldValuesToInsert.length;
+              }
+            }
+          });
+
           const insertDuration = Date.now() - insertStart;
 
           if (!childWorkItem) {
@@ -203,66 +274,11 @@ class WorkItemAutomationService implements WorkItemAutomationServiceInterface {
             continue;
           }
 
-          // Update path - build on parent's path for proper hierarchy
-          const pathStart = Date.now();
-          const parentPath = parentWorkItem.path || `/${parentWorkItem.work_item_id}`;
-          const path = `${parentPath}/${childWorkItem.work_item_id}`;
-          await db
-            .update(work_items)
-            .set({ path })
-            .where(eq(work_items.work_item_id, childWorkItem.work_item_id));
-          const pathDuration = Date.now() - pathStart;
-
-          // Create custom field values from interpolated field values
-          let customFieldsCount = 0;
-          if (Object.keys(interpolatedFieldValues).length > 0) {
-            const fieldsStart = Date.now();
-
-            // Get custom field definitions for child type
-            const fieldDefinitions = await db
-              .select()
-              .from(work_item_fields)
-              .where(
-                and(
-                  eq(work_item_fields.work_item_type_id, relationship.child_type_id),
-                  isNull(work_item_fields.deleted_at)
-                )
-              );
-
-            const fieldMap = new Map(
-              fieldDefinitions.map((f) => [f.field_name, f.work_item_field_id])
-            );
-
-            // Collect field values for batch insert
-            const fieldValuesToInsert: Array<{
-              work_item_id: string;
-              work_item_field_id: string;
-              field_value: string;
-            }> = [];
-
-            for (const [fieldName, fieldValue] of Object.entries(interpolatedFieldValues)) {
-              const fieldId = fieldMap.get(fieldName);
-              if (fieldId) {
-                fieldValuesToInsert.push({
-                  work_item_id: childWorkItem.work_item_id,
-                  work_item_field_id: fieldId,
-                  field_value: fieldValue,
-                });
-              }
-            }
-
-            // Batch insert all field values in a single query
-            if (fieldValuesToInsert.length > 0) {
-              await db.insert(work_item_field_values).values(fieldValuesToInsert);
-              customFieldsCount = fieldValuesToInsert.length;
-            }
-
-            const fieldsDuration = Date.now() - fieldsStart;
+          if (customFieldsCount > 0) {
             log.debug('custom fields created for child', {
               childWorkItemId: childWorkItem.work_item_id,
               customFieldsCount,
-              fieldsDuration,
-              slow: fieldsDuration > SLOW_THRESHOLDS.DB_QUERY,
+              slow: insertDuration > SLOW_THRESHOLDS.DB_QUERY,
             });
           }
 

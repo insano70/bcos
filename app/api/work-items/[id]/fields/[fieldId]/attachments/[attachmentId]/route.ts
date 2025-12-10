@@ -52,7 +52,7 @@ async function handleDelete(request: NextRequest, userContext: UserContext) {
       duration: Date.now() - startTime,
     });
 
-    return handleRouteError(error, 'Failed to delete field attachment');
+    return handleRouteError(error, 'Failed to delete field attachment', request);
   }
 }
 

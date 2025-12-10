@@ -6,6 +6,7 @@ import { GlassCard } from '@/components/ui/glass-card';
 import { ChartSkeleton } from '@/components/ui/loading-skeleton';
 import { useChartData } from '@/hooks/use-chart-data';
 import { chartExportService } from '@/lib/services/chart-export';
+import { extractLegendData } from '@/lib/utils/chart-export-legend';
 import type {
   ChartFilter,
   DualAxisConfig,
@@ -19,6 +20,7 @@ import ChartError from './chart-error';
 import ChartHeader from './chart-header';
 import ChartRenderer from './chart-renderer';
 import { clientErrorLog } from '@/lib/utils/debug-client';
+import { getAvailableExportFormats } from '@/lib/utils/chart-export-formats';
 import ResponsiveChartContainer from './responsive-chart-container';
 
 // Lazy load fullscreen modals
@@ -241,10 +243,24 @@ function UniversalChartComponent(props: AnalyticsChartProps) {
           { format }
         );
       } else if (chartRef.current) {
+        // Extract legend data and chart title for export
+        const chartTitle = title || `${measure} - ${actualFrequency}`;
+        const legendData = data?.chartData
+          ? extractLegendData(data.chartData, data.chartData.measureType)
+          : [];
+
         if (format === 'pdf') {
-          result = await chartExportService.exportChartAsPDF(chartRef.current, { format });
+          result = await chartExportService.exportChartAsPDF(chartRef.current, {
+            format,
+            title: chartTitle,
+            legendData,
+          });
         } else {
-          result = await chartExportService.exportChartAsImage(chartRef.current, { format });
+          result = await chartExportService.exportChartAsImage(chartRef.current, {
+            format,
+            title: chartTitle,
+            legendData,
+          });
         }
       } else {
         throw new Error('Chart not available for export');
@@ -299,6 +315,7 @@ function UniversalChartComponent(props: AnalyticsChartProps) {
       <ChartHeader
         title={title || `${measure} - ${actualFrequency}`}
         onExport={handleExport}
+        availableExportFormats={getAvailableExportFormats(chartType)}
         onRefresh={refetch}
         {...((chartType === 'line' ||
           chartType === 'bar' ||

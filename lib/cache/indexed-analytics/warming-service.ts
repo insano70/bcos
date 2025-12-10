@@ -23,6 +23,12 @@ import { chartConfigService } from '@/lib/services/chart-config-service';
 import { columnMappingService } from '@/lib/services/column-mapping-service';
 import type { IndexedCacheClient } from './cache-client';
 import { KeyGenerator, type CacheKeyEntry } from './key-generator';
+import {
+  isSchemaAllowed,
+  isTableNameValid,
+  buildSafeTableReference,
+  ALLOWED_ANALYTICS_SCHEMAS,
+} from '@/lib/constants/cache-security';
 
 /**
  * Cache warming result
@@ -106,41 +112,37 @@ export class CacheWarmingService {
 
       const { tableName, schemaName } = config;
 
-      // Security: Validate schema name (whitelist approach)
-      // Table names are validated by being pulled from configured data sources in the database
-      const ALLOWED_SCHEMAS = ['ih'];
-      if (!ALLOWED_SCHEMAS.includes(schemaName)) {
+      // Security: Validate schema using centralized whitelist
+      if (!isSchemaAllowed(schemaName)) {
         log.error('Invalid schema name attempted in cache warming', new Error('SQL injection attempt'), {
           datasourceId,
           schemaName,
           tableName,
+          allowedSchemas: ALLOWED_ANALYTICS_SCHEMAS,
           component: 'warming-service',
         });
-        throw new Error(`Invalid schema name: ${schemaName}. Only schemas ${ALLOWED_SCHEMAS.join(', ')} are allowed.`);
+        throw new Error(
+          `Invalid schema name: ${schemaName}. Only schemas ${ALLOWED_ANALYTICS_SCHEMAS.join(', ')} are allowed.`
+        );
       }
 
-      // Validate table name format (alphanumeric, underscores only)
-      // This prevents SQL injection while allowing dynamic table names from data source configs
-      const TABLE_NAME_PATTERN = /^[a-zA-Z0-9_]+$/;
-      if (!TABLE_NAME_PATTERN.test(tableName)) {
+      // Security: Validate table name using centralized pattern
+      if (!isTableNameValid(tableName)) {
         log.error('Invalid table name format in cache warming', new Error('SQL injection attempt'), {
           datasourceId,
           schemaName,
           tableName,
           component: 'warming-service',
         });
-        throw new Error(`Invalid table name format: ${tableName}. Only alphanumeric characters and underscores allowed.`);
+        throw new Error(`Invalid table name format: ${tableName}`);
       }
 
       // Get column mappings for dynamic column access
       const columnMapping = await columnMappingService.getMapping(datasourceId);
 
-      // Query ALL data (no WHERE clause, no ORDER BY to support all schemas)
-      // Schema and table names validated above to prevent SQL injection
-      const query = `
-        SELECT *
-        FROM ${schemaName}.${tableName}
-      `;
+      // Build safe query using centralized function with quoted identifiers
+      const safeTableRef = buildSafeTableReference(schemaName, tableName);
+      const query = `SELECT * FROM ${safeTableRef}`;
 
       log.info('Executing cache warming query', {
         datasourceId,
@@ -207,7 +209,25 @@ export class CacheWarmingService {
       });
 
       // Atomic swap: RENAME shadow keys to production keys
-      await this.swapShadowKeys(datasourceId);
+      // If swap fails, clean up orphaned shadow keys to prevent memory leaks
+      try {
+        await this.swapShadowKeys(datasourceId);
+      } catch (swapError) {
+        log.error('Shadow key swap failed, cleaning up orphaned keys', swapError instanceof Error ? swapError : new Error(String(swapError)), {
+          datasourceId,
+          entriesCached,
+          component: 'warming-service',
+        });
+        // Clean up orphaned shadow keys (fire and forget)
+        await this.cleanupShadowKeys(datasourceId).catch((cleanupErr) => {
+          log.warn('Failed to cleanup orphaned shadow keys', {
+            datasourceId,
+            error: cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr),
+            component: 'warming-service',
+          });
+        });
+        throw swapError;
+      }
 
       // Set metadata with dimension counts for O(1) retrieval by getCacheStats
       await this.setMetadata(datasourceId, dimensionCounts);
@@ -768,6 +788,102 @@ export class CacheWarmingService {
       datasourceId,
       metadataKey,
       ...dimensionCounts,
+      component: 'warming-service',
+    });
+  }
+
+  /**
+   * Clean up orphaned shadow keys after a failed swap
+   *
+   * Shadow keys are created without TTL during warming. If the swap fails,
+   * these keys would remain in Redis indefinitely, causing a memory leak.
+   * This method scans for and deletes all shadow keys for a datasource.
+   *
+   * @param datasourceId - Data source ID
+   */
+  private async cleanupShadowKeys(datasourceId: number): Promise<void> {
+    const redis = this.client.getClient();
+    if (!redis) {
+      return;
+    }
+
+    const cleanupStartTime = Date.now();
+    let shadowCacheKeysDeleted = 0;
+    let shadowIndexKeysDeleted = 0;
+    const SCAN_COUNT = 1000;
+    const MAX_ITERATIONS = 1000; // Safety limit to prevent infinite loops
+
+    // Clean up shadow cache keys
+    const shadowCachePattern = KeyGenerator.getShadowCachePattern(datasourceId);
+    let cursor = '0';
+    let iterations = 0;
+
+    do {
+      const result = await redis.scan(cursor, 'MATCH', shadowCachePattern, 'COUNT', SCAN_COUNT);
+      cursor = result[0];
+      const keys = result[1];
+
+      if (keys.length > 0) {
+        // Delete keys individually to avoid CROSSSLOT errors in cluster mode
+        for (const key of keys) {
+          const keyPrefix = redis.options.keyPrefix || '';
+          const keyWithoutPrefix = keyPrefix ? key.replace(keyPrefix, '') : key;
+          await redis.del(keyWithoutPrefix);
+          shadowCacheKeysDeleted++;
+        }
+      }
+
+      iterations++;
+      if (iterations > MAX_ITERATIONS) {
+        log.warn('Shadow cache key cleanup exceeded max iterations', {
+          datasourceId,
+          pattern: shadowCachePattern,
+          iterations,
+          keysDeleted: shadowCacheKeysDeleted,
+          component: 'warming-service',
+        });
+        break;
+      }
+    } while (cursor !== '0');
+
+    // Clean up shadow index keys
+    const shadowIndexPattern = KeyGenerator.getShadowIndexPattern(datasourceId);
+    cursor = '0';
+    iterations = 0;
+
+    do {
+      const result = await redis.scan(cursor, 'MATCH', shadowIndexPattern, 'COUNT', SCAN_COUNT);
+      cursor = result[0];
+      const keys = result[1];
+
+      if (keys.length > 0) {
+        for (const key of keys) {
+          const keyPrefix = redis.options.keyPrefix || '';
+          const keyWithoutPrefix = keyPrefix ? key.replace(keyPrefix, '') : key;
+          await redis.del(keyWithoutPrefix);
+          shadowIndexKeysDeleted++;
+        }
+      }
+
+      iterations++;
+      if (iterations > MAX_ITERATIONS) {
+        log.warn('Shadow index key cleanup exceeded max iterations', {
+          datasourceId,
+          pattern: shadowIndexPattern,
+          iterations,
+          keysDeleted: shadowIndexKeysDeleted,
+          component: 'warming-service',
+        });
+        break;
+      }
+    } while (cursor !== '0');
+
+    log.info('Orphaned shadow keys cleaned up', {
+      datasourceId,
+      shadowCacheKeysDeleted,
+      shadowIndexKeysDeleted,
+      totalDeleted: shadowCacheKeysDeleted + shadowIndexKeysDeleted,
+      duration: Date.now() - cleanupStartTime,
       component: 'warming-service',
     });
   }

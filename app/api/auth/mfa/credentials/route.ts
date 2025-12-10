@@ -7,7 +7,7 @@
 
 import type { NextRequest } from 'next/server';
 import { requireAuth } from '@/lib/api/middleware/auth';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { handleRouteError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { authRoute } from '@/lib/api/route-handlers';
 import { getUserCredentials } from '@/lib/auth/webauthn';
@@ -80,7 +80,7 @@ const handler = async (request: NextRequest) => {
       component: 'auth',
     });
 
-    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
+    return handleRouteError(error, 'Failed to list passkey credentials', request);
   }
 };
 

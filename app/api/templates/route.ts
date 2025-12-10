@@ -1,10 +1,9 @@
 import type { NextRequest } from 'next/server';
 import { validateQuery } from '@/lib/api/middleware/validation';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { handleRouteError } from '@/lib/api/responses/error';
 import { createPaginatedResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { getPagination, getSortParams } from '@/lib/api/utils/request';
-import { getErrorStatusCode } from '@/lib/errors/api-errors';
 import { log } from '@/lib/logger';
 import { createRBACTemplatesService } from '@/lib/services/rbac-templates-service';
 import type { UserContext } from '@/lib/types/rbac';
@@ -62,15 +61,7 @@ const getTemplatesHandler = async (request: NextRequest, userContext: UserContex
       requestingUserId: userContext.user_id,
     });
 
-    const statusCode = getErrorStatusCode(error);
-    const errorMessage =
-      process.env.NODE_ENV === 'development'
-        ? error instanceof Error
-          ? error.message
-          : 'Unknown error'
-        : 'Internal server error';
-
-    return createErrorResponse(errorMessage, statusCode, request);
+    return handleRouteError(error, 'Failed to list templates', request);
   }
 };
 

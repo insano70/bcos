@@ -261,10 +261,11 @@ class LRUCache<K, V> {
 }
 
 /**
- * LRU cache for data source types (max 100 entries)
+ * LRU cache for data source types (max 500 entries)
  * Prevents unbounded memory growth in long-running processes
+ * Set to 500 to accommodate organizations with many data sources
  */
-const dataSourceTypeCache = new LRUCache<number, 'measure-based' | 'table-based'>(100);
+const dataSourceTypeCache = new LRUCache<number, 'measure-based' | 'table-based'>(500);
 
 /**
  * Detect data source type from database

@@ -13,7 +13,7 @@
 import type { NextRequest } from 'next/server';
 
 // API responses
-import { createErrorResponse, toError } from '@/lib/api/responses/error';
+import { handleRouteError, toError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 
 // API route handlers
@@ -79,7 +79,7 @@ const atRiskUsersHandler = async (request: NextRequest, userContext: UserContext
     });
 
     // Return error response to admin - don't mask failures
-    return createErrorResponse(toError(error), 500, request);
+    return handleRouteError(toError(error), 'Failed to retrieve at-risk users', request);
   }
 };
 

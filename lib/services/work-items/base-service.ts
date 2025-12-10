@@ -1,5 +1,5 @@
 // 1. Drizzle ORM
-import { eq, inArray, isNull, like, or, type SQL } from 'drizzle-orm';
+import { eq, gte, inArray, isNull, like, lte, or, type SQL } from 'drizzle-orm';
 
 // 2. Database
 import { work_items } from '@/lib/db/schema';
@@ -153,6 +153,15 @@ export abstract class BaseWorkItemsService extends BaseRBACService {
       if (searchCondition) {
         conditions.push(searchCondition);
       }
+    }
+
+    // Apply date range filters for created_at
+    if (options.created_after) {
+      conditions.push(gte(work_items.created_at, options.created_after));
+    }
+
+    if (options.created_before) {
+      conditions.push(lte(work_items.created_at, options.created_before));
     }
 
     // Apply hierarchy filter (default: root_only)

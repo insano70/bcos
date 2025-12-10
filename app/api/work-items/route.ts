@@ -1,11 +1,13 @@
 import type { NextRequest } from 'next/server';
 import { validateQuery, validateRequest } from '@/lib/api/middleware/validation';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { handleRouteError } from '@/lib/api/responses/error';
 import { createPaginatedResponse, createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
 import { log, logTemplates, sanitizeFilters, SLOW_THRESHOLDS } from '@/lib/logger';
 import { createRBACWorkItemFieldValuesService } from '@/lib/services/rbac-work-item-field-values-service';
+import { createRBACWorkItemWatchersService } from '@/lib/services/rbac-work-item-watchers-service';
+import { createWorkItemAutomationService } from '@/lib/services/work-item-automation-service';
 import { createRBACWorkItemsService } from '@/lib/services/work-items';
 import type { UserContext } from '@/lib/types/rbac';
 import { workItemCreateSchema, workItemQuerySchema } from '@/lib/validations/work-items';
@@ -24,8 +26,8 @@ const getWorkItemsHandler = async (request: NextRequest, userContext: UserContex
     // Create RBAC service
     const workItemsService = createRBACWorkItemsService(userContext);
 
-    // Get work items with automatic permission-based filtering
-    const workItems = await workItemsService.getWorkItems({
+    // Get work items with count in single optimized call (avoids double query)
+    const { items: workItems, total: totalCount } = await workItemsService.getWorkItemsWithCount({
       work_item_type_id: query.work_item_type_id,
       organization_id: query.organization_id,
       status_id: query.status_id,
@@ -34,23 +36,12 @@ const getWorkItemsHandler = async (request: NextRequest, userContext: UserContex
       assigned_to: query.assigned_to,
       created_by: query.created_by,
       search: query.search,
+      created_after: query.created_after,
+      created_before: query.created_before,
       limit: query.limit,
       offset: query.offset,
       sortBy: query.sortBy,
       sortOrder: query.sortOrder,
-      show_hierarchy: query.show_hierarchy,
-    });
-
-    // Get total count
-    const totalCount = await workItemsService.getWorkItemCount({
-      work_item_type_id: query.work_item_type_id,
-      organization_id: query.organization_id,
-      status_id: query.status_id,
-      status_category: query.status_category,
-      priority: query.priority,
-      assigned_to: query.assigned_to,
-      created_by: query.created_by,
-      search: query.search,
       show_hierarchy: query.show_hierarchy,
     });
 
@@ -114,8 +105,8 @@ const getWorkItemsHandler = async (request: NextRequest, userContext: UserContex
       results: {
         returned: workItems.length,
         total: totalCount,
-        page: Math.floor((query.offset || 0) / (query.limit || 1000)) + 1,
-        pageSize: query.limit || 1000,
+        page: Math.floor((query.offset || 0) / (query.limit || 50)) + 1,
+        pageSize: query.limit || 50,
       },
       sort: {
         field: query.sortBy || 'created_at',
@@ -127,8 +118,8 @@ const getWorkItemsHandler = async (request: NextRequest, userContext: UserContex
     });
 
     return createPaginatedResponse(responseData, {
-      page: Math.floor((query.offset || 0) / (query.limit || 1000)) + 1,
-      limit: query.limit || 1000,
+      page: Math.floor((query.offset || 0) / (query.limit || 50)) + 1,
+      limit: query.limit || 50,
       total: totalCount,
     });
   } catch (error) {
@@ -140,11 +131,7 @@ const getWorkItemsHandler = async (request: NextRequest, userContext: UserContex
       component: 'business-logic',
     });
 
-    return createErrorResponse(
-      error instanceof Error ? error.message : 'Unknown error',
-      500,
-      request
-    );
+    return handleRouteError(error, 'Failed to list work items', request);
   }
 };
 
@@ -193,20 +180,13 @@ const createWorkItemHandler = async (request: NextRequest, userContext: UserCont
     }
 
     // Auto-create child work items based on type relationships using automation service
-    const { createWorkItemAutomationService } = await import(
-      '@/lib/services/work-item-automation-service'
-    );
     const automationService = createWorkItemAutomationService(userContext);
-
     const autoCreatedCount = await automationService.autoCreateChildItems(
       newWorkItem.work_item_id,
       validatedData.work_item_type_id
     );
 
     // Add creator as watcher (auto-watcher logic)
-    const { createRBACWorkItemWatchersService } = await import(
-      '@/lib/services/rbac-work-item-watchers-service'
-    );
     const watchersService = createRBACWorkItemWatchersService(userContext);
 
     let watcherAdded = false;
@@ -285,11 +265,7 @@ const createWorkItemHandler = async (request: NextRequest, userContext: UserCont
       component: 'business-logic',
     });
 
-    return createErrorResponse(
-      error instanceof Error ? error.message : 'Unknown error',
-      500,
-      request
-    );
+    return handleRouteError(error, 'Failed to create work item', request);
   }
 };
 

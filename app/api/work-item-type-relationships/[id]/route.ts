@@ -51,7 +51,7 @@ const getRelationshipHandler = async (
       duration,
     });
 
-    return handleRouteError(error, 'Failed to retrieve work item type relationship');
+    return handleRouteError(error, 'Failed to retrieve work item type relationship', _request);
   }
 };
 
@@ -111,7 +111,7 @@ const patchRelationshipHandler = async (
       duration,
     });
 
-    return handleRouteError(error, 'Failed to update work item type relationship');
+    return handleRouteError(error, 'Failed to update work item type relationship', request);
   }
 };
 
@@ -161,7 +161,7 @@ const deleteRelationshipHandler = async (
       duration,
     });
 
-    return handleRouteError(error, 'Failed to delete work item type relationship');
+    return handleRouteError(error, 'Failed to delete work item type relationship', _request);
   }
 };
 
