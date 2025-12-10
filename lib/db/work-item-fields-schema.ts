@@ -7,6 +7,7 @@ import {
   pgTable,
   text,
   timestamp,
+  unique,
   uuid,
   varchar,
 } from 'drizzle-orm/pg-core';
@@ -117,8 +118,8 @@ export const work_item_field_values = pgTable(
     workItemIdx: index('idx_work_item_field_values_work_item').on(table.work_item_id),
     fieldIdx: index('idx_work_item_field_values_field').on(table.work_item_field_id),
 
-    // Composite index for common queries
-    workItemFieldIdx: index('idx_work_item_field_values_work_item_field').on(
+    // Unique constraint: one value per work_item + field combination
+    uniqueWorkItemField: unique('uq_work_item_field_values_work_item_field').on(
       table.work_item_id,
       table.work_item_field_id
     ),

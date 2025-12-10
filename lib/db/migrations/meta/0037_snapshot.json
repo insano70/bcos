@@ -1,6 +1,6 @@
 {
-  "id": "5abcaa85-7224-4686-bb72-4597781aa7cc",
-  "prevId": "b1db1c4a-8fea-41db-a196-313b5d6bd489",
+  "id": "596b25b2-f643-400d-ab12-8e339f65d253",
+  "prevId": "4e6f7233-1748-4c7c-89bf-107e3a78de90",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -8874,27 +8874,6 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
-        },
-        "idx_work_item_field_values_work_item_field": {
-          "name": "idx_work_item_field_values_work_item_field",
-          "columns": [
-            {
-              "expression": "work_item_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "work_item_field_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
         }
       },
       "foreignKeys": {
@@ -8926,7 +8905,16 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "uq_work_item_field_values_work_item_field": {
+          "name": "uq_work_item_field_values_work_item_field",
+          "nullsNotDistinct": false,
+          "columns": [
+            "work_item_id",
+            "work_item_field_id"
+          ]
+        }
+      },
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -9944,27 +9932,6 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
-        },
-        "idx_unique_watcher": {
-          "name": "idx_unique_watcher",
-          "columns": [
-            {
-              "expression": "work_item_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "user_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
         }
       },
       "foreignKeys": {
@@ -9996,7 +9963,16 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "uq_watchers_work_item_user": {
+          "name": "uq_watchers_work_item_user",
+          "nullsNotDistinct": false,
+          "columns": [
+            "work_item_id",
+            "user_id"
+          ]
+        }
+      },
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false

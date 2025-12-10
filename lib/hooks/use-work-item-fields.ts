@@ -119,21 +119,3 @@ export function useDeleteWorkItemField() {
     },
   });
 }
-
-/**
- * Get count of work item fields for a work item type
- */
-export function useWorkItemFieldCount(workItemTypeId: string | null) {
-  return useQuery<number, Error>({
-    queryKey: ['work-item-fields-count', workItemTypeId],
-    queryFn: async () => {
-      const data = await apiClient.get<WorkItemField[]>(
-        `/api/work-item-types/${workItemTypeId}/fields`
-      );
-      return data.length;
-    },
-    enabled: !!workItemTypeId,
-    staleTime: 5 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
-  });
-}

@@ -101,6 +101,7 @@ export default function HierarchySelect<T extends HierarchyItemBase>({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [isMobile, setIsMobile] = useState(false);
+  const [keyboardOffset, setKeyboardOffset] = useState(0);
 
   // Detect mobile viewport
   useEffect(() => {
@@ -112,6 +113,38 @@ export default function HierarchySelect<T extends HierarchyItemBase>({
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
+
+  // Track virtual keyboard on mobile using visualViewport API
+  // When keyboard appears, adjust bottom sheet position to stay above it
+  useEffect(() => {
+    if (!isMobile || !isOpen) {
+      setKeyboardOffset(0);
+      return;
+    }
+
+    const handleViewportResize = () => {
+      if (window.visualViewport) {
+        // Calculate keyboard height: difference between window height and visual viewport height
+        // The visual viewport shrinks when the keyboard appears
+        const keyboardHeight = window.innerHeight - window.visualViewport.height;
+        // Only set offset if keyboard is actually showing (height > 0)
+        // Add a small threshold to avoid false positives from browser chrome changes
+        setKeyboardOffset(keyboardHeight > 50 ? keyboardHeight : 0);
+      }
+    };
+
+    // Listen to visualViewport resize events
+    window.visualViewport?.addEventListener('resize', handleViewportResize);
+    window.visualViewport?.addEventListener('scroll', handleViewportResize);
+    
+    // Initial check in case keyboard is already open
+    handleViewportResize();
+
+    return () => {
+      window.visualViewport?.removeEventListener('resize', handleViewportResize);
+      window.visualViewport?.removeEventListener('scroll', handleViewportResize);
+    };
+  }, [isMobile, isOpen]);
 
   // Build hierarchical structure
   const hierarchicalItems = useMemo(() => {
@@ -143,7 +176,14 @@ export default function HierarchySelect<T extends HierarchyItemBase>({
         return itemParentId === parentId;
       });
 
-      return children.flatMap((item) => {
+      // Sort children alphabetically by name (case-insensitive)
+      const sortedChildren = [...children].sort((a, b) => {
+        const nameA = String(a[nameField]).toLowerCase();
+        const nameB = String(b[nameField]).toLowerCase();
+        return nameA.localeCompare(nameB);
+      });
+
+      return sortedChildren.flatMap((item) => {
         const hierarchyItem: HierarchyItem = {
           id: item[idField] as string | number,
           name: item[nameField] as string,
@@ -344,7 +384,7 @@ export default function HierarchySelect<T extends HierarchyItemBase>({
             className={`
               ${
                 isMobile
-                  ? 'fixed inset-x-0 bottom-0 z-50 rounded-t-2xl max-h-[85vh] md:hidden'
+                  ? 'fixed inset-x-0 z-50 rounded-t-2xl md:hidden'
                   : 'absolute z-50 w-full mt-1 rounded-lg max-h-80 hidden md:flex'
               }
               bg-white dark:bg-gray-800
@@ -352,7 +392,20 @@ export default function HierarchySelect<T extends HierarchyItemBase>({
               shadow-lg
               flex flex-col
               ${isMobile ? 'animate-slide-up' : ''}
+              ${isMobile && keyboardOffset > 0 ? 'transition-[bottom,max-height] duration-150 ease-out' : ''}
             `}
+            style={
+              isMobile
+                ? {
+                    bottom: keyboardOffset,
+                    // When keyboard is visible, reduce max-height to fit in remaining space
+                    // Account for safe area at top and leave some padding
+                    maxHeight: keyboardOffset > 0
+                      ? `calc(100vh - ${keyboardOffset}px - env(safe-area-inset-top, 0px) - 20px)`
+                      : '85vh',
+                  }
+                : undefined
+            }
             role="listbox"
             aria-label={label || 'Select an option'}
           >

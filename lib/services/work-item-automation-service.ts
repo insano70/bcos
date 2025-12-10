@@ -167,6 +167,11 @@ class WorkItemAutomationService implements WorkItemAutomationServiceInterface {
               )
             : {};
 
+          // Calculate hierarchy fields correctly for nested items
+          // Root is either parent's root (for nested children) or parent itself (if parent is root)
+          const rootWorkItemId = parentWorkItem.root_work_item_id || parentWorkItem.work_item_id;
+          const childDepth = (parentWorkItem.depth ?? 0) + 1;
+
           // Create child work item
           const insertStart = Date.now();
           const [childWorkItem] = await db
@@ -182,8 +187,8 @@ class WorkItemAutomationService implements WorkItemAutomationServiceInterface {
                 (inheritedFields.assigned_to as string) || parentWorkItem.assigned_to || null,
               due_date: (inheritedFields.due_date as Date) || parentWorkItem.due_date || null,
               parent_work_item_id: parentWorkItemId,
-              root_work_item_id: parentWorkItem.work_item_id, // Parent becomes root
-              depth: 1, // Child is always depth 1 from parent
+              root_work_item_id: rootWorkItemId,
+              depth: childDepth,
               created_by: this.userContext.user_id,
             })
             .returning();
@@ -198,9 +203,10 @@ class WorkItemAutomationService implements WorkItemAutomationServiceInterface {
             continue;
           }
 
-          // Update path
+          // Update path - build on parent's path for proper hierarchy
           const pathStart = Date.now();
-          const path = `/${parentWorkItemId}/${childWorkItem.work_item_id}`;
+          const parentPath = parentWorkItem.path || `/${parentWorkItem.work_item_id}`;
+          const path = `${parentPath}/${childWorkItem.work_item_id}`;
           await db
             .update(work_items)
             .set({ path })

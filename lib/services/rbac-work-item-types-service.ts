@@ -24,7 +24,45 @@ export type { WorkItemTypeQueryOptions, WorkItemTypeWithDetails };
  * Manages work item types with automatic permission checking
  */
 
+// Type for work item type query result row
+interface WorkItemTypeQueryRow {
+  work_item_type_id: string;
+  organization_id: string | null;
+  organization_name: string | null;
+  name: string;
+  description: string | null;
+  icon: string | null;
+  color: string | null;
+  is_active: boolean;
+  created_by: string | null;
+  created_by_first_name: string | null;
+  created_by_last_name: string | null;
+  created_at: Date | null;
+  updated_at: Date | null;
+}
+
 export class RBACWorkItemTypesService extends BaseRBACService {
+  /**
+   * Map database query result to WorkItemTypeWithDetails
+   * Centralizes mapping logic to ensure consistency and DRY principle
+   */
+  private mapRowToWorkItemType(row: WorkItemTypeQueryRow): WorkItemTypeWithDetails {
+    return {
+      work_item_type_id: row.work_item_type_id,
+      organization_id: row.organization_id,
+      organization_name: row.organization_name,
+      name: row.name,
+      description: row.description,
+      icon: row.icon,
+      color: row.color,
+      is_active: row.is_active,
+      created_by: row.created_by,
+      created_by_name: formatUserName(row.created_by_first_name, row.created_by_last_name),
+      created_at: row.created_at ?? new Date(),
+      updated_at: row.updated_at ?? new Date(),
+    };
+  }
+
   /**
    * Get work item types with filtering
    * Returns global types (organization_id = null) and organization-specific types
@@ -104,20 +142,7 @@ export class RBACWorkItemTypesService extends BaseRBACService {
         duration: Date.now() - queryStart,
       });
 
-      return results.map((row) => ({
-        work_item_type_id: row.work_item_type_id,
-        organization_id: row.organization_id,
-        organization_name: row.organization_name,
-        name: row.name,
-        description: row.description,
-        icon: row.icon,
-        color: row.color,
-        is_active: row.is_active,
-        created_by: row.created_by,
-        created_by_name: formatUserName(row.created_by_first_name, row.created_by_last_name),
-        created_at: row.created_at,
-        updated_at: row.updated_at,
-      }));
+      return results.map((row) => this.mapRowToWorkItemType(row));
     } catch (error) {
       log.error('Failed to retrieve work item types', error);
       throw error;
@@ -208,20 +233,7 @@ export class RBACWorkItemTypesService extends BaseRBACService {
         return null;
       }
 
-      return {
-        work_item_type_id: row.work_item_type_id,
-        organization_id: row.organization_id,
-        organization_name: row.organization_name,
-        name: row.name,
-        description: row.description,
-        icon: row.icon,
-        color: row.color,
-        is_active: row.is_active,
-        created_by: row.created_by,
-        created_by_name: formatUserName(row.created_by_first_name, row.created_by_last_name),
-        created_at: row.created_at,
-        updated_at: row.updated_at,
-      };
+      return this.mapRowToWorkItemType(row);
     } catch (error) {
       log.error('Failed to retrieve work item type', error, { typeId });
       throw error;

@@ -172,8 +172,34 @@ export const SCORE_TRANSFORMATION = {
   FLOOR: 70,
   /** Score range above floor */
   RANGE: 30,
-  /** Trend bonus/penalty for improving/declining */
+  /** @deprecated Use SCORE_WEIGHTS for weighted composite scoring */
   TREND_ADJUSTMENT: 3,
+} as const;
+
+/**
+ * Score weighting configuration
+ * 
+ * Controls how the final score is calculated as a weighted composite of:
+ * - Peer Score: Based on percentile rank among similar-sized practices
+ * - Trend Score: Based on improvement/decline vs prior 3 months
+ * 
+ * Both weights should sum to 1.0 (100%)
+ * 
+ * Example with 50/50 split:
+ * - 50th percentile peer score = 85
+ * - +25% trend score = 92.5
+ * - Final = (85 × 0.5) + (92.5 × 0.5) = 88.75
+ */
+export const SCORE_WEIGHTS = {
+  /** Weight for peer comparison score (0-1) */
+  PEER_WEIGHT: 0.5,
+  /** Weight for trend/improvement score (0-1) */
+  TREND_WEIGHT: 0.5,
+  /** 
+   * Maximum trend percentage to consider for scoring
+   * Trends beyond this are capped (prevents outliers from skewing scores)
+   */
+  MAX_TREND_PERCENT: 50,
 } as const;
 
 /**

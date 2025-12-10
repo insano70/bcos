@@ -521,7 +521,7 @@ export const work_item_watchers = pgTable(
     userIdx: index('idx_watchers_user').on(table.user_id),
     watchTypeIdx: index('idx_watchers_type').on(table.watch_type),
     // Unique constraint: one watcher entry per work_item + user combination
-    uniqueWatcherIdx: index('idx_unique_watcher').on(table.work_item_id, table.user_id),
+    uniqueWatcher: unique('uq_watchers_work_item_user').on(table.work_item_id, table.user_id),
   })
 );
 

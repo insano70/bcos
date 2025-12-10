@@ -15,11 +15,13 @@ import {
   report_card_measures,
   report_card_results,
   practice_size_buckets,
-  organizations,
 } from '@/lib/db/schema';
 import { log, SLOW_THRESHOLDS } from '@/lib/logger';
 import { InsufficientDataError } from '@/lib/errors/report-card-errors';
-import { REPORT_CARD_LIMITS, SCORE_TRANSFORMATION, type SizeBucket, type TrendDirection } from '@/lib/constants/report-card';
+import { SCORE_TRANSFORMATION, SCORE_WEIGHTS, type SizeBucket, type TrendDirection } from '@/lib/constants/report-card';
+import { calculateTrend } from '@/lib/utils/trend-calculation';
+import { getReportCardMonthString } from '@/lib/utils/format-value';
+import { getPracticeOrganizationMappings } from '@/lib/utils/organization-mapping';
 import type {
   ReportCard,
   MeasureScore,
@@ -30,23 +32,11 @@ import type {
   GenerationOptions,
   MeasureScoringResult,
   SizeBucketMap,
-  OrganizationMap,
   MonthStatisticsMap,
   PeerStatisticsMap,
   TrendDataMap,
   PreloadedData,
 } from './types';
-
-/**
- * Get the report card month (first day of last month)
- * Report cards are always for the previous complete month.
- * Returns ISO date string (YYYY-MM-DD)
- */
-function getReportCardMonth(): string {
-  const now = new Date();
-  const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  return formatMonthString(lastMonth);
-}
 
 /**
  * Format a date as YYYY-MM-DD (first of month)
@@ -128,7 +118,7 @@ export class ReportCardGeneratorService {
       } else if (options.targetMonth) {
         monthsToGenerate = [options.targetMonth];
       } else {
-        monthsToGenerate = [getReportCardMonth()];
+        monthsToGenerate = [getReportCardMonthString()];
       }
 
       log.info('Starting optimized report card generation', {
@@ -162,8 +152,8 @@ export class ReportCardGeneratorService {
       // BULK PRELOAD: Size buckets for all practices (1 query)
       const sizeBuckets = await this.preloadSizeBuckets(practices);
       
-      // BULK PRELOAD: Organization mappings (1 query)
-      const organizationMap = await this.preloadOrganizations(practices);
+      // BULK PRELOAD: Organization mappings (shared utility, 1 query)
+      const organizationMap = await getPracticeOrganizationMappings(practices);
 
       log.info('Preloaded base data', {
         operation: 'generate_report_cards',
@@ -275,58 +265,6 @@ export class ReportCardGeneratorService {
         size_bucket: r.size_bucket,
         percentile: parseFloat(r.percentile || '0'),
         organization_id: r.organization_id,
-      });
-    }
-
-    return map;
-  }
-
-  /**
-   * Preload organization mappings for all practices in a single query
-   * 
-   * Organization linkage is optional for report card generation.
-   * Practices without org mappings will have null organization_id.
-   * 
-   * @throws Error only if the database query itself fails (connection issues)
-   */
-  private async preloadOrganizations(practices: number[]): Promise<OrganizationMap> {
-    const map: OrganizationMap = new Map();
-    
-    if (practices.length === 0) return map;
-
-    const orgs = await db
-      .select({
-        organization_id: organizations.organization_id,
-        practice_uids: organizations.practice_uids,
-      })
-      .from(organizations)
-      .where(eq(organizations.is_active, true));
-
-    for (const org of orgs) {
-      if (org.practice_uids && Array.isArray(org.practice_uids)) {
-        for (const practiceUid of org.practice_uids) {
-          if (practices.includes(practiceUid)) {
-            map.set(practiceUid, org.organization_id);
-          }
-        }
-      }
-    }
-
-    // Track practices without org mapping (this is expected for some practices)
-    let unmappedCount = 0;
-    for (const practiceUid of practices) {
-      if (!map.has(practiceUid)) {
-        map.set(practiceUid, null);
-        unmappedCount++;
-      }
-    }
-
-    if (unmappedCount > 0) {
-      log.debug('Some practices have no organization mapping', {
-        operation: 'preload_organizations',
-        totalPractices: practices.length,
-        unmappedCount,
-        component: 'report-card',
       });
     }
 
@@ -719,9 +657,14 @@ export class ReportCardGeneratorService {
       trendDataMap
     );
 
-    // Normalize score
+    // Normalize score using weighted composite of peer percentile and trend
     const effectivePercentile = percentileRank ?? 50;
-    const normalizedScore = this.normalizeScore(effectivePercentile, trendResult.direction, measure.higher_is_better);
+    const normalizedScore = this.normalizeScore(
+      effectivePercentile,
+      trendResult.direction,
+      measure.higher_is_better,
+      trendResult.percentage
+    );
 
     return {
       measureName: measure.measure_name,
@@ -737,14 +680,16 @@ export class ReportCardGeneratorService {
 
   /**
    * Calculate trend using preloaded data - no database queries
+   * 
+   * Uses shared trend calculation utility for consistency with TrendAnalysisService.
    */
   private calculateTrendWithPreloadedData(
-    practiceUid: number,
+    _practiceUid: number,
     measure: MeasureConfig,
     targetMonth: string,
     trendDataMap: TrendDataMap
   ): { direction: TrendDirection; percentage: number } {
-    const key = `${practiceUid}:${measure.measure_name}`;
+    const key = `${_practiceUid}:${measure.measure_name}`;
     const data = trendDataMap.get(key);
 
     if (!data || data.length === 0) {
@@ -779,381 +724,17 @@ export class ReportCardGeneratorService {
       return { direction: 'stable', percentage: 0 };
     }
 
-    const priorAvg = priorValues.reduce((sum, v) => sum + v, 0) / priorValues.length;
-
-    if (priorAvg === 0) {
-      return { direction: 'stable', percentage: 0 };
-    }
-
-    const percentChange = ((targetValue - priorAvg) / priorAvg) * 100;
-    const cappedPercentChange = Math.max(-99999.99, Math.min(99999.99, percentChange));
-
-    // Determine direction based on higherIsBetter
-    let direction: TrendDirection = 'stable';
-    if (Math.abs(cappedPercentChange) >= 5) {
-      const isPositive = cappedPercentChange > 0;
-      if (measure.higher_is_better) {
-        direction = isPositive ? 'improving' : 'declining';
-      } else {
-        direction = isPositive ? 'declining' : 'improving';
-      }
-    }
-
-    return {
-      direction,
-      percentage: Math.round(cappedPercentChange * 100) / 100,
-    };
-  }
-
-  /**
-   * Generate report card for a single practice for a specific month
-   * @param practiceUid - Practice UID to generate report card for
-   * @param measures - Optional measures config (will fetch if not provided)
-   * @param force - Force regeneration even if recent report card exists for this month
-   * @param targetMonth - Target month (YYYY-MM-DD), defaults to last month
-   */
-  async generateForPractice(
-    practiceUid: number,
-    measures?: MeasureConfig[],
-    force?: boolean,
-    targetMonth?: string
-  ): Promise<ReportCard | null> {
-    // Get the report card month we're generating for
-    const reportCardMonth = targetMonth || getReportCardMonth();
-
-    // Check if report card exists for this month (skip if not forcing)
-    if (!force) {
-      const staleThreshold = new Date();
-      staleThreshold.setHours(staleThreshold.getHours() - REPORT_CARD_LIMITS.STALE_THRESHOLD_HOURS);
-
-      const [existing] = await db
-        .select({
-          result_id: report_card_results.result_id,
-          generated_at: report_card_results.generated_at,
-        })
-        .from(report_card_results)
-        .where(
-          and(
-            eq(report_card_results.practice_uid, practiceUid),
-            eq(report_card_results.report_card_month, reportCardMonth)
-          )
-        )
-        .limit(1);
-
-      if (existing?.generated_at && existing.generated_at > staleThreshold) {
-        // Recent report card exists for this month, skip regeneration
-        return null;
-      }
-    }
-
-    // Get measures if not provided
-    const activeMeasures = measures || await this.getActiveMeasures();
-
-    if (activeMeasures.length === 0) {
-      throw new InsufficientDataError(practiceUid, 'No active measures configured');
-    }
-
-    // Get practice size bucket
-    const [sizeResult] = await db
-      .select()
-      .from(practice_size_buckets)
-      .where(eq(practice_size_buckets.practice_uid, practiceUid))
-      .limit(1);
-
-    if (!sizeResult) {
-      throw new InsufficientDataError(practiceUid, 'Practice size bucket not assigned');
-    }
-
-    const sizeBucket = sizeResult.size_bucket as SizeBucket;
-    const percentileRank = parseFloat(sizeResult.percentile || '0');
-
-    // Calculate scores for each measure using data as of the target month
-    const measureScores: Record<string, MeasureScore> = {};
-    const scoringResults: MeasureScoringResult[] = [];
-
-    for (const measure of activeMeasures) {
-      const scoring = await this.scoreMeasureForMonth(
-        practiceUid, 
-        measure, 
-        sizeBucket,
-        reportCardMonth
-      );
-
-      if (scoring) {
-        scoringResults.push(scoring);
-        measureScores[measure.measure_name] = {
-          score: scoring.normalizedScore,
-          value: scoring.rawValue,
-          trend: scoring.trend,
-          trend_percentage: scoring.trendPercentage,
-          percentile: scoring.percentileRank,
-          peer_average: scoring.peerAverage,
-          peer_count: scoring.peerCount,
-        };
-      }
-    }
-
-    if (scoringResults.length === 0) {
-      throw new InsufficientDataError(practiceUid, `No measure scores for ${reportCardMonth}`);
-    }
-
-    // Calculate overall weighted score
-    const overallScore = this.calculateOverallScore(scoringResults, activeMeasures);
-
-    // Generate insights
-    const insights = this.generateInsights(scoringResults, activeMeasures);
-
-    // Get organization ID
-    const [orgResult] = await db
-      .select({ organization_id: report_card_statistics.organization_id })
-      .from(report_card_statistics)
-      .where(eq(report_card_statistics.practice_uid, practiceUid))
-      .limit(1);
-
-    const organizationId = orgResult?.organization_id || null;
-
-    // Save report card
-    const reportCard = await this.saveReportCard({
-      practiceUid,
-      organizationId,
-      reportCardMonth,
-      overallScore,
-      sizeBucket,
-      percentileRank,
-      insights,
-      measureScores,
+    // Use shared trend calculation utility for consistency
+    const trendResult = calculateTrend({
+      currentValue: targetValue,
+      priorValues,
+      higherIsBetter: measure.higher_is_better,
     });
 
-    return reportCard;
-  }
-
-  /**
-   * Score a single measure for a practice for a specific month
-   * Uses data from that month, not the latest data
-   */
-  private async scoreMeasureForMonth(
-    practiceUid: number,
-    measure: MeasureConfig,
-    sizeBucket: SizeBucket,
-    targetMonth: string
-  ): Promise<MeasureScoringResult | null> {
-    // Get statistics for the target month
-    // Match month by comparing the period_date's year-month
-    // Use T00:00:00 suffix to parse in local time, not UTC
-    const targetDate = new Date(`${targetMonth}T00:00:00`);
-    const monthStart = new Date(targetDate.getFullYear(), targetDate.getMonth(), 1);
-    const monthEnd = new Date(targetDate.getFullYear(), targetDate.getMonth() + 1, 1);
-
-    const [monthStat] = await db
-      .select({ 
-        value: report_card_statistics.value,
-        period_date: report_card_statistics.period_date,
-      })
-      .from(report_card_statistics)
-      .where(
-        and(
-          eq(report_card_statistics.practice_uid, practiceUid),
-          eq(report_card_statistics.measure_name, measure.measure_name),
-          sql`${report_card_statistics.period_date} >= ${monthStart.toISOString()}`,
-          sql`${report_card_statistics.period_date} < ${monthEnd.toISOString()}`
-        )
-      )
-      .limit(1);
-
-    if (!monthStat) {
-      return null;
-    }
-
-    const rawValue = parseFloat(monthStat.value);
-
-    // Get peer statistics for the same month (excluding current practice for true peer comparison)
-    const peerData = await this.getPeerStatisticsForMonth(
-      measure.measure_name, 
-      sizeBucket,
-      targetMonth,
-      practiceUid  // Exclude self from peer comparison
-    );
-
-    // Calculate percentile rank (will be null if insufficient peers)
-    // Minimum 2 peers required for meaningful percentile
-    const percentileRank = peerData.peerCount >= 2 
-      ? this.calculatePercentile(rawValue, peerData.values, measure.higher_is_better)
-      : null;
-
-    // Calculate trend by comparing to prior 3 months
-    const trendData = await this.calculateTrendForMonth(
-      practiceUid,
-      measure.measure_name,
-      targetMonth,
-      measure.higher_is_better
-    );
-
-    // Normalize score to 0-100 scale
-    // When percentile is null (insufficient peers), use 50 as neutral baseline
-    const effectivePercentile = percentileRank ?? 50;
-    const normalizedScore = this.normalizeScore(effectivePercentile, trendData.direction, measure.higher_is_better);
-
     return {
-      measureName: measure.measure_name,
-      rawValue,
-      normalizedScore,
-      percentileRank: percentileRank ?? null,  // Preserve null to indicate insufficient data
-      peerAverage: peerData.average,
-      peerCount: peerData.peerCount,  // Include peer count for UI to show warnings
-      trend: trendData.direction,
-      trendPercentage: trendData.percentage,
+      direction: trendResult.direction,
+      percentage: trendResult.percentage,
     };
-  }
-
-  /**
-   * Calculate trend for a measure by comparing target month to prior 3 months average
-   */
-  private async calculateTrendForMonth(
-    practiceUid: number,
-    measureName: string,
-    targetMonth: string,
-    higherIsBetter: boolean
-  ): Promise<{ direction: TrendDirection; percentage: number }> {
-    // Use T00:00:00 suffix to parse in local time, not UTC
-    const targetDate = new Date(`${targetMonth}T00:00:00`);
-    
-    // Get prior 3 months
-    const priorMonths: Date[] = [];
-    for (let i = 1; i <= 3; i++) {
-      priorMonths.push(new Date(targetDate.getFullYear(), targetDate.getMonth() - i, 1));
-    }
-
-    // Get values for prior months
-    const priorStats = await db
-      .select({ 
-        value: report_card_statistics.value,
-        period_date: report_card_statistics.period_date,
-      })
-      .from(report_card_statistics)
-      .where(
-        and(
-          eq(report_card_statistics.practice_uid, practiceUid),
-          eq(report_card_statistics.measure_name, measureName),
-          sql`${report_card_statistics.period_date} >= ${priorMonths[2]?.toISOString() || priorMonths[0]?.toISOString()}`,
-          sql`${report_card_statistics.period_date} < ${targetDate.toISOString()}`
-        )
-      );
-
-    if (priorStats.length === 0) {
-      return { direction: 'stable', percentage: 0 };
-    }
-
-    // Get target month value
-    const targetMonthStart = new Date(targetDate.getFullYear(), targetDate.getMonth(), 1);
-    const targetMonthEnd = new Date(targetDate.getFullYear(), targetDate.getMonth() + 1, 1);
-    
-    const [targetStat] = await db
-      .select({ value: report_card_statistics.value })
-      .from(report_card_statistics)
-      .where(
-        and(
-          eq(report_card_statistics.practice_uid, practiceUid),
-          eq(report_card_statistics.measure_name, measureName),
-          sql`${report_card_statistics.period_date} >= ${targetMonthStart.toISOString()}`,
-          sql`${report_card_statistics.period_date} < ${targetMonthEnd.toISOString()}`
-        )
-      )
-      .limit(1);
-
-    if (!targetStat) {
-      return { direction: 'stable', percentage: 0 };
-    }
-
-    const targetValue = parseFloat(targetStat.value);
-    const priorValues = priorStats.map(s => parseFloat(s.value));
-    const priorAvg = priorValues.reduce((sum, v) => sum + v, 0) / priorValues.length;
-
-    if (priorAvg === 0) {
-      return { direction: 'stable', percentage: 0 };
-    }
-
-    const percentChange = ((targetValue - priorAvg) / priorAvg) * 100;
-    // Cap at ±99999.99 to prevent overflow
-    const cappedPercentChange = Math.max(-99999.99, Math.min(99999.99, percentChange));
-
-    // Determine direction based on higherIsBetter
-    let direction: TrendDirection = 'stable';
-    if (Math.abs(cappedPercentChange) >= 5) {
-      const isPositive = cappedPercentChange > 0;
-      if (higherIsBetter) {
-        direction = isPositive ? 'improving' : 'declining';
-      } else {
-        direction = isPositive ? 'declining' : 'improving';
-      }
-    }
-
-    return { 
-      direction, 
-      percentage: Math.round(cappedPercentChange * 100) / 100 
-    };
-  }
-
-  /**
-   * Get peer statistics for a measure within a size bucket for a specific month
-   * 
-   * @param measureName - The measure to get stats for
-   * @param sizeBucket - The size bucket to compare against
-   * @param targetMonth - The month to get stats for
-   * @param excludePracticeUid - Optional practice to exclude from peer pool (typically the current practice)
-   */
-  private async getPeerStatisticsForMonth(
-    measureName: string,
-    sizeBucket: SizeBucket,
-    targetMonth: string,
-    excludePracticeUid?: number
-  ): Promise<{ values: number[]; average: number; peerCount: number }> {
-    // Get practices in the same size bucket
-    const peerPractices = await db
-      .select({ practice_uid: practice_size_buckets.practice_uid })
-      .from(practice_size_buckets)
-      .where(eq(practice_size_buckets.size_bucket, sizeBucket));
-
-    if (peerPractices.length === 0) {
-      return { values: [], average: 0, peerCount: 0 };
-    }
-
-    // Exclude the current practice from the peer pool to get true peer comparison
-    const practiceUids = peerPractices
-      .map((p) => p.practice_uid)
-      .filter((uid) => uid !== excludePracticeUid);
-
-    if (practiceUids.length === 0) {
-      // Only the current practice is in the bucket
-      return { values: [], average: 0, peerCount: 0 };
-    }
-
-    // Get value for each peer practice for the target month
-    // Use T00:00:00 suffix to parse in local time, not UTC
-    const targetDate = new Date(`${targetMonth}T00:00:00`);
-    const monthStart = new Date(targetDate.getFullYear(), targetDate.getMonth(), 1);
-    const monthEnd = new Date(targetDate.getFullYear(), targetDate.getMonth() + 1, 1);
-
-    const peerStats = await db
-      .select({
-        practice_uid: report_card_statistics.practice_uid,
-        value: report_card_statistics.value,
-      })
-      .from(report_card_statistics)
-      .where(
-        and(
-          inArray(report_card_statistics.practice_uid, practiceUids),
-          eq(report_card_statistics.measure_name, measureName),
-          sql`${report_card_statistics.period_date} >= ${monthStart.toISOString()}`,
-          sql`${report_card_statistics.period_date} < ${monthEnd.toISOString()}`
-        )
-      );
-
-    const values = peerStats.map((s) => parseFloat(s.value));
-    const average = values.length > 0
-      ? values.reduce((sum, v) => sum + v, 0) / values.length
-      : 0;
-
-    return { values, average, peerCount: values.length };
   }
 
   /**
@@ -1191,38 +772,85 @@ export class ReportCardGeneratorService {
   }
 
   /**
-   * Normalize score to a grade-friendly 70-100 scale
+   * Calculate trend score from trend percentage
    * 
-   * TRANSFORMATION LOGIC:
-   * Raw percentile (0-100) is transformed to fit within 70-100 range:
-   * - 0th percentile → 70 (C-, the floor)
-   * - 50th percentile → 85 (B-)
-   * - 100th percentile → 100 (A+)
+   * Converts trend percentage to a 70-100 scale:
+   * - -50% or worse → 70 (C-, floor)
+   * - 0% (no change) → 85 (B-, neutral)
+   * - +50% or better → 100 (A+, ceiling)
    * 
-   * This ensures:
-   * - No practice gets below C- (70)
-   * - Average performers (50th percentile) get B- (85)
-   * - Top performers get A range scores
-   * - There's still meaningful differentiation
+   * Linear interpolation between these points.
+   */
+  private calculateTrendScore(trendPercentage: number): number {
+    const { FLOOR, RANGE } = SCORE_TRANSFORMATION;
+    const { MAX_TREND_PERCENT } = SCORE_WEIGHTS;
+    
+    // Clamp trend percentage to max range (-50% to +50%)
+    const clampedTrend = Math.max(-MAX_TREND_PERCENT, Math.min(MAX_TREND_PERCENT, trendPercentage));
+    
+    // Convert from -50..+50 to 0..100 scale
+    // -50% → 0, 0% → 50, +50% → 100
+    const normalizedTrend = (clampedTrend + MAX_TREND_PERCENT) / (2 * MAX_TREND_PERCENT) * 100;
+    
+    // Transform to grading scale (70-100)
+    return FLOOR + (normalizedTrend / 100) * RANGE;
+  }
+
+  /**
+   * Normalize score using weighted composite of peer and trend scores
+   * 
+   * WEIGHTED COMPOSITE SCORING:
+   * Final score is a weighted average of peer score and trend score:
+   * - Peer Score: Based on percentile rank (0-100 → 70-100)
+   * - Trend Score: Based on improvement percentage (-50% to +50% → 70-100)
+   * 
+   * Default weights (configurable in SCORE_WEIGHTS):
+   * - Peer: 50%
+   * - Trend: 50%
+   * 
+   * This balances:
+   * - Current performance vs peers
+   * - Improvement trajectory over time
+   * 
+   * IMPORTANT: For measures where lower is better (e.g., Cancellation Rate),
+   * the trend percentage is inverted so that a decrease (negative %) is treated
+   * as an improvement for scoring purposes.
+   * 
+   * Example (50th percentile, +25% improvement, higherIsBetter=true):
+   * - Peer Score: 70 + (50/100) × 30 = 85
+   * - Trend Score: 70 + (75/100) × 30 = 92.5 (75 = normalized +25%)
+   * - Final: (85 × 0.5) + (92.5 × 0.5) = 88.75
+   * 
+   * Example (50th percentile, +25% change, higherIsBetter=false):
+   * - Peer Score: 70 + (50/100) × 30 = 85
+   * - Effective trend: -25% (inverted because lower is better)
+   * - Trend Score: 70 + (25/100) × 30 = 77.5 (25 = normalized -25%)
+   * - Final: (85 × 0.5) + (77.5 × 0.5) = 81.25
    */
   private normalizeScore(
     percentileRank: number,
-    trend: TrendDirection,
-    _higherIsBetter: boolean
+    _trend: TrendDirection,
+    higherIsBetter: boolean,
+    trendPercentage: number = 0
   ): number {
-    // Transform percentile (0-100) to grading scale (70-100)
-    // Formula: FLOOR + (percentile / 100) * RANGE
-    const { FLOOR, RANGE, TREND_ADJUSTMENT } = SCORE_TRANSFORMATION;
-    let score = FLOOR + (percentileRank / 100) * RANGE;
-
-    // Adjust for trend (±TREND_ADJUSTMENT points)
-    if (trend === 'improving') {
-      score = Math.min(100, score + TREND_ADJUSTMENT);
-    } else if (trend === 'declining') {
-      score = Math.max(FLOOR, score - TREND_ADJUSTMENT);
-    }
-
-    return Math.round(score * 10) / 10;
+    const { FLOOR, RANGE } = SCORE_TRANSFORMATION;
+    const { PEER_WEIGHT, TREND_WEIGHT } = SCORE_WEIGHTS;
+    
+    // Calculate peer score from percentile (70-100)
+    const peerScore = FLOOR + (percentileRank / 100) * RANGE;
+    
+    // For measures where lower is better, invert the trend percentage
+    // This ensures that a decrease (which is good for these measures) gets rewarded
+    const effectiveTrendPercentage = higherIsBetter ? trendPercentage : -trendPercentage;
+    
+    // Calculate trend score from effective trend percentage (70-100)
+    const trendScore = this.calculateTrendScore(effectiveTrendPercentage);
+    
+    // Weighted composite
+    const finalScore = (peerScore * PEER_WEIGHT) + (trendScore * TREND_WEIGHT);
+    
+    // Ensure within bounds and round to 1 decimal
+    return Math.round(Math.max(FLOOR, Math.min(100, finalScore)) * 10) / 10;
   }
 
   /**

@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { validateQuery } from '@/lib/api/middleware/validation';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { handleRouteError } from '@/lib/api/responses/error';
 import { createPaginatedResponse, createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
@@ -90,11 +90,7 @@ const getWorkItemTypesHandler = async (request: NextRequest, userContext: UserCo
       component: 'work-items',
     });
 
-    return createErrorResponse(
-      error instanceof Error ? error.message : 'Unknown error',
-      500,
-      request
-    );
+    return handleRouteError(error, 'Failed to list work item types', request);
   }
 };
 
@@ -166,11 +162,7 @@ const createWorkItemTypeHandler = async (request: NextRequest, userContext: User
       component: 'work-items',
     });
 
-    return createErrorResponse(
-      error instanceof Error ? error.message : 'Unknown error',
-      500,
-      request
-    );
+    return handleRouteError(error, 'Failed to create work item type', request);
   }
 };
 

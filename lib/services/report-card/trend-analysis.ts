@@ -13,27 +13,26 @@
  * Trends are stored in the report_card_trends table.
  */
 
-import { eq, and, gte, lt, desc, sql, inArray } from 'drizzle-orm';
+import { eq, and, gte, lt, desc, inArray, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { report_card_statistics, report_card_trends } from '@/lib/db/schema';
+import { report_card_statistics, report_card_trends, report_card_measures } from '@/lib/db/schema';
 import { log, SLOW_THRESHOLDS } from '@/lib/logger';
 import { TrendAnalysisError } from '@/lib/errors/report-card-errors';
 import {
   TREND_PERIODS,
-  TREND_THRESHOLDS,
   type TrendPeriod,
   type TrendDirection,
 } from '@/lib/constants/report-card';
+import { calculateTrend } from '@/lib/utils/trend-calculation';
+import { getReportCardMonthDate } from '@/lib/utils/format-value';
+import { getPracticeOrganizationMappings } from '@/lib/utils/organization-mapping';
 import type { TrendAnalysisResult } from '@/lib/types/report-card';
 import type { TrendAnalysisOptions, TrendCalculation } from './types';
 
-/**
- * Get the Report Card Month (last full month)
- */
-function getReportCardMonth(): Date {
-  const now = new Date();
-  // First day of last month
-  return new Date(now.getFullYear(), now.getMonth() - 1, 1);
+/** Measure configuration for trend calculation */
+interface MeasureConfig {
+  measure_name: string;
+  higher_is_better: boolean;
 }
 
 /**
@@ -72,8 +71,11 @@ export class TrendAnalysisService {
         component: 'report-card',
       });
 
-      // Get organization mappings in one query
-      const orgMappings = await this.getOrganizationMappings(practices);
+      // Get organization mappings (shared utility, 1 query)
+      const orgMappings = await getPracticeOrganizationMappings(practices);
+
+      // Get measure configs (for higher_is_better)
+      const measureConfigs = await this.getMeasureConfigs();
 
       // Get all statistics needed for trend calculation in bulk
       const allStats = await this.getStatisticsForTrends(practices);
@@ -83,7 +85,7 @@ export class TrendAnalysisService {
         const practiceStats = allStats.get(practiceUid);
         if (!practiceStats) continue;
 
-        const practiceTrends = this.calculateTrendsForPractice(practiceUid, practiceStats);
+        const practiceTrends = this.calculateTrendsForPractice(practiceUid, practiceStats, measureConfigs);
         
         if (practiceTrends.length > 0) {
           allTrends.push(...practiceTrends);
@@ -123,26 +125,27 @@ export class TrendAnalysisService {
   }
 
   /**
-   * Get organization mappings for practices in bulk
+   * Get measure configurations including higher_is_better flag
    */
-  private async getOrganizationMappings(practices: number[]): Promise<Map<number, string | null>> {
-    const mappings = new Map<number, string | null>();
-    
-    if (practices.length === 0) return mappings;
+  private async getMeasureConfigs(): Promise<Map<string, MeasureConfig>> {
+    const configs = new Map<string, MeasureConfig>();
 
     const results = await db
-      .selectDistinct({
-        practice_uid: report_card_statistics.practice_uid,
-        organization_id: report_card_statistics.organization_id,
+      .select({
+        measure_name: report_card_measures.measure_name,
+        higher_is_better: report_card_measures.higher_is_better,
       })
-      .from(report_card_statistics)
-      .where(inArray(report_card_statistics.practice_uid, practices));
+      .from(report_card_measures)
+      .where(eq(report_card_measures.is_active, true));
 
     for (const r of results) {
-      mappings.set(r.practice_uid, r.organization_id);
+      configs.set(r.measure_name, {
+        measure_name: r.measure_name,
+        higher_is_better: r.higher_is_better ?? true, // Default to true if null
+      });
     }
 
-    return mappings;
+    return configs;
   }
 
   /**
@@ -156,7 +159,7 @@ export class TrendAnalysisService {
     
     if (practices.length === 0) return result;
 
-    const reportCardMonth = getReportCardMonth();
+    const reportCardMonth = getReportCardMonthDate();
     
     // Get cutoff date for longest period (9 months before report card month)
     // Plus the report card month itself = 10 months of data
@@ -212,14 +215,19 @@ export class TrendAnalysisService {
    */
   private calculateTrendsForPractice(
     practiceUid: number,
-    measureStats: Map<string, Array<{ date: Date; value: number }>>
+    measureStats: Map<string, Array<{ date: Date; value: number }>>,
+    measureConfigs: Map<string, MeasureConfig>
   ): TrendCalculation[] {
     const trends: TrendCalculation[] = [];
 
     const entries = Array.from(measureStats.entries());
     for (const [measureName, stats] of entries) {
+      // Get higher_is_better from config, default to true if not found
+      const config = measureConfigs.get(measureName);
+      const higherIsBetter = config?.higher_is_better ?? true;
+
       for (const trendPeriod of TREND_PERIODS) {
-        const trend = this.calculateTrendFromStats(practiceUid, measureName, trendPeriod, stats);
+        const trend = this.calculateTrendFromStats(practiceUid, measureName, trendPeriod, stats, higherIsBetter);
         if (trend) {
           trends.push(trend);
         }
@@ -257,10 +265,11 @@ export class TrendAnalysisService {
     practiceUid: number,
     measureName: string,
     trendPeriod: TrendPeriod,
-    stats: Array<{ date: Date; value: number }>
+    stats: Array<{ date: Date; value: number }>,
+    higherIsBetter: boolean
   ): TrendCalculation | null {
     const monthsBack = this.getMonthsForPeriod(trendPeriod);
-    const reportCardMonth = getReportCardMonth();
+    const reportCardMonth = getReportCardMonthDate();
     
     // Find the Report Card Month value (first day of last month)
     const reportCardMonthStart = reportCardMonth.getTime();
@@ -284,39 +293,39 @@ export class TrendAnalysisService {
     const priorEndTime = priorEndDate.getTime();
 
     // Get values from prior months
-    const priorMonthValues = stats.filter((s) => {
-      const statTime = s.date.getTime();
-      return statTime >= priorStartTime && statTime < priorEndTime;
-    });
+    const priorMonthValues = stats
+      .filter((s) => {
+        const statTime = s.date.getTime();
+        return statTime >= priorStartTime && statTime < priorEndTime;
+      })
+      .map((s) => s.value);
 
     // Need at least some prior data to compare
     if (priorMonthValues.length < 1) {
       return null;
     }
 
-    // Calculate average of prior months
-    const priorAverage = priorMonthValues.reduce((sum, s) => sum + s.value, 0) / priorMonthValues.length;
+    // Use shared trend calculation utility
+    const trendResult = calculateTrend({
+      currentValue: reportCardValue,
+      priorValues: priorMonthValues,
+      higherIsBetter,
+    });
 
-    if (priorAverage === 0) {
-      return null;
+    // Return null if no valid calculation (priorAvg was 0)
+    if (trendResult.percentage === 0 && trendResult.direction === 'stable' && priorMonthValues.length > 0) {
+      const priorAvg = priorMonthValues.reduce((sum, v) => sum + v, 0) / priorMonthValues.length;
+      if (priorAvg === 0) {
+        return null;
+      }
     }
-
-    // Calculate percentage change: (ReportCardMonth - PriorAvg) / PriorAvg * 100
-    const rawPercentageChange = ((reportCardValue - priorAverage) / Math.abs(priorAverage)) * 100;
-    
-    // Cap percentage change to fit database constraints
-    const MAX_PERCENTAGE = 99999.99;
-    const MIN_PERCENTAGE = -99999.99;
-    const percentageChange = Math.max(MIN_PERCENTAGE, Math.min(MAX_PERCENTAGE, rawPercentageChange));
-    
-    const direction = this.determineTrendDirection(percentageChange);
 
     return {
       practiceUid,
       measureName,
       trendPeriod,
-      direction,
-      percentageChange,
+      direction: trendResult.direction,
+      percentageChange: trendResult.percentage,
     };
   }
 
@@ -373,18 +382,6 @@ export class TrendAnalysisService {
       default:
         return 3;
     }
-  }
-
-  /**
-   * Determine trend direction based on percentage change
-   */
-  private determineTrendDirection(percentageChange: number): TrendDirection {
-    if (percentageChange >= TREND_THRESHOLDS.IMPROVING_MIN_PERCENT) {
-      return 'improving';
-    } else if (percentageChange <= TREND_THRESHOLDS.DECLINING_MIN_PERCENT) {
-      return 'declining';
-    }
-    return 'stable';
   }
 
   /**

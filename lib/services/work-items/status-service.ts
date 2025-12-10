@@ -15,6 +15,21 @@ import { ValidationError } from '@/lib/api/responses/error';
 import type { UserContext } from '@/lib/types/rbac';
 
 /**
+ * Transition Policy Configuration
+ *
+ * Defines behavior when no explicit transition rule exists between two statuses.
+ *
+ * - 'permissive': Allow all transitions that don't have an explicit is_allowed=false rule
+ * - 'restrictive': Block all transitions unless explicitly allowed (is_allowed=true)
+ *
+ * Current default: 'permissive' - matches the original design for flexibility.
+ * To change system-wide behavior, update DEFAULT_TRANSITION_POLICY.
+ * Future enhancement: Per-work-item-type policy stored in work_item_types table.
+ */
+type TransitionPolicy = 'permissive' | 'restrictive';
+const DEFAULT_TRANSITION_POLICY: TransitionPolicy = 'permissive';
+
+/**
  * Work Item Status Service
  *
  * Handles status transition validation and status-related business logic.
@@ -23,7 +38,8 @@ import type { UserContext } from '@/lib/types/rbac';
  *
  * Features:
  * - Status transition validation based on workflow rules
- * - Permissive by default: allows transitions without explicit rules
+ * - Configurable default policy (see DEFAULT_TRANSITION_POLICY)
+ * - Current default: Permissive - allows transitions without explicit rules
  * - Blocks only transitions with explicit is_allowed=false rules
  *
  * @internal - Use factory function instead
@@ -71,15 +87,33 @@ class WorkItemStatusService {
         .limit(1);
       const queryDuration = Date.now() - queryStart;
 
-      // If no transition rule exists, allow the transition (permissive by default)
+      // If no transition rule exists, behavior depends on the policy
       if (!transition) {
-        log.debug('no transition rule found, allowing status change', {
-          typeId,
-          fromStatusId,
-          toStatusId,
-          queryDuration,
-        });
-        return;
+        if (DEFAULT_TRANSITION_POLICY === 'permissive') {
+          // Permissive: Allow transition when no rule exists
+          log.debug('no transition rule found, allowing status change (permissive policy)', {
+            typeId,
+            fromStatusId,
+            toStatusId,
+            policy: DEFAULT_TRANSITION_POLICY,
+            queryDuration,
+          });
+          return;
+        } else {
+          // Restrictive: Block transition when no rule exists
+          log.warn('no transition rule found, blocking status change (restrictive policy)', {
+            typeId,
+            fromStatusId,
+            toStatusId,
+            policy: DEFAULT_TRANSITION_POLICY,
+            userId: this.userContext.user_id,
+            queryDuration,
+          });
+          throw ValidationError(
+            null,
+            'Status transition not configured. Contact an administrator to define workflow rules.'
+          );
+        }
       }
 
       // If transition rule exists but is_allowed is false, reject the transition

@@ -175,6 +175,29 @@ export function getLastFullMonth(): { monthName: string; year: number; monthYear
 }
 
 /**
+ * Get the report card month as a Date object
+ * 
+ * Convenience function for services that need the raw Date.
+ * Returns the first day of the last full month.
+ */
+export function getReportCardMonthDate(): Date {
+  return getReportCardMonth().date;
+}
+
+/**
+ * Get the report card month as an ISO date string (YYYY-MM-DD)
+ * 
+ * Used for database queries and API parameters.
+ * Returns the first day of the last full month in ISO format.
+ */
+export function getReportCardMonthString(): string {
+  const date = getReportCardMonth().date;
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  return `${year}-${month}-01`;
+}
+
+/**
  * Get the prior months for trend comparison
  * 
  * @param reportCardMonth - The report card month to calculate from

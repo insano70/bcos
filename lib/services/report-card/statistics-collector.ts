@@ -12,11 +12,12 @@
 
 import { eq, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { report_card_statistics, report_card_measures, organizations } from '@/lib/db/schema';
+import { report_card_statistics, report_card_measures } from '@/lib/db/schema';
 import { executeAnalyticsQuery } from '@/lib/services/analytics-db';
 import { log, SLOW_THRESHOLDS } from '@/lib/logger';
 import { StatisticsCollectionError } from '@/lib/errors/report-card-errors';
 import { REPORT_CARD_LIMITS } from '@/lib/constants/report-card';
+import { getPracticeOrganizationMappings } from '@/lib/utils/organization-mapping';
 import type { CollectionResult } from '@/lib/types/report-card';
 import type { CollectionOptions, MeasureWithFilters, MeasureStatisticsRow } from './types';
 
@@ -104,8 +105,8 @@ export class StatisticsCollectorService {
         component: 'report-card',
       });
 
-      // Get organization mappings for practices
-      const orgMappings = await this.getPracticeOrganizationMappings();
+      // Get organization mappings for practices (shared utility)
+      const orgMappings = await getPracticeOrganizationMappings();
 
       // Process each measure
       for (const measure of activeMeasures) {
@@ -181,7 +182,7 @@ export class StatisticsCollectorService {
     measure: MeasureWithFilters,
     cutoffDateStr: string,
     options: CollectionOptions,
-    orgMappings: Map<number, string>
+    orgMappings: Map<number, string | null>
   ): Promise<{ inserted: number; updated: number; practiceUids: number[] }> {
     // Build dynamic SQL query based on filter_criteria
     const { query, params } = this.buildMeasureQuery(measure, cutoffDateStr, options.practiceUid);
@@ -283,7 +284,7 @@ export class StatisticsCollectorService {
   private async processMeasureBatch(
     measureName: string,
     rows: MeasureStatisticsRow[],
-    orgMappings: Map<number, string>,
+    orgMappings: Map<number, string | null>,
     force?: boolean
   ): Promise<{ inserted: number; updated: number }> {
     const validRecords: Array<{
@@ -392,38 +393,6 @@ export class StatisticsCollectorService {
    */
   async collectAll(options: { force?: boolean } = {}): Promise<CollectionResult> {
     return this.collect({ force: options.force ?? false });
-  }
-
-  /**
-   * Get organization mappings for practices
-   */
-  private async getPracticeOrganizationMappings(): Promise<Map<number, string>> {
-    const mappings = new Map<number, string>();
-
-    try {
-      const orgs = await db
-        .select({
-          organization_id: organizations.organization_id,
-          practice_uids: organizations.practice_uids,
-        })
-        .from(organizations)
-        .where(eq(organizations.is_active, true));
-
-      for (const org of orgs) {
-        if (org.practice_uids && Array.isArray(org.practice_uids)) {
-          for (const practiceUid of org.practice_uids) {
-            mappings.set(practiceUid, org.organization_id);
-          }
-        }
-      }
-    } catch (error) {
-      log.warn('Failed to get practice-organization mappings', {
-        error: error instanceof Error ? error.message : 'Unknown error',
-        component: 'report-card',
-      });
-    }
-
-    return mappings;
   }
 
   /**

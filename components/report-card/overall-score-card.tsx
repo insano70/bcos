@@ -3,7 +3,7 @@
 import { motion, useSpring, useTransform } from 'framer-motion';
 import { useEffect, useState } from 'react';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
-import type { SizeBucket } from '@/lib/constants/report-card';
+import { CHARGE_BASED_THRESHOLDS, type SizeBucket } from '@/lib/constants/report-card';
 import type { PreviousMonthSummary } from '@/lib/types/report-card';
 import { applyGradeFloor, getLetterGrade as getGrade, getGradeColor } from '@/lib/utils/format-value';
 import ScoreHelpTooltip from './score-help-tooltip';
@@ -89,20 +89,33 @@ function formatSizeBucket(bucket: SizeBucket): string {
 }
 
 /**
+ * Format currency value for bucket descriptions
+ */
+function formatBucketCurrency(value: number): string {
+  if (value >= 1_000_000) {
+    return `$${value / 1_000_000}M`;
+  }
+  return `$${(value / 1000).toFixed(0)}K`;
+}
+
+/**
  * Get size bucket threshold description
+ * Uses CHARGE_BASED_THRESHOLDS to ensure consistency with sizing logic
  */
 function getSizeBucketDescription(bucket: SizeBucket): string {
+  const { small_max, medium_max, large_max, xlarge_max } = CHARGE_BASED_THRESHOLDS;
+  
   switch (bucket) {
     case 'small':
-      return '< $10M annual charges';
+      return `< ${formatBucketCurrency(small_max)} annual charges`;
     case 'medium':
-      return '$10M - $25M annual charges';
+      return `${formatBucketCurrency(small_max)} - ${formatBucketCurrency(medium_max)} annual charges`;
     case 'large':
-      return '$25M - $46M annual charges';
+      return `${formatBucketCurrency(medium_max)} - ${formatBucketCurrency(large_max)} annual charges`;
     case 'xlarge':
-      return '$46M - $90M annual charges';
+      return `${formatBucketCurrency(large_max)} - ${formatBucketCurrency(xlarge_max)} annual charges`;
     case 'xxlarge':
-      return '> $90M annual charges';
+      return `> ${formatBucketCurrency(xlarge_max)} annual charges`;
     default:
       return '';
   }
