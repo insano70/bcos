@@ -24,6 +24,15 @@ const DualAxisFullscreenModal = dynamic(() => import('./dual-axis-fullscreen-mod
 const ProgressBarFullscreenModal = dynamic(() => import('./progress-bar-fullscreen-modal'), {
   ssr: false,
 });
+const NumberFullscreenModal = dynamic(() => import('./number-fullscreen-modal'), {
+  ssr: false,
+});
+const PieFullscreenModal = dynamic(() => import('./pie-fullscreen-modal'), {
+  ssr: false,
+});
+const TableFullscreenModal = dynamic(() => import('./table-fullscreen-modal'), {
+  ssr: false,
+});
 import {
   DASHBOARD_LAYOUT,
   getResponsiveColSpan,
@@ -710,13 +719,14 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
           case 'stacked-bar':
           case 'horizontal-bar':
           case 'line':
+          case 'area':
             return (
               <ChartFullscreenModal
                 isOpen={true}
                 onClose={handleMobileFullscreenClose}
                 chartTitle={chartDef.chart_name}
                 chartData={batchChartData.chartData}
-                chartType={chartDef.chart_type as 'bar' | 'stacked-bar' | 'horizontal-bar' | 'line'}
+                chartType={chartDef.chart_type as 'bar' | 'stacked-bar' | 'horizontal-bar' | 'line' | 'area'}
                 frequency={batchChartData.metadata?.frequency || 'Monthly'}
                 chartDefinitionId={chartDef.chart_definition_id}
                 {...(batchChartData.finalChartConfig && { finalChartConfig: batchChartData.finalChartConfig })}
@@ -761,8 +771,45 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
               />
             );
 
-          // Other chart types (number, table, pie, doughnut, area) don't have fullscreen modals
+          case 'number':
+            return (
+              <NumberFullscreenModal
+                isOpen={true}
+                onClose={handleMobileFullscreenClose}
+                chartTitle={chartDef.chart_name}
+                data={batchChartData.chartData}
+                {...navigationProps}
+              />
+            );
+
+          case 'pie':
+          case 'doughnut':
+            return (
+              <PieFullscreenModal
+                isOpen={true}
+                onClose={handleMobileFullscreenClose}
+                chartTitle={chartDef.chart_name}
+                data={batchChartData.chartData}
+                chartType={chartDef.chart_type as 'pie' | 'doughnut'}
+                {...navigationProps}
+              />
+            );
+
+          case 'table':
+            return (
+              <TableFullscreenModal
+                isOpen={true}
+                onClose={handleMobileFullscreenClose}
+                chartTitle={chartDef.chart_name}
+                data={batchChartData.rawData || []}
+                columns={batchChartData.columns || []}
+                {...(batchChartData.formattedData && { formattedData: batchChartData.formattedData })}
+                {...navigationProps}
+              />
+            );
+
           default:
+            // Unknown chart type - no fullscreen modal
             return null;
         }
       })()}

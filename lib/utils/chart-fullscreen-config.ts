@@ -17,7 +17,7 @@ import type { ChartData } from '@/lib/types/analytics';
 /**
  * Chart type for fullscreen modal
  */
-export type FullscreenChartType = 'line' | 'bar' | 'stacked-bar' | 'horizontal-bar';
+export type FullscreenChartType = 'line' | 'bar' | 'stacked-bar' | 'horizontal-bar' | 'area';
 
 /**
  * Stacking mode for bar charts
