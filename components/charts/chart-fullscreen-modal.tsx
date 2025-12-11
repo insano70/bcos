@@ -29,6 +29,7 @@ import { useDimensionExpansion } from '@/hooks/useDimensionExpansion';
 import { useChartInstance } from '@/hooks/useChartInstance';
 import { useChartDrillDown } from '@/hooks/useChartDrillDown';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import { useSwipeGesture } from '@/hooks/useSwipeGesture';
 import {
   buildChartOptions,
   type FullscreenChartType,
@@ -61,6 +62,13 @@ interface ChartFullscreenModalProps {
   // Drill-down support
   drillDownConfig?: DrillDownConfig;
   onDrillDownExecute?: (result: DrillDownResult) => void;
+  // Mobile navigation support (swipe between charts)
+  onNextChart?: () => void;
+  onPreviousChart?: () => void;
+  canGoNext?: boolean;
+  canGoPrevious?: boolean;
+  /** Position indicator, e.g., "3 of 8" */
+  chartPosition?: string;
 }
 
 /**
@@ -82,6 +90,11 @@ export default function ChartFullscreenModal({
   runtimeFilters,
   drillDownConfig,
   onDrillDownExecute,
+  onNextChart,
+  onPreviousChart,
+  canGoNext,
+  canGoPrevious,
+  chartPosition,
 }: ChartFullscreenModalProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const legendRef = useRef<HTMLUListElement>(null);
@@ -96,6 +109,14 @@ export default function ChartFullscreenModal({
 
   // Use custom hooks for separation of concerns
   const { mounted } = useChartFullscreen(isOpen, onClose);
+
+  // Swipe gesture for mobile navigation
+  const swipeHandlers = useSwipeGesture({
+    onSwipeUp: canGoNext ? onNextChart : undefined,
+    onSwipeDown: canGoPrevious ? onPreviousChart : undefined,
+    onSwipeLeft: onClose,
+    onSwipeRight: onClose,
+  });
 
   // Drill-down hook (only when config provided)
   const drillDown = useChartDrillDown({
@@ -206,12 +227,20 @@ export default function ChartFullscreenModal({
         <header className="px-5 py-4 border-b border-gray-200 dark:border-gray-700 flex flex-col gap-3 flex-shrink-0">
           {/* Title row */}
           <div className="flex items-center justify-between">
-            <h2
-              id={chartTitleId}
-              className="font-semibold text-gray-800 dark:text-gray-100 text-lg"
-            >
-              {chartTitle}
-            </h2>
+            <div className="flex items-center gap-3 min-w-0">
+              <h2
+                id={chartTitleId}
+                className="font-semibold text-gray-800 dark:text-gray-100 text-lg truncate"
+              >
+                {chartTitle}
+              </h2>
+              {/* Position indicator for mobile navigation */}
+              {chartPosition && (
+                <span className="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                  {chartPosition}
+                </span>
+              )}
+            </div>
             <div className="flex items-center gap-2">
               {/* Reset Zoom button - hide when in dimension view or on mobile with dimension controls visible */}
               {!dimension.expandedData && !(isMobile && dimension.canExpand) && (
@@ -297,8 +326,11 @@ export default function ChartFullscreenModal({
           )}
         </header>
 
-        {/* Chart Content */}
-        <div className={`flex-1 pt-3 px-6 pb-6 ${dimension.expandedData ? 'overflow-hidden' : 'overflow-auto'}`}>
+        {/* Chart Content - swipe handlers for mobile navigation */}
+        <div
+          className={`flex-1 pt-3 px-6 pb-6 ${dimension.expandedData ? 'overflow-hidden' : 'overflow-auto'}`}
+          {...(isMobile ? swipeHandlers : {})}
+        >
           {/* Dimension error message */}
           {dimension.error && (
             <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/30 dark:text-red-200">

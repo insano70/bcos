@@ -1,5 +1,6 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams } from 'next/navigation';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
@@ -9,8 +10,20 @@ import {
   type DashboardUniversalFilters,
 } from '@/hooks/use-dashboard-data';
 import { useStickyFilters } from '@/hooks/use-sticky-filters';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import { useAuth } from '@/components/auth/rbac-auth-provider';
 import { apiClient } from '@/lib/api/client';
+
+// Lazy load fullscreen modals for mobile tap-to-zoom
+const ChartFullscreenModal = dynamic(() => import('./chart-fullscreen-modal'), {
+  ssr: false,
+});
+const DualAxisFullscreenModal = dynamic(() => import('./dual-axis-fullscreen-modal'), {
+  ssr: false,
+});
+const ProgressBarFullscreenModal = dynamic(() => import('./progress-bar-fullscreen-modal'), {
+  ssr: false,
+});
 import {
   DASHBOARD_LAYOUT,
   getResponsiveColSpan,
@@ -63,6 +76,10 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
   
   // Track which charts have been swapped via drill-down
   const [swappedCharts, setSwappedCharts] = useState<SwappedChartsMap>(new Map());
+
+  // Mobile fullscreen navigation state
+  const isMobile = useIsMobile();
+  const [mobileFullscreenIndex, setMobileFullscreenIndex] = useState<number | null>(null);
 
   // Dashboard configuration
   const filterConfig = dashboard.layout_config?.filterConfig;
@@ -169,6 +186,30 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
     },
     []
   );
+
+  // Mobile fullscreen navigation handlers
+  const handleMobileChartTap = useCallback((chartIndex: number) => {
+    setMobileFullscreenIndex(chartIndex);
+  }, []);
+
+  const handleMobileFullscreenClose = useCallback(() => {
+    setMobileFullscreenIndex(null);
+  }, []);
+
+  const handleMobileNextChart = useCallback(() => {
+    setMobileFullscreenIndex((prev) => {
+      if (prev === null) return null;
+      const maxIndex = dashboardCharts.length - 1;
+      return prev < maxIndex ? prev + 1 : prev;
+    });
+  }, [dashboardCharts.length]);
+
+  const handleMobilePreviousChart = useCallback(() => {
+    setMobileFullscreenIndex((prev) => {
+      if (prev === null) return null;
+      return prev > 0 ? prev - 1 : prev;
+    });
+  }, []);
 
   // Handle removing individual filter pill
   const handleRemoveFilter = useCallback(
@@ -578,18 +619,19 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
               key={dashboardChart.id}
               initial={{ opacity: 0, y: 12, scale: 0.96 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              transition={{ 
-                duration: 0.4, 
+              transition={{
+                duration: 0.4,
                 delay: chartIndex * 0.06,
                 ease: [0.25, 0.46, 0.45, 0.94]
               }}
-              className={`${colSpanClass} flex flex-col relative`}
+              className={`${colSpanClass} flex flex-col relative ${isMobile ? 'cursor-pointer active:scale-[0.98] transition-transform' : ''}`}
               style={{
                 marginBottom: `${dashboardConfig.layout.margin}px`,
                 height: `${containerHeight}px`,
                 maxHeight: `${containerHeight}px`,
                 overflow: 'hidden',
               }}
+              onClick={isMobile ? () => handleMobileChartTap(chartIndex) : undefined}
             >
               {/* Swap indicator with revert button */}
               {isSwapped && (
@@ -641,6 +683,89 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
           );
         })}
       </div>
+
+      {/* Mobile fullscreen modal for tap-to-zoom navigation */}
+      {isMobile && mobileFullscreenIndex !== null && (() => {
+        const currentChart = dashboardConfig.charts[mobileFullscreenIndex];
+        if (!currentChart?.chartDefinition) return null;
+
+        const chartDef = currentChart.chartDefinition;
+        const chartIdForData = currentChart.chartDefinitionId;
+        const batchChartData = batchData?.charts[chartIdForData] as BatchChartData | undefined;
+
+        if (!batchChartData) return null;
+
+        // Common navigation props for all fullscreen modals
+        const navigationProps = {
+          onNextChart: handleMobileNextChart,
+          onPreviousChart: handleMobilePreviousChart,
+          canGoNext: mobileFullscreenIndex < dashboardConfig.charts.length - 1,
+          canGoPrevious: mobileFullscreenIndex > 0,
+          chartPosition: `${mobileFullscreenIndex + 1} of ${dashboardConfig.charts.length}`,
+        };
+
+        // Render appropriate fullscreen modal based on chart type
+        switch (chartDef.chart_type) {
+          case 'bar':
+          case 'stacked-bar':
+          case 'horizontal-bar':
+          case 'line':
+            return (
+              <ChartFullscreenModal
+                isOpen={true}
+                onClose={handleMobileFullscreenClose}
+                chartTitle={chartDef.chart_name}
+                chartData={batchChartData.chartData}
+                chartType={chartDef.chart_type as 'bar' | 'stacked-bar' | 'horizontal-bar' | 'line'}
+                frequency={batchChartData.metadata?.frequency || 'Monthly'}
+                chartDefinitionId={chartDef.chart_definition_id}
+                {...(batchChartData.finalChartConfig && { finalChartConfig: batchChartData.finalChartConfig })}
+                {...(batchChartData.runtimeFilters && { runtimeFilters: batchChartData.runtimeFilters })}
+                {...navigationProps}
+              />
+            );
+
+          case 'dual-axis':
+            return (
+              <DualAxisFullscreenModal
+                isOpen={true}
+                onClose={handleMobileFullscreenClose}
+                chartTitle={chartDef.chart_name}
+                chartData={batchChartData.chartData}
+                chartDefinitionId={chartDef.chart_definition_id}
+                {...(batchChartData.finalChartConfig && { finalChartConfig: batchChartData.finalChartConfig })}
+                {...(batchChartData.runtimeFilters && { runtimeFilters: batchChartData.runtimeFilters })}
+                {...navigationProps}
+              />
+            );
+
+          case 'progress-bar':
+            // Progress bar data is constructed from chartData labels and datasets
+            return (
+              <ProgressBarFullscreenModal
+                isOpen={true}
+                onClose={handleMobileFullscreenClose}
+                chartTitle={chartDef.chart_name}
+                data={batchChartData.chartData.labels.map((label, index) => ({
+                  label: String(label),
+                  value: ((batchChartData.chartData.datasets[0] as { rawValues?: number[] })?.rawValues?.[index] ?? 0),
+                  percentage: (batchChartData.chartData.datasets[0]?.data[index] ?? 0) as number,
+                }))}
+                {...(batchChartData.chartData.datasets[0] && 'originalMeasureType' in batchChartData.chartData.datasets[0] && {
+                  measureType: (batchChartData.chartData.datasets[0] as { originalMeasureType?: string }).originalMeasureType,
+                })}
+                chartDefinitionId={chartDef.chart_definition_id}
+                {...(batchChartData.finalChartConfig && { finalChartConfig: batchChartData.finalChartConfig })}
+                {...(batchChartData.runtimeFilters && { runtimeFilters: batchChartData.runtimeFilters })}
+                {...navigationProps}
+              />
+            );
+
+          // Other chart types (number, table, pie, doughnut, area) don't have fullscreen modals
+          default:
+            return null;
+        }
+      })()}
     </div>
   );
 }
