@@ -21,8 +21,25 @@
  */
 
 import type { SQL } from 'drizzle-orm';
-import type { PgTable, PgColumn } from 'drizzle-orm/pg-core';
+import type { PgTable, PgColumn, TableConfig } from 'drizzle-orm/pg-core';
 import type { PermissionName, UserContext } from '@/lib/types/rbac';
+
+// =============================================================================
+// Drizzle Type Helpers
+// =============================================================================
+
+/**
+ * Type for tables that can be used in JOINs, including aliased tables.
+ * Drizzle's alias() function returns a type that is structurally compatible with PgTable.
+ * Using TableConfig generic allows for both regular and aliased tables.
+ */
+export type JoinableTable = PgTable<TableConfig>;
+
+/**
+ * Type for selectable fields in JOIN queries.
+ * Can be individual columns, SQL expressions, or entire tables for nested selection.
+ */
+export type SelectableField = PgColumn | SQL | PgTable<TableConfig>;
 
 // =============================================================================
 // JOIN Support Types
@@ -43,8 +60,7 @@ import type { PermissionName, UserContext } from '@/lib/types/rbac';
  */
 export interface JoinDefinition {
   /** The table to join. For self-joins, pass an aliased table created with alias() */
-  // biome-ignore lint/suspicious/noExplicitAny: Drizzle alias tables have complex types that don't conform to PgTable
-  table: PgTable | any;
+  table: JoinableTable;
   /** The join condition (e.g., eq(mainTable.user_id, users.user_id)) */
   on: SQL;
   /** Join type - defaults to 'left' */
@@ -62,8 +78,7 @@ export interface JoinQueryConfig {
    * - Entire tables: `{ chart_definitions: chart_definitions, users: users }`
    *   (returns nested objects like `{ chart_definitions: {...}, users: {...} }`)
    */
-  // biome-ignore lint/suspicious/noExplicitAny: Drizzle tables have complex types
-  selectFields: Record<string, PgColumn | SQL | PgTable | any>;
+  selectFields: Record<string, SelectableField>;
   /** JOIN definitions to apply */
   joins: JoinDefinition[];
 }

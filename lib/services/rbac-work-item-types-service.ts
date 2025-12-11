@@ -1,7 +1,7 @@
 import { and, count, eq, isNull, or, type SQL } from 'drizzle-orm';
 
 import { db } from '@/lib/db';
-import { organizations, users, work_item_types } from '@/lib/db/schema';
+import { organizations, users, work_item_types, work_items } from '@/lib/db/schema';
 import { ConflictError, DatabaseError, ForbiddenError, NotFoundError } from '@/lib/errors/domain-errors';
 import { log } from '@/lib/logger';
 import { BaseCrudService, type CrudServiceConfig, type JoinQueryConfig } from '@/lib/services/crud';
@@ -180,13 +180,18 @@ export class RBACWorkItemTypesService extends BaseCrudService<
 
   /**
    * Get work item types with filtering (legacy method wrapper)
+   * Uses SQL sorting for performance
    */
   async getWorkItemTypes(
     options: WorkItemTypeQueryOptions = {}
   ): Promise<WorkItemTypeWithDetails[]> {
-    const result = await this.getList(options);
-    // Sort by name (maintaining original behavior)
-    return result.items.sort((a, b) => a.name.localeCompare(b.name));
+    // Use SQL sorting by name for performance (instead of client-side sort)
+    const result = await this.getList({
+      ...options,
+      sortField: options.sortField ?? 'name',
+      sortOrder: options.sortOrder ?? 'asc',
+    });
+    return result.items;
   }
 
   /**
@@ -358,7 +363,6 @@ export class RBACWorkItemTypesService extends BaseCrudService<
     }
 
     // Check if any work items exist for this type
-    const { work_items } = await import('@/lib/db/schema');
     const [workItemCount] = await db
       .select({ count: count() })
       .from(work_items)

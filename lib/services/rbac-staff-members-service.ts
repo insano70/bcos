@@ -20,6 +20,18 @@ import { verifyPracticeAccess } from './rbac-practice-utils';
  * Migrated to use BaseCrudService infrastructure.
  */
 
+/**
+ * Education entry for a staff member
+ */
+export interface StaffEducation {
+  degree: string;
+  school: string;
+  year: string;
+}
+
+/**
+ * Staff member entity with properly typed fields
+ */
 export interface StaffMember {
   staff_id: string;
   practice_id: string | null;
@@ -30,8 +42,8 @@ export interface StaffMember {
   photo_url: string | null;
   email: string | null;
   phone: string | null;
-  specialties: unknown;
-  education: unknown;
+  specialties: string[];
+  education: StaffEducation[];
   is_active: boolean;
   display_order: number;
   created_at: Date;
@@ -54,8 +66,8 @@ export interface CreateStaffData {
   photo_url?: string | undefined;
   email?: string | undefined;
   phone?: string | undefined;
-  specialties?: unknown;
-  education?: unknown;
+  specialties?: string[] | undefined;
+  education?: StaffEducation[] | undefined;
   is_active?: boolean | undefined;
   display_order?: number | undefined;
 }
@@ -68,8 +80,8 @@ export interface UpdateStaffData {
   photo_url?: string | undefined;
   email?: string | undefined;
   phone?: string | undefined;
-  specialties?: unknown;
-  education?: unknown;
+  specialties?: string[] | undefined;
+  education?: StaffEducation[] | undefined;
   is_active?: boolean | undefined;
   display_order?: number | undefined;
 }
@@ -108,10 +120,13 @@ export class RBACStaffMembersService extends BaseCrudService<
     deletedAtColumnName: 'deleted_at',
     updatedAtColumnName: 'updated_at',
     permissions: {
-      // Read permission handled by verifyPracticeAccess (practice owner or super admin)
-      // We set a placeholder here since BaseCrudService requires it
+      // Staff access uses practice-based access control:
+      // 1. Base class checks 'practices:read:own' permission (practice owners have this)
+      // 2. validateParentAccess() verifies user owns the specific practice
+      // This two-level check ensures only practice owners can access their staff.
       read: 'practices:read:own',
-      // Create/update/delete handled by custom methods with canManageStaff check
+      // Create/update/delete are handled by custom methods that check canManageStaff
+      // permission which requires 'practices:staff:manage:own' or 'practices:manage:all'
     },
     transformers: {
       toEntity: (row: Record<string, unknown>): StaffMember => ({
@@ -124,8 +139,8 @@ export class RBACStaffMembersService extends BaseCrudService<
         photo_url: row.photo_url as string | null,
         email: row.email as string | null,
         phone: row.phone as string | null,
-        specialties: parseSpecialties(row.specialties as string | null),
-        education: parseEducation(row.education as string | null),
+        specialties: parseSpecialties(row.specialties as string | null) as string[],
+        education: parseEducation(row.education as string | null) as StaffEducation[],
         is_active: (row.is_active as boolean) ?? true,
         display_order: (row.display_order as number) ?? 0,
         created_at: (row.created_at as Date) ?? new Date(),
@@ -167,91 +182,33 @@ export class RBACStaffMembersService extends BaseCrudService<
 
   /**
    * Get staff members for a practice with filtering and pagination
+   * Note: Logging is handled by BaseCrudService.getList() and getCount()
    */
   async getStaffMembers(
     practiceId: string,
     options: Omit<StaffQueryOptions, 'practice_id'> = {}
   ): Promise<{ staff: StaffMember[]; total: number }> {
-    const startTime = Date.now();
-
     // Verify practice access
     await verifyPracticeAccess(practiceId, this.userContext);
 
-    // Get total count
-    const countStart = Date.now();
-    const total = await this.getCount({ ...options, practice_id: practiceId });
-    const countDuration = Date.now() - countStart;
+    // Map legacy sortBy/sortOrder to standard sortField/sortOrder for SQL ordering
+    const sortField = options.sortBy || 'display_order';
+    const sortOrder = options.sortOrder || 'asc';
 
-    // Get paginated data
-    const queryStart = Date.now();
+    // Get total count (logging handled by base class)
+    const total = await this.getCount({ ...options, practice_id: practiceId });
+
+    // Get paginated data with SQL sorting (logging handled by base class)
     const result = await this.getList({
       ...options,
       practice_id: practiceId,
+      sortField,
+      sortOrder,
       limit: options.limit ?? 100,
       offset: options.offset ?? 0,
     });
-    const queryDuration = Date.now() - queryStart;
 
-    // Apply custom ordering: sortBy field or display_order
-    const sortBy = options.sortBy || 'display_order';
-    const sortOrder = options.sortOrder || 'asc';
-
-    const sortedStaff = result.items.sort((a, b) => {
-      let aVal: string | number | Date;
-      let bVal: string | number | Date;
-
-      switch (sortBy) {
-        case 'name':
-          aVal = a.name;
-          bVal = b.name;
-          break;
-        case 'title':
-          aVal = a.title || '';
-          bVal = b.title || '';
-          break;
-        case 'created_at':
-          aVal = a.created_at;
-          bVal = b.created_at;
-          break;
-        default:
-          aVal = a.display_order;
-          bVal = b.display_order;
-      }
-
-      if (aVal < bVal) return sortOrder === 'asc' ? -1 : 1;
-      if (aVal > bVal) return sortOrder === 'asc' ? 1 : -1;
-      return 0;
-    });
-
-    const duration = Date.now() - startTime;
-
-    // Use logTemplates for structured logging
-    const template = logTemplates.crud.list('staff_members', {
-      userId: this.userContext.user_id,
-      filters: {
-        is_active: options.is_active,
-        search: options.search,
-        limit: options.limit,
-        offset: options.offset,
-      },
-      results: {
-        returned: sortedStaff.length,
-        total,
-        page: Math.floor((options.offset || 0) / (options.limit || 100)) + 1,
-      },
-      duration,
-      metadata: {
-        practiceId,
-        countDuration,
-        queryDuration,
-        slowCount: countDuration > SLOW_THRESHOLDS.DB_QUERY,
-        slowQuery: queryDuration > SLOW_THRESHOLDS.DB_QUERY,
-      },
-    });
-
-    log.info(template.message, template.context);
-
-    return { staff: sortedStaff, total };
+    return { staff: result.items, total };
   }
 
   /**

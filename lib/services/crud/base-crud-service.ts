@@ -25,7 +25,7 @@
  * ```
  */
 
-import { and, count, eq, inArray, isNull, or, type SQL } from 'drizzle-orm';
+import { and, asc, count, desc, eq, inArray, isNull, or, sql, type SQL } from 'drizzle-orm';
 import type { PgTable, TableConfig } from 'drizzle-orm/pg-core';
 
 import { db } from '@/lib/db';
@@ -37,6 +37,25 @@ import type { BaseQueryOptions, CrudServiceConfig, JoinQueryConfig, ListResponse
 
 // Type alias for Drizzle table to simplify casting
 type AnyPgTable = PgTable<TableConfig>;
+
+// Type alias for dynamic Drizzle values (insert/update operations)
+// Generic CRUD services operate on dynamic tables where specific column types aren't known at compile time.
+type DrizzleValues = Record<string, unknown>;
+
+/**
+ * Interface for Drizzle's chainable query builder.
+ * Drizzle types each join statically, but we build queries dynamically based on config.
+ * This interface captures the methods we need without using 'any'.
+ */
+interface ChainableQuery {
+  innerJoin(joinTable: AnyPgTable, on: SQL): ChainableQuery;
+  leftJoin(joinTable: AnyPgTable, on: SQL): ChainableQuery;
+  where(condition: SQL | undefined): ChainableQuery;
+  orderBy(column: SQL): ChainableQuery;
+  limit(n: number): ChainableQuery;
+  offset(n: number): ChainableQuery;
+  then<T>(onfulfilled?: (value: Record<string, unknown>[]) => T | PromiseLike<T>): Promise<T>;
+}
 
 /**
  * Abstract base class for CRUD services with RBAC support.
@@ -66,6 +85,44 @@ export abstract class BaseCrudService<
     TQueryOptions
   >;
 
+  /** Flag to ensure config is only validated once */
+  private _configValidated = false;
+
+  /**
+   * Validate configuration on first use.
+   * Called lazily since abstract config is set by subclasses after construction.
+   */
+  protected validateConfig(): void {
+    if (this._configValidated) return;
+
+    const { config } = this;
+    const errors: string[] = [];
+
+    if (!config.table) {
+      errors.push('table is required');
+    }
+    if (!config.resourceName) {
+      errors.push('resourceName is required');
+    }
+    if (!config.displayName) {
+      errors.push('displayName is required');
+    }
+    if (!config.primaryKeyName) {
+      errors.push('primaryKeyName is required');
+    }
+    if (!config.permissions?.read) {
+      errors.push('permissions.read is required');
+    }
+
+    if (errors.length > 0) {
+      throw new Error(
+        `Invalid CrudServiceConfig for ${config.resourceName || 'unknown'}: ${errors.join(', ')}`
+      );
+    }
+
+    this._configValidated = true;
+  }
+
   // ===========================================================================
   // Public CRUD Operations
   // ===========================================================================
@@ -77,6 +134,7 @@ export abstract class BaseCrudService<
    * @returns Paginated list of entities
    */
   async getList(options: TQueryOptions = {} as TQueryOptions): Promise<ListResponse<TEntity>> {
+    this.validateConfig();
     const startTime = Date.now();
     const { config } = this;
 
@@ -108,17 +166,23 @@ export abstract class BaseCrudService<
     const joinConfig = this.buildJoinQuery();
     let rows: Record<string, unknown>[];
 
+    // Build ORDER BY clause
+    const orderBy = this.buildOrderBy(options);
+
     if (joinConfig) {
       // Use JOIN query with custom select fields
-      rows = await this.executeJoinQuery(joinConfig, conditions, limit, offset);
+      rows = await this.executeJoinQuery(joinConfig, conditions, limit, offset, orderBy);
     } else {
       // Standard query (backwards compatible)
-      rows = await db
+      const query = db
         .select()
         .from(table)
-        .where(conditions.length > 0 ? and(...conditions) : undefined)
-        .limit(limit)
-        .offset(offset);
+        .where(conditions.length > 0 ? and(...conditions) : undefined);
+
+      // Apply ordering if specified
+      const orderedQuery = orderBy ? query.orderBy(orderBy) : query;
+
+      rows = await orderedQuery.limit(limit).offset(offset);
     }
 
     // Transform rows to entities
@@ -163,6 +227,7 @@ export abstract class BaseCrudService<
    * @returns Entity or null if not found
    */
   async getById(id: string | number): Promise<TEntity | null> {
+    this.validateConfig();
     const startTime = Date.now();
     const { config } = this;
 
@@ -238,6 +303,7 @@ export abstract class BaseCrudService<
    * @returns Count of matching entities
    */
   async getCount(options: TQueryOptions = {} as TQueryOptions): Promise<number> {
+    this.validateConfig();
     const { config } = this;
 
     // Check permission
@@ -264,6 +330,7 @@ export abstract class BaseCrudService<
    * @throws DatabaseError if creation fails
    */
   async create(data: TCreateData): Promise<TEntity> {
+    this.validateConfig();
     const startTime = Date.now();
     const { config } = this;
 
@@ -290,9 +357,15 @@ export abstract class BaseCrudService<
       : (data as Record<string, unknown>);
 
     // Insert and return all columns
+    // Type safety note: Generic CRUD service operates on dynamic tables. The values Record
+    // has been constructed from TCreateData via transformer, matching the table schema.
+    // Using unknown cast to bridge generic table typing while maintaining runtime correctness.
     const table = config.table as AnyPgTable;
-    // biome-ignore lint/suspicious/noExplicitAny: Drizzle generic table typing requires any for dynamic tables
-    const [row] = await (db.insert(table).values(values as any).returning() as Promise<any[]>);
+    const insertResult = await db
+      .insert(table)
+      .values(values as unknown as DrizzleValues)
+      .returning();
+    const row = (insertResult as unknown as Record<string, unknown>[])[0];
 
     if (!row) {
       throw new DatabaseError(`Failed to create ${config.displayName}`, 'write');
@@ -339,6 +412,7 @@ export abstract class BaseCrudService<
    * @throws DatabaseError if update fails
    */
   async update(id: string | number, data: TUpdateData): Promise<TEntity> {
+    this.validateConfig();
     const startTime = Date.now();
     const { config } = this;
 
@@ -372,16 +446,16 @@ export abstract class BaseCrudService<
       values[config.updatedAtColumnName] = new Date();
     }
 
+    // Type safety note: Generic CRUD service operates on dynamic tables. The values Record
+    // has been constructed from TUpdateData via transformer, matching the table schema.
+    // Using unknown cast to bridge generic table typing while maintaining runtime correctness.
     const table = config.table as AnyPgTable;
-    // Drizzle generic table typing requires explicit any for dynamic tables
-    const updateQuery = db
+    const updateResult = await db
       .update(table)
-      // biome-ignore lint/suspicious/noExplicitAny: Dynamic table values
-      .set(values as any)
+      .set(values as unknown as DrizzleValues)
       .where(this.getPrimaryKeyCondition(id))
       .returning();
-    // biome-ignore lint/suspicious/noExplicitAny: Dynamic table result
-    const [row] = await (updateQuery as Promise<any[]>);
+    const row = (updateResult as unknown as Record<string, unknown>[])[0];
 
     if (!row) {
       throw new DatabaseError(`Failed to update ${config.displayName}`, 'write');
@@ -433,6 +507,7 @@ export abstract class BaseCrudService<
    * @throws NotFoundError if entity doesn't exist
    */
   async delete(id: string | number): Promise<void> {
+    this.validateConfig();
     const startTime = Date.now();
     const { config } = this;
 
@@ -459,18 +534,19 @@ export abstract class BaseCrudService<
     const table = config.table as AnyPgTable;
 
     if (config.deletedAtColumnName) {
-      // Soft delete
-      const values: Record<string, unknown> = {
+      // Soft delete - set deleted_at timestamp
+      const softDeleteValues: Record<string, unknown> = {
         [config.deletedAtColumnName]: new Date(),
       };
       if (config.updatedAtColumnName) {
-        values[config.updatedAtColumnName] = new Date();
+        softDeleteValues[config.updatedAtColumnName] = new Date();
       }
 
+      // Type safety note: Soft delete values are a known subset (deleted_at, updated_at).
+      // Using unknown cast to bridge generic table typing while maintaining runtime correctness.
       await db
         .update(table)
-        // biome-ignore lint/suspicious/noExplicitAny: Dynamic table values
-        .set(values as any)
+        .set(softDeleteValues as unknown as DrizzleValues)
         .where(this.getPrimaryKeyCondition(id));
     } else {
       // Hard delete
@@ -531,10 +607,8 @@ export abstract class BaseCrudService<
         conditions.push(inArray(orgColumn, accessibleOrgIds));
       } else {
         // No accessible orgs = no results (fail-closed security)
-        // Use a condition that always returns false
-        const tableColumns = config.table as unknown as Record<string, unknown>;
-        const pkColumn = tableColumns[config.primaryKeyName] as Parameters<typeof eq>[0];
-        conditions.push(eq(pkColumn, '__fail_closed_no_orgs__'));
+        // Use SQL FALSE to ensure no results are returned
+        conditions.push(sql`FALSE`);
       }
     }
 
@@ -576,6 +650,39 @@ export abstract class BaseCrudService<
    */
   protected buildCustomConditions(_options: TQueryOptions): SQL[] {
     return []; // Subclasses implement custom filters
+  }
+
+  /**
+   * Build ORDER BY clause from query options.
+   * Override in subclass for custom sorting logic.
+   *
+   * @param options - Query options with sortField and sortOrder
+   * @returns SQL ordering clause or undefined
+   */
+  protected buildOrderBy(options: TQueryOptions): SQL | undefined {
+    const { sortField, sortOrder } = options;
+
+    if (!sortField) {
+      return undefined;
+    }
+
+    const { config } = this;
+    const tableColumns = config.table as unknown as Record<string, unknown>;
+    const column = tableColumns[sortField];
+
+    if (!column) {
+      // Invalid sort field - log warning and skip sorting
+      log.warn('Invalid sort field requested', {
+        sortField,
+        resourceType: config.resourceName,
+        userId: this.userContext.user_id,
+      });
+      return undefined;
+    }
+
+    // Build order expression
+    const columnRef = column as Parameters<typeof asc>[0];
+    return sortOrder === 'desc' ? desc(columnRef) : asc(columnRef);
   }
 
   /**
@@ -747,20 +854,21 @@ export abstract class BaseCrudService<
    * @param conditions - WHERE conditions to apply
    * @param limit - Maximum number of rows to return
    * @param offset - Number of rows to skip
+   * @param orderBy - Optional ORDER BY clause
    * @returns Array of result rows
    */
   private async executeJoinQuery(
     joinConfig: JoinQueryConfig,
     conditions: SQL[],
     limit: number,
-    offset: number
+    offset: number,
+    orderBy?: SQL
   ): Promise<Record<string, unknown>[]> {
     const { config } = this;
     const table = config.table as AnyPgTable;
 
     // Start building the query with select and from
-    // biome-ignore lint/suspicious/noExplicitAny: Drizzle dynamic query building requires any
-    let query: any = db.select(joinConfig.selectFields).from(table);
+    let query = db.select(joinConfig.selectFields).from(table) as unknown as ChainableQuery;
 
     // Apply joins in order
     for (const join of joinConfig.joins) {
@@ -777,11 +885,16 @@ export abstract class BaseCrudService<
       query = query.where(and(...conditions));
     }
 
+    // Apply ordering if specified
+    if (orderBy) {
+      query = query.orderBy(orderBy);
+    }
+
     // Apply pagination
     query = query.limit(limit).offset(offset);
 
     // Execute and return results
-    const results = await query;
-    return results as Record<string, unknown>[];
+    const results = await (query as unknown as Promise<Record<string, unknown>[]>);
+    return results;
   }
 }
