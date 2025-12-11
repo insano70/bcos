@@ -101,29 +101,64 @@ const dimensionCache = new Map<string, CacheEntry<ExpansionDimension[]>>();
 /**
  * Global cache for dimension values
  * Key: `${chartDefinitionId}:${dimensionColumn}:${filterHash}`
- * 
+ *
  * Uses TTL to ensure stale data is not served when filters change.
  */
 const dimensionValuesCache = new Map<string, CacheEntry<DimensionValuesResponse>>();
 
 /**
+ * Clean up expired entries from a cache Map
+ * Prevents memory leaks from accumulated stale entries
+ */
+function cleanupExpiredEntries<T>(cache: Map<string, CacheEntry<T>>): void {
+  const now = Date.now();
+  cache.forEach((entry, key) => {
+    if (now - entry.timestamp > DIMENSION_CACHE_TTL_MS) {
+      cache.delete(key);
+    }
+  });
+}
+
+/**
+ * Last cleanup timestamp - used to throttle periodic cleanup
+ */
+let lastCleanupTime = 0;
+const CLEANUP_INTERVAL_MS = 60 * 1000; // Run cleanup at most once per minute
+
+/**
+ * Throttled cleanup of all caches
+ * Called on cache reads to prevent memory leaks
+ */
+function maybeCleanupCaches(): void {
+  const now = Date.now();
+  if (now - lastCleanupTime > CLEANUP_INTERVAL_MS) {
+    lastCleanupTime = now;
+    cleanupExpiredEntries(dimensionCache);
+    cleanupExpiredEntries(dimensionValuesCache);
+  }
+}
+
+/**
  * Get cached data if not expired
- * 
+ *
  * @param cache - Cache Map to query
  * @param key - Cache key
  * @returns Cached data or null if expired/missing
  */
 function getCachedWithTTL<T>(cache: Map<string, CacheEntry<T>>, key: string): T | null {
+  // Periodically clean up expired entries to prevent memory leaks
+  maybeCleanupCaches();
+
   const entry = cache.get(key);
   if (!entry) return null;
-  
+
   const now = Date.now();
   if (now - entry.timestamp > DIMENSION_CACHE_TTL_MS) {
     // Expired - remove from cache
     cache.delete(key);
     return null;
   }
-  
+
   return entry.data;
 }
 

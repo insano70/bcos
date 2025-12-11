@@ -108,7 +108,8 @@ export default function ViewResultsModal({
                     </thead>
                     <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                       {results.map((row, idx) => (
-                        <tr key={`${JSON.stringify(row)}-${idx}`}>
+                        // biome-ignore lint/suspicious/noArrayIndexKey: Static display table, rows not reordered
+                        <tr key={idx}>
                           {columns.map((col) => (
                             <td
                               key={col}

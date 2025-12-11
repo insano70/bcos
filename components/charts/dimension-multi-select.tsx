@@ -206,7 +206,7 @@ export function ValueMultiSelect({
           className={`
             flex-1 bg-transparent border-none outline-none min-w-0
             text-slate-700 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500
-            ${compact ? 'text-xs' : 'text-sm'}
+            text-base sm:text-sm ${compact ? 'sm:text-xs' : ''}
           `}
           onFocus={() => setIsOpen(true)}
         />

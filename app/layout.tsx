@@ -27,11 +27,13 @@ export const metadata = {
 /**
  * Viewport configuration for mobile devices
  * - viewport-fit: cover enables safe area insets for notched devices (iPhone X+)
+ * - maximumScale: 1 prevents iOS Safari auto-zoom on form inputs < 16px
  * - Allows proper rendering on devices with notches/Dynamic Island
  */
 export const viewport = {
   width: 'device-width',
   initialScale: 1,
+  maximumScale: 1,
   viewportFit: 'cover' as const,
 };
 

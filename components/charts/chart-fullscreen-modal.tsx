@@ -261,8 +261,7 @@ export default function ChartFullscreenModal({
           {dimension.canExpand && (
             <div className="space-y-2">
               {/* Controls row: Toggle button on left, then selector */}
-              {/* items-end aligns all boxes to same horizontal line (labels float above) */}
-              <div className="flex items-end gap-2">
+              <div className="flex items-center gap-2">
                 {/* Show/Hide Filters toggle button */}
                 <button
                   type="button"
@@ -368,7 +367,7 @@ export default function ChartFullscreenModal({
                 />
               )}
 
-              <div className="relative w-full h-[calc(90vh-240px)] min-h-[400px]">
+              <div className="relative w-full h-[calc(90vh-300px)] min-h-[400px]">
                 <canvas ref={canvasRef} />
                 
                 {/* Loading overlay while dimension expansion is in progress */}

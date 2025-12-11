@@ -527,7 +527,7 @@ export default function DualAxisFullscreenModal({
                 />
               </ScrollableLegendContainer>
 
-              <div className="w-full h-[calc(90vh-240px)] min-h-[400px]">
+              <div className="w-full h-[calc(90vh-300px)] min-h-[400px]">
                 <canvas ref={setCanvasRef} />
               </div>
             </>

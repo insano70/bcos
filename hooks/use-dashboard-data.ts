@@ -197,7 +197,6 @@ export function useDashboardData(options: UseDashboardDataOptions): UseDashboard
   /**
    * Fetch dashboard data from batch API
    */
-  // biome-ignore lint/correctness/useExhaustiveDependencies: JSON.stringify required to prevent infinite loop with object reference changes
   const fetchData = useCallback(
     async (bypassCache = false) => {
       // Skip if disabled
@@ -280,7 +279,7 @@ export function useDashboardData(options: UseDashboardDataOptions): UseDashboard
         abortControllerRef.current = null;
       }
     },
-    [dashboardId, JSON.stringify(universalFilters), JSON.stringify(chartOverrides), nocache, enabled]
+    [dashboardId, universalFilters, chartOverrides, nocache, enabled]
   );
 
   /**
