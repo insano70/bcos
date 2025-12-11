@@ -238,6 +238,104 @@ class WorkItemCoreService extends BaseWorkItemsService {
   }
 
   /**
+   * Internal method for fetching work items with all shared logic
+   *
+   * Contains the core implementation for:
+   * - RBAC filtering
+   * - Pagination validation
+   * - Sorting resolution
+   * - Count query execution
+   * - List query execution
+   * - Custom field retrieval
+   * - Result mapping
+   *
+   * @internal - Use getWorkItems() or getWorkItemsWithCount() instead
+   * @param options - Query filter and pagination options
+   * @returns Object with items, total count, pagination info, and timing data
+   */
+  private async _getWorkItemsInternal(options: WorkItemQueryOptions = {}): Promise<{
+    items: WorkItemWithDetails[];
+    total: number;
+    pagination: { limit: number; offset: number; sortBy: string; sortOrder: string };
+    timings: { count: number; query: number; customFields: number };
+  }> {
+    // Build where conditions with RBAC filtering
+    const whereConditions = this.buildWorkItemWhereConditions(options);
+
+    // Execute count query
+    const countStart = Date.now();
+    const [countResult] = await db
+      .select({ count: count() })
+      .from(work_items)
+      .where(and(...whereConditions));
+    const countDuration = Date.now() - countStart;
+    const totalCount = countResult?.count || 0;
+
+    // Build sorting
+    const sortBy = options.sortBy || 'created_at';
+    const sortOrder = options.sortOrder || 'desc';
+    const sortColumn = (() => {
+      switch (sortBy) {
+        case 'subject':
+          return work_items.subject;
+        case 'priority':
+          return work_items.priority;
+        case 'due_date':
+          return work_items.due_date;
+        case 'status_id':
+          return work_items.status_id;
+        case 'assigned_to':
+          return work_items.assigned_to;
+        case 'updated_at':
+          return work_items.updated_at;
+        default:
+          return work_items.created_at;
+      }
+    })();
+    const orderByClause = sortOrder === 'asc' ? asc(sortColumn) : desc(sortColumn);
+
+    // Validate and enforce pagination limits
+    const { limit, offset } = validatePagination(
+      options.limit,
+      options.offset,
+      WORK_ITEM_CONSTRAINTS.MAX_PAGE_LIMIT,
+      WORK_ITEM_CONSTRAINTS.DEFAULT_PAGE_LIMIT
+    );
+
+    // Execute list query with joins
+    const queryStart = Date.now();
+    const results = await getWorkItemQueryBuilder()
+      .where(and(...whereConditions))
+      .orderBy(orderByClause)
+      .limit(limit)
+      .offset(offset);
+    const queryDuration = Date.now() - queryStart;
+
+    // Fetch custom field values for all work items
+    const workItemIds = results.map((r) => r.work_item_id);
+    const customFieldsStart = Date.now();
+    const customFieldsService = createWorkItemCustomFieldsService(this.userContext);
+    const customFieldsMap = await customFieldsService.getCustomFieldValues(workItemIds);
+    const customFieldsDuration = Date.now() - customFieldsStart;
+
+    // Map results to WorkItemWithDetails
+    const items = results.map((result) =>
+      this.mapWorkItemResult(result, customFieldsMap.get(result.work_item_id))
+    );
+
+    return {
+      items,
+      total: totalCount,
+      pagination: { limit, offset, sortBy, sortOrder },
+      timings: {
+        count: countDuration,
+        query: queryDuration,
+        customFields: customFieldsDuration,
+      },
+    };
+  }
+
+  /**
    * Get work items list with optional filters and pagination
    *
    * Supports:
@@ -273,70 +371,8 @@ class WorkItemCoreService extends BaseWorkItemsService {
         return [];
       }
 
-      // Build where conditions with RBAC filtering
-      const whereConditions = this.buildWorkItemWhereConditions(options);
-
-      // Execute count query first
-      const countStart = Date.now();
-      const [countResult] = await db
-        .select({ count: count() })
-        .from(work_items)
-        .where(and(...whereConditions));
-      const countDuration = Date.now() - countStart;
-      const totalCount = countResult?.count || 0;
-
-      // Build sorting
-      const sortBy = options.sortBy || 'created_at';
-      const sortOrder = options.sortOrder || 'desc';
-      const sortColumn = (() => {
-        switch (sortBy) {
-          case 'subject':
-            return work_items.subject;
-          case 'priority':
-            return work_items.priority;
-          case 'due_date':
-            return work_items.due_date;
-          case 'status_id':
-            return work_items.status_id;
-          case 'assigned_to':
-            return work_items.assigned_to;
-          case 'updated_at':
-            return work_items.updated_at;
-          default:
-            return work_items.created_at;
-        }
-      })();
-      const orderByClause = sortOrder === 'asc' ? asc(sortColumn) : desc(sortColumn);
-
-      // Validate and enforce pagination limits
-      const { limit, offset } = validatePagination(
-        options.limit,
-        options.offset,
-        WORK_ITEM_CONSTRAINTS.MAX_PAGE_LIMIT,
-        WORK_ITEM_CONSTRAINTS.DEFAULT_PAGE_LIMIT
-      );
-
-      // Execute list query with joins
-      const queryStart = Date.now();
-      const results = await getWorkItemQueryBuilder()
-        .where(and(...whereConditions))
-        .orderBy(orderByClause)
-        .limit(limit)
-        .offset(offset);
-      const queryDuration = Date.now() - queryStart;
-
-      // Fetch custom field values for all work items using dedicated service
-      const workItemIds = results.map((r) => r.work_item_id);
-      const customFieldsStart = Date.now();
-      const customFieldsService = createWorkItemCustomFieldsService(this.userContext);
-      const customFieldsMap = await customFieldsService.getCustomFieldValues(workItemIds);
-      const customFieldsDuration = Date.now() - customFieldsStart;
-
-      // Map results to WorkItemWithDetails
-      const workItems = results.map((result) =>
-        this.mapWorkItemResult(result, customFieldsMap.get(result.work_item_id))
-      );
-
+      // Delegate to internal method
+      const { items, total, pagination, timings } = await this._getWorkItemsInternal(options);
       const duration = Date.now() - startTime;
 
       // Log using logTemplates.crud.list
@@ -353,30 +389,30 @@ class WorkItemCoreService extends BaseWorkItemsService {
           search: options.search,
         },
         results: {
-          returned: workItems.length,
-          total: totalCount,
-          page: Math.floor(offset / limit) + 1,
+          returned: items.length,
+          total,
+          page: Math.floor(pagination.offset / pagination.limit) + 1,
         },
         duration,
         metadata: {
-          countDuration,
-          queryDuration,
-          customFieldsDuration,
-          slowCount: countDuration > SLOW_THRESHOLDS.DB_QUERY,
-          slowQuery: queryDuration > SLOW_THRESHOLDS.DB_QUERY,
-          slowCustomFields: customFieldsDuration > SLOW_THRESHOLDS.DB_QUERY,
+          countDuration: timings.count,
+          queryDuration: timings.query,
+          customFieldsDuration: timings.customFields,
+          slowCount: timings.count > SLOW_THRESHOLDS.DB_QUERY,
+          slowQuery: timings.query > SLOW_THRESHOLDS.DB_QUERY,
+          slowCustomFields: timings.customFields > SLOW_THRESHOLDS.DB_QUERY,
           rbacScope: this.getRBACScope(),
-          limit,
-          offset,
-          sortBy,
-          sortOrder,
+          limit: pagination.limit,
+          offset: pagination.offset,
+          sortBy: pagination.sortBy,
+          sortOrder: pagination.sortOrder,
           component: 'core_service',
         },
       });
 
       log.info(template.message, template.context);
 
-      return workItems;
+      return items;
     } catch (error) {
       log.error('work items list failed', error, {
         operation: 'list_work_items',
@@ -415,89 +451,28 @@ class WorkItemCoreService extends BaseWorkItemsService {
         return { items: [], total: 0 };
       }
 
-      // Build where conditions with RBAC filtering
-      const whereConditions = this.buildWorkItemWhereConditions(options);
-
-      // Execute count query
-      const countStart = Date.now();
-      const [countResult] = await db
-        .select({ count: count() })
-        .from(work_items)
-        .where(and(...whereConditions));
-      const countDuration = Date.now() - countStart;
-      const totalCount = countResult?.count || 0;
-
-      // Build sorting
-      const sortBy = options.sortBy || 'created_at';
-      const sortOrder = options.sortOrder || 'desc';
-      const sortColumn = (() => {
-        switch (sortBy) {
-          case 'subject':
-            return work_items.subject;
-          case 'priority':
-            return work_items.priority;
-          case 'due_date':
-            return work_items.due_date;
-          case 'status_id':
-            return work_items.status_id;
-          case 'assigned_to':
-            return work_items.assigned_to;
-          case 'updated_at':
-            return work_items.updated_at;
-          default:
-            return work_items.created_at;
-        }
-      })();
-      const orderByClause = sortOrder === 'asc' ? asc(sortColumn) : desc(sortColumn);
-
-      // Validate and enforce pagination limits
-      const { limit, offset } = validatePagination(
-        options.limit,
-        options.offset,
-        WORK_ITEM_CONSTRAINTS.MAX_PAGE_LIMIT,
-        WORK_ITEM_CONSTRAINTS.DEFAULT_PAGE_LIMIT
-      );
-
-      // Execute list query with joins
-      const queryStart = Date.now();
-      const results = await getWorkItemQueryBuilder()
-        .where(and(...whereConditions))
-        .orderBy(orderByClause)
-        .limit(limit)
-        .offset(offset);
-      const queryDuration = Date.now() - queryStart;
-
-      // Fetch custom field values for all work items
-      const workItemIds = results.map((r) => r.work_item_id);
-      const customFieldsStart = Date.now();
-      const customFieldsService = createWorkItemCustomFieldsService(this.userContext);
-      const customFieldsMap = await customFieldsService.getCustomFieldValues(workItemIds);
-      const customFieldsDuration = Date.now() - customFieldsStart;
-
-      // Map results to WorkItemWithDetails
-      const items = results.map((result) =>
-        this.mapWorkItemResult(result, customFieldsMap.get(result.work_item_id))
-      );
-
+      // Delegate to internal method
+      const { items, total, timings } = await this._getWorkItemsInternal(options);
       const duration = Date.now() - startTime;
 
       log.info('work items list with count completed', {
         operation: 'list_work_items_with_count',
         userId: this.userContext.user_id,
-        results: { returned: items.length, total: totalCount },
+        results: { returned: items.length, total },
         duration,
         component: 'core_service',
         metadata: {
-          countDuration,
-          queryDuration,
-          customFieldsDuration,
-          slowCount: countDuration > SLOW_THRESHOLDS.DB_QUERY,
-          slowQuery: queryDuration > SLOW_THRESHOLDS.DB_QUERY,
+          countDuration: timings.count,
+          queryDuration: timings.query,
+          customFieldsDuration: timings.customFields,
+          slowCount: timings.count > SLOW_THRESHOLDS.DB_QUERY,
+          slowQuery: timings.query > SLOW_THRESHOLDS.DB_QUERY,
+          slowCustomFields: timings.customFields > SLOW_THRESHOLDS.DB_QUERY,
           rbacScope: this.getRBACScope(),
         },
       });
 
-      return { items, total: totalCount };
+      return { items, total };
     } catch (error) {
       log.error('work items list with count failed', error, {
         operation: 'list_work_items_with_count',

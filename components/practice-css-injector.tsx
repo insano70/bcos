@@ -16,10 +16,22 @@ interface PracticeCSSInjectorProps {
   practiceId: string;
 }
 
-export function PracticeCSSInjector({ colors, practiceId }: PracticeCSSInjectorProps) {
-  const styleNonce = useStyleNonce();
+/**
+ * Result of brand color validation
+ */
+interface BrandColorValidationResult {
+  valid: boolean;
+  invalidColors: string[];
+}
 
-  // ✅ SECURITY: Validate all colors before injection
+/**
+ * Validate brand colors for CSS injection safety
+ * Centralized validation to ensure consistent security checks across SSR/CSR
+ *
+ * @param colors - Brand colors to validate
+ * @returns Validation result with list of invalid colors if any
+ */
+function validateBrandColors(colors: BrandColors): BrandColorValidationResult {
   const invalidColors: string[] = [];
 
   if (colors.primary && !validateCSSColor(colors.primary)) {
@@ -32,17 +44,24 @@ export function PracticeCSSInjector({ colors, practiceId }: PracticeCSSInjectorP
     invalidColors.push(`accent: ${colors.accent}`);
   }
 
-  // Block injection if any color is invalid
-  if (invalidColors.length > 0) {
-    // Client-side logging for security events
+  return { valid: invalidColors.length === 0, invalidColors };
+}
+
+export function PracticeCSSInjector({ colors, practiceId }: PracticeCSSInjectorProps) {
+  const styleNonce = useStyleNonce();
+
+  // ✅ SECURITY: Validate all colors before injection
+  const validation = validateBrandColors(colors);
+
+  if (!validation.valid) {
     clientErrorLog('[SECURITY] Invalid CSS colors detected - blocking injection', {
       operation: 'practice_css_injection',
       practiceId,
-      invalidColors,
+      invalidColors: validation.invalidColors,
       colors,
       threat: 'css_injection_attempt',
     });
-    return null; // Block injection entirely
+    return null;
   }
 
   const practiceCSS = getPracticeCSS(colors);
@@ -69,29 +88,17 @@ export function ServerPracticeCSSInjector({
   nonce,
 }: PracticeCSSInjectorProps & { nonce: string }) {
   // ✅ SECURITY: Validate all colors before injection
-  const invalidColors: string[] = [];
+  const validation = validateBrandColors(colors);
 
-  if (colors.primary && !validateCSSColor(colors.primary)) {
-    invalidColors.push(`primary: ${colors.primary}`);
-  }
-  if (colors.secondary && !validateCSSColor(colors.secondary)) {
-    invalidColors.push(`secondary: ${colors.secondary}`);
-  }
-  if (colors.accent && !validateCSSColor(colors.accent)) {
-    invalidColors.push(`accent: ${colors.accent}`);
-  }
-
-  // Block injection if any color is invalid
-  if (invalidColors.length > 0) {
-    // Server-side logging for security events
+  if (!validation.valid) {
     clientErrorLog('[SECURITY] Invalid CSS colors detected - blocking SSR injection', {
       operation: 'practice_css_injection_ssr',
       practiceId,
-      invalidColors,
+      invalidColors: validation.invalidColors,
       colors,
       threat: 'css_injection_attempt',
     });
-    return null; // Block injection entirely
+    return null;
   }
 
   const practiceCSS = getPracticeCSS(colors);

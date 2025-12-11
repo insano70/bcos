@@ -48,6 +48,8 @@ import { db } from '@/lib/db';
 import { chart_data_sources } from '@/lib/db/chart-config-schema';
 import { eq } from 'drizzle-orm';
 import type { RequestScopedCache } from './request-scoped-cache';
+import { CacheService } from '@/lib/cache/base';
+import { ANALYTICS_TTL } from '@/lib/constants/cache-ttl';
 
 // Re-export CacheKeyComponents for external use
 export type { CacheKeyComponents } from './data-source/cache-key-builder';
@@ -200,76 +202,75 @@ export interface DataSourceFetchResult {
 }
 
 /**
- * Cache for data source types (avoid repeated DB queries)
- * Key: dataSourceId, Value: data_source_type
- */
-/**
- * Simple LRU Cache implementation for data source types
+ * Redis-backed cache for data source types
  *
- * Prevents memory leak by enforcing a maximum size limit.
- * When the cache is full, the least recently used entry is evicted.
+ * Provides cross-request and cross-instance caching of data source types.
+ * Replaces the in-memory LRU cache for better multi-instance consistency.
+ *
+ * KEY FORMAT: dstype:{dataSourceId}
+ * TTL: 24 hours (data source types rarely change)
  */
-class LRUCache<K, V> {
-  private cache: Map<K, V>;
-  private readonly maxSize: number;
+type DataSourceType = 'measure-based' | 'table-based';
 
-  constructor(maxSize: number) {
-    this.cache = new Map();
-    this.maxSize = maxSize;
+class DataSourceTypeCacheService extends CacheService<DataSourceType> {
+  protected namespace = 'dstype';
+  protected defaultTTL = ANALYTICS_TTL.CHART_CONFIG; // 24 hours
+
+  /**
+   * Get data source type from cache
+   *
+   * @param dataSourceId - Data source ID
+   * @returns Cached type or null
+   */
+  async getType(dataSourceId: number): Promise<DataSourceType | null> {
+    const key = this.buildKey(String(dataSourceId));
+    return this.get(key);
   }
 
-  get(key: K): V | undefined {
-    const value = this.cache.get(key);
-    if (value !== undefined) {
-      // Move to end (most recently used)
-      this.cache.delete(key);
-      this.cache.set(key, value);
-    }
-    return value;
+  /**
+   * Store data source type in cache
+   *
+   * @param dataSourceId - Data source ID
+   * @param type - Data source type
+   */
+  async setType(dataSourceId: number, type: DataSourceType): Promise<void> {
+    const key = this.buildKey(String(dataSourceId));
+    await this.set(key, type);
   }
 
-  set(key: K, value: V): void {
-    // Delete if exists (to update position)
-    if (this.cache.has(key)) {
-      this.cache.delete(key);
-    }
-
-    // Add to end (most recently used)
-    this.cache.set(key, value);
-
-    // Evict oldest if over limit
-    if (this.cache.size > this.maxSize) {
-      const firstKey = this.cache.keys().next().value as K;
-      this.cache.delete(firstKey);
-
-      log.debug('LRU cache evicted oldest entry', {
-        evictedKey: firstKey,
-        cacheSize: this.cache.size,
-        maxSize: this.maxSize,
+  /**
+   * Invalidate cache entries
+   *
+   * @param dataSourceId - Optional data source ID (clears all if omitted)
+   */
+  async invalidate(dataSourceId?: number): Promise<void> {
+    if (dataSourceId !== undefined) {
+      const key = this.buildKey(String(dataSourceId));
+      await this.del(key);
+      log.info('Data source type cache invalidated', {
         component: 'data-source-type-cache',
+        dataSourceId,
+      });
+    } else {
+      const pattern = this.buildKey('*');
+      const deletedCount = await this.delPattern(pattern);
+      log.info('All data source type cache cleared', {
+        component: 'data-source-type-cache',
+        deletedCount,
       });
     }
-  }
-
-  clear(): void {
-    this.cache.clear();
-  }
-
-  size(): number {
-    return this.cache.size;
   }
 }
 
 /**
- * LRU cache for data source types (max 500 entries)
- * Prevents unbounded memory growth in long-running processes
- * Set to 500 to accommodate organizations with many data sources
+ * Singleton cache for data source types
+ * Redis-backed for cross-request and cross-instance consistency
  */
-const dataSourceTypeCache = new LRUCache<number, 'measure-based' | 'table-based'>(500);
+const dataSourceTypeCache = new DataSourceTypeCacheService();
 
 /**
  * Detect data source type from database
- * Uses LRU cache to avoid repeated queries while preventing memory leaks
+ * Uses Redis cache to avoid repeated queries with cross-instance consistency
  *
  * SECURITY: Validates input and database return values
  *
@@ -284,8 +285,8 @@ async function detectDataSourceType(
     throw new Error(`Invalid dataSourceId: ${dataSourceId}. Must be positive integer.`);
   }
 
-  // Check cache first
-  const cached = dataSourceTypeCache.get(dataSourceId);
+  // Check Redis cache first
+  const cached = await dataSourceTypeCache.getType(dataSourceId);
   if (cached) {
     return cached;
   }
@@ -317,13 +318,14 @@ async function detectDataSourceType(
     return 'measure-based';
   }
 
-  // Cache the result with LRU eviction
-  dataSourceTypeCache.set(dataSourceId, type);
+  // Cache the result in Redis (fire and forget)
+  dataSourceTypeCache.setType(dataSourceId, type).catch(() => {
+    // Ignore cache write errors - database is source of truth
+  });
 
   log.debug('Data source type cached', {
     dataSourceId,
     type,
-    cacheSize: dataSourceTypeCache.size(),
     component: 'data-source-type-cache',
   });
 

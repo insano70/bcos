@@ -2,7 +2,7 @@
  * Column Mapping Service
  *
  * Provides centralized service for resolving data source column mappings
- * with in-memory caching for performance.
+ * with Redis-backed caching for cross-request and cross-instance persistence.
  *
  * This service acts as a bridge between data source configuration and
  * dynamic column access via MeasureAccessor.
@@ -13,9 +13,73 @@
  */
 
 import { log } from '@/lib/logger';
+import { CacheService } from '@/lib/cache/base';
+import { ANALYTICS_TTL } from '@/lib/constants/cache-ttl';
 import type { AggAppMeasure, DataSourceColumnMapping } from '@/lib/types/analytics';
 import { MeasureAccessor } from '@/lib/services/analytics/measure-accessor';
 import { chartConfigService } from './chart-config-service';
+
+/**
+ * Column Mapping Cache Service
+ *
+ * Redis-backed cache for column mappings.
+ * Extends CacheService for consistent Redis operations.
+ *
+ * KEY FORMAT: colmap:{dataSourceId}
+ * TTL: 24 hours (column configs rarely change)
+ */
+class ColumnMappingCacheService extends CacheService<DataSourceColumnMapping> {
+  protected namespace = 'colmap';
+  protected defaultTTL = ANALYTICS_TTL.CHART_CONFIG; // 24 hours
+
+  /**
+   * Get column mapping from cache
+   *
+   * @param dataSourceId - Data source ID
+   * @returns Cached mapping or null
+   */
+  async getMapping(dataSourceId: number): Promise<DataSourceColumnMapping | null> {
+    const key = this.buildKey(String(dataSourceId));
+    return this.get(key);
+  }
+
+  /**
+   * Store column mapping in cache
+   *
+   * @param dataSourceId - Data source ID
+   * @param mapping - Column mapping to cache
+   */
+  async setMapping(dataSourceId: number, mapping: DataSourceColumnMapping): Promise<void> {
+    const key = this.buildKey(String(dataSourceId));
+    await this.set(key, mapping);
+  }
+
+  /**
+   * Invalidate cache entries
+   *
+   * @param dataSourceId - Optional data source ID (clears all if omitted)
+   */
+  async invalidate(dataSourceId?: number): Promise<void> {
+    if (dataSourceId !== undefined) {
+      const key = this.buildKey(String(dataSourceId));
+      await this.del(key);
+      log.info('Column mapping cache invalidated', {
+        component: 'column-mapping-cache',
+        dataSourceId,
+      });
+    } else {
+      const pattern = this.buildKey('*');
+      const deletedCount = await this.delPattern(pattern);
+      log.info('All column mapping cache cleared', {
+        component: 'column-mapping-cache',
+        deletedCount,
+      });
+    }
+  }
+}
+
+// Singleton cache instance
+const columnMappingCache = new ColumnMappingCacheService();
 
 /**
  * Service for managing data source column mappings
@@ -38,15 +102,15 @@ import { chartConfigService } from './chart-config-service';
  */
 export class ColumnMappingService {
   /**
-   * In-memory cache for column mappings
-   * Key: dataSourceId, Value: DataSourceColumnMapping
+   * Track data source IDs that have been loaded by this instance
+   * Used for cache statistics and debugging
    */
-  private cache = new Map<number, DataSourceColumnMapping>();
+  private loadedDataSourceIds = new Set<number>();
 
   /**
    * Get column mapping for a data source
    *
-   * Results are cached in memory for performance.
+   * Results are cached in Redis for cross-request persistence.
    * Cache is cleared when invalidate() is called.
    *
    * @param dataSourceId - Data source ID
@@ -54,13 +118,14 @@ export class ColumnMappingService {
    * @throws Error if data source not found or required columns missing
    */
   async getMapping(dataSourceId: number): Promise<DataSourceColumnMapping> {
-    // Check cache first
-    const cached = this.cache.get(dataSourceId);
+    // Check Redis cache first
+    const cached = await columnMappingCache.getMapping(dataSourceId);
     if (cached) {
       log.debug('Column mapping cache hit', {
         component: 'column-mapping-service',
         dataSourceId,
       });
+      this.loadedDataSourceIds.add(dataSourceId);
       return cached;
     }
 
@@ -103,8 +168,10 @@ export class ColumnMappingService {
       providerField: this.findColumnByType(config.columns, 'provider', dataSourceId, false),
     };
 
-    // Cache the result
-    this.cache.set(dataSourceId, mapping);
+    // Cache the result in Redis (fire and forget)
+    columnMappingCache.setMapping(dataSourceId, mapping).catch(() => {
+      // Ignore cache write errors - database is source of truth
+    });
 
     log.info('Column mapping loaded and cached', {
       component: 'column-mapping-service',
@@ -112,6 +179,7 @@ export class ColumnMappingService {
       mapping,
     });
 
+    this.loadedDataSourceIds.add(dataSourceId);
     return mapping;
   }
 
@@ -225,43 +293,35 @@ export class ColumnMappingService {
    */
   invalidate(dataSourceId?: number): void {
     if (dataSourceId !== undefined) {
-      this.cache.delete(dataSourceId);
-      log.info('Column mapping cache invalidated for data source', {
-        component: 'column-mapping-service',
-        dataSourceId,
-      });
+      this.loadedDataSourceIds.delete(dataSourceId);
     } else {
-      this.cache.clear();
-      log.info('Column mapping cache cleared', {
-        component: 'column-mapping-service',
-        entriesCleared: this.cache.size,
-      });
+      this.loadedDataSourceIds.clear();
     }
+    // Fire and forget Redis cache invalidation
+    columnMappingCache.invalidate(dataSourceId).catch(() => {
+      // Ignore cache invalidation errors
+    });
   }
 
   /**
-   * Get cache statistics
+   * Get cache statistics for this instance
    *
-   * @returns Cache size and cached data source IDs
+   * Returns information about which data sources have been loaded
+   * by this service instance. Useful for debugging and monitoring.
+   *
+   * @returns Cache statistics with size and loaded data source IDs
    */
   getCacheStats(): { size: number; dataSourceIds: number[] } {
     return {
-      size: this.cache.size,
-      dataSourceIds: Array.from(this.cache.keys()),
+      size: this.loadedDataSourceIds.size,
+      dataSourceIds: Array.from(this.loadedDataSourceIds),
     };
   }
-}
-
-// Extend globalThis to persist singleton across hot reloads in development
-declare global {
-  // eslint-disable-next-line no-var
-  var __columnMappingService: ColumnMappingService | undefined;
 }
 
 /**
  * Singleton instance of ColumnMappingService
  *
- * Uses globalThis to persist across hot reloads in development.
  * Use this exported instance throughout the application.
  *
  * @example
@@ -272,10 +332,4 @@ declare global {
  * const accessor = await columnMappingService.createAccessor(row, 3);
  * ```
  */
-export const columnMappingService =
-  globalThis.__columnMappingService ?? new ColumnMappingService();
-
-// Store on globalThis in development to prevent cache loss during hot reload
-if (process.env.NODE_ENV !== 'production') {
-  globalThis.__columnMappingService = columnMappingService;
-}
+export const columnMappingService = new ColumnMappingService();

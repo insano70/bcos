@@ -282,6 +282,17 @@ export interface CrudServiceConfig<
     /** Transform update data to update values */
     toUpdateValues?: (data: TUpdateData, ctx: UserContext) => Record<string, unknown>;
   };
+
+  /**
+   * Pagination configuration for list operations.
+   * When not specified, uses global defaults (maxLimit: 500, defaultLimit: 100).
+   */
+  pagination?: {
+    /** Maximum allowed limit (prevents DoS via huge page requests) */
+    maxLimit: number;
+    /** Default limit when not specified in query options */
+    defaultLimit: number;
+  };
 }
 
 /**

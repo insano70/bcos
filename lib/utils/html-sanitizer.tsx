@@ -179,12 +179,12 @@ interface SafeHtmlProps {
   stripTags?: boolean;
 }
 
-export function SafeHtmlRenderer({ html, className, stripTags = false }: SafeHtmlProps) {
+export function SafeHtmlRenderer({ html, className, allowedTags, stripTags = false }: SafeHtmlProps) {
   if (stripTags) {
     return <div className={className}>{stripHtml(html)}</div>;
   }
 
-  const safeHtml = sanitizeHtml(html);
+  const safeHtml = sanitizeHtml(html, { additionalTags: allowedTags });
 
   return (
     <div

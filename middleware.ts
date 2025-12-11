@@ -255,7 +255,12 @@ export async function middleware(request: NextRequest) {
                              pathname === '/api/admin/analytics/chart-data' ||
                              pathname.startsWith('/api/data/explorer/')
 
-    if (['POST', 'PUT', 'PATCH'].includes(request.method) && !skipSanitization) {
+    // Only attempt JSON sanitization if Content-Type indicates JSON
+    // This avoids unnecessary parsing overhead for multipart/form-data uploads
+    const contentType = request.headers.get('content-type') || ''
+    const isJsonContent = contentType.includes('application/json')
+
+    if (['POST', 'PUT', 'PATCH'].includes(request.method) && !skipSanitization && isJsonContent) {
       try {
         // Clone the request to read the body
         const clonedRequest = request.clone()

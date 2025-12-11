@@ -32,8 +32,24 @@ import { db } from '@/lib/db';
 import { DatabaseError, ForbiddenError, NotFoundError } from '@/lib/errors/domain-errors';
 import { calculateChanges, log, logTemplates } from '@/lib/logger';
 import { BaseRBACService } from '@/lib/rbac/base-service';
+import { validatePagination } from '@/lib/utils/validators';
 
 import type { BaseQueryOptions, CrudServiceConfig, JoinQueryConfig, ListResponse } from './types';
+
+// =============================================================================
+// Pagination Defaults
+// =============================================================================
+
+/**
+ * Default pagination limits for CRUD services.
+ * These can be overridden per-service via CrudServiceConfig.pagination.
+ */
+const CRUD_PAGINATION_DEFAULTS = {
+  /** Maximum allowed limit to prevent DoS via huge page requests */
+  MAX_LIMIT: 500,
+  /** Default limit when not specified in query options */
+  DEFAULT_LIMIT: 100,
+} as const;
 
 // Type alias for Drizzle table to simplify casting
 type AnyPgTable = PgTable<TableConfig>;
@@ -158,9 +174,13 @@ export abstract class BaseCrudService<
 
     const total = Number(countResult?.count || 0);
 
-    // Get paginated data
-    const limit = options.limit || 100;
-    const offset = options.offset || 0;
+    // Validate and clamp pagination to prevent DoS via huge page requests
+    const { limit, offset } = validatePagination(
+      options.limit,
+      options.offset,
+      config.pagination?.maxLimit ?? CRUD_PAGINATION_DEFAULTS.MAX_LIMIT,
+      config.pagination?.defaultLimit ?? CRUD_PAGINATION_DEFAULTS.DEFAULT_LIMIT
+    );
 
     // Check if subclass defines JOINs for enriched queries
     const joinConfig = this.buildJoinQuery();

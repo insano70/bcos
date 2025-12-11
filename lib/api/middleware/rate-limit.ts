@@ -147,6 +147,9 @@ export async function applyRateLimit(
   // Different rate limit types must have separate counters
   const ip = getRateLimitKey(request);
   const identifier = `${type}:${ip}`;
+  // Pre-compute redacted identifier for logging (redact IP first, then add type prefix)
+  // This preserves the type info while properly redacting the IP address
+  const redactedIdentifier = `${type}:${redactIpForLogging(ip)}`;
 
   // Check rate limit using Redis
   const result: RateLimitResult = await rateLimitCache.checkIpRateLimit(
@@ -162,7 +165,7 @@ export async function applyRateLimit(
       threat: 'dos_attempt',
       blocked: true,
       type,
-      identifier: redactIpForLogging(identifier),
+      identifier: redactedIdentifier,
       current: result.current,
       limit: result.limit,
       resetAt: result.resetAt,
@@ -183,7 +186,7 @@ export async function applyRateLimit(
   if (process.env.NODE_ENV === 'development') {
     log.debug('Rate limit check passed', {
       type,
-      identifier: redactIpForLogging(identifier),
+      identifier: redactedIdentifier,
       current: result.current,
       remaining: result.remaining,
       limit: result.limit,
