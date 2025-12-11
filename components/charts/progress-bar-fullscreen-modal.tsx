@@ -12,8 +12,6 @@ import { createPortal } from 'react-dom';
 import AnalyticsProgressBarChart from './analytics-progress-bar-chart';
 import { useDimensionExpansion } from '@/hooks/useDimensionExpansion';
 import { useChartFullscreen } from '@/hooks/useChartFullscreen';
-import { useIsMobile } from '@/hooks/useIsMobile';
-import { useSwipeGesture } from '@/hooks/useSwipeGesture';
 import type {
   DimensionExpansionChartConfig,
   DimensionExpansionFilters,
@@ -21,6 +19,7 @@ import type {
 import { DimensionCheckboxes } from './dimension-checkboxes';
 import { DimensionValueSelector } from './dimension-value-selector';
 import DimensionComparisonView from './dimension-comparison-view';
+import FullscreenModalFooter from './fullscreen-modal-footer';
 
 interface ProgressBarFullscreenModalProps {
   isOpen: boolean;
@@ -66,17 +65,6 @@ export default function ProgressBarFullscreenModal({
   // Use shared hook for modal lifecycle (mounting, scroll lock, escape key)
   const { mounted } = useChartFullscreen(isOpen, onClose);
 
-  // Mobile detection for swipe navigation
-  const isMobile = useIsMobile();
-
-  // Swipe gesture for mobile navigation
-  const swipeHandlers = useSwipeGesture({
-    onSwipeUp: canGoNext ? onNextChart : undefined,
-    onSwipeDown: canGoPrevious ? onPreviousChart : undefined,
-    onSwipeLeft: onClose,
-    onSwipeRight: onClose,
-  });
-
   const dimension = useDimensionExpansion({
     chartDefinitionId,
     finalChartConfig,
@@ -109,17 +97,9 @@ export default function ProgressBarFullscreenModal({
         <div className="flex flex-col gap-3 px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
           {/* Title row */}
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3 min-w-0">
-              <h2 id={titleId} className="text-lg font-semibold text-gray-900 dark:text-gray-100 truncate">
-                {chartTitle}
-              </h2>
-              {/* Position indicator for mobile navigation */}
-              {chartPosition && (
-                <span className="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                  {chartPosition}
-                </span>
-              )}
-            </div>
+            <h2 id={titleId} className="text-lg font-semibold text-gray-900 dark:text-gray-100 truncate">
+              {chartTitle}
+            </h2>
             <button
               type="button"
               onClick={onClose}
@@ -187,11 +167,8 @@ export default function ProgressBarFullscreenModal({
           )}
         </div>
 
-        {/* Content - swipe handlers for mobile navigation */}
-        <div
-          className="flex-1 overflow-hidden"
-          {...(isMobile ? swipeHandlers : {})}
-        >
+        {/* Content - no swipe handlers, free for interaction */}
+        <div className="flex-1 overflow-hidden">
           {dimension.error && (
             <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/30 dark:text-red-200">
               {dimension.error}
@@ -234,6 +211,16 @@ export default function ProgressBarFullscreenModal({
             </div>
           )}
         </div>
+
+        {/* Footer with navigation */}
+        <FullscreenModalFooter
+          onNextChart={onNextChart}
+          onPreviousChart={onPreviousChart}
+          onClose={onClose}
+          canGoNext={canGoNext}
+          canGoPrevious={canGoPrevious}
+          chartPosition={chartPosition}
+        />
       </div>
     </div>
   );

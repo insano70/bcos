@@ -3,15 +3,17 @@
 /**
  * Table Fullscreen Modal
  *
- * Displays table charts in fullscreen with swipe navigation support.
- * Uses swipe zones (header/footer) for navigation while allowing table body to scroll.
+ * Displays table charts in fullscreen with navigation support.
+ * Uses footer zone for navigation while allowing table body to scroll freely.
+ *
+ * Navigation: Footer zone with prev/next buttons and swipe gestures.
+ * Content area is swipe-free for table scrolling.
  */
 
 import { useId, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useChartFullscreen } from '@/hooks/useChartFullscreen';
-import { useIsMobile } from '@/hooks/useIsMobile';
-import { useSwipeGesture } from '@/hooks/useSwipeGesture';
+import FullscreenModalFooter from './fullscreen-modal-footer';
 
 interface TableColumn {
   columnName: string;
@@ -42,7 +44,7 @@ interface TableFullscreenModalProps {
   data: Record<string, unknown>[];
   columns: TableColumn[];
   formattedData?: Array<Record<string, FormattedCell>>;
-  // Mobile navigation support (swipe between charts)
+  // Mobile navigation support
   onNextChart?: () => void;
   onPreviousChart?: () => void;
   canGoNext?: boolean;
@@ -69,17 +71,6 @@ export default function TableFullscreenModal({
 
   // Use shared hook for modal lifecycle (mounting, scroll lock, escape key)
   const { mounted } = useChartFullscreen(isOpen, onClose);
-
-  // Mobile detection for swipe navigation
-  const isMobile = useIsMobile();
-
-  // Swipe gesture for header/footer zones (navigation)
-  const swipeHandlers = useSwipeGesture({
-    onSwipeUp: canGoNext ? onNextChart : undefined,
-    onSwipeDown: canGoPrevious ? onPreviousChart : undefined,
-    onSwipeLeft: onClose,
-    onSwipeRight: onClose,
-  });
 
   // Handle clicks outside modal
   const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -190,22 +181,11 @@ export default function TableFullscreenModal({
       aria-labelledby={titleId}
     >
       <div className="relative bg-white dark:bg-gray-900 rounded-lg w-full h-full sm:h-[90vh] sm:max-w-6xl flex flex-col overflow-hidden shadow-2xl">
-        {/* Header - swipe zone for navigation */}
-        <div
-          className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50"
-          {...(isMobile ? swipeHandlers : {})}
-        >
-          <div className="flex items-center gap-3 min-w-0">
-            <h2 id={titleId} className="text-lg font-semibold text-gray-900 dark:text-gray-100 truncate">
-              {chartTitle}
-            </h2>
-            {/* Position indicator for mobile navigation */}
-            {chartPosition && (
-              <span className="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                {chartPosition}
-              </span>
-            )}
-          </div>
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex-shrink-0">
+          <h2 id={titleId} className="text-lg font-semibold text-gray-900 dark:text-gray-100 truncate">
+            {chartTitle}
+          </h2>
           <button
             type="button"
             onClick={onClose}
@@ -223,7 +203,7 @@ export default function TableFullscreenModal({
           </button>
         </div>
 
-        {/* Table content - scrollable body (no swipe here to allow table scrolling) */}
+        {/* Table content - scrollable body, no swipe handlers */}
         <div className="flex-1 overflow-auto p-4">
           {(!displayData || displayData.length === 0) ? (
             <div className="flex flex-col items-center justify-center h-full text-gray-500 dark:text-gray-400">
@@ -295,18 +275,17 @@ export default function TableFullscreenModal({
           )}
         </div>
 
-        {/* Footer - swipe zone for navigation */}
-        <div
-          className="px-6 py-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50"
-          {...(isMobile ? swipeHandlers : {})}
+        {/* Footer with navigation */}
+        <FullscreenModalFooter
+          onNextChart={onNextChart}
+          onPreviousChart={onPreviousChart}
+          onClose={onClose}
+          canGoNext={canGoNext}
+          canGoPrevious={canGoPrevious}
+          chartPosition={chartPosition}
         >
-          <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
-            <span>{displayData.length} rows</span>
-            {isMobile && (
-              <span className="text-xs">Swipe header/footer to navigate</span>
-            )}
-          </div>
-        </div>
+          <span>{displayData.length} rows</span>
+        </FullscreenModalFooter>
       </div>
     </div>
   );

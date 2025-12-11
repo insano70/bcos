@@ -29,7 +29,6 @@ import { useDimensionExpansion } from '@/hooks/useDimensionExpansion';
 import { useChartInstance } from '@/hooks/useChartInstance';
 import { useChartDrillDown } from '@/hooks/useChartDrillDown';
 import { useIsMobile } from '@/hooks/useIsMobile';
-import { useSwipeGesture } from '@/hooks/useSwipeGesture';
 import {
   buildChartOptions,
   type FullscreenChartType,
@@ -42,6 +41,7 @@ import { DimensionCheckboxes } from './dimension-checkboxes';
 import { DimensionValueSelector } from './dimension-value-selector';
 import DimensionComparisonView from './dimension-comparison-view';
 import { DrillDownIcon } from './drill-down-icon';
+import FullscreenModalFooter from './fullscreen-modal-footer';
 import 'chartjs-adapter-moment';
 
 /**
@@ -109,14 +109,6 @@ export default function ChartFullscreenModal({
 
   // Use custom hooks for separation of concerns
   const { mounted } = useChartFullscreen(isOpen, onClose);
-
-  // Swipe gesture for mobile navigation
-  const swipeHandlers = useSwipeGesture({
-    onSwipeUp: canGoNext ? onNextChart : undefined,
-    onSwipeDown: canGoPrevious ? onPreviousChart : undefined,
-    onSwipeLeft: onClose,
-    onSwipeRight: onClose,
-  });
 
   // Drill-down hook (only when config provided)
   const drillDown = useChartDrillDown({
@@ -227,20 +219,12 @@ export default function ChartFullscreenModal({
         <header className="px-5 py-4 border-b border-gray-200 dark:border-gray-700 flex flex-col gap-3 flex-shrink-0">
           {/* Title row */}
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3 min-w-0">
-              <h2
-                id={chartTitleId}
-                className="font-semibold text-gray-800 dark:text-gray-100 text-lg truncate"
-              >
-                {chartTitle}
-              </h2>
-              {/* Position indicator for mobile navigation */}
-              {chartPosition && (
-                <span className="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                  {chartPosition}
-                </span>
-              )}
-            </div>
+            <h2
+              id={chartTitleId}
+              className="font-semibold text-gray-800 dark:text-gray-100 text-lg truncate"
+            >
+              {chartTitle}
+            </h2>
             <div className="flex items-center gap-2">
               {/* Reset Zoom button - hide when in dimension view or on mobile with dimension controls visible */}
               {!dimension.expandedData && !(isMobile && dimension.canExpand) && (
@@ -326,10 +310,9 @@ export default function ChartFullscreenModal({
           )}
         </header>
 
-        {/* Chart Content - swipe handlers for mobile navigation */}
+        {/* Chart Content - no swipe handlers, free for interaction */}
         <div
           className={`flex-1 pt-3 px-6 pb-6 ${dimension.expandedData ? 'overflow-hidden' : 'overflow-auto'}`}
-          {...(isMobile ? swipeHandlers : {})}
         >
           {/* Dimension error message */}
           {dimension.error && (
@@ -416,6 +399,16 @@ export default function ChartFullscreenModal({
             </>
           )}
         </div>
+
+        {/* Footer with navigation */}
+        <FullscreenModalFooter
+          onNextChart={onNextChart}
+          onPreviousChart={onPreviousChart}
+          onClose={onClose}
+          canGoNext={canGoNext}
+          canGoPrevious={canGoPrevious}
+          chartPosition={chartPosition}
+        />
       </div>
     </div>
   );

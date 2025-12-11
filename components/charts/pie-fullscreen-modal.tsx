@@ -3,17 +3,19 @@
 /**
  * Pie Fullscreen Modal
  *
- * Displays pie and doughnut charts in fullscreen with swipe navigation support.
+ * Displays pie and doughnut charts in fullscreen with navigation support.
  * Simple modal that enlarges the pie/doughnut chart for better visibility.
+ *
+ * Navigation: Footer zone with prev/next buttons and swipe gestures.
+ * Content area is swipe-free for better interaction.
  */
 
 import { useId, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useChartFullscreen } from '@/hooks/useChartFullscreen';
-import { useIsMobile } from '@/hooks/useIsMobile';
-import { useSwipeGesture } from '@/hooks/useSwipeGesture';
 import type { ChartData } from '@/lib/types/analytics';
 import DoughnutChart from './doughnut-chart';
+import FullscreenModalFooter from './fullscreen-modal-footer';
 
 interface PieFullscreenModalProps {
   isOpen: boolean;
@@ -21,7 +23,7 @@ interface PieFullscreenModalProps {
   chartTitle: string;
   data: ChartData;
   chartType: 'pie' | 'doughnut';
-  // Mobile navigation support (swipe between charts)
+  // Mobile navigation support
   onNextChart?: () => void;
   onPreviousChart?: () => void;
   canGoNext?: boolean;
@@ -48,17 +50,6 @@ export default function PieFullscreenModal({
   // Use shared hook for modal lifecycle (mounting, scroll lock, escape key)
   const { mounted } = useChartFullscreen(isOpen, onClose);
 
-  // Mobile detection for swipe navigation
-  const isMobile = useIsMobile();
-
-  // Swipe gesture for mobile navigation
-  const swipeHandlers = useSwipeGesture({
-    onSwipeUp: canGoNext ? onNextChart : undefined,
-    onSwipeDown: canGoPrevious ? onPreviousChart : undefined,
-    onSwipeLeft: onClose,
-    onSwipeRight: onClose,
-  });
-
   // Handle clicks outside modal
   const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget) {
@@ -84,18 +75,10 @@ export default function PieFullscreenModal({
     >
       <div className="relative bg-white dark:bg-gray-900 rounded-lg w-full h-full sm:h-[90vh] sm:max-w-4xl flex flex-col overflow-hidden shadow-2xl">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-          <div className="flex items-center gap-3 min-w-0">
-            <h2 id={titleId} className="text-lg font-semibold text-gray-900 dark:text-gray-100 truncate">
-              {chartTitle}
-            </h2>
-            {/* Position indicator for mobile navigation */}
-            {chartPosition && (
-              <span className="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                {chartPosition}
-              </span>
-            )}
-          </div>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex-shrink-0">
+          <h2 id={titleId} className="text-lg font-semibold text-gray-900 dark:text-gray-100 truncate">
+            {chartTitle}
+          </h2>
           <button
             type="button"
             onClick={onClose}
@@ -113,11 +96,8 @@ export default function PieFullscreenModal({
           </button>
         </div>
 
-        {/* Content - swipe handlers for mobile navigation */}
-        <div
-          className="flex-1 flex items-center justify-center p-6 overflow-hidden"
-          {...(isMobile ? swipeHandlers : {})}
-        >
+        {/* Content - no swipe handlers, free for interaction */}
+        <div className="flex-1 flex items-center justify-center p-6 overflow-hidden">
           <div style={{ width: chartSize, height: chartSize }}>
             <DoughnutChart
               data={data}
@@ -126,6 +106,16 @@ export default function PieFullscreenModal({
             />
           </div>
         </div>
+
+        {/* Footer with navigation */}
+        <FullscreenModalFooter
+          onNextChart={onNextChart}
+          onPreviousChart={onPreviousChart}
+          onClose={onClose}
+          canGoNext={canGoNext}
+          canGoPrevious={canGoPrevious}
+          chartPosition={chartPosition}
+        />
       </div>
     </div>
   );
