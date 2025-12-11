@@ -7,6 +7,10 @@ import { z } from 'zod';
 import CrudModal from '@/components/crud-modal';
 import type { CustomFieldProps, FieldConfig, SelectOption } from '@/components/crud-modal/types';
 import { apiClient } from '@/lib/api/client';
+import {
+  announcementPrioritySchema,
+  announcementTargetTypeSchema,
+} from '@/lib/validations/announcements';
 import { createSafeTextSchema } from '@/lib/validations/sanitization';
 
 import MultiUserPicker from './multi-user-picker';
@@ -14,18 +18,22 @@ import MultiUserPicker from './multi-user-picker';
 // Maximum body length (matches backend validation)
 const MAX_BODY_LENGTH = 10000;
 
-// Zod schemas for validation
-const createAnnouncementSchema = z
+/**
+ * Form schema for announcement modal
+ * Uses shared enums from backend, but handles dates as strings for form inputs
+ */
+const announcementFormSchema = z
   .object({
     subject: createSafeTextSchema(1, 255, 'Subject'),
     body: z
       .string()
       .min(1, 'Body is required')
       .max(MAX_BODY_LENGTH, `Body must be ${MAX_BODY_LENGTH.toLocaleString()} characters or less`),
-    target_type: z.enum(['all', 'specific']),
+    target_type: announcementTargetTypeSchema,
     recipient_user_ids: z.array(z.string().uuid()).optional(),
-    priority: z.enum(['low', 'normal', 'high', 'urgent']).default('normal'),
+    priority: announcementPrioritySchema.default('normal'),
     is_active: z.boolean().default(true),
+    // Keep as strings for datetime-local input compatibility
     publish_at: z.string().optional(),
     expires_at: z.string().optional(),
   })
@@ -40,11 +48,22 @@ const createAnnouncementSchema = z
       message: 'Please select at least one recipient',
       path: ['recipient_user_ids'],
     }
+  )
+  .refine(
+    (data) => {
+      // Only validate if both dates are set
+      if (data.publish_at && data.expires_at) {
+        return new Date(data.publish_at) < new Date(data.expires_at);
+      }
+      return true;
+    },
+    {
+      message: 'Expiration date must be after publish date',
+      path: ['expires_at'],
+    }
   );
 
-const editAnnouncementSchema = createAnnouncementSchema;
-
-type AnnouncementFormData = z.infer<typeof createAnnouncementSchema>;
+type AnnouncementFormData = z.infer<typeof announcementFormSchema>;
 
 interface Announcement {
   announcement_id: string;
@@ -111,7 +130,6 @@ function TargetTypeSelect({ value, onChange, error }: CustomFieldProps<Announcem
 
 // Conditional recipients picker - shows only when target_type is 'specific'
 function ConditionalRecipientsPicker({
-  name,
   value,
   onChange,
   error,
@@ -132,7 +150,6 @@ function ConditionalRecipientsPicker({
 
   return (
     <MultiUserPicker
-      name={name}
       value={value as string[] | undefined}
       onChange={onChange}
       error={error}
@@ -192,7 +209,7 @@ export default function AnnouncementModal({
   const fields: FieldConfig<AnnouncementFormData>[] = [
     {
       type: 'text',
-      name: 'subject' as never,
+      name: 'subject' as keyof AnnouncementFormData,
       label: 'Subject',
       placeholder: 'Enter announcement subject',
       required: true,
@@ -201,7 +218,7 @@ export default function AnnouncementModal({
     },
     {
       type: 'textarea',
-      name: 'body' as never,
+      name: 'body' as keyof AnnouncementFormData,
       label: 'Message Body',
       placeholder: 'Enter the announcement message (supports Markdown)...',
       required: true,
@@ -211,7 +228,7 @@ export default function AnnouncementModal({
     },
     {
       type: 'custom',
-      name: 'priority' as never,
+      name: 'priority' as keyof AnnouncementFormData,
       label: 'Priority',
       required: true,
       column: 'left',
@@ -220,7 +237,7 @@ export default function AnnouncementModal({
     },
     {
       type: 'custom',
-      name: 'target_type' as never,
+      name: 'target_type' as keyof AnnouncementFormData,
       label: 'Target Audience',
       required: true,
       column: 'right',
@@ -229,7 +246,7 @@ export default function AnnouncementModal({
     },
     {
       type: 'custom',
-      name: 'recipient_user_ids' as never,
+      name: 'recipient_user_ids' as keyof AnnouncementFormData,
       label: 'Select Recipients',
       column: 'full',
       component: ConditionalRecipientsPicker,
@@ -237,23 +254,23 @@ export default function AnnouncementModal({
     },
     {
       type: 'text',
-      name: 'publish_at' as never,
+      name: 'publish_at' as keyof AnnouncementFormData,
       label: 'Publish At (Optional)',
-      placeholder: '',
-      helpText: 'Leave blank to publish immediately',
+      placeholder: 'YYYY-MM-DDTHH:MM',
+      helpText: 'Leave blank to publish immediately. Format: 2025-01-15T09:00',
       column: 'left',
     },
     {
       type: 'text',
-      name: 'expires_at' as never,
+      name: 'expires_at' as keyof AnnouncementFormData,
       label: 'Expires At (Optional)',
-      placeholder: '',
-      helpText: 'Leave blank for no expiration',
+      placeholder: 'YYYY-MM-DDTHH:MM',
+      helpText: 'Leave blank for no expiration. Format: 2025-01-15T09:00',
       column: 'right',
     },
     {
       type: 'checkbox',
-      name: 'is_active' as never,
+      name: 'is_active' as keyof AnnouncementFormData,
       label: 'Active',
       description: 'Inactive announcements will not be shown to users',
       column: 'left',
@@ -285,15 +302,15 @@ export default function AnnouncementModal({
   }
 
   return (
-    <CrudModal
+    <CrudModal<AnnouncementFormData>
       mode={mode}
-      entity={transformedEntity as never}
+      entity={transformedEntity}
       title={mode === 'create' ? 'Create Announcement' : 'Edit Announcement'}
       resourceName="announcement"
       isOpen={isOpen}
       onClose={onClose}
       {...(onSuccess && { onSuccess })}
-      schema={(mode === 'create' ? createAnnouncementSchema : editAnnouncementSchema) as never}
+      schema={announcementFormSchema as never}
       defaultValues={{
         subject: '',
         body: '',
@@ -303,7 +320,7 @@ export default function AnnouncementModal({
         is_active: true,
         publish_at: '',
         expires_at: '',
-      } as never}
+      }}
       fields={fields}
       onSubmit={handleSubmit}
       size="3xl"

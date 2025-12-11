@@ -1,7 +1,7 @@
 'use client';
 
 import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useId, useState } from 'react';
 
 import { apiClient } from '@/lib/api/client';
 import { renderMarkdown } from '@/lib/utils/markdown-renderer';
@@ -88,10 +88,16 @@ export default function UserAnnouncementModal({
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [markingRead, setMarkingRead] = useState<string | null>(null);
   const [markingAllRead, setMarkingAllRead] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const panelIdPrefix = useId();
+  const unreadPanelId = `${panelIdPrefix}-unread`;
+  const historyPanelId = `${panelIdPrefix}-history`;
 
   const fetchAnnouncements = useCallback(async () => {
     try {
       setLoading(true);
+      setError(null);
       const response = await apiClient.get<{
         announcements: Announcement[];
         count: number;
@@ -100,7 +106,7 @@ export default function UserAnnouncementModal({
       setAnnouncements(response.announcements);
       onCountChange?.(response.count);
     } catch {
-      // Silently handle error - announcements are non-critical
+      setError('Failed to load announcements. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -111,6 +117,7 @@ export default function UserAnnouncementModal({
 
     try {
       setHistoryLoading(true);
+      setHistoryError(null);
       const response = await apiClient.get<{
         announcements: ReadAnnouncement[];
         count: number;
@@ -119,7 +126,7 @@ export default function UserAnnouncementModal({
       setHistoryAnnouncements(response.announcements);
       setHistoryLoaded(true);
     } catch {
-      // Silently handle error
+      setHistoryError('Failed to load history. Please try again.');
     } finally {
       setHistoryLoading(false);
     }
@@ -131,6 +138,7 @@ export default function UserAnnouncementModal({
       // Reset history state when modal opens
       setHistoryLoaded(false);
       setHistoryAnnouncements([]);
+      setHistoryError(null);
       setActiveTab('unread');
     }
   }, [isOpen, fetchAnnouncements]);
@@ -146,6 +154,7 @@ export default function UserAnnouncementModal({
   const handleMarkAsRead = async (announcementId: string) => {
     try {
       setMarkingRead(announcementId);
+      setError(null);
       await apiClient.post(`/api/user/announcements/${announcementId}/read`, {});
 
       // Remove from unread list
@@ -155,7 +164,7 @@ export default function UserAnnouncementModal({
       // Invalidate history cache so it refreshes on next view
       setHistoryLoaded(false);
     } catch {
-      // Silently handle error
+      setError('Failed to mark announcement as read. Please try again.');
     } finally {
       setMarkingRead(null);
     }
@@ -164,6 +173,7 @@ export default function UserAnnouncementModal({
   const handleMarkAllAsRead = async () => {
     try {
       setMarkingAllRead(true);
+      setError(null);
       await apiClient.post('/api/user/announcements/read-all', {});
 
       // Clear unread list
@@ -175,7 +185,7 @@ export default function UserAnnouncementModal({
 
       onClose();
     } catch {
-      // Silently handle error
+      setError('Failed to mark all as read. Please try again.');
     } finally {
       setMarkingAllRead(false);
     }
@@ -247,9 +257,12 @@ export default function UserAnnouncementModal({
                 </div>
 
                 {/* Tabs */}
-                <div className="flex gap-1 mt-4 p-1 bg-gray-100 dark:bg-gray-700/50 rounded-lg">
+                <div className="flex gap-1 mt-4 p-1 bg-gray-100 dark:bg-gray-700/50 rounded-lg" role="tablist" aria-label="Announcement views">
                   <button
                     type="button"
+                    role="tab"
+                    aria-selected={activeTab === 'unread'}
+                    aria-controls={unreadPanelId}
                     onClick={() => handleTabChange('unread')}
                     className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-all ${
                       activeTab === 'unread'
@@ -258,12 +271,12 @@ export default function UserAnnouncementModal({
                     }`}
                   >
                     <span className="flex items-center justify-center gap-2">
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                       </svg>
                       Unread
                       {announcements.length > 0 && (
-                        <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-violet-100 dark:bg-violet-900/50 text-violet-600 dark:text-violet-400">
+                        <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-violet-100 dark:bg-violet-900/50 text-violet-600 dark:text-violet-400" aria-label={`${announcements.length} unread`}>
                           {announcements.length}
                         </span>
                       )}
@@ -271,6 +284,9 @@ export default function UserAnnouncementModal({
                   </button>
                   <button
                     type="button"
+                    role="tab"
+                    aria-selected={activeTab === 'history'}
+                    aria-controls={historyPanelId}
                     onClick={() => handleTabChange('history')}
                     className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-all ${
                       activeTab === 'history'
@@ -279,7 +295,7 @@ export default function UserAnnouncementModal({
                     }`}
                   >
                     <span className="flex items-center justify-center gap-2">
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                       History
@@ -293,7 +309,25 @@ export default function UserAnnouncementModal({
             <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900/50">
               {activeTab === 'unread' ? (
                 // Unread tab content
-                loading ? (
+                <div id={unreadPanelId} role="tabpanel">
+                {error ? (
+                  <div className="flex flex-col items-center justify-center py-16 px-6">
+                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-red-400 to-rose-500 flex items-center justify-center shadow-lg shadow-red-500/25 mb-4">
+                      <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                      </svg>
+                    </div>
+                    <p className="text-base font-semibold text-gray-900 dark:text-gray-100">Something went wrong</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 text-center">{error}</p>
+                    <button
+                      type="button"
+                      onClick={fetchAnnouncements}
+                      className="mt-4 px-4 py-2 text-sm font-medium text-violet-600 hover:text-violet-700 bg-violet-100 hover:bg-violet-200 dark:bg-violet-900/30 dark:hover:bg-violet-900/50 rounded-lg transition-colors"
+                    >
+                      Try again
+                    </button>
+                  </div>
+                ) : loading ? (
                   <div className="flex flex-col items-center justify-center py-16">
                     <div className="relative">
                       <div className="w-12 h-12 rounded-full border-4 border-violet-100 dark:border-violet-900/50" />
@@ -369,10 +403,33 @@ export default function UserAnnouncementModal({
                       );
                     })}
                   </div>
-                )
+                )}
+                </div>
               ) : (
                 // History tab content
-                historyLoading ? (
+                <div id={historyPanelId} role="tabpanel">
+                {historyError ? (
+                  <div className="flex flex-col items-center justify-center py-16 px-6">
+                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-red-400 to-rose-500 flex items-center justify-center shadow-lg shadow-red-500/25 mb-4">
+                      <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                      </svg>
+                    </div>
+                    <p className="text-base font-semibold text-gray-900 dark:text-gray-100">Something went wrong</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 text-center">{historyError}</p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setHistoryLoaded(false);
+                        setHistoryError(null);
+                        fetchHistory();
+                      }}
+                      className="mt-4 px-4 py-2 text-sm font-medium text-violet-600 hover:text-violet-700 bg-violet-100 hover:bg-violet-200 dark:bg-violet-900/30 dark:hover:bg-violet-900/50 rounded-lg transition-colors"
+                    >
+                      Try again
+                    </button>
+                  </div>
+                ) : historyLoading ? (
                   <div className="flex flex-col items-center justify-center py-16">
                     <div className="relative">
                       <div className="w-12 h-12 rounded-full border-4 border-violet-100 dark:border-violet-900/50" />
@@ -439,7 +496,8 @@ export default function UserAnnouncementModal({
                       );
                     })}
                   </div>
-                )
+                )}
+                </div>
               )}
             </div>
 

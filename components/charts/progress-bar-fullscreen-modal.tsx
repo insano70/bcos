@@ -8,8 +8,8 @@
  */
 
 import { useState, useRef, useId } from 'react';
-import { createPortal } from 'react-dom';
 import AnalyticsProgressBarChart from './analytics-progress-bar-chart';
+import FullscreenModalAnimation from './fullscreen-modal-animation';
 import { useDimensionExpansion } from '@/hooks/useDimensionExpansion';
 import { useChartFullscreen } from '@/hooks/useChartFullscreen';
 import type {
@@ -73,8 +73,8 @@ export default function ProgressBarFullscreenModal({
   const modalRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
 
-  // Use shared hook for modal lifecycle (mounting, scroll lock, escape key)
-  const { mounted } = useChartFullscreen(isOpen, onClose);
+  // Use shared hook for modal lifecycle (scroll lock, escape key)
+  useChartFullscreen(isOpen, onClose);
 
   const dimension = useDimensionExpansion({
     chartDefinitionId,
@@ -83,27 +83,17 @@ export default function ProgressBarFullscreenModal({
     isOpen,
   });
 
-  // Handle clicks outside modal
-  const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (e.target === e.currentTarget) {
-      onClose();
-    }
-  };
-
-  if (!isOpen || !mounted) {
+  // Don't render if not open (AnimatePresence handles exit animations)
+  if (!isOpen) {
     return null;
   }
 
-  const modalContent = (
-    <div
-      ref={modalRef}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 sm:p-4"
-      onClick={handleOverlayClick}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby={titleId}
-    >
-      <div className="relative bg-white dark:bg-gray-900 rounded-lg w-full h-full sm:h-[90vh] sm:max-w-6xl flex flex-col overflow-hidden shadow-2xl">
+  return (
+    <FullscreenModalAnimation onOverlayClick={onClose} ariaLabelledBy={titleId}>
+      <div
+        ref={modalRef}
+        className="relative bg-white dark:bg-gray-900 rounded-lg w-full h-full sm:h-[90vh] sm:max-w-6xl flex flex-col overflow-hidden shadow-2xl"
+      >
         {/* Header */}
         <div className="flex flex-col gap-3 px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
           {/* Title row */}
@@ -238,9 +228,7 @@ export default function ProgressBarFullscreenModal({
           canGoPreviousDashboard={canGoPreviousDashboard}
         />
       </div>
-    </div>
+    </FullscreenModalAnimation>
   );
-
-  return createPortal(modalContent, document.body);
 }
 

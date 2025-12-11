@@ -15,8 +15,8 @@
 'use client';
 
 import { useId, useRef, useMemo, useEffect, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { useTheme } from 'next-themes';
+import FullscreenModalAnimation from './fullscreen-modal-animation';
 import type { Chart, ChartTypeRegistry, ChartEvent, ActiveElement } from 'chart.js';
 import type { ChartData } from '@/lib/types/analytics';
 import type {
@@ -200,28 +200,13 @@ export default function ChartFullscreenModal({
     }
   }, [chart, hasPeriodComparison]);
 
-  /**
-   * Handle overlay click to close modal
-   */
-  const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (e.target === e.currentTarget) {
-      onClose();
-    }
-  };
-
-  // Don't render until mounted (for portal)
-  if (!isOpen || !mounted) {
+  // Don't render if not open (AnimatePresence handles exit animations)
+  if (!isOpen) {
     return null;
   }
 
-  const modalContent = (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 sm:p-4"
-      onClick={handleOverlayClick}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby={chartTitleId}
-    >
+  return (
+    <FullscreenModalAnimation onOverlayClick={onClose} ariaLabelledBy={chartTitleId}>
       <div
         className="bg-white dark:bg-gray-800 sm:rounded-xl shadow-2xl w-full h-full sm:h-auto sm:max-w-7xl sm:max-h-[95vh] flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
@@ -425,8 +410,6 @@ export default function ChartFullscreenModal({
           canGoPreviousDashboard={canGoPreviousDashboard}
         />
       </div>
-    </div>
+    </FullscreenModalAnimation>
   );
-
-  return createPortal(modalContent, document.body);
 }

@@ -3,7 +3,7 @@
 import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams } from 'next/navigation';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { motion } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import { RotateCcw } from 'lucide-react';
 import {
   useDashboardData,
@@ -234,13 +234,19 @@ export default function DashboardView({
       if (prev < maxIndex) {
         return prev + 1;
       }
-      // At last chart - check if we can go to next dashboard
+      // At last chart - handle cyclical navigation
       if (onNavigateToDashboard && allDashboards && currentDashboardIndex !== undefined) {
         if (currentDashboardIndex < allDashboards.length - 1) {
-          onNavigateToDashboard(currentDashboardIndex + 1, 0); // First chart of next dashboard
+          // Go to next dashboard
+          onNavigateToDashboard(currentDashboardIndex + 1, 0);
+        } else {
+          // At last dashboard - wrap to first chart of first dashboard
+          onNavigateToDashboard(0, 0);
         }
+        return prev;
       }
-      return prev;
+      // Single dashboard - wrap to first chart
+      return 0;
     });
   }, [dashboardCharts.length, onNavigateToDashboard, allDashboards, currentDashboardIndex]);
 
@@ -250,15 +256,21 @@ export default function DashboardView({
       if (prev > 0) {
         return prev - 1;
       }
-      // At first chart - check if we can go to previous dashboard
+      // At first chart - handle cyclical navigation
       if (onNavigateToDashboard && allDashboards && currentDashboardIndex !== undefined) {
         if (currentDashboardIndex > 0) {
-          onNavigateToDashboard(currentDashboardIndex - 1, -1); // Last chart of previous dashboard (-1 signals "last")
+          // Go to previous dashboard (last chart)
+          onNavigateToDashboard(currentDashboardIndex - 1, -1);
+        } else {
+          // At first dashboard - wrap to last chart of last dashboard
+          onNavigateToDashboard(allDashboards.length - 1, -1);
         }
+        return prev;
       }
-      return prev;
+      // Single dashboard - wrap to last chart
+      return dashboardCharts.length - 1;
     });
-  }, [onNavigateToDashboard, allDashboards, currentDashboardIndex]);
+  }, [dashboardCharts.length, onNavigateToDashboard, allDashboards, currentDashboardIndex]);
 
   // Handle removing individual filter pill
   const handleRemoveFilter = useCallback(
@@ -441,9 +453,10 @@ export default function DashboardView({
   const shouldBeFullscreen = isMobile && mobileFullscreenIndex !== null;
 
   // Cross-dashboard navigation state (needed for both loading and loaded states)
+  // With cyclical navigation, dashboard buttons are always enabled when cross-dashboard nav is available
   const hasCrossDashboardNav = Boolean(allDashboards && allDashboards.length > 1 && currentDashboardIndex !== undefined);
-  const canGoNextDashboard = hasCrossDashboardNav && currentDashboardIndex !== undefined && allDashboards !== undefined && currentDashboardIndex < allDashboards.length - 1;
-  const canGoPrevDashboard = hasCrossDashboardNav && currentDashboardIndex !== undefined && currentDashboardIndex > 0;
+  const canGoNextDashboard = hasCrossDashboardNav;
+  const canGoPrevDashboard = hasCrossDashboardNav;
 
   // Loading state - show fullscreen loading modal if transitioning, otherwise regular loading
   if (isLoading) {
@@ -791,142 +804,155 @@ export default function DashboardView({
       </div>
 
       {/* Mobile fullscreen modal for tap-to-zoom navigation */}
-      {isMobile && mobileFullscreenIndex !== null && (() => {
-        const currentChart = dashboardConfig.charts[mobileFullscreenIndex];
-        if (!currentChart?.chartDefinition) return null;
+      {/* Note: No mode="wait" - allows crossfade where both modals animate simultaneously */}
+      {/* Combined with backdrop staying at opacity 1 during exit, this prevents dashboard flash */}
+      <AnimatePresence>
+        {isMobile && mobileFullscreenIndex !== null && (() => {
+          const currentChart = dashboardConfig.charts[mobileFullscreenIndex];
+          if (!currentChart?.chartDefinition) return null;
 
-        const chartDef = currentChart.chartDefinition;
-        const chartIdForData = currentChart.chartDefinitionId;
-        const batchChartData = batchData?.charts[chartIdForData] as BatchChartData | undefined;
+          const chartDef = currentChart.chartDefinition;
+          const chartIdForData = currentChart.chartDefinitionId;
+          const batchChartData = batchData?.charts[chartIdForData] as BatchChartData | undefined;
 
-        if (!batchChartData) return null;
+          if (!batchChartData) return null;
 
-        // Chart navigation considers cross-dashboard boundaries
-        // Note: hasCrossDashboardNav, canGoNextDashboard, canGoPrevDashboard are defined at component level
-        const isLastChart = mobileFullscreenIndex >= dashboardConfig.charts.length - 1;
-        const isFirstChart = mobileFullscreenIndex <= 0;
-        const canGoNextChart = !isLastChart || canGoNextDashboard;
-        const canGoPrevChart = !isFirstChart || canGoPrevDashboard;
+          // Cyclical navigation: always enabled when there's something to navigate to
+          // - Multiple charts in single dashboard: cycle within charts
+          // - Multiple dashboards: cycle across all dashboards
+          // - Single chart in single dashboard: disabled (nothing to cycle)
+          const canGoNextChart = dashboardConfig.charts.length > 1 || hasCrossDashboardNav;
+          const canGoPrevChart = dashboardConfig.charts.length > 1 || hasCrossDashboardNav;
 
-        // Common navigation props for all fullscreen modals
-        const navigationProps = {
-          onNextChart: handleMobileNextChart,
-          onPreviousChart: handleMobilePreviousChart,
-          canGoNext: canGoNextChart,
-          canGoPrevious: canGoPrevChart,
-          chartPosition: `${mobileFullscreenIndex + 1} of ${dashboardConfig.charts.length}`,
-          // Dashboard navigation props
-          dashboardName: hasCrossDashboardNav ? dashboard.dashboard_name : undefined,
-          onNextDashboard: canGoNextDashboard && onNavigateToDashboard && currentDashboardIndex !== undefined
-            ? () => onNavigateToDashboard(currentDashboardIndex + 1, 0)
-            : undefined,
-          onPreviousDashboard: canGoPrevDashboard && onNavigateToDashboard && currentDashboardIndex !== undefined
-            ? () => onNavigateToDashboard(currentDashboardIndex - 1, -1)
-            : undefined,
-          canGoNextDashboard,
-          canGoPreviousDashboard: canGoPrevDashboard,
-        };
+          // Unique key for AnimatePresence to track modal changes
+          const modalKey = `fullscreen-${mobileFullscreenIndex}-${chartDef.chart_definition_id}`;
 
-        // Render appropriate fullscreen modal based on chart type
-        switch (chartDef.chart_type) {
-          case 'bar':
-          case 'stacked-bar':
-          case 'horizontal-bar':
-          case 'line':
-          case 'area':
-            return (
-              <ChartFullscreenModal
-                isOpen={true}
-                onClose={handleMobileFullscreenClose}
-                chartTitle={chartDef.chart_name}
-                chartData={batchChartData.chartData}
-                chartType={chartDef.chart_type as 'bar' | 'stacked-bar' | 'horizontal-bar' | 'line' | 'area'}
-                frequency={batchChartData.metadata?.frequency || 'Monthly'}
-                chartDefinitionId={chartDef.chart_definition_id}
-                {...(batchChartData.finalChartConfig && { finalChartConfig: batchChartData.finalChartConfig })}
-                {...(batchChartData.runtimeFilters && { runtimeFilters: batchChartData.runtimeFilters })}
-                {...navigationProps}
-              />
-            );
+          // Common navigation props for all fullscreen modals
+          const navigationProps = {
+            onNextChart: handleMobileNextChart,
+            onPreviousChart: handleMobilePreviousChart,
+            canGoNext: canGoNextChart,
+            canGoPrevious: canGoPrevChart,
+            chartPosition: `${mobileFullscreenIndex + 1} of ${dashboardConfig.charts.length}`,
+            // Dashboard navigation props
+            dashboardName: hasCrossDashboardNav ? dashboard.dashboard_name : undefined,
+            onNextDashboard: canGoNextDashboard && onNavigateToDashboard && currentDashboardIndex !== undefined
+              ? () => onNavigateToDashboard(currentDashboardIndex + 1, 0)
+              : undefined,
+            onPreviousDashboard: canGoPrevDashboard && onNavigateToDashboard && currentDashboardIndex !== undefined
+              ? () => onNavigateToDashboard(currentDashboardIndex - 1, -1)
+              : undefined,
+            canGoNextDashboard,
+            canGoPreviousDashboard: canGoPrevDashboard,
+          };
 
-          case 'dual-axis':
-            return (
-              <DualAxisFullscreenModal
-                isOpen={true}
-                onClose={handleMobileFullscreenClose}
-                chartTitle={chartDef.chart_name}
-                chartData={batchChartData.chartData}
-                chartDefinitionId={chartDef.chart_definition_id}
-                {...(batchChartData.finalChartConfig && { finalChartConfig: batchChartData.finalChartConfig })}
-                {...(batchChartData.runtimeFilters && { runtimeFilters: batchChartData.runtimeFilters })}
-                {...navigationProps}
-              />
-            );
+          // Render appropriate fullscreen modal based on chart type
+          switch (chartDef.chart_type) {
+            case 'bar':
+            case 'stacked-bar':
+            case 'horizontal-bar':
+            case 'line':
+            case 'area':
+              return (
+                <ChartFullscreenModal
+                  key={modalKey}
+                  isOpen={true}
+                  onClose={handleMobileFullscreenClose}
+                  chartTitle={chartDef.chart_name}
+                  chartData={batchChartData.chartData}
+                  chartType={chartDef.chart_type as 'bar' | 'stacked-bar' | 'horizontal-bar' | 'line' | 'area'}
+                  frequency={batchChartData.metadata?.frequency || 'Monthly'}
+                  chartDefinitionId={chartDef.chart_definition_id}
+                  {...(batchChartData.finalChartConfig && { finalChartConfig: batchChartData.finalChartConfig })}
+                  {...(batchChartData.runtimeFilters && { runtimeFilters: batchChartData.runtimeFilters })}
+                  {...navigationProps}
+                />
+              );
 
-          case 'progress-bar':
-            // Progress bar data is constructed from chartData labels and datasets
-            return (
-              <ProgressBarFullscreenModal
-                isOpen={true}
-                onClose={handleMobileFullscreenClose}
-                chartTitle={chartDef.chart_name}
-                data={batchChartData.chartData.labels.map((label, index) => ({
-                  label: String(label),
-                  value: ((batchChartData.chartData.datasets[0] as { rawValues?: number[] })?.rawValues?.[index] ?? 0),
-                  percentage: (batchChartData.chartData.datasets[0]?.data[index] ?? 0) as number,
-                }))}
-                {...(batchChartData.chartData.datasets[0] && 'originalMeasureType' in batchChartData.chartData.datasets[0] && {
-                  measureType: (batchChartData.chartData.datasets[0] as { originalMeasureType?: string }).originalMeasureType,
-                })}
-                chartDefinitionId={chartDef.chart_definition_id}
-                {...(batchChartData.finalChartConfig && { finalChartConfig: batchChartData.finalChartConfig })}
-                {...(batchChartData.runtimeFilters && { runtimeFilters: batchChartData.runtimeFilters })}
-                {...navigationProps}
-              />
-            );
+            case 'dual-axis':
+              return (
+                <DualAxisFullscreenModal
+                  key={modalKey}
+                  isOpen={true}
+                  onClose={handleMobileFullscreenClose}
+                  chartTitle={chartDef.chart_name}
+                  chartData={batchChartData.chartData}
+                  chartDefinitionId={chartDef.chart_definition_id}
+                  {...(batchChartData.finalChartConfig && { finalChartConfig: batchChartData.finalChartConfig })}
+                  {...(batchChartData.runtimeFilters && { runtimeFilters: batchChartData.runtimeFilters })}
+                  {...navigationProps}
+                />
+              );
 
-          case 'number':
-            return (
-              <NumberFullscreenModal
-                isOpen={true}
-                onClose={handleMobileFullscreenClose}
-                chartTitle={chartDef.chart_name}
-                data={batchChartData.chartData}
-                {...navigationProps}
-              />
-            );
+            case 'progress-bar':
+              // Progress bar data is constructed from chartData labels and datasets
+              return (
+                <ProgressBarFullscreenModal
+                  key={modalKey}
+                  isOpen={true}
+                  onClose={handleMobileFullscreenClose}
+                  chartTitle={chartDef.chart_name}
+                  data={batchChartData.chartData.labels.map((label, index) => ({
+                    label: String(label),
+                    value: ((batchChartData.chartData.datasets[0] as { rawValues?: number[] })?.rawValues?.[index] ?? 0),
+                    percentage: (batchChartData.chartData.datasets[0]?.data[index] ?? 0) as number,
+                  }))}
+                  {...(batchChartData.chartData.datasets[0] && 'originalMeasureType' in batchChartData.chartData.datasets[0] && {
+                    measureType: (batchChartData.chartData.datasets[0] as { originalMeasureType?: string }).originalMeasureType,
+                  })}
+                  chartDefinitionId={chartDef.chart_definition_id}
+                  {...(batchChartData.finalChartConfig && { finalChartConfig: batchChartData.finalChartConfig })}
+                  {...(batchChartData.runtimeFilters && { runtimeFilters: batchChartData.runtimeFilters })}
+                  {...navigationProps}
+                />
+              );
 
-          case 'pie':
-          case 'doughnut':
-            return (
-              <PieFullscreenModal
-                isOpen={true}
-                onClose={handleMobileFullscreenClose}
-                chartTitle={chartDef.chart_name}
-                data={batchChartData.chartData}
-                chartType={chartDef.chart_type as 'pie' | 'doughnut'}
-                {...navigationProps}
-              />
-            );
+            case 'number':
+              return (
+                <NumberFullscreenModal
+                  key={modalKey}
+                  isOpen={true}
+                  onClose={handleMobileFullscreenClose}
+                  chartTitle={chartDef.chart_name}
+                  data={batchChartData.chartData}
+                  {...navigationProps}
+                />
+              );
 
-          case 'table':
-            return (
-              <TableFullscreenModal
-                isOpen={true}
-                onClose={handleMobileFullscreenClose}
-                chartTitle={chartDef.chart_name}
-                data={batchChartData.rawData || []}
-                columns={batchChartData.columns || []}
-                {...(batchChartData.formattedData && { formattedData: batchChartData.formattedData })}
-                {...navigationProps}
-              />
-            );
+            case 'pie':
+            case 'doughnut':
+              return (
+                <PieFullscreenModal
+                  key={modalKey}
+                  isOpen={true}
+                  onClose={handleMobileFullscreenClose}
+                  chartTitle={chartDef.chart_name}
+                  data={batchChartData.chartData}
+                  chartType={chartDef.chart_type as 'pie' | 'doughnut'}
+                  {...navigationProps}
+                />
+              );
 
-          default:
-            // Unknown chart type - no fullscreen modal
-            return null;
-        }
-      })()}
+            case 'table':
+              return (
+                <TableFullscreenModal
+                  key={modalKey}
+                  isOpen={true}
+                  onClose={handleMobileFullscreenClose}
+                  chartTitle={chartDef.chart_name}
+                  data={batchChartData.rawData || []}
+                  columns={batchChartData.columns || []}
+                  {...(batchChartData.formattedData && { formattedData: batchChartData.formattedData })}
+                  {...navigationProps}
+                />
+              );
+
+            default:
+              // Unknown chart type - no fullscreen modal
+              return null;
+          }
+        })()}
+      </AnimatePresence>
     </div>
   );
 }

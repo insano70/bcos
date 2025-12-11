@@ -16,8 +16,8 @@ import {
 import zoomPlugin from 'chartjs-plugin-zoom';
 import { useTheme } from 'next-themes';
 import { useEffect, useId, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { chartColors } from '@/components/charts/chartjs-config';
+import FullscreenModalAnimation from './fullscreen-modal-animation';
 import type { ChartData } from '@/lib/types/analytics';
 import { formatValue, formatValueCompact } from '@/lib/utils/chart-data/formatters/value-formatter';
 import { getMeasureTypeFromChart } from '@/lib/utils/type-guards';
@@ -405,26 +405,15 @@ export default function DualAxisFullscreenModal({
     }
   };
 
-  const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (e.target === e.currentTarget) {
-      onClose();
-    }
-  };
-
-  if (!isOpen || !mounted) {
+  // Don't render if not open (AnimatePresence handles exit animations)
+  if (!isOpen) {
     return null;
   }
 
-  const modalContent = (
-    <div
-      ref={modalRef}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 sm:p-4"
-      onClick={handleOverlayClick}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby={chartTitleId}
-    >
+  return (
+    <FullscreenModalAnimation onOverlayClick={onClose} ariaLabelledBy={chartTitleId}>
       <div
+        ref={modalRef}
         className="bg-white dark:bg-gray-800 sm:rounded-xl shadow-2xl w-full h-full sm:h-auto sm:max-w-7xl sm:max-h-[95vh] flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
@@ -584,8 +573,6 @@ export default function DualAxisFullscreenModal({
           canGoPreviousDashboard={canGoPreviousDashboard}
         />
       </div>
-    </div>
+    </FullscreenModalAnimation>
   );
-
-  return createPortal(modalContent, document.body);
 }

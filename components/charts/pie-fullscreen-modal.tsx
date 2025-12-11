@@ -11,8 +11,8 @@
  */
 
 import { useId, useRef } from 'react';
-import { createPortal } from 'react-dom';
 import { useChartFullscreen } from '@/hooks/useChartFullscreen';
+import FullscreenModalAnimation from './fullscreen-modal-animation';
 import type { ChartData } from '@/lib/types/analytics';
 import DoughnutChart from './doughnut-chart';
 import FullscreenModalFooter from './fullscreen-modal-footer';
@@ -58,33 +58,23 @@ export default function PieFullscreenModal({
   const modalRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
 
-  // Use shared hook for modal lifecycle (mounting, scroll lock, escape key)
-  const { mounted } = useChartFullscreen(isOpen, onClose);
+  // Use shared hook for modal lifecycle (scroll lock, escape key)
+  useChartFullscreen(isOpen, onClose);
 
-  // Handle clicks outside modal
-  const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (e.target === e.currentTarget) {
-      onClose();
-    }
-  };
-
-  if (!isOpen || !mounted) {
+  // Don't render if not open (AnimatePresence handles exit animations)
+  if (!isOpen) {
     return null;
   }
 
   // Calculate chart dimensions based on viewport
   const chartSize = Math.min(window.innerWidth * 0.8, window.innerHeight * 0.6, 600);
 
-  const modalContent = (
-    <div
-      ref={modalRef}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 sm:p-4"
-      onClick={handleOverlayClick}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby={titleId}
-    >
-      <div className="relative bg-white dark:bg-gray-900 rounded-lg w-full h-full sm:h-[90vh] sm:max-w-4xl flex flex-col overflow-hidden shadow-2xl">
+  return (
+    <FullscreenModalAnimation onOverlayClick={onClose} ariaLabelledBy={titleId}>
+      <div
+        ref={modalRef}
+        className="relative bg-white dark:bg-gray-900 rounded-lg w-full h-full sm:h-[90vh] sm:max-w-4xl flex flex-col overflow-hidden shadow-2xl"
+      >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex-shrink-0">
           <h2 id={titleId} className="text-lg font-semibold text-gray-900 dark:text-gray-100 truncate">
@@ -133,8 +123,6 @@ export default function PieFullscreenModal({
           canGoPreviousDashboard={canGoPreviousDashboard}
         />
       </div>
-    </div>
+    </FullscreenModalAnimation>
   );
-
-  return createPortal(modalContent, document.body);
 }

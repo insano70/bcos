@@ -1,13 +1,11 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 
 import type { User } from '@/lib/hooks/use-users';
 import { useUsers } from '@/lib/hooks/use-users';
 
 interface MultiUserPickerProps {
-  /** Field name (required for CrudModal compatibility but not used) */
-  name?: string;
   /** Selected user IDs */
   value?: string[] | undefined;
   /** Change handler */
@@ -31,8 +29,11 @@ export default function MultiUserPicker({
 }: MultiUserPickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const containerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const listboxId = useId();
 
   const { data: users = [], isLoading } = useUsers();
   const selectedIds = value ?? [];
@@ -46,10 +47,17 @@ export default function MultiUserPicker({
     return fullName.includes(query) || email.includes(query);
   });
 
+  // Reset highlighted index when search query changes
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally reset on searchQuery change only
+  useEffect(() => {
+    setHighlightedIndex(-1);
+  }, [searchQuery]);
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
         setIsOpen(false);
+        setHighlightedIndex(-1);
       }
     };
 
@@ -65,13 +73,58 @@ export default function MultiUserPicker({
     }
   }, [isOpen]);
 
-  const handleToggle = (userId: string) => {
+  // Scroll highlighted item into view
+  useEffect(() => {
+    if (highlightedIndex >= 0 && listRef.current) {
+      const items = listRef.current.querySelectorAll('[data-user-item]');
+      const item = items[highlightedIndex];
+      if (item) {
+        item.scrollIntoView({ block: 'nearest' });
+      }
+    }
+  }, [highlightedIndex]);
+
+  const handleToggle = useCallback((userId: string) => {
     if (selectedIds.includes(userId)) {
       onChange(selectedIds.filter((id) => id !== userId));
     } else {
       onChange([...selectedIds, userId]);
     }
-  };
+  }, [selectedIds, onChange]);
+
+  const handleKeyDown = useCallback((event: React.KeyboardEvent) => {
+    if (!isOpen) {
+      if (event.key === 'Enter' || event.key === ' ' || event.key === 'ArrowDown') {
+        event.preventDefault();
+        setIsOpen(true);
+      }
+      return;
+    }
+
+    switch (event.key) {
+      case 'ArrowDown':
+        event.preventDefault();
+        setHighlightedIndex((prev) =>
+          prev < filteredUsers.length - 1 ? prev + 1 : prev
+        );
+        break;
+      case 'ArrowUp':
+        event.preventDefault();
+        setHighlightedIndex((prev) => (prev > 0 ? prev - 1 : 0));
+        break;
+      case 'Enter':
+        event.preventDefault();
+        if (highlightedIndex >= 0 && filteredUsers[highlightedIndex]) {
+          handleToggle(filteredUsers[highlightedIndex].id);
+        }
+        break;
+      case 'Escape':
+        event.preventDefault();
+        setIsOpen(false);
+        setHighlightedIndex(-1);
+        break;
+    }
+  }, [isOpen, filteredUsers, highlightedIndex, handleToggle]);
 
   const handleRemove = (userId: string, event: React.MouseEvent) => {
     event.stopPropagation();
@@ -106,7 +159,13 @@ export default function MultiUserPicker({
     <div ref={containerRef} className="relative">
       {/* Trigger Button */}
       <div
+        role="combobox"
+        aria-expanded={isOpen}
+        aria-haspopup="listbox"
+        aria-controls={listboxId}
+        tabIndex={disabled ? -1 : 0}
         onClick={() => !disabled && setIsOpen(!isOpen)}
+        onKeyDown={!disabled ? handleKeyDown : undefined}
         className={`
           form-input w-full min-h-[42px] cursor-pointer flex items-center justify-between
           ${error ? 'border-red-500' : ''}
@@ -195,51 +254,70 @@ export default function MultiUserPicker({
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={handleKeyDown}
                 placeholder="Search users..."
+                aria-label="Search users"
                 className="w-full pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
               />
             </div>
           </div>
 
           {/* User List */}
-          <div className="overflow-y-auto flex-1 max-h-60">
+          <div
+            ref={listRef}
+            id={listboxId}
+            role="listbox"
+            aria-multiselectable="true"
+            className="overflow-y-auto flex-1 max-h-60"
+          >
             {isLoading ? (
               <div className="px-3 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
                 Loading users...
               </div>
             ) : filteredUsers.length > 0 ? (
-              filteredUsers.map((user) => (
-                <div
-                  key={user.id}
-                  onClick={() => handleToggle(user.id)}
-                  className={`
-                    px-3 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2
-                    ${selectedIds.includes(user.id) ? 'bg-violet-50 dark:bg-violet-900/20' : ''}
-                  `}
-                >
-                  <input
-                    type="checkbox"
-                    checked={selectedIds.includes(user.id)}
-                    readOnly
-                    className="form-checkbox text-violet-600"
-                  />
-                  {/* Avatar */}
+              filteredUsers.map((user, index) => {
+                const isHighlighted = index === highlightedIndex;
+                const isSelected = selectedIds.includes(user.id);
+
+                return (
                   <div
-                    className={`flex-shrink-0 w-6 h-6 rounded-full ${getAvatarColor(user.id)} flex items-center justify-center text-xs font-medium text-white`}
+                    key={user.id}
+                    data-user-item
+                    role="option"
+                    aria-selected={isSelected}
+                    onClick={() => handleToggle(user.id)}
+                    onMouseEnter={() => setHighlightedIndex(index)}
+                    className={`
+                      px-3 py-2 cursor-pointer flex items-center gap-2
+                      ${isHighlighted ? 'bg-violet-100 dark:bg-violet-900/40' : 'hover:bg-gray-100 dark:hover:bg-gray-700'}
+                      ${isSelected && !isHighlighted ? 'bg-violet-50 dark:bg-violet-900/20' : ''}
+                    `}
                   >
-                    {getInitials(user)}
-                  </div>
-                  {/* Name and Email */}
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                      {user.first_name} {user.last_name}
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      readOnly
+                      tabIndex={-1}
+                      className="form-checkbox text-violet-600"
+                    />
+                    {/* Avatar */}
+                    <div
+                      className={`flex-shrink-0 w-6 h-6 rounded-full ${getAvatarColor(user.id)} flex items-center justify-center text-xs font-medium text-white`}
+                    >
+                      {getInitials(user)}
                     </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                      {user.email}
+                    {/* Name and Email */}
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                        {user.first_name} {user.last_name}
+                      </div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                        {user.email}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             ) : (
               <div className="px-3 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
                 No users found

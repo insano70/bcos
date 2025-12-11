@@ -11,8 +11,8 @@
  */
 
 import { useId, useRef, useCallback } from 'react';
-import { createPortal } from 'react-dom';
 import { useChartFullscreen } from '@/hooks/useChartFullscreen';
+import FullscreenModalAnimation from './fullscreen-modal-animation';
 import FullscreenModalFooter from './fullscreen-modal-footer';
 
 interface TableColumn {
@@ -80,15 +80,8 @@ export default function TableFullscreenModal({
   const modalRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
 
-  // Use shared hook for modal lifecycle (mounting, scroll lock, escape key)
-  const { mounted } = useChartFullscreen(isOpen, onClose);
-
-  // Handle clicks outside modal
-  const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (e.target === e.currentTarget) {
-      onClose();
-    }
-  };
+  // Use shared hook for modal lifecycle (scroll lock, escape key)
+  useChartFullscreen(isOpen, onClose);
 
   // Phase 7: Use server-formatted data (always present via universal endpoint), with safety fallback to raw data
   const useFormattedData = formattedData && formattedData.length > 0;
@@ -178,20 +171,17 @@ export default function TableFullscreenModal({
     return words.slice(0, 3).map((word) => word.charAt(0).toUpperCase()).join('');
   }, []);
 
-  if (!isOpen || !mounted) {
+  // Don't render if not open (AnimatePresence handles exit animations)
+  if (!isOpen) {
     return null;
   }
 
-  const modalContent = (
-    <div
-      ref={modalRef}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 sm:p-4"
-      onClick={handleOverlayClick}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby={titleId}
-    >
-      <div className="relative bg-white dark:bg-gray-900 rounded-lg w-full h-full sm:h-[90vh] sm:max-w-6xl flex flex-col overflow-hidden shadow-2xl">
+  return (
+    <FullscreenModalAnimation onOverlayClick={onClose} ariaLabelledBy={titleId}>
+      <div
+        ref={modalRef}
+        className="relative bg-white dark:bg-gray-900 rounded-lg w-full h-full sm:h-[90vh] sm:max-w-6xl flex flex-col overflow-hidden shadow-2xl"
+      >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex-shrink-0">
           <h2 id={titleId} className="text-lg font-semibold text-gray-900 dark:text-gray-100 truncate">
@@ -303,8 +293,6 @@ export default function TableFullscreenModal({
           <span>{displayData.length} rows</span>
         </FullscreenModalFooter>
       </div>
-    </div>
+    </FullscreenModalAnimation>
   );
-
-  return createPortal(modalContent, document.body);
 }

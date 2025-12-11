@@ -741,6 +741,25 @@ export const RBAC_ROLES: Record<string, RoleDefinition> = {
       'dashboards:read:organization',
     ],
   },
+  practice_website_editor: {
+    name: 'practice_website_editor',
+    description: 'Practice website administrator - can manage their own practice website',
+    is_system_role: true,
+    permissions: [
+      // Own scope - basic self-management
+      'users:read:own',
+      'users:update:own',
+
+      // Practice website management - own scope only
+      'practices:read:own',
+      'practices:update:own',
+      'practices:staff:manage:own',
+      'practices:staff:read:own',
+
+      // Template selection (read-only)
+      'templates:read:organization',
+    ],
+  },
 } as const;
 
 /**

@@ -6,6 +6,9 @@ import { log } from '@/lib/logger';
 import { BaseRBACService } from '@/lib/rbac/base-service';
 import type { UserContext } from '@/lib/types/rbac';
 
+/** Maximum number of history items to return */
+const HISTORY_LIMIT = 50;
+
 export interface UnreadAnnouncement {
   announcement_id: string;
   subject: string;
@@ -25,16 +28,10 @@ export interface ReadAnnouncement extends UnreadAnnouncement {
  */
 export class UserAnnouncementsService extends BaseRBACService {
   /**
-   * Get all unread announcements for the current user
-   * Returns a list for display in modal
+   * Build subquery to check if user has read an announcement
    */
-  async getUnreadAnnouncements(): Promise<UnreadAnnouncement[]> {
-    this.requirePermission('users:read:own');
-
-    const userId = this.userContext.user_id;
-
-    // Subquery to check if user has read the announcement
-    const hasRead = db
+  private buildHasReadSubquery(userId: string) {
+    return db
       .select({ announcement_id: announcement_reads.announcement_id })
       .from(announcement_reads)
       .where(
@@ -43,9 +40,13 @@ export class UserAnnouncementsService extends BaseRBACService {
           eq(announcement_reads.user_id, userId)
         )
       );
+  }
 
-    // Subquery to check if user is a recipient (for targeted announcements)
-    const isRecipient = db
+  /**
+   * Build subquery to check if user is a recipient (for targeted announcements)
+   */
+  private buildIsRecipientSubquery(userId: string) {
+    return db
       .select({ announcement_id: announcement_recipients.announcement_id })
       .from(announcement_recipients)
       .where(
@@ -54,6 +55,36 @@ export class UserAnnouncementsService extends BaseRBACService {
           eq(announcement_recipients.user_id, userId)
         )
       );
+  }
+
+  /**
+   * Build common WHERE conditions for visible announcements
+   */
+  private buildVisibleAnnouncementConditions(userId: string) {
+    const isRecipient = this.buildIsRecipientSubquery(userId);
+
+    return and(
+      eq(announcements.is_active, true),
+      isNull(announcements.deleted_at),
+      // Published (null = immediate, or publish_at <= now)
+      or(isNull(announcements.publish_at), sql`${announcements.publish_at} <= NOW()`),
+      // Not expired (null = never, or expires_at > now)
+      or(isNull(announcements.expires_at), sql`${announcements.expires_at} > NOW()`),
+      // User is target (all users OR specific recipient)
+      or(eq(announcements.target_type, 'all'), sql`EXISTS (${isRecipient})`)
+    );
+  }
+
+  /**
+   * Get all unread announcements for the current user
+   * Returns a list for display in modal
+   */
+  async getUnreadAnnouncements(): Promise<UnreadAnnouncement[]> {
+    this.requirePermission('users:read:own');
+
+    const userId = this.userContext.user_id;
+    const hasRead = this.buildHasReadSubquery(userId);
+    const visibleConditions = this.buildVisibleAnnouncementConditions(userId);
 
     const result = await db
       .select({
@@ -66,14 +97,7 @@ export class UserAnnouncementsService extends BaseRBACService {
       .from(announcements)
       .where(
         and(
-          eq(announcements.is_active, true),
-          isNull(announcements.deleted_at),
-          // Published (null = immediate, or publish_at <= now)
-          or(isNull(announcements.publish_at), sql`${announcements.publish_at} <= NOW()`),
-          // Not expired (null = never, or expires_at > now)
-          or(isNull(announcements.expires_at), sql`${announcements.expires_at} > NOW()`),
-          // User is target (all users OR specific recipient)
-          or(eq(announcements.target_type, 'all'), sql`EXISTS (${isRecipient})`),
+          visibleConditions,
           // User has not read it yet
           sql`NOT EXISTS (${hasRead})`
         )
@@ -100,42 +124,15 @@ export class UserAnnouncementsService extends BaseRBACService {
     this.requirePermission('users:read:own');
 
     const userId = this.userContext.user_id;
-
-    // Subquery to check if user has read the announcement
-    const hasRead = db
-      .select({ announcement_id: announcement_reads.announcement_id })
-      .from(announcement_reads)
-      .where(
-        and(
-          eq(announcement_reads.announcement_id, announcements.announcement_id),
-          eq(announcement_reads.user_id, userId)
-        )
-      );
-
-    // Subquery to check if user is a recipient (for targeted announcements)
-    const isRecipient = db
-      .select({ announcement_id: announcement_recipients.announcement_id })
-      .from(announcement_recipients)
-      .where(
-        and(
-          eq(announcement_recipients.announcement_id, announcements.announcement_id),
-          eq(announcement_recipients.user_id, userId)
-        )
-      );
+    const hasRead = this.buildHasReadSubquery(userId);
+    const visibleConditions = this.buildVisibleAnnouncementConditions(userId);
 
     const result = await db
       .select({ count: sql<number>`count(*)` })
       .from(announcements)
       .where(
         and(
-          eq(announcements.is_active, true),
-          isNull(announcements.deleted_at),
-          // Published (null = immediate, or publish_at <= now)
-          or(isNull(announcements.publish_at), sql`${announcements.publish_at} <= NOW()`),
-          // Not expired (null = never, or expires_at > now)
-          or(isNull(announcements.expires_at), sql`${announcements.expires_at} > NOW()`),
-          // User is target (all users OR specific recipient)
-          or(eq(announcements.target_type, 'all'), sql`EXISTS (${isRecipient})`),
+          visibleConditions,
           // User has not read it yet
           sql`NOT EXISTS (${hasRead})`
         )
@@ -147,23 +144,12 @@ export class UserAnnouncementsService extends BaseRBACService {
   /**
    * Get previously read announcements for the current user (history view)
    * Returns announcements with read_at timestamp, ordered by most recently read
-   * Limited to 50 items for reasonable history
    */
   async getReadAnnouncements(): Promise<ReadAnnouncement[]> {
     this.requirePermission('users:read:own');
 
     const userId = this.userContext.user_id;
-
-    // Subquery to check if user is a recipient (for targeted announcements)
-    const isRecipient = db
-      .select({ announcement_id: announcement_recipients.announcement_id })
-      .from(announcement_recipients)
-      .where(
-        and(
-          eq(announcement_recipients.announcement_id, announcements.announcement_id),
-          eq(announcement_recipients.user_id, userId)
-        )
-      );
+    const isRecipient = this.buildIsRecipientSubquery(userId);
 
     const result = await db
       .select({
@@ -190,18 +176,49 @@ export class UserAnnouncementsService extends BaseRBACService {
         )
       )
       .orderBy(desc(announcement_reads.read_at))
-      .limit(50);
+      .limit(HISTORY_LIMIT);
 
     return result;
   }
 
   /**
    * Mark a single announcement as read
+   * Validates that the announcement exists and user is a valid target
    */
   async markAsRead(announcementId: string): Promise<void> {
     this.requirePermission('users:read:own');
 
     const userId = this.userContext.user_id;
+
+    // Verify announcement exists, is active, and user is a valid target
+    const isRecipient = this.buildIsRecipientSubquery(userId);
+
+    const validAnnouncement = await db
+      .select({ announcement_id: announcements.announcement_id })
+      .from(announcements)
+      .where(
+        and(
+          eq(announcements.announcement_id, announcementId),
+          eq(announcements.is_active, true),
+          isNull(announcements.deleted_at),
+          // User must be a valid target (all users OR specific recipient)
+          or(eq(announcements.target_type, 'all'), sql`EXISTS (${isRecipient})`)
+        )
+      )
+      .limit(1);
+
+    if (validAnnouncement.length === 0) {
+      log.warn('attempt to mark invalid announcement as read', {
+        operation: 'acknowledge_announcement',
+        resourceType: 'announcement',
+        resourceId: announcementId,
+        userId,
+        component: 'announcements',
+        reason: 'announcement not found or user not authorized',
+      });
+      // Silently ignore - don't reveal if announcement exists
+      return;
+    }
 
     // Use INSERT ... ON CONFLICT to handle duplicate reads gracefully
     await db
