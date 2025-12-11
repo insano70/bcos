@@ -17,7 +17,7 @@
  * - Dashboard-level filtering UX
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiClient } from '@/lib/api/client';
 import { createClientLogger } from '@/lib/utils/client-logger';
 import type { ChartDataStructure } from '@/lib/types/dimensions';
@@ -194,9 +194,25 @@ export function useDashboardData(options: UseDashboardDataOptions): UseDashboard
   const lastFetchTimeRef = useRef<number>(0);
   const abortControllerRef = useRef<AbortController | null>(null);
 
+  // Memoize stringified versions of objects to create stable keys for dependency tracking
+  // This prevents infinite re-render loops caused by object reference changes
+  const universalFiltersKey = useMemo(
+    () => JSON.stringify(universalFilters),
+    [universalFilters]
+  );
+  const chartOverridesKey = useMemo(() => JSON.stringify(chartOverrides), [chartOverrides]);
+
+  // Use refs to capture current values - avoids stale closures while using stable keys
+  const universalFiltersRef = useRef(universalFilters);
+  const chartOverridesRef = useRef(chartOverrides);
+  universalFiltersRef.current = universalFilters;
+  chartOverridesRef.current = chartOverrides;
+
   /**
    * Fetch dashboard data from batch API
+   * Keys trigger refetch when content changes; refs provide current values without causing infinite loops
    */
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Keys intentionally trigger refetch when content changes
   const fetchData = useCallback(
     async (bypassCache = false) => {
       // Skip if disabled
@@ -223,10 +239,10 @@ export function useDashboardData(options: UseDashboardDataOptions): UseDashboard
       const startTime = Date.now();
 
       try {
-        // Build request payload
+        // Build request payload using refs for current values
         const payload = {
-          universalFilters,
-          chartOverrides,
+          universalFilters: universalFiltersRef.current,
+          chartOverrides: chartOverridesRef.current,
           nocache: bypassCache || nocache,
         };
 
@@ -279,7 +295,7 @@ export function useDashboardData(options: UseDashboardDataOptions): UseDashboard
         abortControllerRef.current = null;
       }
     },
-    [dashboardId, universalFilters, chartOverrides, nocache, enabled]
+    [dashboardId, universalFiltersKey, chartOverridesKey, nocache, enabled]
   );
 
   /**
