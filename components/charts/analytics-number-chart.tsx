@@ -62,6 +62,8 @@ interface AnalyticsNumberChartProps extends ResponsiveChartProps {
   format?: 'currency' | 'number' | 'percentage' | undefined;
   animationDuration?: number | undefined;
   className?: string | undefined;
+  /** Size variant for different contexts - 'large' for fullscreen modals */
+  size?: 'default' | 'large' | undefined;
 }
 
 export default function AnalyticsNumberChart({
@@ -73,6 +75,7 @@ export default function AnalyticsNumberChart({
   responsive = false,
   minHeight = 200,
   maxHeight = 400,
+  size = 'default',
 }: AnalyticsNumberChartProps) {
   // Phase 3: Server-side aggregation complete
   // Data now comes pre-aggregated from MetricChartHandler
@@ -126,20 +129,38 @@ export default function AnalyticsNumberChart({
   const formattedValue = getFormattedString(value);
   const charCount = formattedValue.length;
 
-  // Dynamic font size based on character count (Tailwind classes - no inline styles)
+  // Dynamic font size based on character count and size variant
   // Mobile-first with responsive scaling: smaller on mobile (<640px), larger on desktop (≥640px)
   // Mobile sizes reduced to prevent overflow on narrow screens (iPhone, etc.)
+  // 'large' size variant provides bigger fonts for fullscreen modals
   let fontSizeClass = 'text-3xl sm:text-7xl'; // default
-  if (charCount <= 5) {
-    fontSizeClass = 'text-5xl sm:text-9xl'; // ≤5 chars: $123, 45.5% (48px→128px)
-  } else if (charCount <= 8) {
-    fontSizeClass = 'text-4xl sm:text-8xl'; // 6-8 chars: $1,234, 12.3% (36px→96px)
-  } else if (charCount <= 12) {
-    fontSizeClass = 'text-3xl sm:text-7xl'; // 9-12 chars: $1,234,567 (30px→72px)
-  } else if (charCount <= 16) {
-    fontSizeClass = 'text-2xl sm:text-6xl'; // 13-16 chars: $123,456,789 (24px→60px)
+
+  if (size === 'large') {
+    // Large size for fullscreen modals - bigger fonts
+    if (charCount <= 5) {
+      fontSizeClass = 'text-6xl sm:text-8xl md:text-9xl'; // ≤5 chars
+    } else if (charCount <= 8) {
+      fontSizeClass = 'text-5xl sm:text-7xl md:text-8xl'; // 6-8 chars
+    } else if (charCount <= 12) {
+      fontSizeClass = 'text-4xl sm:text-6xl md:text-7xl'; // 9-12 chars
+    } else if (charCount <= 16) {
+      fontSizeClass = 'text-3xl sm:text-5xl md:text-6xl'; // 13-16 chars
+    } else {
+      fontSizeClass = 'text-2xl sm:text-4xl md:text-5xl'; // 17+ chars
+    }
   } else {
-    fontSizeClass = 'text-xl sm:text-5xl'; // 17+ chars: $1,234,567,890 (20px→48px)
+    // Default size
+    if (charCount <= 5) {
+      fontSizeClass = 'text-5xl sm:text-9xl'; // ≤5 chars: $123, 45.5% (48px→128px)
+    } else if (charCount <= 8) {
+      fontSizeClass = 'text-4xl sm:text-8xl'; // 6-8 chars: $1,234, 12.3% (36px→96px)
+    } else if (charCount <= 12) {
+      fontSizeClass = 'text-3xl sm:text-7xl'; // 9-12 chars: $1,234,567 (30px→72px)
+    } else if (charCount <= 16) {
+      fontSizeClass = 'text-2xl sm:text-6xl'; // 13-16 chars: $123,456,789 (24px→60px)
+    } else {
+      fontSizeClass = 'text-xl sm:text-5xl'; // 17+ chars: $1,234,567,890 (20px→48px)
+    }
   }
 
   // Responsive sizing

@@ -3,12 +3,12 @@
 /**
  * Fullscreen Modal Animation Wrapper
  *
- * Provides smooth entry/exit animations for fullscreen chart modals.
- * Uses Framer Motion AnimatePresence pattern for mount/unmount animations.
+ * Provides smooth entry/exit animations for fullscreen chart modal CONTENT.
+ * The backdrop is now handled separately by FullscreenBackdrop to prevent
+ * flash/flicker during chart-to-chart navigation.
  *
  * Features:
- * - Animated backdrop (fade in/out)
- * - Animated modal container (fade + subtle scale)
+ * - Fast animated modal container (fade + subtle scale)
  * - GPU-accelerated transforms (opacity, scale only)
  * - Reduced motion support (prefers-reduced-motion)
  * - Portal rendering to document.body
@@ -18,50 +18,35 @@ import { motion } from 'framer-motion';
 import { type ReactNode, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 
-// Animation variants optimized for GPU (opacity + transform only)
+// Faster animation variants for snappy transitions
 const modalVariants = {
   initial: {
     opacity: 0,
-    scale: 0.96,
+    scale: 0.98,
   },
   animate: {
     opacity: 1,
     scale: 1,
     transition: {
-      duration: 0.2,
-      ease: [0.25, 0.46, 0.45, 0.94], // Smooth easing
+      duration: 0.12,
+      ease: 'easeOut',
     },
   },
   exit: {
     opacity: 0,
-    scale: 0.96,
+    scale: 0.98,
     transition: {
-      duration: 0.15,
-      ease: [0.25, 0.46, 0.45, 0.94],
+      duration: 0.1,
+      ease: 'easeIn',
     },
-  },
-};
-
-// Backdrop stays solid during exit to prevent flash when transitioning between charts
-// Only fades in on initial mount, stays at full opacity during exit so the next modal's
-// backdrop takes over seamlessly
-const backdropVariants = {
-  initial: { opacity: 0 },
-  animate: {
-    opacity: 1,
-    transition: { duration: 0.2 },
-  },
-  exit: {
-    opacity: 1, // Stay solid during exit - prevents dashboard flash
-    transition: { duration: 0 },
   },
 };
 
 // Reduced motion variants for accessibility
 const reducedMotionVariants = {
   initial: { opacity: 0 },
-  animate: { opacity: 1, transition: { duration: 0.1 } },
-  exit: { opacity: 0, transition: { duration: 0.1 } },
+  animate: { opacity: 1, transition: { duration: 0.05 } },
+  exit: { opacity: 0, transition: { duration: 0.05 } },
 };
 
 interface FullscreenModalAnimationProps {
@@ -94,7 +79,6 @@ export default function FullscreenModalAnimation({
   if (!mounted) return null;
 
   const variants = prefersReducedMotion ? reducedMotionVariants : modalVariants;
-  const backdropVars = prefersReducedMotion ? reducedMotionVariants : backdropVariants;
 
   // Handle overlay click (only if clicking the overlay itself, not children)
   const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -104,32 +88,19 @@ export default function FullscreenModalAnimation({
   };
 
   return createPortal(
-    <>
-      {/* Animated Backdrop */}
-      <motion.div
-        className="fixed inset-0 z-50 bg-black/80"
-        variants={backdropVars}
-        initial="initial"
-        animate="animate"
-        exit="exit"
-        onClick={handleOverlayClick}
-        aria-hidden="true"
-      />
-      {/* Animated Modal Container */}
-      <motion.div
-        className="fixed inset-0 z-50 flex items-center justify-center sm:p-4"
-        variants={variants}
-        initial="initial"
-        animate="animate"
-        exit="exit"
-        onClick={handleOverlayClick}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={ariaLabelledBy}
-      >
-        {children}
-      </motion.div>
-    </>,
+    <motion.div
+      className="fixed inset-0 z-50 flex items-center justify-center sm:p-4"
+      variants={variants}
+      initial="initial"
+      animate="animate"
+      exit="exit"
+      onClick={handleOverlayClick}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={ariaLabelledBy}
+    >
+      {children}
+    </motion.div>,
     document.body
   );
 }

@@ -36,6 +36,9 @@ const TableFullscreenModal = dynamic(() => import('./table-fullscreen-modal'), {
 const FullscreenLoadingModal = dynamic(() => import('./fullscreen-loading-modal'), {
   ssr: false,
 });
+const FullscreenBackdrop = dynamic(() => import('./fullscreen-backdrop'), {
+  ssr: false,
+});
 import {
   DASHBOARD_LAYOUT,
   getResponsiveColSpan,
@@ -55,6 +58,7 @@ import DashboardFilterDropdown from './dashboard-filter-dropdown';
 import DashboardFilterPills from './dashboard-filter-pills';
 import { clearDimensionCaches } from '@/hooks/useDimensionExpansion';
 import { clientDebugLog, clientErrorLog } from '@/lib/utils/debug-client';
+import { getPresetLabel } from '@/lib/utils/date-presets';
 
 interface DashboardViewProps {
   dashboard: Dashboard;
@@ -803,10 +807,16 @@ export default function DashboardView({
         })}
       </div>
 
+      {/* Persistent backdrop for fullscreen modals - animates only on true open/close */}
+      <FullscreenBackdrop
+        isVisible={isMobile && mobileFullscreenIndex !== null}
+        onClose={handleMobileFullscreenClose}
+      />
+
       {/* Mobile fullscreen modal for tap-to-zoom navigation */}
-      {/* Note: No mode="wait" - allows crossfade where both modals animate simultaneously */}
-      {/* Combined with backdrop staying at opacity 1 during exit, this prevents dashboard flash */}
-      <AnimatePresence>
+      {/* mode="wait" ensures previous modal exits before new one enters (clean transitions) */}
+      {/* Backdrop is separate so it doesn't flash during chart-to-chart navigation */}
+      <AnimatePresence mode="wait">
         {isMobile && mobileFullscreenIndex !== null && (() => {
           const currentChart = dashboardConfig.charts[mobileFullscreenIndex];
           if (!currentChart?.chartDefinition) return null;
@@ -915,6 +925,7 @@ export default function DashboardView({
                   onClose={handleMobileFullscreenClose}
                   chartTitle={chartDef.chart_name}
                   data={batchChartData.chartData}
+                  {...(universalFilters.dateRangePreset && { filterDescription: getPresetLabel(universalFilters.dateRangePreset) || universalFilters.dateRangePreset })}
                   {...navigationProps}
                 />
               );

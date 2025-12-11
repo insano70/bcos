@@ -208,7 +208,7 @@ export default function ChartFullscreenModal({
   return (
     <FullscreenModalAnimation onOverlayClick={onClose} ariaLabelledBy={chartTitleId}>
       <div
-        className="bg-white dark:bg-gray-800 sm:rounded-xl shadow-2xl w-full h-full sm:h-auto sm:max-w-7xl sm:max-h-[95vh] flex flex-col overflow-hidden"
+        className="bg-white dark:bg-gray-800 sm:rounded-xl shadow-2xl w-full h-[100dvh] sm:h-auto sm:max-w-7xl sm:max-h-[95vh] flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -255,51 +255,50 @@ export default function ChartFullscreenModal({
 
           {/* Dimension selection row - simple or advanced mode */}
           {dimension.canExpand && (
-            <div className="space-y-2">
-              {/* Controls row: Toggle button on left, then selector */}
-              <div className="flex items-center gap-2">
-                {/* Show/Hide Filters toggle button */}
+            <div className="flex flex-col gap-2">
+              {/* Row 1: Show/Hide Filters toggle */}
+              <div className="flex items-center justify-between">
                 <button
                   type="button"
                   onClick={() => setUseAdvancedSelection(!useAdvancedSelection)}
                   className={`
-                    px-3 py-1 text-xs font-medium rounded-md transition-colors
+                    px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-colors shrink-0
                     ${useAdvancedSelection
                       ? 'bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 border border-violet-300 dark:border-violet-600'
-                      : 'text-slate-600 dark:text-slate-400 border border-slate-300 dark:border-slate-600 hover:border-violet-300 dark:hover:border-violet-500'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600'
                     }
                   `}
                   title={useAdvancedSelection ? 'Hide value-level filters' : 'Show value-level filters'}
                 >
                   {useAdvancedSelection ? 'Hide Filters' : 'Show Filters'}
                 </button>
+              </div>
 
-                {/* Dimension selector */}
-                <div className="flex-1">
-                  {useAdvancedSelection ? (
-                    // Advanced value-level selector
-                    <DimensionValueSelector
-                      dimensionsWithValues={dimension.dimensionsWithValues}
-                      onApply={dimension.expandByValueSelections}
-                      appliedSelections={dimension.appliedValueSelections}
-                      isLoading={dimension.loading}
-                      isDimensionsLoading={dimension.valuesLoading}
-                      compact
-                    />
-                  ) : (
-                    // Simple dimension-level checkboxes
-                    <DimensionCheckboxes
-                      availableDimensions={dimension.availableDimensions}
-                      selectedColumns={dimension.selectedDimensionColumns}
-                      onApply={dimension.selectDimensionsByColumns}
-                      isLoading={dimension.loading}
-                      isDimensionsLoading={dimension.dimensionsLoading}
-                      showingCount={dimension.expandedData?.charts?.length}
-                      totalCount={dimension.expandedData?.metadata?.totalCombinations}
-                      compact
-                    />
-                  )}
-                </div>
+              {/* Row 2: Dimension selector (fills available width) */}
+              <div className="w-full overflow-x-auto">
+                {useAdvancedSelection ? (
+                  // Advanced value-level selector
+                  <DimensionValueSelector
+                    dimensionsWithValues={dimension.dimensionsWithValues}
+                    onApply={dimension.expandByValueSelections}
+                    appliedSelections={dimension.appliedValueSelections}
+                    isLoading={dimension.loading}
+                    isDimensionsLoading={dimension.valuesLoading}
+                    compact
+                  />
+                ) : (
+                  // Simple dimension-level checkboxes
+                  <DimensionCheckboxes
+                    availableDimensions={dimension.availableDimensions}
+                    selectedColumns={dimension.selectedDimensionColumns}
+                    onApply={dimension.selectDimensionsByColumns}
+                    isLoading={dimension.loading}
+                    isDimensionsLoading={dimension.dimensionsLoading}
+                    showingCount={dimension.expandedData?.charts?.length}
+                    totalCount={dimension.expandedData?.metadata?.totalCombinations}
+                    compact
+                  />
+                )}
               </div>
             </div>
           )}
@@ -307,7 +306,7 @@ export default function ChartFullscreenModal({
 
         {/* Chart Content - no swipe handlers, free for interaction */}
         <div
-          className={`flex-1 pt-3 px-6 pb-6 ${dimension.expandedData ? 'overflow-hidden' : 'overflow-auto'}`}
+          className={`flex-1 flex flex-col pt-3 px-4 sm:px-6 pb-4 ${dimension.expandedData ? 'overflow-hidden' : 'overflow-auto'}`}
         >
           {/* Dimension error message */}
           {dimension.error && (
@@ -363,7 +362,7 @@ export default function ChartFullscreenModal({
                 />
               )}
 
-              <div className="relative w-full h-[calc(90vh-300px)] min-h-[400px]">
+              <div className="relative w-full flex-1 min-h-[250px]">
                 <canvas ref={canvasRef} />
                 
                 {/* Loading overlay while dimension expansion is in progress */}

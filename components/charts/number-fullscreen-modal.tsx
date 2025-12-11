@@ -4,7 +4,7 @@
  * Number Fullscreen Modal
  *
  * Displays KPI/number charts in fullscreen with navigation support.
- * Simple modal that enlarges the number display for better visibility.
+ * Enhanced layout with centered chart title, filter description, and larger number display.
  *
  * Navigation: Footer zone with prev/next buttons and swipe gestures.
  * Content area is swipe-free for better interaction.
@@ -23,6 +23,8 @@ interface NumberFullscreenModalProps {
   chartTitle: string;
   data: ChartData;
   format?: 'currency' | 'number' | 'percentage';
+  /** Active filter description, e.g., "Trailing 6 Months" */
+  filterDescription?: string;
   // Mobile navigation support
   onNextChart?: () => void;
   onPreviousChart?: () => void;
@@ -44,6 +46,7 @@ export default function NumberFullscreenModal({
   chartTitle,
   data,
   format,
+  filterDescription,
   onNextChart,
   onPreviousChart,
   canGoNext,
@@ -70,11 +73,11 @@ export default function NumberFullscreenModal({
     <FullscreenModalAnimation onOverlayClick={onClose} ariaLabelledBy={titleId}>
       <div
         ref={modalRef}
-        className="relative bg-white dark:bg-gray-900 rounded-lg w-full h-full sm:h-[90vh] sm:max-w-4xl flex flex-col overflow-hidden shadow-2xl"
+        className="relative bg-white dark:bg-gray-900 rounded-lg w-full h-[100dvh] sm:h-[90vh] sm:max-w-4xl flex flex-col overflow-hidden shadow-2xl"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex-shrink-0">
-          <h2 id={titleId} className="text-lg font-semibold text-gray-900 dark:text-gray-100 truncate">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex-shrink-0">
+          <h2 id={titleId} className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100 truncate">
             {chartTitle}
           </h2>
           <button
@@ -94,16 +97,32 @@ export default function NumberFullscreenModal({
           </button>
         </div>
 
-        {/* Content - no swipe handlers, free for interaction */}
-        <div className="flex-1 flex items-center justify-center p-6">
-          <AnalyticsNumberChart
-            data={data}
-            format={format}
-            animationDuration={1}
-            responsive={true}
-            minHeight={300}
-            maxHeight={600}
-          />
+        {/* Content - Enhanced with centered title, filter, and larger number */}
+        <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6 gap-4 sm:gap-6">
+          {/* Chart title - centered, prominent */}
+          <h3 className="text-xl sm:text-2xl md:text-3xl font-semibold text-gray-800 dark:text-gray-100 text-center px-4">
+            {chartTitle}
+          </h3>
+
+          {/* Filter/period indicator */}
+          {filterDescription && (
+            <span className="text-sm sm:text-base md:text-lg text-gray-500 dark:text-gray-400">
+              {filterDescription}
+            </span>
+          )}
+
+          {/* Number display - larger for fullscreen */}
+          <div className="flex-1 flex items-center justify-center w-full max-w-lg">
+            <AnalyticsNumberChart
+              data={data}
+              format={format}
+              animationDuration={1}
+              responsive={true}
+              minHeight={200}
+              maxHeight={400}
+              size="large"
+            />
+          </div>
         </div>
 
         {/* Footer with navigation */}

@@ -294,3 +294,45 @@ export function getDateRange(
     endDate: fallbackEndDate || '',
   };
 }
+
+/**
+ * Human-readable labels for date presets
+ */
+const DATE_PRESET_LABELS: Record<DatePresetId, string> = {
+  // Day-based periods
+  today: 'Today',
+  yesterday: 'Yesterday',
+  last_7_days: 'Last 7 Days',
+  last_14_days: 'Last 14 Days',
+  last_30_days: 'Last 30 Days',
+  last_90_days: 'Last 90 Days',
+  last_180_days: 'Last 180 Days',
+  last_365_days: 'Last 365 Days',
+  // Month-based periods
+  this_month: 'This Month',
+  last_month: 'Last Month',
+  last_3_full_months: 'Trailing 3 Months',
+  last_6_full_months: 'Trailing 6 Months',
+  last_12_full_months: 'Trailing 12 Months',
+  // Quarter-based periods
+  this_quarter: 'This Quarter',
+  last_quarter: 'Last Quarter',
+  // Year-based periods
+  ytd: 'Year to Date',
+  this_year: 'This Year',
+  last_year: 'Last Year',
+  // Custom
+  custom: 'Custom',
+};
+
+/**
+ * Get human-readable label for a date preset ID
+ * @param presetId - The preset identifier (e.g., 'last_6_full_months')
+ * @returns Human-readable label (e.g., 'Trailing 6 Months') or undefined if not found
+ */
+export function getPresetLabel(presetId: string | undefined): string | undefined {
+  if (!presetId || !isValidPreset(presetId)) {
+    return undefined;
+  }
+  return DATE_PRESET_LABELS[presetId];
+}

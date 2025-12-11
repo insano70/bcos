@@ -117,33 +117,31 @@ export function useChartInstance(params: UseChartInstanceParams): ChartInstanceS
     let newChart: ChartType | null = null;
 
     // Defer initialization until after React's layout phase (fixes race condition)
-    // Double RAF ensures we're after paint and canvas is fully rendered
+    // Single RAF is sufficient - canvas should be ready after first frame
     const rafId = requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        // Re-check connection after deferral (component may have unmounted)
-        if (isCancelled || !canvasElement.isConnected) {
-          return;
-        }
+      // Re-check connection after deferral (component may have unmounted)
+      if (isCancelled || !canvasElement.isConnected) {
+        return;
+      }
 
-        // Convert our ChartData to Chart.js ChartData format
-        const chartjsData = {
-          labels: chartData.labels,
-          datasets: chartData.datasets,
-        };
+      // Convert our ChartData to Chart.js ChartData format
+      const chartjsData = {
+        labels: chartData.labels,
+        datasets: chartData.datasets,
+      };
 
-        // Determine actual Chart.js chart type
-        const actualChartType = chartType === 'line' ? 'line' : 'bar';
+      // Determine actual Chart.js chart type
+      const actualChartType = chartType === 'line' ? 'line' : 'bar';
 
-        // Create new chart instance
-        newChart = new Chart(canvasElement, {
-          type: actualChartType,
-          data: chartjsData,
-          options: chartOptions,
-        });
-
-        setChart(newChart);
-        chartRef.current = newChart;
+      // Create new chart instance
+      newChart = new Chart(canvasElement, {
+        type: actualChartType,
+        data: chartjsData,
+        options: chartOptions,
       });
+
+      setChart(newChart);
+      chartRef.current = newChart;
     });
 
     // Cleanup on unmount or dependencies change

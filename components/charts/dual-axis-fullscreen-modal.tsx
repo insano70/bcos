@@ -152,15 +152,14 @@ export default function DualAxisFullscreenModal({
     let newChart: ChartType | null = null;
 
     // Defer initialization until after React's layout phase (fixes race condition)
-    // Double RAF ensures we're after paint and canvas is fully rendered
+    // Single RAF is sufficient - canvas should be ready after first frame
     const rafId = requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        // Re-check connection after deferral (component may have unmounted)
-        if (isCancelled || !canvasElement.isConnected) {
-          return;
-        }
+      // Re-check connection after deferral (component may have unmounted)
+      if (isCancelled || !canvasElement.isConnected) {
+        return;
+      }
 
-        // Convert our ChartData to Chart.js ChartData format
+      // Convert our ChartData to Chart.js ChartData format
         const chartjsData = {
           labels: chartData.labels,
           datasets: chartData.datasets,
@@ -387,7 +386,6 @@ export default function DualAxisFullscreenModal({
             ul.appendChild(li);
           });
         }
-      });
     });
 
     return () => {
@@ -414,7 +412,7 @@ export default function DualAxisFullscreenModal({
     <FullscreenModalAnimation onOverlayClick={onClose} ariaLabelledBy={chartTitleId}>
       <div
         ref={modalRef}
-        className="bg-white dark:bg-gray-800 sm:rounded-xl shadow-2xl w-full h-full sm:h-auto sm:max-w-7xl sm:max-h-[95vh] flex flex-col overflow-hidden"
+        className="bg-white dark:bg-gray-800 sm:rounded-xl shadow-2xl w-full h-[100dvh] sm:h-auto sm:max-w-7xl sm:max-h-[95vh] flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -507,7 +505,7 @@ export default function DualAxisFullscreenModal({
 
         {/* Chart Content - no swipe handlers, free for interaction */}
         <div
-          className={`flex-1 pt-3 px-6 pb-6 ${dimension.expandedData ? 'overflow-hidden' : 'overflow-auto'}`}
+          className={`flex-1 flex flex-col pt-3 px-4 sm:px-6 pb-4 ${dimension.expandedData ? 'overflow-hidden' : 'overflow-auto'}`}
         >
           {dimension.error && (
             <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/30 dark:text-red-200">
@@ -551,7 +549,7 @@ export default function DualAxisFullscreenModal({
                 />
               </ScrollableLegendContainer>
 
-              <div className="w-full h-[calc(90vh-300px)] min-h-[400px]">
+              <div className="relative w-full flex-1 min-h-[250px]">
                 <canvas ref={setCanvasRef} />
               </div>
             </>
