@@ -328,9 +328,16 @@ export async function setCSRFToken(userId?: string): Promise<string> {
   try {
     const cookieStore = await cookies();
 
+    // Check if running over HTTPS (works for both production and staging)
+    const appUrl =
+      process.env.NEXT_PUBLIC_APP_URL ||
+      globalThis.process?.env?.NEXT_PUBLIC_APP_URL ||
+      '';
+    const isSecure = appUrl.startsWith('https://');
+
     cookieStore.set(CSRF_COOKIE_NAME, token, {
       httpOnly: false, // Must be readable by JavaScript for header inclusion
-      secure: (process.env.NODE_ENV || globalThis.process?.env?.NODE_ENV) === 'production',
+      secure: isSecure,
       sameSite: 'strict',
       maxAge: 60 * 60 * 24, // 24 hours
       path: '/',

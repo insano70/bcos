@@ -33,7 +33,16 @@ const flushAllHandler = async (request: NextRequest, userContext: UserContext) =
 
   try {
     // Parse request body
-    const body = await request.json().catch(() => ({}));
+    let body: { confirm?: boolean };
+    try {
+      body = await request.json();
+    } catch {
+      return createErrorResponse(
+        'Invalid JSON body. POST body must be valid JSON with {"confirm": true}',
+        400,
+        request
+      );
+    }
 
     // Require explicit confirmation to prevent accidental FLUSHALL
     if (body.confirm !== true) {

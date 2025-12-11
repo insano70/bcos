@@ -179,8 +179,13 @@ export class RBACWorkItemTypesService extends BaseCrudService<
   // ===========================================================================
 
   /**
-   * Get work item types with filtering (legacy method wrapper)
-   * Uses SQL sorting for performance
+   * Get work item types with filtering and pagination.
+   *
+   * Includes both global types (organization_id = null) and organization-specific types.
+   * Uses SQL-level sorting for performance.
+   *
+   * @param options - Query options (organization_id, is_active, limit, offset, sortField, sortOrder)
+   * @returns Array of work item types with organization and creator details
    */
   async getWorkItemTypes(
     options: WorkItemTypeQueryOptions = {}
@@ -195,22 +200,35 @@ export class RBACWorkItemTypesService extends BaseCrudService<
   }
 
   /**
-   * Get total count of work item types (legacy method wrapper)
+   * Get total count of work item types matching the filter options.
+   *
+   * @param options - Query options (organization_id, is_active)
+   * @returns Total count of matching work item types
    */
   async getWorkItemTypeCount(options: WorkItemTypeQueryOptions = {}): Promise<number> {
     return this.getCount(options);
   }
 
   /**
-   * Get work item type by ID (legacy method wrapper)
+   * Get a work item type by ID with organization and creator details.
+   *
+   * @param typeId - The work item type ID to retrieve
+   * @returns The work item type entity with details, or null if not found
    */
   async getWorkItemTypeById(typeId: string): Promise<WorkItemTypeWithDetails | null> {
     return this.getById(typeId);
   }
 
   /**
-   * Create a new work item type
-   * Custom implementation required - permission depends on organization_id in input data
+   * Create a new work item type for an organization.
+   *
+   * Custom implementation required because permission checking depends on
+   * organization_id provided in the input data.
+   *
+   * @param data - The work item type data (organization_id, name, description, icon, color)
+   * @returns The created work item type with organization and creator details
+   * @throws ForbiddenError if user doesn't have manage permission for the organization
+   * @throws DatabaseError if creation fails
    */
   async createWorkItemType(data: CreateWorkItemTypeData): Promise<WorkItemTypeWithDetails> {
     const startTime = Date.now();
@@ -258,8 +276,18 @@ export class RBACWorkItemTypesService extends BaseCrudService<
   }
 
   /**
-   * Update a work item type
-   * Custom implementation required - forbids updating global types, permission depends on existing entity's org
+   * Update a work item type.
+   *
+   * Custom implementation required because:
+   * - Global types (organization_id = null) cannot be modified
+   * - Permission checking depends on the existing entity's organization
+   *
+   * @param typeId - The work item type ID to update
+   * @param data - The update data (name, description, icon, color, is_active)
+   * @returns The updated work item type with organization and creator details
+   * @throws NotFoundError if work item type not found
+   * @throws ForbiddenError if attempting to update a global type or lacking permission
+   * @throws DatabaseError if update fails
    */
   async updateWorkItemType(
     typeId: string,
@@ -315,8 +343,17 @@ export class RBACWorkItemTypesService extends BaseCrudService<
   }
 
   /**
-   * Delete (soft delete) a work item type
-   * Custom implementation required - different permissions for global vs org types, existence check
+   * Delete a work item type (soft delete).
+   *
+   * Custom implementation required because:
+   * - Global types require 'work-items:manage:all' permission
+   * - Organization types require 'work-items:manage:organization' permission
+   * - Cannot delete types that have existing work items
+   *
+   * @param typeId - The work item type ID to delete
+   * @throws NotFoundError if work item type not found
+   * @throws ForbiddenError if user lacks appropriate permission
+   * @throws ConflictError if work items exist for this type
    */
   async deleteWorkItemType(typeId: string): Promise<void> {
     const startTime = Date.now();

@@ -1,16 +1,18 @@
-export const formatValue = (value: number): string =>
-  Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumSignificantDigits: 3,
-    notation: 'compact',
-  }).format(value);
+import { formatCompactValue } from '@/lib/utils/format-value';
 
+/**
+ * Format currency value with compact notation (K/M/B)
+ * Uses canonical formatCompactValue from @/lib/utils/format-value
+ */
+export const formatValue = (value: number): string =>
+  formatCompactValue(value, { style: 'currency' });
+
+/**
+ * Format number value with compact notation (K/M/B)
+ * Uses canonical formatCompactValue from @/lib/utils/format-value
+ */
 export const formatThousands = (value: number): string =>
-  Intl.NumberFormat('en-US', {
-    maximumSignificantDigits: 3,
-    notation: 'compact',
-  }).format(value);
+  formatCompactValue(value, { style: 'number' });
 
 export const getCssVariable = (variable: string): string => {
   if (typeof window === 'undefined') {

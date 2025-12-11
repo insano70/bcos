@@ -11,12 +11,28 @@
  * This endpoint removes expired WebAuthn challenges to prevent database bloat.
  */
 
+import { timingSafeEqual } from 'node:crypto';
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { publicRoute } from '@/lib/api/route-handlers';
 import { handleRouteError } from '@/lib/api/responses/error';
 import { runWebAuthnCleanup } from '@/lib/jobs/webauthn-cleanup';
 import { log } from '@/lib/logger';
+
+/**
+ * Timing-safe string comparison to prevent timing attacks
+ * Returns false if lengths differ or content doesn't match
+ */
+function timingSafeCompare(a: string, b: string): boolean {
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) {
+    // Compare against itself to maintain constant time even for length mismatch
+    timingSafeEqual(bufA, bufA);
+    return false;
+  }
+  return timingSafeEqual(bufA, bufB);
+}
 
 export const dynamic = 'force-dynamic';
 
@@ -30,8 +46,9 @@ const handler = async (request: NextRequest) => {
     const cronSecret = process.env.CRON_SECRET;
 
     if (cronSecret) {
-      const authHeader = request.headers.get('authorization');
-      if (authHeader !== `Bearer ${cronSecret}`) {
+      const authHeader = request.headers.get('authorization') || '';
+      const expectedHeader = `Bearer ${cronSecret}`;
+      if (!timingSafeCompare(authHeader, expectedHeader)) {
         log.security('unauthorized_cron_access', 'high', {
           endpoint: '/api/cron/webauthn-cleanup',
           blocked: true,

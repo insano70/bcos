@@ -17,7 +17,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { publicRoute } from '@/lib/api/route-handlers';
-import { getOIDCConfig } from '@/lib/env';
+import { getOIDCConfig, shouldUseSecureCookies } from '@/lib/env';
 import { log } from '@/lib/logger';
 
 // Force dynamic rendering
@@ -83,7 +83,7 @@ const oidcLogoutHandler = async (request: NextRequest) => {
     // Clear auth cookies (SECURITY FIX: Use correct cookie names and strict sameSite)
     response.cookies.set('access-token', '', {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: shouldUseSecureCookies(),
       sameSite: 'strict',
       maxAge: 0,
       path: '/',
@@ -91,7 +91,7 @@ const oidcLogoutHandler = async (request: NextRequest) => {
 
     response.cookies.set('refresh-token', '', {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: shouldUseSecureCookies(),
       sameSite: 'strict',
       maxAge: 0,
       path: '/',
@@ -112,7 +112,7 @@ const oidcLogoutHandler = async (request: NextRequest) => {
 
     response.cookies.set('access-token', '', {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: shouldUseSecureCookies(),
       sameSite: 'strict',
       maxAge: 0,
       path: '/',
@@ -120,7 +120,7 @@ const oidcLogoutHandler = async (request: NextRequest) => {
 
     response.cookies.set('refresh-token', '', {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: shouldUseSecureCookies(),
       sameSite: 'strict',
       maxAge: 0,
       path: '/',

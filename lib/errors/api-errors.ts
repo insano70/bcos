@@ -30,16 +30,30 @@
 
 /**
  * Base API Error class
+ *
+ * This is the unified error class used throughout the application.
+ * It supports both class-based throwing (instanceof checks) and
+ * response generation (code/details for HTTP responses).
  */
 export class APIError extends Error {
   public readonly statusCode: number;
   public readonly isOperational: boolean;
+  public readonly code: string | undefined;
+  public details: unknown;
 
-  constructor(message: string, statusCode: number, isOperational = true) {
+  constructor(
+    message: string,
+    statusCode: number,
+    isOperational = true,
+    code?: string,
+    details?: unknown
+  ) {
     super(message);
-    this.name = this.constructor.name;
+    this.name = 'APIError';
     this.statusCode = statusCode;
     this.isOperational = isOperational;
+    this.code = code;
+    this.details = details;
 
     // Maintains proper stack trace for where error was thrown (only available on V8)
     if (Error.captureStackTrace) {

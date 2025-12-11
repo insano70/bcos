@@ -18,7 +18,7 @@
  */
 
 import { useCallback, useMemo } from 'react';
-import type { DashboardUniversalFilters } from '@/hooks/use-dashboard-data';
+import type { DashboardUniversalFilters } from '@/hooks/useDashboardData';
 
 const STORAGE_KEY_PREFIX = 'bcos_dashboard_filters';
 

@@ -150,10 +150,18 @@ export class RBACFilterService {
     });
 
     const practicesInData = Array.from(
-      new Set(rows.map((r) => r.practice_uid as number).filter(Boolean))
+      new Set(
+        rows
+          .map((r) => r.practice_uid)
+          .filter((uid): uid is number => typeof uid === 'number')
+      )
     );
     const practicesAfterFilter = Array.from(
-      new Set(filtered.map((r) => r.practice_uid as number).filter(Boolean))
+      new Set(
+        filtered
+          .map((r) => r.practice_uid)
+          .filter((uid): uid is number => typeof uid === 'number')
+      )
     );
 
     // Apply provider filtering if specified

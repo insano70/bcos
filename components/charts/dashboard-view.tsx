@@ -8,8 +8,8 @@ import { RotateCcw } from 'lucide-react';
 import {
   useDashboardData,
   type DashboardUniversalFilters,
-} from '@/hooks/use-dashboard-data';
-import { useStickyFilters } from '@/hooks/use-sticky-filters';
+} from '@/hooks/useDashboardData';
+import { useStickyFilters } from '@/hooks/useStickyFilters';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useAuth } from '@/components/auth/rbac-auth-provider';
 import { apiClient } from '@/lib/api/client';
@@ -56,6 +56,12 @@ import { clientDebugLog, clientErrorLog } from '@/lib/utils/debug-client';
 interface DashboardViewProps {
   dashboard: Dashboard;
   dashboardCharts: DashboardChart[];
+  /** All published dashboards for cross-dashboard navigation */
+  allDashboards?: Array<{ dashboard_id: string; dashboard_name: string }> | undefined;
+  /** Current dashboard index in allDashboards array */
+  currentDashboardIndex?: number | undefined;
+  /** Navigate to a different dashboard (index in allDashboards, optional chartIndex) */
+  onNavigateToDashboard?: ((dashboardIndex: number, chartIndex?: number) => void) | undefined;
 }
 
 /**
@@ -63,7 +69,13 @@ interface DashboardViewProps {
  */
 type SwappedChartsMap = Map<string, string>;
 
-export default function DashboardView({ dashboard, dashboardCharts }: DashboardViewProps) {
+export default function DashboardView({
+  dashboard,
+  dashboardCharts,
+  allDashboards,
+  currentDashboardIndex,
+  onNavigateToDashboard,
+}: DashboardViewProps) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { user, userContext } = useAuth();
@@ -88,7 +100,14 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
 
   // Mobile fullscreen navigation state
   const isMobile = useIsMobile();
-  const [mobileFullscreenIndex, setMobileFullscreenIndex] = useState<number | null>(null);
+
+  // Initialize fullscreen index from URL param (for cross-dashboard navigation)
+  const [mobileFullscreenIndex, setMobileFullscreenIndex] = useState<number | null>(() => {
+    const startChart = searchParams.get('startChart');
+    if (startChart === null) return null;
+    const parsed = parseInt(startChart, 10);
+    return Number.isNaN(parsed) ? null : parsed;
+  });
 
   // Dashboard configuration
   const filterConfig = dashboard.layout_config?.filterConfig;
@@ -209,16 +228,34 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
     setMobileFullscreenIndex((prev) => {
       if (prev === null) return null;
       const maxIndex = dashboardCharts.length - 1;
-      return prev < maxIndex ? prev + 1 : prev;
+      if (prev < maxIndex) {
+        return prev + 1;
+      }
+      // At last chart - check if we can go to next dashboard
+      if (onNavigateToDashboard && allDashboards && currentDashboardIndex !== undefined) {
+        if (currentDashboardIndex < allDashboards.length - 1) {
+          onNavigateToDashboard(currentDashboardIndex + 1, 0); // First chart of next dashboard
+        }
+      }
+      return prev;
     });
-  }, [dashboardCharts.length]);
+  }, [dashboardCharts.length, onNavigateToDashboard, allDashboards, currentDashboardIndex]);
 
   const handleMobilePreviousChart = useCallback(() => {
     setMobileFullscreenIndex((prev) => {
       if (prev === null) return null;
-      return prev > 0 ? prev - 1 : prev;
+      if (prev > 0) {
+        return prev - 1;
+      }
+      // At first chart - check if we can go to previous dashboard
+      if (onNavigateToDashboard && allDashboards && currentDashboardIndex !== undefined) {
+        if (currentDashboardIndex > 0) {
+          onNavigateToDashboard(currentDashboardIndex - 1, -1); // Last chart of previous dashboard (-1 signals "last")
+        }
+      }
+      return prev;
     });
-  }, []);
+  }, [onNavigateToDashboard, allDashboards, currentDashboardIndex]);
 
   // Handle removing individual filter pill
   const handleRemoveFilter = useCallback(
@@ -341,6 +378,35 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
     }),
     [dashboard, dashboardCharts, availableCharts]
   );
+
+  // Handle startChart URL param for cross-dashboard navigation
+  // -1 means "last chart", so resolve it once charts are loaded
+  // Also clean up the URL param after reading to keep URLs clean
+  useEffect(() => {
+    const startChart = searchParams.get('startChart');
+    if (startChart === null) return;
+
+    const chartsLength = dashboardConfig.charts.length;
+    if (chartsLength === 0) return; // Charts not loaded yet
+
+    const parsed = parseInt(startChart, 10);
+    if (Number.isNaN(parsed)) return;
+
+    // Handle -1 as "last chart"
+    if (parsed === -1) {
+      setMobileFullscreenIndex(chartsLength - 1);
+    } else if (parsed >= 0 && parsed < chartsLength) {
+      // Ensure index is valid (it was already set in initial state, but validate)
+      setMobileFullscreenIndex(parsed);
+    }
+
+    // Clean up URL param after reading (keep other params)
+    const currentParams = new URLSearchParams(searchParams.toString());
+    currentParams.delete('startChart');
+    const queryString = currentParams.toString();
+    const newUrl = `${window.location.pathname}${queryString ? `?${queryString}` : ''}`;
+    router.replace(newUrl, { scroll: false });
+  }, [searchParams, dashboardConfig.charts.length, router]);
 
   // Auto-clear invalid organization filter from sticky filters if access denied
   // This happens when a user switches accounts/organizations but localStorage persists old filters
@@ -704,13 +770,34 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
 
         if (!batchChartData) return null;
 
+        // Cross-dashboard navigation state
+        const hasCrossDashboardNav = Boolean(allDashboards && allDashboards.length > 1 && currentDashboardIndex !== undefined);
+        const canGoNextDashboard = hasCrossDashboardNav && currentDashboardIndex !== undefined && allDashboards !== undefined && currentDashboardIndex < allDashboards.length - 1;
+        const canGoPrevDashboard = hasCrossDashboardNav && currentDashboardIndex !== undefined && currentDashboardIndex > 0;
+
+        // Chart navigation considers cross-dashboard boundaries
+        const isLastChart = mobileFullscreenIndex >= dashboardConfig.charts.length - 1;
+        const isFirstChart = mobileFullscreenIndex <= 0;
+        const canGoNextChart = !isLastChart || canGoNextDashboard;
+        const canGoPrevChart = !isFirstChart || canGoPrevDashboard;
+
         // Common navigation props for all fullscreen modals
         const navigationProps = {
           onNextChart: handleMobileNextChart,
           onPreviousChart: handleMobilePreviousChart,
-          canGoNext: mobileFullscreenIndex < dashboardConfig.charts.length - 1,
-          canGoPrevious: mobileFullscreenIndex > 0,
+          canGoNext: canGoNextChart,
+          canGoPrevious: canGoPrevChart,
           chartPosition: `${mobileFullscreenIndex + 1} of ${dashboardConfig.charts.length}`,
+          // Dashboard navigation props
+          dashboardName: hasCrossDashboardNav ? dashboard.dashboard_name : undefined,
+          onNextDashboard: canGoNextDashboard && onNavigateToDashboard && currentDashboardIndex !== undefined
+            ? () => onNavigateToDashboard(currentDashboardIndex + 1, 0)
+            : undefined,
+          onPreviousDashboard: canGoPrevDashboard && onNavigateToDashboard && currentDashboardIndex !== undefined
+            ? () => onNavigateToDashboard(currentDashboardIndex - 1, -1)
+            : undefined,
+          canGoNextDashboard,
+          canGoPreviousDashboard: canGoPrevDashboard,
         };
 
         // Render appropriate fullscreen modal based on chart type

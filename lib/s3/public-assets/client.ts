@@ -1,38 +1,20 @@
 import { S3Client } from '@aws-sdk/client-s3';
+import { getPublicS3Config, isPublicS3Enabled } from '@/lib/env';
 import { log } from '@/lib/logger';
 
 /**
  * S3 client for public assets
  * Uses dedicated credentials with S3_PUBLIC_* prefix to avoid collisions
+ * Configuration is validated via lib/env.ts using Zod schemas.
  */
 let s3ClientInstance: S3Client | null = null;
-
-/**
- * Get environment configuration for S3 public assets
- */
-function getConfig() {
-  return {
-    region: process.env.S3_PUBLIC_REGION || 'us-east-1',
-    accessKeyId: process.env.S3_PUBLIC_ACCESS_KEY_ID || '',
-    secretAccessKey: process.env.S3_PUBLIC_SECRET_ACCESS_KEY || '',
-    bucket: process.env.S3_PUBLIC_BUCKET || '',
-    cdnUrl: process.env.CDN_URL || '',
-  };
-}
 
 /**
  * Check if S3 is configured with all required credentials
  * @returns True if S3 is configured, false otherwise
  */
 export function isS3Configured(): boolean {
-  const config = getConfig();
-  return !!(
-    config.region &&
-    config.accessKeyId &&
-    config.secretAccessKey &&
-    config.bucket &&
-    config.cdnUrl
-  );
+  return isPublicS3Enabled();
 }
 
 /**
@@ -48,7 +30,7 @@ export function getS3Client(): S3Client {
   }
 
   if (!s3ClientInstance) {
-    const config = getConfig();
+    const config = getPublicS3Config();
     s3ClientInstance = new S3Client({
       region: config.region,
       credentials: {
@@ -72,7 +54,7 @@ export function getS3Client(): S3Client {
  * @returns S3 bucket name
  */
 export function getBucketName(): string {
-  const config = getConfig();
+  const config = getPublicS3Config();
   if (!config.bucket) {
     throw new Error('S3_PUBLIC_BUCKET environment variable not configured');
   }
@@ -84,7 +66,7 @@ export function getBucketName(): string {
  * @returns CDN URL (e.g., 'https://cdn.bendcare.com')
  */
 export function getCdnUrl(): string {
-  const config = getConfig();
+  const config = getPublicS3Config();
   if (!config.cdnUrl) {
     throw new Error('CDN_URL environment variable not configured');
   }

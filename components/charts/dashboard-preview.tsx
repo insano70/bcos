@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import type { DashboardUniversalFilters } from '@/hooks/use-dashboard-data';
+import type { DashboardUniversalFilters } from '@/hooks/useDashboardData';
 import { apiClient } from '@/lib/api/client';
 import type {
   ChartDefinition,

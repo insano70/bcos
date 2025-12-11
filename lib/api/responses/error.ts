@@ -26,6 +26,11 @@
  * ```
  */
 
+import { APIError } from '@/lib/errors/api-errors';
+
+// Re-export APIError for backward compatibility
+export { APIError } from '@/lib/errors/api-errors';
+
 export interface ErrorResponse {
   success: false;
   error: string;
@@ -35,18 +40,6 @@ export interface ErrorResponse {
     timestamp: string;
     path?: string;
   };
-}
-
-export class APIError extends Error {
-  constructor(
-    public message: string,
-    public statusCode: number = 500,
-    public code?: string,
-    public details?: unknown
-  ) {
-    super(message);
-    this.name = 'APIError';
-  }
 }
 
 export function createErrorResponse(
@@ -59,14 +52,13 @@ export function createErrorResponse(
   let errorDetails: unknown;
   let finalStatusCode = statusCode;
 
-  if (error && typeof error === 'object' && 'name' in error && error.name === 'APIError') {
-    const apiError = error as APIError;
-    errorMessage = apiError.message;
-    finalStatusCode = apiError.statusCode;
-    errorCode = apiError.code;
-    errorDetails = apiError.details;
-  } else if (error && typeof error === 'object' && 'message' in error) {
-    errorMessage = String(error.message);
+  if (error instanceof APIError) {
+    errorMessage = error.message;
+    finalStatusCode = error.statusCode;
+    errorCode = error.code;
+    errorDetails = error.details;
+  } else if (error instanceof Error) {
+    errorMessage = error.message;
   } else if (typeof error === 'string') {
     errorMessage = error;
   } else {
@@ -101,24 +93,25 @@ export function createErrorResponse(
   return Response.json(response, { status: finalStatusCode });
 }
 
-// Predefined error types for common scenarios
+// Predefined error factory functions for common scenarios
+// These create APIError instances with appropriate codes for HTTP responses
 export const AuthenticationError = (message = 'Authentication required') =>
-  new APIError(message, 401, 'AUTHENTICATION_REQUIRED');
+  new APIError(message, 401, true, 'AUTHENTICATION_REQUIRED');
 
 export const AuthorizationError = (message = 'Insufficient permissions') =>
-  new APIError(message, 403, 'INSUFFICIENT_PERMISSIONS');
+  new APIError(message, 403, true, 'INSUFFICIENT_PERMISSIONS');
 
 export const ValidationError = (details: unknown, message = 'Validation failed') =>
-  new APIError(message, 400, 'VALIDATION_ERROR', details);
+  new APIError(message, 400, true, 'VALIDATION_ERROR', details);
 
 export const NotFoundError = (resource = 'Resource') =>
-  new APIError(`${resource} not found`, 404, 'RESOURCE_NOT_FOUND');
+  new APIError(`${resource} not found`, 404, true, 'RESOURCE_NOT_FOUND');
 
 export const ConflictError = (message = 'Resource already exists') =>
-  new APIError(message, 409, 'RESOURCE_CONFLICT');
+  new APIError(message, 409, true, 'RESOURCE_CONFLICT');
 
 export const RateLimitError = (resetTime?: number) =>
-  new APIError('Too many requests', 429, 'RATE_LIMIT_EXCEEDED', { resetTime });
+  new APIError('Too many requests', 429, true, 'RATE_LIMIT_EXCEEDED', { resetTime });
 
 /**
  * Converts unknown error types to Error instances
@@ -174,8 +167,8 @@ export function toError(error: unknown): Error {
  */
 export function getErrorStatusCode(error: unknown): number {
   // If it's already an APIError, use its status code
-  if (error && typeof error === 'object' && 'name' in error && error.name === 'APIError') {
-    return (error as APIError).statusCode;
+  if (error instanceof APIError) {
+    return error.statusCode;
   }
 
   // ZodError is always a validation error

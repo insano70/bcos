@@ -1,8 +1,11 @@
 /**
  * Value Formatting Utilities
  *
- * Shared formatting functions for displaying numbers across the application.
+ * CANONICAL formatting functions for displaying numbers across the application.
  * Supports compact notation (K/M/B), currency, percentages, and plain numbers.
+ *
+ * NOTE: This is the single source of truth for compact number formatting.
+ * Other modules should import from here rather than reimplementing.
  */
 
 /**

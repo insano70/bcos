@@ -181,8 +181,14 @@ export class RBACStaffMembersService extends BaseCrudService<
   // ===========================================================================
 
   /**
-   * Get staff members for a practice with filtering and pagination
-   * Note: Logging is handled by BaseCrudService.getList() and getCount()
+   * Get staff members for a practice with filtering and pagination.
+   *
+   * Logging is handled by BaseCrudService.getList() and getCount().
+   *
+   * @param practiceId - The practice ID to get staff for
+   * @param options - Query options (is_active, search, limit, offset, sortBy, sortOrder)
+   * @returns Object containing staff array and total count for pagination
+   * @throws ForbiddenError if user doesn't have access to the practice
    */
   async getStaffMembers(
     practiceId: string,
@@ -212,8 +218,15 @@ export class RBACStaffMembersService extends BaseCrudService<
   }
 
   /**
-   * Get single staff member by ID
-   * Note: Base class getById() handles logging
+   * Get a single staff member by ID.
+   *
+   * Base class getById() handles logging.
+   *
+   * @param practiceId - The practice ID the staff member belongs to
+   * @param staffId - The staff member ID to retrieve
+   * @returns The staff member entity
+   * @throws NotFoundError if staff member not found or doesn't belong to practice
+   * @throws ForbiddenError if user doesn't have access to the practice
    */
   async getStaffMember(practiceId: string, staffId: string): Promise<StaffMember> {
     // Verify practice access
@@ -235,8 +248,15 @@ export class RBACStaffMembersService extends BaseCrudService<
   }
 
   /**
-   * Create new staff member
-   * Custom implementation for auto display_order and JSON stringify
+   * Create a new staff member for a practice.
+   *
+   * Custom implementation handles auto-incrementing display_order and JSON serialization.
+   *
+   * @param practiceId - The practice ID to create the staff member for
+   * @param data - The staff member data (name, title, credentials, etc.)
+   * @returns The created staff member entity
+   * @throws ForbiddenError if user doesn't have permission to manage staff
+   * @throws DatabaseError if creation fails
    */
   async createStaffMember(practiceId: string, data: CreateStaffData): Promise<StaffMember> {
     const startTime = Date.now();
@@ -309,8 +329,17 @@ export class RBACStaffMembersService extends BaseCrudService<
   }
 
   /**
-   * Update staff member
-   * Custom implementation for JSON stringify
+   * Update an existing staff member.
+   *
+   * Custom implementation handles JSON serialization for specialties and education.
+   *
+   * @param practiceId - The practice ID the staff member belongs to
+   * @param staffId - The staff member ID to update
+   * @param data - The update data (partial, only provided fields are updated)
+   * @returns The updated staff member entity
+   * @throws ForbiddenError if user doesn't have permission to manage staff
+   * @throws NotFoundError if staff member not found
+   * @throws DatabaseError if update fails
    */
   async updateStaffMember(
     practiceId: string,
@@ -406,7 +435,15 @@ export class RBACStaffMembersService extends BaseCrudService<
   }
 
   /**
-   * Delete staff member (soft delete)
+   * Delete a staff member (soft delete).
+   *
+   * Sets deleted_at timestamp rather than permanently removing the record.
+   *
+   * @param practiceId - The practice ID the staff member belongs to
+   * @param staffId - The staff member ID to delete
+   * @returns true if deleted successfully
+   * @throws ForbiddenError if user doesn't have permission to manage staff
+   * @throws NotFoundError if staff member not found
    */
   async deleteStaffMember(practiceId: string, staffId: string): Promise<boolean> {
     const startTime = Date.now();
@@ -469,8 +506,14 @@ export class RBACStaffMembersService extends BaseCrudService<
   }
 
   /**
-   * Bulk reorder staff members
-   * Custom method - not part of standard CRUD
+   * Bulk reorder staff members within a practice.
+   *
+   * Updates display_order for multiple staff members in a single transaction.
+   *
+   * @param practiceId - The practice ID containing the staff members
+   * @param staffOrder - Array of { staff_id, display_order } pairs defining the new order
+   * @returns true if reorder completed successfully
+   * @throws ForbiddenError if user doesn't have permission to manage staff
    */
   async reorderStaff(
     practiceId: string,

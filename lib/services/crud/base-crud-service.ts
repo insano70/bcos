@@ -584,6 +584,26 @@ export abstract class BaseCrudService<
   // ===========================================================================
 
   /**
+   * Check permission for a CRUD operation using config.
+   * Helper method to reduce boilerplate in custom implementations.
+   *
+   * @param operation - The CRUD operation ('create', 'update', or 'delete')
+   * @throws ForbiddenError if permission check fails
+   *
+   * @example
+   * ```typescript
+   * // In custom create method:
+   * this.checkConfigPermission('create');
+   * ```
+   */
+  protected checkConfigPermission(operation: 'create' | 'update' | 'delete'): void {
+    const permission = this.config.permissions[operation];
+    if (permission) {
+      this.requireAnyPermission(Array.isArray(permission) ? permission : [permission]);
+    }
+  }
+
+  /**
    * Build base WHERE conditions including soft delete and org scoping.
    * Override in subclass to add custom filter conditions.
    */

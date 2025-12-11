@@ -196,11 +196,12 @@ Extends `BaseCrudService` for standard CRUD operations. Admin-only operations.
 
 ```typescript
 import type { InferSelectModel } from 'drizzle-orm';
-import { eq, like, or, and, isNull, desc, inArray, notInArray } from 'drizzle-orm';
+import { eq, like, or, and, isNull, sql, getTableColumns } from 'drizzle-orm';
 
-import { announcements, announcement_recipients, users } from '@/lib/db';
 import { db } from '@/lib/db';
-import { BaseCrudService, type BaseQueryOptions, type CrudServiceConfig } from '@/lib/services/crud';
+import { announcements, announcement_recipients, announcement_reads, users } from '@/lib/db/schema';
+import { log } from '@/lib/logger';
+import { BaseCrudService, type BaseQueryOptions, type CrudServiceConfig, type JoinQueryConfig } from '@/lib/services/crud';
 import type { UserContext } from '@/lib/types/rbac';
 
 // Entity types
@@ -300,6 +301,33 @@ export class RBACAnnouncementsService extends BaseCrudService<
       like(announcements.subject, `%${search}%`),
       like(announcements.body, `%${search}%`),
     ];
+  }
+
+  /**
+   * Build JOIN query to include creator name and counts
+   */
+  protected buildJoinQuery(): JoinQueryConfig {
+    return {
+      selectFields: {
+        ...getTableColumns(announcements),
+        created_by_name: sql<string>`CONCAT(${users.first_name}, ' ', ${users.last_name})`.as('created_by_name'),
+        recipient_count: sql<number>`(
+          SELECT COUNT(*) FROM announcement_recipients ar
+          WHERE ar.announcement_id = ${announcements.announcement_id}
+        )`.as('recipient_count'),
+        read_count: sql<number>`(
+          SELECT COUNT(*) FROM announcement_reads ar
+          WHERE ar.announcement_id = ${announcements.announcement_id}
+        )`.as('read_count'),
+      },
+      joins: [
+        {
+          table: users,
+          on: eq(announcements.created_by, users.user_id),
+          type: 'left',
+        },
+      ],
+    };
   }
 
   protected buildCustomConditions(options: AnnouncementQueryOptions): SQL[] {
@@ -613,13 +641,13 @@ This follows single responsibility - each service has one clear purpose.
 
 | Method | Path | Permission | Description |
 |--------|------|------------|-------------|
-| GET | `/api/settings/announcements` | `settings:update:all` | List all announcements (paginated) |
-| POST | `/api/settings/announcements` | `settings:update:all` | Create new announcement |
-| GET | `/api/settings/announcements/[id]` | `settings:update:all` | Get single announcement |
-| PATCH | `/api/settings/announcements/[id]` | `settings:update:all` | Update announcement |
-| DELETE | `/api/settings/announcements/[id]` | `settings:update:all` | Soft delete announcement |
-| POST | `/api/settings/announcements/[id]/republish` | `settings:update:all` | Clear read records |
-| GET | `/api/settings/announcements/[id]/recipients` | `settings:update:all` | List recipients |
+| GET | `/api/configure/announcements` | `settings:update:all` | List all announcements (paginated) |
+| POST | `/api/configure/announcements` | `settings:update:all` | Create new announcement |
+| GET | `/api/configure/announcements/[id]` | `settings:update:all` | Get single announcement |
+| PATCH | `/api/configure/announcements/[id]` | `settings:update:all` | Update announcement |
+| DELETE | `/api/configure/announcements/[id]` | `settings:update:all` | Soft delete announcement |
+| POST | `/api/configure/announcements/[id]/republish` | `settings:update:all` | Clear read records |
+| GET | `/api/configure/announcements/[id]/recipients` | `settings:update:all` | List recipients |
 
 ### User Routes
 
@@ -627,21 +655,25 @@ This follows single responsibility - each service has one clear purpose.
 |--------|------|------------|-------------|
 | GET | `/api/user/announcements` | `users:read:own` | Get unread announcements |
 | GET | `/api/user/announcements/count` | `users:read:own` | Get unread count (for badge) |
-| POST | `/api/user/announcements/[id]/read` | `users:read:own` | Mark as read |
-| POST | `/api/user/announcements/read-all` | `users:read:own` | Mark all as read |
+| POST | `/api/user/announcements/[id]/read` | `users:read:own` | Mark single as read (API available, UI uses mark-all) |
+| POST | `/api/user/announcements/read-all` | `users:read:own` | Mark all as read (used by modal) |
 
 ### Route Implementation Examples
 
 **Admin List Route:**
 ```typescript
-// app/api/settings/announcements/route.ts
+// app/api/configure/announcements/route.ts
 import { rbacRoute } from '@/lib/api/route-handlers';
-import { createSuccessResponse, createPaginatedResponse, handleRouteError } from '@/lib/api/responses';
+import { createPaginatedResponse, handleRouteError } from '@/lib/api/responses';
+import { getPagination } from '@/lib/api/utils/request';
+import { validateRequest } from '@/lib/api/middleware/validation';
 import { createRBACAnnouncementsService } from '@/lib/services/rbac-announcements-service';
-import { getPagination, validateQuery } from '@/lib/api/middleware/validation';
+import { createAnnouncementSchema } from '@/lib/validations/announcements';
+import { log } from '@/lib/logger';
 import type { NextRequest } from 'next/server';
 import type { UserContext } from '@/lib/types/rbac';
 
+// GET - List announcements
 const getAnnouncementsHandler = async (request: NextRequest, userContext: UserContext) => {
   const startTime = Date.now();
   const searchParams = new URL(request.url).searchParams;
@@ -658,20 +690,137 @@ const getAnnouncementsHandler = async (request: NextRequest, userContext: UserCo
                  searchParams.get('is_active') === 'false' ? false : undefined,
     });
 
+    log.info('announcements list fetched', {
+      operation: 'list_announcements',
+      userId: userContext.user_id,
+      results: { returned: result.items.length, total: result.total },
+      duration: Date.now() - startTime,
+      component: 'announcements',
+    });
+
     return createPaginatedResponse(result.items, {
       page: result.page,
       limit: result.pageSize,
       total: result.total,
     });
   } catch (error) {
+    log.error('Failed to fetch announcements', error, { userId: userContext.user_id });
     return handleRouteError(error, 'Failed to fetch announcements', request);
   }
 };
 
-export const GET = rbacRoute(getAnnouncementsHandler, {
-  permission: 'settings:update:all',
-  rateLimit: 'api',
-});
+// POST - Create announcement
+const createAnnouncementHandler = async (request: NextRequest, userContext: UserContext) => {
+  const startTime = Date.now();
+
+  try {
+    const data = await validateRequest(request, createAnnouncementSchema);
+    const service = createRBACAnnouncementsService(userContext);
+    const announcement = await service.createAnnouncement(data);
+
+    log.info('announcement created', {
+      operation: 'create_announcement',
+      resourceId: announcement.announcement_id,
+      userId: userContext.user_id,
+      metadata: { targetType: data.target_type, priority: data.priority },
+      duration: Date.now() - startTime,
+      component: 'announcements',
+    });
+
+    return createSuccessResponse(announcement, 'Announcement created');
+  } catch (error) {
+    log.error('Failed to create announcement', error, { userId: userContext.user_id });
+    return handleRouteError(error, 'Failed to create announcement', request);
+  }
+};
+
+export const GET = rbacRoute(getAnnouncementsHandler, { permission: 'settings:update:all', rateLimit: 'api' });
+export const POST = rbacRoute(createAnnouncementHandler, { permission: 'settings:update:all', rateLimit: 'api' });
+```
+
+**Admin Single Route (with extractRouteParams):**
+```typescript
+// app/api/configure/announcements/[id]/route.ts
+import { rbacRoute } from '@/lib/api/route-handlers';
+import { createSuccessResponse, handleRouteError } from '@/lib/api/responses';
+import { extractRouteParams } from '@/lib/api/utils/params';
+import { validateRequest } from '@/lib/api/middleware/validation';
+import { createRBACAnnouncementsService } from '@/lib/services/rbac-announcements-service';
+import { updateAnnouncementSchema, announcementIdParamsSchema } from '@/lib/validations/announcements';
+import { NotFoundError } from '@/lib/api/responses/error';
+import { log } from '@/lib/logger';
+import type { NextRequest } from 'next/server';
+import type { UserContext } from '@/lib/types/rbac';
+
+// GET - Get single announcement
+const getAnnouncementHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
+  try {
+    const { id } = await extractRouteParams(args[0], announcementIdParamsSchema);
+    const service = createRBACAnnouncementsService(userContext);
+    const announcement = await service.getById(id);
+
+    if (!announcement) {
+      throw NotFoundError('Announcement');
+    }
+
+    return createSuccessResponse(announcement);
+  } catch (error) {
+    return handleRouteError(error, 'Failed to fetch announcement', request);
+  }
+};
+
+// PATCH - Update announcement
+const updateAnnouncementHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
+  const startTime = Date.now();
+
+  try {
+    const { id } = await extractRouteParams(args[0], announcementIdParamsSchema);
+    const data = await validateRequest(request, updateAnnouncementSchema);
+    const service = createRBACAnnouncementsService(userContext);
+    const announcement = await service.updateAnnouncement(id, data);
+
+    log.info('announcement updated', {
+      operation: 'update_announcement',
+      resourceId: id,
+      userId: userContext.user_id,
+      duration: Date.now() - startTime,
+      component: 'announcements',
+    });
+
+    return createSuccessResponse(announcement, 'Announcement updated');
+  } catch (error) {
+    log.error('Failed to update announcement', error, { userId: userContext.user_id });
+    return handleRouteError(error, 'Failed to update announcement', request);
+  }
+};
+
+// DELETE - Soft delete announcement
+const deleteAnnouncementHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
+  const startTime = Date.now();
+
+  try {
+    const { id } = await extractRouteParams(args[0], announcementIdParamsSchema);
+    const service = createRBACAnnouncementsService(userContext);
+    await service.delete(id);
+
+    log.info('announcement deleted', {
+      operation: 'delete_announcement',
+      resourceId: id,
+      userId: userContext.user_id,
+      duration: Date.now() - startTime,
+      component: 'announcements',
+    });
+
+    return createSuccessResponse(null, 'Announcement deleted');
+  } catch (error) {
+    log.error('Failed to delete announcement', error, { userId: userContext.user_id });
+    return handleRouteError(error, 'Failed to delete announcement', request);
+  }
+};
+
+export const GET = rbacRoute(getAnnouncementHandler, { permission: 'settings:update:all', rateLimit: 'api' });
+export const PATCH = rbacRoute(updateAnnouncementHandler, { permission: 'settings:update:all', rateLimit: 'api' });
+export const DELETE = rbacRoute(deleteAnnouncementHandler, { permission: 'settings:update:all', rateLimit: 'api' });
 ```
 
 **User Unread Route:**
@@ -827,29 +976,219 @@ interface AnnouncementsContextType {
 
 ### Announcements Management Page
 
-**Location:** `app/(default)/settings/announcements/page.tsx`
+**Location:** `app/(default)/configure/announcements/page.tsx`
+
+**DataTable Configuration:**
+```typescript
+const columns = [
+  { key: 'subject', label: 'Subject', sortable: true },
+  { key: 'target_type', label: 'Target', render: (row) => row.target_type === 'all' ? 'All Users' : `${row.recipient_count} Users` },
+  { key: 'priority', label: 'Priority', render: (row) => <PriorityBadge priority={row.priority} /> },
+  { key: 'is_active', label: 'Status', render: (row) => row.is_active ? 'Active' : 'Inactive' },
+  { key: 'created_at', label: 'Created', sortable: true },
+  { key: 'read_count', label: 'Read', render: (row) => `${row.read_count} reads` },
+];
+
+const filters = [
+  { key: 'target_type', label: 'Target', options: [{ value: 'all', label: 'All Users' }, { value: 'specific', label: 'Specific Users' }] },
+  { key: 'is_active', label: 'Status', options: [{ value: 'true', label: 'Active' }, { value: 'false', label: 'Inactive' }] },
+];
+
+const rowActions = [
+  { label: 'Edit', onClick: (row) => openEditModal(row) },
+  { label: 'View Recipients', onClick: (row) => openRecipientsModal(row), show: (row) => row.target_type === 'specific' },
+  { label: 'Republish', onClick: (row) => handleRepublish(row), confirmModal: { title: 'Republish Announcement', message: 'This will clear all read records and show this announcement to all targeted users again.', confirmText: 'Republish' } },
+  { label: 'Delete', variant: 'danger', onClick: (row) => handleDelete(row), confirmModal: { title: 'Delete Announcement', message: 'Are you sure you want to delete this announcement? This action cannot be undone.', confirmText: 'Delete' } },
+];
+```
+
+**Page Actions:**
+- "Create Announcement" button opens `AnnouncementFormModal`
+
+### View Recipients Modal
+
+**Location:** `components/announcements/recipients-modal.tsx`
+
+Shows list of users who are targeted by a specific announcement.
+
+```typescript
+interface RecipientsModalProps {
+  isOpen: boolean;
+  setIsOpen: (open: boolean) => void;
+  announcementId: string;
+  announcementSubject: string;
+}
+```
 
 **Features:**
-- DataTable listing all announcements
-- Columns: Subject, Target, Priority, Status, Created, Read Count, Actions
-- Filters: Target type, Active/Inactive, Search
-- Row actions: Edit, Republish, Delete
+- Fetches from `GET /api/configure/announcements/[id]/recipients`
+- Simple list showing user name and email
+- Close button only (read-only view)
 
 ### Create/Edit Announcement Modal
 
-**Location:** `components/announcements/announcement-form-modal.tsx`
+**Location:** `components/announcements/announcement-modal.tsx`
 
-**Form Fields:**
-| Field | Type | Required | Notes |
-|-------|------|----------|-------|
-| Subject | text input | Yes | Max 255 chars |
-| Body | RichTextEditor/textarea | Yes | Markdown supported |
-| Target Type | radio | Yes | "All Users" / "Specific Users" |
-| Recipients | user multi-select | Conditional | Required if Target = Specific |
-| Priority | select | No | Default: Normal |
-| Publish At | datetime picker | No | Null = immediate |
-| Expires At | datetime picker | No | Null = never |
-| Is Active | toggle | No | Default: true |
+Uses existing `CrudModal` component from `components/crud-modal/`.
+
+```typescript
+import CrudModal from '@/components/crud-modal';
+import type { FieldConfig } from '@/components/crud-modal/types';
+import { createAnnouncementSchema } from '@/lib/validations/announcements';
+import MultiUserPicker from '@/components/announcements/multi-user-picker';
+
+interface AnnouncementModalProps {
+  mode: 'create' | 'edit';
+  announcement?: AnnouncementWithDetails;
+  isOpen: boolean;
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+const announcementFields: FieldConfig<AnnouncementFormData>[] = [
+  {
+    type: 'text',
+    name: 'subject',
+    label: 'Subject',
+    required: true,
+    maxLength: 255,
+    placeholder: 'Enter announcement subject',
+  },
+  {
+    type: 'textarea',
+    name: 'body',
+    label: 'Body',
+    required: true,
+    rows: 8,
+    placeholder: 'Enter announcement content (Markdown supported)',
+    helpText: 'Supports Markdown formatting: **bold**, *italic*, [links](url), etc.',
+  },
+  {
+    type: 'select',
+    name: 'target_type',
+    label: 'Target Audience',
+    required: true,
+    options: [
+      { value: 'all', label: 'All Users' },
+      { value: 'specific', label: 'Specific Users' },
+    ],
+    column: 'left',
+  },
+  {
+    type: 'select',
+    name: 'priority',
+    label: 'Priority',
+    options: [
+      { value: 'low', label: 'Low' },
+      { value: 'normal', label: 'Normal' },
+      { value: 'high', label: 'High' },
+      { value: 'urgent', label: 'Urgent' },
+    ],
+    column: 'right',
+  },
+  {
+    type: 'custom',
+    name: 'recipient_user_ids',
+    label: 'Recipients',
+    component: MultiUserPicker,
+    visible: (formData) => formData.target_type === 'specific',
+    required: true, // Only when visible
+    props: {
+      placeholder: 'Search and select users...',
+    },
+  },
+  {
+    type: 'text', // Use datetime input type
+    name: 'publish_at',
+    label: 'Publish At',
+    placeholder: 'Leave empty for immediate',
+    helpText: 'Schedule for future publication',
+    column: 'left',
+  },
+  {
+    type: 'text',
+    name: 'expires_at',
+    label: 'Expires At',
+    placeholder: 'Leave empty for no expiration',
+    helpText: 'Auto-hide after this date',
+    column: 'right',
+  },
+  {
+    type: 'checkbox',
+    name: 'is_active',
+    label: 'Active',
+    description: 'Inactive announcements are not shown to users',
+  },
+];
+
+export default function AnnouncementModal({ mode, announcement, isOpen, onClose, onSuccess }: AnnouncementModalProps) {
+  const handleSubmit = async (data: AnnouncementFormData) => {
+    if (mode === 'create') {
+      await fetch('/api/configure/announcements', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+    } else {
+      await fetch(`/api/configure/announcements/${announcement?.announcement_id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+    }
+  };
+
+  return (
+    <CrudModal
+      mode={mode}
+      entity={announcement}
+      title={mode === 'create' ? 'Create Announcement' : 'Edit Announcement'}
+      resourceName="announcement"
+      isOpen={isOpen}
+      onClose={onClose}
+      onSuccess={onSuccess}
+      schema={createAnnouncementSchema}
+      defaultValues={{
+        subject: '',
+        body: '',
+        target_type: 'all',
+        recipient_user_ids: [],
+        priority: 'normal',
+        publish_at: null,
+        expires_at: null,
+        is_active: true,
+      }}
+      fields={announcementFields}
+      onSubmit={handleSubmit}
+      size="4xl"
+    />
+  );
+}
+```
+
+### Multi-User Picker Component
+
+**Location:** `components/announcements/multi-user-picker.tsx`
+
+Custom field component based on existing `UserPicker` and `MultiSelectField` patterns.
+
+```typescript
+interface MultiUserPickerProps {
+  name: string;
+  value: string[];
+  onChange: (value: string[]) => void;
+  error?: string;
+  disabled?: boolean;
+  required?: boolean;
+  placeholder?: string;
+}
+```
+
+**Implementation:**
+- Fetch users from `/api/users` endpoint
+- Search/filter functionality
+- Multi-select with chips display
+- Base on `UserPicker` for styling and `MultiSelectField` for multi-select logic
 
 ---
 
@@ -952,12 +1291,12 @@ Admin User
     │
     ▼
 ┌──────────────────────────────┐
-│ /settings/announcements      │
+│ /configure/announcements     │
 └────────┬─────────────────────┘
          │
          ▼
 ┌──────────────────────────────┐     ┌──────────────────────────┐
-│ GET /api/settings/           │────▶│ RBACAnnouncementsService │
+│ GET /api/configure/          │────▶│ RBACAnnouncementsService │
 │ announcements                │     │ getList()                │
 └────────┬─────────────────────┘     └──────────────────────────┘
          │
@@ -989,48 +1328,142 @@ Admin User
 ## Implementation Phases
 
 ### Phase 1: Database & Core Services
-1. Create `lib/db/announcements-schema.ts`
-2. Update `lib/db/schema.ts` exports
-3. Generate and run database migration (`pnpm drizzle-kit generate`)
-4. Create `lib/services/rbac-announcements-service.ts`
-5. Create `lib/services/user-announcements-service.ts`
-6. Create `lib/validations/announcements.ts`
+1. Create `lib/db/announcements-schema.ts` with all 3 tables
+2. Update `lib/db/schema.ts` to export new tables and relations
+3. Generate migration: `pnpm drizzle-kit generate`
+4. Run migration: `pnpm drizzle-kit migrate`
+5. Create `lib/services/rbac-announcements-service.ts` (admin CRUD)
+6. Create `lib/services/user-announcements-service.ts` (user operations)
+7. Create `lib/validations/announcements.ts` (Zod schemas)
 
-### Phase 2: API Routes
-1. Create admin routes (`/api/settings/announcements/...`)
-2. Create user routes (`/api/user/announcements/...`)
-3. Write route tests
+### Phase 2: Admin API Routes
+Create all admin routes with full implementation:
 
-### Phase 3: Frontend - User Experience
-1. Create `AnnouncementsProvider` context
-2. Create `AnnouncementsModal` component (list view)
-3. Create `AnnouncementBadge` component
-4. Integrate with app layout
-5. Add markdown rendering
+1. `app/api/configure/announcements/route.ts`
+   - `GET` - List announcements (paginated, filtered)
+   - `POST` - Create announcement (with recipients)
 
-### Phase 4: Frontend - Admin UI
-1. Create announcements list page with DataTable
-2. Create announcement form modal
-3. Add user search/select for recipients
-4. Add republish action
+2. `app/api/configure/announcements/[id]/route.ts`
+   - `GET` - Get single announcement
+   - `PATCH` - Update announcement
+   - `DELETE` - Soft delete announcement
 
-### Phase 5: Testing & Polish
-1. Write unit tests for services
-2. Write integration tests for API routes
-3. Add loading/error states
-4. Manual QA testing
-5. Run `pnpm tsc && pnpm lint`
+3. `app/api/configure/announcements/[id]/republish/route.ts`
+   - `POST` - Clear read records for re-publish
+
+4. `app/api/configure/announcements/[id]/recipients/route.ts`
+   - `GET` - List recipients for announcement
+
+### Phase 3: User API Routes
+Create all user-facing routes:
+
+1. `app/api/user/announcements/route.ts`
+   - `GET` - Get unread announcements for current user
+
+2. `app/api/user/announcements/count/route.ts`
+   - `GET` - Get unread count (for badge)
+
+3. `app/api/user/announcements/[id]/read/route.ts`
+   - `POST` - Mark single announcement as read (for future use)
+
+4. `app/api/user/announcements/read-all/route.ts`
+   - `POST` - Mark all unread as read
+
+### Phase 4: Frontend - User Experience
+1. Install markdown library: `pnpm add marked`
+2. Create `lib/utils/markdown-renderer.ts`
+   - Wrapper that converts markdown to HTML using `marked`
+   - Pipes through existing `sanitizeHtml` for XSS protection
+   - Returns safe HTML string
+3. Create `components/announcements/announcements-provider.tsx`
+   - Context with state: unreadAnnouncements, unreadCount, isModalOpen, isLoading
+   - Methods: openModal, closeModal, acknowledgeAll, refresh
+   - Auto-fetch on auth state change (listen to auth context)
+4. Create `components/announcements/announcements-modal.tsx`
+   - Uses `ModalBasic` as base
+   - List view with scrollable content
+   - Priority badges (urgent=red, high=orange, normal=blue, low=gray)
+   - Markdown rendering using `marked` + `SafeHtmlRenderer`
+   - "Mark All as Read" button
+5. Create `components/announcements/announcement-badge.tsx`
+   - Badge showing unread count
+   - Click handler to open modal
+   - Style similar to existing notification badges
+6. Integrate with layout:
+   - Add `AnnouncementsProvider` to `app/(default)/layout.tsx` (inside `RBACAuthProvider`)
+   - Add `AnnouncementBadge` to header (find existing header in `components/ui/header.tsx` or similar)
+   - Render `AnnouncementsModal` at provider level
+
+### Phase 5: Frontend - Admin UI
+1. Create `app/(default)/configure/announcements/page.tsx`
+   - DataTable with columns: Subject, Target, Priority, Status, Created, Read Count
+   - Filters: Target type, Status
+   - Search functionality
+   - Row actions: Edit, View Recipients, Republish, Delete (with confirmModals)
+   - "Create Announcement" button
+2. Create `components/announcements/announcement-modal.tsx`
+   - Uses existing `CrudModal` from `components/crud-modal/`
+   - Field config as shown in Admin UI section above
+   - Create and Edit modes (same component, different `mode` prop)
+3. Create `components/announcements/multi-user-picker.tsx`
+   - Custom field component for CrudModal
+   - Based on `UserPicker` styling + `MultiSelectField` multi-select logic
+   - Fetches users from `/api/users`
+   - Search/filter + multi-select with chips
+4. Create `components/announcements/recipients-modal.tsx`
+   - Uses `ModalBasic` for simple read-only view
+   - Fetches from recipients API
+   - Lists user name + email
+5. Add row action confirmations using `confirmModal` prop pattern (as shown in Admin UI section)
+   - Delete: Uses `DeleteConfirmationModal` pattern
+   - Republish: Custom confirmation message
+
+### Phase 6: Testing & Verification
+1. Write unit tests for `RBACAnnouncementsService`
+2. Write unit tests for `UserAnnouncementsService`
+3. Write integration tests for all API routes
+4. Manual testing:
+   - Create announcement targeting all users
+   - Create announcement targeting specific users
+   - Verify modal appears on login
+   - Verify badge count updates
+   - Verify mark-all-as-read works
+   - Verify republish clears read records
+   - Verify delete (soft delete) works
+5. Run `pnpm tsc` - fix all type errors
+6. Run `pnpm lint` - fix all lint errors
 
 ---
 
 ## DRY Principles Applied
 
-1. **BaseCrudService**: Reuses existing CRUD infrastructure instead of writing custom queries
-2. **BaseRBACService**: Reuses permission checking logic
-3. **Existing UI Components**: Uses `ModalBasic`, `DataTable`, `RichTextEditor`
-4. **Validation Schemas**: Reuses Zod patterns from existing schemas
-5. **API Response Helpers**: Uses `createSuccessResponse`, `createPaginatedResponse`, `handleRouteError`
-6. **Logging Templates**: Uses `logTemplates` from existing logger
+### Services
+1. **BaseCrudService**: Reuses existing CRUD infrastructure (`lib/services/crud/base-crud-service.ts`)
+2. **BaseRBACService**: Reuses permission checking logic (`lib/rbac/base-service.ts`)
+
+### API Utilities (from `lib/api/`)
+3. **`extractRouteParams`**: Use for `[id]` routes (`lib/api/utils/params.ts`)
+4. **`validateRequest`**: Use for request body validation (`lib/api/middleware/validation.ts`)
+5. **`validateParams`**: Use for route param validation (`lib/api/middleware/validation.ts`)
+6. **`getPagination`**: Use for list endpoints (`lib/api/utils/request.ts`)
+7. **`getSortParams`**: Use for sortable lists (`lib/api/utils/request.ts`)
+8. **Response Helpers**: `createSuccessResponse`, `createPaginatedResponse`, `handleRouteError`
+9. **Logging Templates**: `logTemplates` from `lib/logger`
+
+### UI Components
+10. **`CrudModal`**: Use for create/edit forms (`components/crud-modal/`) - NOT custom modal
+11. **`ModalBasic`**: Use for simple modals like recipients view (`components/modal-basic.tsx`)
+12. **`DataTable`**: Use for admin list page (`components/data-table/`)
+13. **`UserPicker`**: Base for multi-user picker (`components/user-picker.tsx`)
+14. **`MultiSelectField`**: Pattern for multi-select (`components/work-items/multi-select-field.tsx`)
+15. **`DeleteConfirmationModal`**: Use for delete/republish confirmations
+
+### Security Utilities
+16. **`sanitizeHtml`**: Sanitize markdown-converted HTML (`lib/utils/html-sanitizer.ts`)
+17. **`SafeHtmlRenderer`**: Render sanitized HTML safely (`lib/utils/safe-html-renderer.tsx`)
+
+### Validation
+18. **Zod schemas**: Follow existing patterns from `lib/validations/`
 
 ---
 
@@ -1060,7 +1493,7 @@ lib/
 
 app/
 ├── api/
-│   ├── settings/
+│   ├── configure/
 │   │   └── announcements/
 │   │       ├── route.ts             # GET (list), POST (create)
 │   │       └── [id]/
@@ -1080,14 +1513,104 @@ app/
 │               └── read/
 │                   └── route.ts     # POST
 └── (default)/
-    └── settings/
+    └── configure/
         └── announcements/
             └── page.tsx             # Admin management page
 
+lib/
+└── utils/
+    └── markdown-renderer.ts         # Markdown to safe HTML (uses marked + sanitizeHtml)
+
 components/
 └── announcements/
-    ├── announcements-provider.tsx   # Context provider
-    ├── announcements-modal.tsx      # List modal for users
+    ├── announcements-provider.tsx   # Context provider for user announcements
+    ├── announcements-modal.tsx      # User-facing list modal (uses ModalBasic)
     ├── announcement-badge.tsx       # Header notification badge
-    └── announcement-form-modal.tsx  # Admin create/edit form
+    ├── announcement-modal.tsx       # Admin create/edit form (uses CrudModal)
+    ├── multi-user-picker.tsx        # Custom CrudModal field for recipient selection
+    └── recipients-modal.tsx         # Admin view recipients (uses ModalBasic)
 ```
+
+---
+
+## Implementation Completeness Checklist
+
+Use this checklist to verify all functionality is implemented:
+
+### Database
+- [ ] `announcements` table created with all columns
+- [ ] `announcement_recipients` table created with unique constraint
+- [ ] `announcement_reads` table created with unique constraint
+- [ ] All indexes created
+- [ ] Relations defined
+- [ ] Schema exported from `lib/db/schema.ts`
+- [ ] Migration generated and applied
+
+### Admin Service (`RBACAnnouncementsService`)
+- [ ] Extends `BaseCrudService`
+- [ ] `buildJoinQuery()` returns creator name, recipient_count, read_count
+- [ ] `buildSearchConditions()` searches subject and body
+- [ ] `buildCustomConditions()` filters by target_type, is_active, expired
+- [ ] `createAnnouncement()` creates with recipients
+- [ ] `updateAnnouncement()` updates with recipients
+- [ ] `setRecipients()` replaces recipients
+- [ ] `getRecipients()` returns user list
+- [ ] `republish()` clears read records
+
+### User Service (`UserAnnouncementsService`)
+- [ ] `getUnreadAnnouncements()` with all filters (active, not deleted, published, not expired, targeted, not read)
+- [ ] `getUnreadCount()` returns count
+- [ ] `markAsRead()` creates read record
+- [ ] `markAllAsRead()` bulk creates read records
+
+### Admin API Routes
+- [ ] `GET /api/configure/announcements` - list with pagination
+- [ ] `POST /api/configure/announcements` - create
+- [ ] `GET /api/configure/announcements/[id]` - get single
+- [ ] `PATCH /api/configure/announcements/[id]` - update
+- [ ] `DELETE /api/configure/announcements/[id]` - soft delete
+- [ ] `POST /api/configure/announcements/[id]/republish` - republish
+- [ ] `GET /api/configure/announcements/[id]/recipients` - list recipients
+
+### User API Routes
+- [ ] `GET /api/user/announcements` - get unread
+- [ ] `GET /api/user/announcements/count` - get count
+- [ ] `POST /api/user/announcements/[id]/read` - mark single read
+- [ ] `POST /api/user/announcements/read-all` - mark all read
+
+### User UI Components
+- [ ] `AnnouncementsProvider` - context with state and methods
+- [ ] `AnnouncementsModal` - list view with markdown rendering
+- [ ] `AnnouncementBadge` - count badge in header
+- [ ] Provider integrated in layout
+- [ ] Badge integrated in header
+- [ ] Modal auto-shows on login (if unread > 0)
+
+### Admin UI Components
+- [ ] Admin page at `/configure/announcements`
+- [ ] DataTable with all columns (Subject, Target, Priority, Status, Created, Read Count)
+- [ ] Filters (Target type, Status)
+- [ ] Search functionality
+- [ ] Create button opens form modal
+- [ ] Edit action opens form modal with data
+- [ ] View Recipients action opens recipients modal
+- [ ] Republish action with confirmation
+- [ ] Delete action with confirmation
+- [ ] `AnnouncementModal` - create/edit form using `CrudModal`
+- [ ] `MultiUserPicker` - custom CrudModal field for recipients
+- [ ] `RecipientsModal` - view recipients list using `ModalBasic`
+
+### Utilities
+- [ ] `lib/utils/markdown-renderer.ts` - `marked` + `sanitizeHtml` wrapper
+- [ ] `marked` package installed (`pnpm add marked`)
+
+### Validation
+- [ ] `createAnnouncementSchema` with refinement for recipients
+- [ ] `updateAnnouncementSchema` partial schema
+- [ ] `announcementIdParamsSchema` for route params
+
+### Testing
+- [ ] Unit tests for admin service
+- [ ] Unit tests for user service
+- [ ] `pnpm tsc` passes
+- [ ] `pnpm lint` passes

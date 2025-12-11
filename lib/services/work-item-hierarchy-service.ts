@@ -9,7 +9,7 @@
  * **RBAC**: Organization and ownership-level access control
  */
 
-import { eq, like } from 'drizzle-orm';
+import { eq, inArray, like, sql } from 'drizzle-orm';
 import { AuthorizationError, NotFoundError, ValidationError } from '@/lib/api/responses/error';
 import { db, type DbContext } from '@/lib/db';
 import { work_items } from '@/lib/db/schema';
@@ -318,21 +318,25 @@ class WorkItemHierarchyService implements WorkItemHierarchyServiceInterface {
         };
       });
 
-      // Execute all updates in parallel within the transaction (eliminates N+1)
+      // Execute batch update with CASE statements (single query instead of N queries)
       const updatedAt = new Date();
-      await Promise.all(
-        updates.map((update) =>
-          tx
-            .update(work_items)
-            .set({
-              path: update.path,
-              depth: update.depth,
-              root_work_item_id: newRootId,
-              updated_at: updatedAt,
-            })
-            .where(eq(work_items.work_item_id, update.work_item_id))
-        )
-      );
+      const workItemIds = updates.map((u) => u.work_item_id);
+
+      // Build CASE expressions for path and depth
+      const pathCases = updates
+        .map((u) => `WHEN '${u.work_item_id}' THEN '${u.path}'`)
+        .join(' ');
+      const depthCases = updates.map((u) => `WHEN '${u.work_item_id}' THEN ${u.depth}`).join(' ');
+
+      await tx
+        .update(work_items)
+        .set({
+          path: sql.raw(`CASE work_item_id ${pathCases} END`),
+          depth: sql.raw(`CASE work_item_id ${depthCases} END`),
+          root_work_item_id: newRootId,
+          updated_at: updatedAt,
+        })
+        .where(inArray(work_items.work_item_id, workItemIds));
 
       log.debug('descendants updated successfully', {
         workItemId,

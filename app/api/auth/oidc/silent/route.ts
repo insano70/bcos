@@ -23,7 +23,7 @@ import { cookies } from 'next/headers';
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { publicRoute } from '@/lib/api/route-handlers';
-import { isOIDCEnabled } from '@/lib/env';
+import { isOIDCEnabled, shouldUseSecureCookies } from '@/lib/env';
 import { correlation, log } from '@/lib/logger';
 import { getOIDCClient } from '@/lib/oidc/client';
 import { databaseStateManager } from '@/lib/oidc/database-state-manager';
@@ -102,7 +102,7 @@ const silentAuthHandler = async (request: NextRequest) => {
     const cookieStore = await cookies();
     cookieStore.set('oidc-session', sealed, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: shouldUseSecureCookies(),
       sameSite: 'lax',
       maxAge: 60 * 2,
       path: '/',
@@ -111,7 +111,7 @@ const silentAuthHandler = async (request: NextRequest) => {
     // Mark this as a silent auth attempt so callback knows how to handle errors
     cookieStore.set('oidc-silent-attempt', 'true', {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: shouldUseSecureCookies(),
       sameSite: 'lax',
       maxAge: 60 * 2,
       path: '/',

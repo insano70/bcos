@@ -2,8 +2,8 @@
 
 import { Popover, PopoverButton, PopoverPanel, Transition } from '@headlessui/react';
 import { useEffect, useState } from 'react';
-import type { DashboardUniversalFilters } from '@/hooks/use-dashboard-data';
-import { useStickyFilters } from '@/hooks/use-sticky-filters';
+import type { DashboardUniversalFilters } from '@/hooks/useDashboardData';
+import { useStickyFilters } from '@/hooks/useStickyFilters';
 import { useOrganizations } from '@/lib/hooks/use-organizations';
 import HierarchySelect from '@/components/hierarchy-select';
 

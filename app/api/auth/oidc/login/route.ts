@@ -28,7 +28,7 @@ import { NextResponse } from 'next/server';
 import { createErrorResponse, handleRouteError } from '@/lib/api/responses/error';
 import { publicRoute } from '@/lib/api/route-handlers';
 import { AuditLogger } from '@/lib/api/services/audit';
-import { isOIDCEnabled } from '@/lib/env';
+import { isOIDCEnabled, shouldUseSecureCookies } from '@/lib/env';
 import { correlation, log } from '@/lib/logger';
 import { getOIDCClient } from '@/lib/oidc/client';
 import { databaseStateManager } from '@/lib/oidc/database-state-manager';
@@ -127,7 +127,7 @@ const oidcLoginHandler = async (request: NextRequest) => {
     const cookieStore = await cookies();
     cookieStore.set('oidc-session', sealed, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: shouldUseSecureCookies(),
       sameSite: 'lax', // REQUIRED: Allows cookie to be sent on top-level OAuth redirect from Microsoft Entra (strict blocks cross-site navigations)
       maxAge: 60 * 10, // 10 minutes
       path: '/',

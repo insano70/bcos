@@ -51,6 +51,12 @@ interface TableFullscreenModalProps {
   canGoPrevious?: boolean;
   /** Position indicator, e.g., "3 of 8" */
   chartPosition?: string;
+  // Cross-dashboard navigation
+  dashboardName?: string | undefined;
+  onNextDashboard?: (() => void) | undefined;
+  onPreviousDashboard?: (() => void) | undefined;
+  canGoNextDashboard?: boolean | undefined;
+  canGoPreviousDashboard?: boolean | undefined;
 }
 
 export default function TableFullscreenModal({
@@ -65,6 +71,11 @@ export default function TableFullscreenModal({
   canGoNext,
   canGoPrevious,
   chartPosition,
+  dashboardName,
+  onNextDashboard,
+  onPreviousDashboard,
+  canGoNextDashboard,
+  canGoPreviousDashboard,
 }: TableFullscreenModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
@@ -283,6 +294,11 @@ export default function TableFullscreenModal({
           canGoNext={canGoNext}
           canGoPrevious={canGoPrevious}
           chartPosition={chartPosition}
+          dashboardName={dashboardName}
+          onNextDashboard={onNextDashboard}
+          onPreviousDashboard={onPreviousDashboard}
+          canGoNextDashboard={canGoNextDashboard}
+          canGoPreviousDashboard={canGoPreviousDashboard}
         >
           <span>{displayData.length} rows</span>
         </FullscreenModalFooter>

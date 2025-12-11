@@ -1,9 +1,10 @@
 'use client';
 
-import { notFound, useParams } from 'next/navigation';
-import React, { useCallback, useEffect, useState } from 'react';
+import { notFound, useParams, useRouter, useSearchParams } from 'next/navigation';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import DashboardView from '@/components/charts/dashboard-view';
 import { apiClient } from '@/lib/api/client';
+import { usePublishedDashboards } from '@/lib/hooks/use-published-dashboards';
 import type { Dashboard, DashboardChart } from '@/lib/types/analytics';
 
 interface DashboardViewData {
@@ -13,6 +14,8 @@ interface DashboardViewData {
 
 export default function DashboardViewPage() {
   const params = useParams();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const dashboardId = params.dashboardId as string;
 
   const [dashboardData, setDashboardData] = useState<DashboardViewData | null>(null);
@@ -21,6 +24,36 @@ export default function DashboardViewPage() {
 
   // Ref to track if we've loaded this dashboard ID to prevent double execution
   const loadedDashboardIdRef = React.useRef<string | null>(null);
+
+  // Get all published dashboards for cross-dashboard navigation
+  const { dashboards: allDashboards } = usePublishedDashboards();
+
+  // Find current dashboard index
+  const currentDashboardIndex = useMemo(() => {
+    if (!allDashboards.length) return undefined;
+    const index = allDashboards.findIndex(d => d.dashboard_id === dashboardId);
+    return index >= 0 ? index : undefined;
+  }, [allDashboards, dashboardId]);
+
+  // Handle navigation to a different dashboard
+  const handleNavigateToDashboard = useCallback((targetIndex: number, chartIndex?: number) => {
+    const targetDashboard = allDashboards[targetIndex];
+    if (!targetDashboard) return;
+
+    // Preserve current search params (filters) when navigating
+    const currentParams = new URLSearchParams(searchParams.toString());
+
+    // Add chartIndex to URL if specified (for starting at specific chart)
+    if (chartIndex !== undefined) {
+      currentParams.set('startChart', chartIndex.toString());
+    } else {
+      currentParams.delete('startChart');
+    }
+
+    const queryString = currentParams.toString();
+    const url = `/dashboard/view/${targetDashboard.dashboard_id}${queryString ? `?${queryString}` : ''}`;
+    router.push(url);
+  }, [allDashboards, searchParams, router]);
 
   const loadDashboard = useCallback(async () => {
     try {
@@ -131,7 +164,13 @@ export default function DashboardViewPage() {
   return (
     <div className="px-4 sm:px-6 lg:px-8 py-4 w-full max-w-9xl mx-auto">
       {/* Dashboard Content - DashboardView includes its own title */}
-      <DashboardView dashboard={dashboard} dashboardCharts={charts} />
+      <DashboardView
+        dashboard={dashboard}
+        dashboardCharts={charts}
+        allDashboards={allDashboards}
+        currentDashboardIndex={currentDashboardIndex}
+        onNavigateToDashboard={handleNavigateToDashboard}
+      />
     </div>
   );
 }

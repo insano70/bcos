@@ -75,6 +75,23 @@ export const env = createEnv({
       .max(3600, 'Download expiration must not exceed 1 hour')
       .optional(),
 
+    // S3 Public Assets - CDN-backed public file storage (logos, avatars)
+    S3_PUBLIC_REGION: z.string().optional(),
+    S3_PUBLIC_ACCESS_KEY_ID: z.string().optional(),
+    S3_PUBLIC_SECRET_ACCESS_KEY: z.string().optional(),
+    S3_PUBLIC_BUCKET: z.string().optional(),
+    CDN_URL: z.string().url('CDN_URL must be a valid URL').optional(),
+
+    // Redis Cache Configuration
+    REDIS_HOST: z.string().optional(),
+    REDIS_PORT: z.coerce.number().int().positive().optional(),
+    REDIS_TLS: z
+      .string()
+      .transform((val) => val === 'true')
+      .optional(),
+    REDIS_USERNAME: z.string().optional(),
+    REDIS_PASSWORD: z.string().optional(),
+
     // Application URL (server-side runtime configuration)
     APP_URL: z.string().url('APP_URL must be a valid URL').default('http://localhost:4001'),
 
@@ -148,6 +165,20 @@ export const env = createEnv({
     S3_PRIVATE_BUCKET: process.env.S3_PRIVATE_BUCKET,
     S3_PRIVATE_UPLOAD_EXPIRATION: process.env.S3_PRIVATE_UPLOAD_EXPIRATION,
     S3_PRIVATE_DOWNLOAD_EXPIRATION: process.env.S3_PRIVATE_DOWNLOAD_EXPIRATION,
+
+    // S3 Public Assets
+    S3_PUBLIC_REGION: process.env.S3_PUBLIC_REGION,
+    S3_PUBLIC_ACCESS_KEY_ID: process.env.S3_PUBLIC_ACCESS_KEY_ID,
+    S3_PUBLIC_SECRET_ACCESS_KEY: process.env.S3_PUBLIC_SECRET_ACCESS_KEY,
+    S3_PUBLIC_BUCKET: process.env.S3_PUBLIC_BUCKET,
+    CDN_URL: process.env.CDN_URL,
+
+    // Redis
+    REDIS_HOST: process.env.REDIS_HOST,
+    REDIS_PORT: process.env.REDIS_PORT,
+    REDIS_TLS: process.env.REDIS_TLS,
+    REDIS_USERNAME: process.env.REDIS_USERNAME,
+    REDIS_PASSWORD: process.env.REDIS_PASSWORD,
 
     APP_URL: process.env.APP_URL,
     NODE_ENV: process.env.NODE_ENV,
@@ -360,6 +391,19 @@ export const isDevelopment = () => {
  */
 export const isProductionEnvironment = () => process.env.NODE_ENV === 'production';
 
+/**
+ * Check if cookies should use the secure flag
+ * Based on whether APP_URL uses HTTPS (works for both production and staging)
+ *
+ * WARNING: This should only be used in server-side code (API routes, middleware)
+ */
+export const shouldUseSecureCookies = () => {
+  // Use APP_URL to determine if we're running over HTTPS
+  // This works for staging environments that use HTTPS but aren't NODE_ENV=production
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || '';
+  return appUrl.startsWith('https://');
+};
+
 export const getCSRFConfig = () => {
   if (typeof window !== 'undefined') {
     throw new Error('getCSRFConfig can only be used on the server side');
@@ -474,4 +518,87 @@ export const isPrivateS3Enabled = () => {
   }
   const config = getPrivateS3Config();
   return !!(config.region && config.accessKeyId && config.secretAccessKey && config.bucket);
+};
+
+/**
+ * Get S3 Public Assets Configuration
+ * Server-side only
+ *
+ * Returns configuration for CDN-backed public file storage.
+ * Used for practice logos, avatars, and other public assets.
+ *
+ * @returns S3 public assets configuration
+ * @throws Error if called from client side
+ */
+export const getPublicS3Config = () => {
+  if (typeof window !== 'undefined') {
+    throw new Error('getPublicS3Config can only be used on the server side');
+  }
+
+  return {
+    region: env.S3_PUBLIC_REGION || 'us-east-1',
+    accessKeyId: env.S3_PUBLIC_ACCESS_KEY_ID || '',
+    secretAccessKey: env.S3_PUBLIC_SECRET_ACCESS_KEY || '',
+    bucket: env.S3_PUBLIC_BUCKET || '',
+    cdnUrl: env.CDN_URL || '',
+  };
+};
+
+/**
+ * Check if S3 Public Assets are enabled
+ * Server-side only
+ *
+ * @returns True if all required credentials are configured
+ * @throws Error if called from client side
+ */
+export const isPublicS3Enabled = () => {
+  if (typeof window !== 'undefined') {
+    throw new Error('isPublicS3Enabled can only be used on the server side');
+  }
+  const config = getPublicS3Config();
+  return !!(
+    config.region &&
+    config.accessKeyId &&
+    config.secretAccessKey &&
+    config.bucket &&
+    config.cdnUrl
+  );
+};
+
+/**
+ * Get Redis Cache Configuration
+ * Server-side only
+ *
+ * Returns configuration for Redis/Valkey cache connection.
+ * Used for session storage, caching, and pub/sub.
+ *
+ * @returns Redis configuration
+ * @throws Error if called from client side
+ */
+export const getRedisConfig = () => {
+  if (typeof window !== 'undefined') {
+    throw new Error('getRedisConfig can only be used on the server side');
+  }
+
+  return {
+    host: env.REDIS_HOST || '',
+    port: env.REDIS_PORT || 6379,
+    tls: env.REDIS_TLS || false,
+    username: env.REDIS_USERNAME,
+    password: env.REDIS_PASSWORD,
+  };
+};
+
+/**
+ * Check if Redis is enabled
+ * Server-side only
+ *
+ * @returns True if Redis host is configured
+ * @throws Error if called from client side
+ */
+export const isRedisEnabled = () => {
+  if (typeof window !== 'undefined') {
+    throw new Error('isRedisEnabled can only be used on the server side');
+  }
+  return !!env.REDIS_HOST;
 };

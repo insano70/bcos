@@ -274,6 +274,13 @@
       "when": 1765446715448,
       "tag": "0038_add_missing_fk_constraints_and_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1765452105902,
+      "tag": "0039_add_announcements_tables",
+      "breakpoints": true
     }
   ]
 }

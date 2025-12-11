@@ -116,6 +116,16 @@ export {
   report_card_results,
 } from './report-card-schema';
 
+// Announcements tables
+export {
+  announcements,
+  announcement_recipients,
+  announcement_reads,
+  announcementsRelations,
+  announcementRecipientsRelations,
+  announcementReadsRelations,
+} from './announcements-schema';
+
 // System users (admins who manage the platform)
 export const users = pgTable(
   'users',

@@ -4,7 +4,7 @@ import dynamic from 'next/dynamic';
 import { useMemo, useRef, useState } from 'react';
 import { GlassCard } from '@/components/ui/glass-card';
 import { ChartSkeleton } from '@/components/ui/loading-skeleton';
-import { useChartData } from '@/hooks/use-chart-data';
+import { useChartData } from '@/hooks/useChartData';
 import { chartExportService } from '@/lib/services/chart-export';
 import { extractLegendData } from '@/lib/utils/chart-export-legend';
 import type {

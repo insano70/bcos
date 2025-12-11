@@ -1,7 +1,7 @@
 'use client';
 
 import { memo } from 'react';
-import type { DashboardUniversalFilters } from '@/hooks/use-dashboard-data';
+import type { DashboardUniversalFilters } from '@/hooks/useDashboardData';
 import { useOrganizations } from '@/lib/hooks/use-organizations';
 
 /**

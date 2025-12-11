@@ -37,9 +37,10 @@ export type JoinableTable = PgTable<TableConfig>;
 
 /**
  * Type for selectable fields in JOIN queries.
- * Can be individual columns, SQL expressions, or entire tables for nested selection.
+ * Can be individual columns, SQL expressions (including aliased sql<T>), or entire tables.
+ * Using unknown allows for Drizzle's dynamic typing of sql<T> template literals.
  */
-export type SelectableField = PgColumn | SQL | PgTable<TableConfig>;
+export type SelectableField = PgColumn | SQL | SQL.Aliased<unknown> | PgTable<TableConfig>;
 
 // =============================================================================
 // JOIN Support Types

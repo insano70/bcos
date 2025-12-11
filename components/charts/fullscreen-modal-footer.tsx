@@ -13,7 +13,7 @@
  * - Swipe down = close modal (pull-down-to-dismiss)
  */
 
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown } from 'lucide-react';
 import { useSwipeGesture } from '@/hooks/useSwipeGesture';
 import { useIsMobile } from '@/hooks/useIsMobile';
 
@@ -27,6 +27,16 @@ interface FullscreenModalFooterProps {
   chartPosition?: string | undefined;
   /** Optional additional content (e.g., row count for tables) */
   children?: React.ReactNode;
+  /** Dashboard name to display (for cross-dashboard navigation) */
+  dashboardName?: string | undefined;
+  /** Navigate to next dashboard */
+  onNextDashboard?: (() => void) | undefined;
+  /** Navigate to previous dashboard */
+  onPreviousDashboard?: (() => void) | undefined;
+  /** Can navigate to next dashboard */
+  canGoNextDashboard?: boolean | undefined;
+  /** Can navigate to previous dashboard */
+  canGoPreviousDashboard?: boolean | undefined;
 }
 
 export default function FullscreenModalFooter({
@@ -37,8 +47,14 @@ export default function FullscreenModalFooter({
   canGoPrevious,
   chartPosition,
   children,
+  dashboardName,
+  onNextDashboard,
+  onPreviousDashboard,
+  canGoNextDashboard,
+  canGoPreviousDashboard,
 }: FullscreenModalFooterProps) {
   const isMobile = useIsMobile();
+  const hasDashboardNavigation = canGoNextDashboard || canGoPreviousDashboard;
 
   // Swipe gesture for footer zone navigation
   // Swipe left/right = navigate, swipe down = close
@@ -51,7 +67,7 @@ export default function FullscreenModalFooter({
 
   // Don't render if no navigation is available
   const hasNavigation = canGoNext || canGoPrevious;
-  if (!hasNavigation && !children) {
+  if (!hasNavigation && !children && !dashboardName) {
     return null;
   }
 
@@ -61,23 +77,58 @@ export default function FullscreenModalFooter({
       {...(isMobile ? swipeHandlers : {})}
     >
       <div className="flex items-center justify-between">
-        {/* Left side: Custom content or spacer */}
-        <div className="flex-1 flex items-center text-sm text-gray-500 dark:text-gray-400">
-          {children}
+        {/* Left side: Dashboard name + up/down navigation OR custom children */}
+        <div className="flex-1 flex items-center gap-2 min-w-0">
+          {dashboardName ? (
+            <>
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate max-w-[200px]">
+                {dashboardName}
+              </span>
+              {hasDashboardNavigation && (
+                <div className="flex items-center">
+                  <button
+                    type="button"
+                    onClick={onPreviousDashboard}
+                    disabled={!canGoPreviousDashboard}
+                    className={`
+                      p-1 rounded transition-colors
+                      ${canGoPreviousDashboard
+                        ? 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                        : 'text-gray-300 dark:text-gray-600 cursor-not-allowed'
+                      }
+                    `}
+                    aria-label="Previous dashboard"
+                  >
+                    <ChevronUp className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onNextDashboard}
+                    disabled={!canGoNextDashboard}
+                    className={`
+                      p-1 rounded transition-colors
+                      ${canGoNextDashboard
+                        ? 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                        : 'text-gray-300 dark:text-gray-600 cursor-not-allowed'
+                      }
+                    `}
+                    aria-label="Next dashboard"
+                  >
+                    <ChevronDown className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="text-sm text-gray-500 dark:text-gray-400">
+              {children}
+            </div>
+          )}
         </div>
 
-        {/* Center: Position indicator */}
-        {chartPosition && (
-          <div className="flex-shrink-0 px-4">
-            <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
-              {chartPosition}
-            </span>
-          </div>
-        )}
-
-        {/* Right side: Navigation buttons */}
+        {/* Right side: Chart navigation buttons with position indicator */}
         {hasNavigation && (
-          <div className="flex-1 flex items-center justify-end gap-2">
+          <div className="flex items-center gap-1">
             <button
               type="button"
               onClick={onPreviousChart}
@@ -93,6 +144,11 @@ export default function FullscreenModalFooter({
             >
               <ChevronLeft className="w-5 h-5" />
             </button>
+            {chartPosition && (
+              <span className="text-sm font-medium text-gray-600 dark:text-gray-300 px-2 min-w-[60px] text-center">
+                {chartPosition}
+              </span>
+            )}
             <button
               type="button"
               onClick={onNextChart}

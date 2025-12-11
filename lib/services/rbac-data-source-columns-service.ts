@@ -183,8 +183,12 @@ export class RBACDataSourceColumnsService extends BaseCrudService<
   }
 
   /**
-   * Get all columns for a specific data source
-   * Note: Permission checking and logging handled by BaseCrudService.getList()
+   * Get all columns for a specific data source.
+   *
+   * Permission checking and logging handled by BaseCrudService.getList().
+   *
+   * @param query - Query options including data_source_id (required), is_active filter, limit, offset
+   * @returns Array of data source column entities with metadata
    */
   async getDataSourceColumns(
     query: DataSourceColumnQueryOptions
@@ -200,17 +204,25 @@ export class RBACDataSourceColumnsService extends BaseCrudService<
   }
 
   /**
-   * Get single column by ID
-   * Note: Permission checking and logging handled by BaseCrudService.getById()
+   * Get a single data source column by ID.
+   *
+   * Permission checking and logging handled by BaseCrudService.getById().
+   *
+   * @param columnId - The column ID to retrieve
+   * @returns The data source column entity or null if not found
    */
   async getDataSourceColumnById(columnId: number): Promise<DataSourceColumnWithMetadata | null> {
     return this.getById(columnId);
   }
 
   /**
-   * Create a new data source column
+   * Create a new data source column.
    *
-   * Uses transaction for atomic duplicate check + insert
+   * Uses transaction for atomic duplicate check + insert to prevent race conditions.
+   *
+   * @param data - The column data including data_source_id, column_name, display_name, etc.
+   * @returns The created data source column entity
+   * @throws Error if column with same name already exists for this data source
    */
   async createDataSourceColumn(
     data: CreateDataSourceColumnData
@@ -218,13 +230,7 @@ export class RBACDataSourceColumnsService extends BaseCrudService<
     const startTime = Date.now();
 
     // Check permissions using config
-    if (this.config.permissions.create) {
-      this.requireAnyPermission(
-        Array.isArray(this.config.permissions.create)
-          ? this.config.permissions.create
-          : [this.config.permissions.create]
-      );
-    }
+    this.checkConfigPermission('create');
 
     // Execute column creation as atomic transaction to ensure data consistency.
     // Transaction guarantees: duplicate check + insert are atomic, auto-rollback on any failure.
@@ -315,7 +321,11 @@ export class RBACDataSourceColumnsService extends BaseCrudService<
   }
 
   /**
-   * Update a data source column
+   * Update a data source column.
+   *
+   * @param columnId - The ID of the column to update
+   * @param data - The update data (partial, only provided fields are updated)
+   * @returns The updated column entity or null if not found
    */
   async updateDataSourceColumn(
     columnId: number,
@@ -324,13 +334,7 @@ export class RBACDataSourceColumnsService extends BaseCrudService<
     const startTime = Date.now();
 
     // Check permissions using config
-    if (this.config.permissions.update) {
-      this.requireAnyPermission(
-        Array.isArray(this.config.permissions.update)
-          ? this.config.permissions.update
-          : [this.config.permissions.update]
-      );
-    }
+    this.checkConfigPermission('update');
 
     // Get existing column for change tracking
     const existing = await this.getDataSourceColumnById(columnId);
@@ -378,21 +382,18 @@ export class RBACDataSourceColumnsService extends BaseCrudService<
   }
 
   /**
-   * Delete a data source column (hard delete)
+   * Delete a data source column (hard delete).
    *
-   * Uses transaction for atomic check + delete
+   * Uses transaction for atomic existence check + delete.
+   *
+   * @param columnId - The ID of the column to delete
+   * @returns true if deleted, false if column not found
    */
   async deleteDataSourceColumn(columnId: number): Promise<boolean> {
     const startTime = Date.now();
 
     // Check permissions using config
-    if (this.config.permissions.delete) {
-      this.requireAnyPermission(
-        Array.isArray(this.config.permissions.delete)
-          ? this.config.permissions.delete
-          : [this.config.permissions.delete]
-      );
-    }
+    this.checkConfigPermission('delete');
 
     // Get column info before deletion
     const existingColumn = await this.getDataSourceColumnById(columnId);

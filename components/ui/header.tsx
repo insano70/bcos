@@ -1,8 +1,8 @@
 'use client';
 
+import AnnouncementBadge from '@/components/announcements/announcement-badge';
 import { useAppProvider } from '@/app/app-provider';
 import DropdownHelp from '@/components/dropdown-help';
-// import Notifications from '@/components/dropdown-notifications';
 import DropdownProfile from '@/components/dropdown-profile';
 import ThemeToggle from '@/components/theme-toggle';
 
@@ -42,7 +42,7 @@ export default function Header({ variant = 'default' }: { variant?: 'default' | 
 
           {/* Header: Right side */}
           <div className="flex items-center space-x-3">
-            {/* <Notifications align="right" /> */}
+            <AnnouncementBadge />
             <DropdownHelp align="right" />
             <ThemeToggle />
             {/*  Divider */}

@@ -107,24 +107,22 @@ const invalidateCacheHandler = async (request: NextRequest, userContext: { user_
       });
     }
 
-    const invalidated: number[] = [];
-    const skipped: number[] = [];
+    // Separate warming datasources from those ready for invalidation
+    const warmingDatasources = dataSources.filter((ds) => cacheWarmingTracker.isWarming(ds.id));
+    const readyDatasources = dataSources.filter((ds) => !cacheWarmingTracker.isWarming(ds.id));
 
-    for (const ds of dataSources) {
-      // Skip if currently warming
-      if (cacheWarmingTracker.isWarming(ds.id)) {
-        log.info('Skipping datasource - currently warming', {
-          datasourceId: ds.id,
-          datasourceName: ds.name,
-        });
-        skipped.push(ds.id);
-        continue;
-      }
+    // Log skipped warming datasources
+    for (const ds of warmingDatasources) {
+      log.info('Skipping datasource - currently warming', {
+        datasourceId: ds.id,
+        datasourceName: ds.name,
+      });
+    }
 
-      try {
+    // Invalidate all ready datasources in parallel
+    const results = await Promise.allSettled(
+      readyDatasources.map(async (ds) => {
         await indexedAnalyticsCache.invalidate(ds.id);
-        invalidated.push(ds.id);
-
         log.info('Cache invalidated', {
           operation: 'cache_invalidate',
           datasourceId: ds.id,
@@ -134,18 +132,28 @@ const invalidateCacheHandler = async (request: NextRequest, userContext: { user_
           component: 'analytics-cache-admin',
           auditAction: 'CACHE_INVALIDATE',
         });
-      } catch (error) {
-        log.error(
-          'Failed to invalidate datasource',
-          error instanceof Error ? error : new Error(String(error)),
-          {
-            datasourceId: ds.id,
-            datasourceName: ds.name,
-          }
-        );
+        return ds;
+      })
+    );
+
+    // Collect results
+    const invalidated: number[] = [];
+    const skipped: number[] = warmingDatasources.map((ds) => ds.id);
+
+    results.forEach((result, i) => {
+      const ds = readyDatasources[i];
+      if (!ds) return;
+
+      if (result.status === 'fulfilled') {
+        invalidated.push(ds.id);
+      } else {
+        log.error('Failed to invalidate datasource', new Error(String(result.reason)), {
+          datasourceId: ds.id,
+          datasourceName: ds.name,
+        });
         skipped.push(ds.id);
       }
-    }
+    });
 
     const duration = Date.now() - startTime;
 

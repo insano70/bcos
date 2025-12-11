@@ -19,6 +19,13 @@
 import { Worker } from 'node:worker_threads';
 import path from 'node:path';
 import fs from 'node:fs';
+import {
+  env,
+  getDatabaseConfig,
+  getAnalyticsDatabaseConfig,
+  getRedisConfig,
+  isRedisEnabled,
+} from '@/lib/env';
 import { log } from '@/lib/logger';
 import { CACHE_WARMING } from '@/lib/constants/cache-config';
 import type { WorkerConfig, WarmingWorkerResult } from './warming-worker-types';
@@ -114,7 +121,7 @@ export async function spawnWarmingWorker(
       // Determine worker file path based on environment
       // In development: use tsx to run TypeScript directly
       // In production: use the compiled JavaScript file
-      const isDevelopment = process.env.NODE_ENV !== 'production';
+      const isDevelopment = env.NODE_ENV !== 'production';
       
       let workerPath: string;
       let execArgv: string[];
@@ -315,35 +322,35 @@ export async function spawnWarmingWorker(
  * @returns WorkerConfig object if all required env vars are present, null otherwise
  */
 function buildWorkerConfig(): WorkerConfig | null {
-  const databaseUrl = process.env.DATABASE_URL;
-  const analyticsDatabaseUrl = process.env.ANALYTICS_DATABASE_URL;
-  const redisHost = process.env.REDIS_HOST;
+  const dbConfig = getDatabaseConfig();
+  const analyticsDbConfig = getAnalyticsDatabaseConfig();
+  const redisConfig = getRedisConfig();
 
-  if (!databaseUrl || !analyticsDatabaseUrl || !redisHost) {
+  if (!dbConfig.url || !analyticsDbConfig.url || !isRedisEnabled()) {
     log.warn('Missing required environment variables for worker', {
-      hasDatabaseUrl: !!databaseUrl,
-      hasAnalyticsDatabaseUrl: !!analyticsDatabaseUrl,
-      hasRedisHost: !!redisHost,
+      hasDatabaseUrl: !!dbConfig.url,
+      hasAnalyticsDatabaseUrl: !!analyticsDbConfig.url,
+      hasRedisHost: isRedisEnabled(),
       component: 'warming-worker-launcher',
     });
     return null;
   }
 
   const config: WorkerConfig = {
-    databaseUrl,
-    analyticsDatabaseUrl,
-    redisHost,
-    redisPort: parseInt(process.env.REDIS_PORT || '6379', 10),
-    redisTls: process.env.REDIS_TLS === 'true',
-    environment: process.env.ENVIRONMENT || process.env.NODE_ENV || 'development',
+    databaseUrl: dbConfig.url,
+    analyticsDatabaseUrl: analyticsDbConfig.url,
+    redisHost: redisConfig.host,
+    redisPort: redisConfig.port,
+    redisTls: redisConfig.tls,
+    environment: env.NODE_ENV || 'development',
   };
 
   // Only add optional properties if they have values
-  if (process.env.REDIS_USERNAME) {
-    config.redisUsername = process.env.REDIS_USERNAME;
+  if (redisConfig.username) {
+    config.redisUsername = redisConfig.username;
   }
-  if (process.env.REDIS_PASSWORD) {
-    config.redisPassword = process.env.REDIS_PASSWORD;
+  if (redisConfig.password) {
+    config.redisPassword = redisConfig.password;
   }
 
   return config;

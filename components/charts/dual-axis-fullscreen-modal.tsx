@@ -55,6 +55,12 @@ interface DualAxisFullscreenModalProps {
   canGoPrevious?: boolean;
   /** Position indicator, e.g., "3 of 8" */
   chartPosition?: string;
+  // Cross-dashboard navigation
+  dashboardName?: string | undefined;
+  onNextDashboard?: (() => void) | undefined;
+  onPreviousDashboard?: (() => void) | undefined;
+  canGoNextDashboard?: boolean | undefined;
+  canGoPreviousDashboard?: boolean | undefined;
 }
 
 export default function DualAxisFullscreenModal({
@@ -72,6 +78,11 @@ export default function DualAxisFullscreenModal({
   canGoNext,
   canGoPrevious,
   chartPosition,
+  dashboardName,
+  onNextDashboard,
+  onPreviousDashboard,
+  canGoNextDashboard,
+  canGoPreviousDashboard,
 }: DualAxisFullscreenModalProps) {
   const [chart, setChart] = useState<ChartType | null>(null);
   // Phase 1: Toggle between simple (dimension-level) and advanced (value-level) selection
@@ -542,6 +553,11 @@ export default function DualAxisFullscreenModal({
           canGoNext={canGoNext}
           canGoPrevious={canGoPrevious}
           chartPosition={chartPosition}
+          dashboardName={dashboardName}
+          onNextDashboard={onNextDashboard}
+          onPreviousDashboard={onPreviousDashboard}
+          canGoNextDashboard={canGoNextDashboard}
+          canGoPreviousDashboard={canGoPreviousDashboard}
         />
       </div>
     </div>

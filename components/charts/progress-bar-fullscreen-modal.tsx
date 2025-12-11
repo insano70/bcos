@@ -39,6 +39,12 @@ interface ProgressBarFullscreenModalProps {
   canGoPrevious?: boolean;
   /** Position indicator, e.g., "3 of 8" */
   chartPosition?: string;
+  // Cross-dashboard navigation
+  dashboardName?: string | undefined;
+  onNextDashboard?: (() => void) | undefined;
+  onPreviousDashboard?: (() => void) | undefined;
+  canGoNextDashboard?: boolean | undefined;
+  canGoPreviousDashboard?: boolean | undefined;
 }
 
 export default function ProgressBarFullscreenModal({
@@ -56,6 +62,11 @@ export default function ProgressBarFullscreenModal({
   canGoNext,
   canGoPrevious,
   chartPosition,
+  dashboardName,
+  onNextDashboard,
+  onPreviousDashboard,
+  canGoNextDashboard,
+  canGoPreviousDashboard,
 }: ProgressBarFullscreenModalProps) {
   // Phase 1: Toggle between simple (dimension-level) and advanced (value-level) selection
   const [useAdvancedSelection, setUseAdvancedSelection] = useState(false);
@@ -220,6 +231,11 @@ export default function ProgressBarFullscreenModal({
           canGoNext={canGoNext}
           canGoPrevious={canGoPrevious}
           chartPosition={chartPosition}
+          dashboardName={dashboardName}
+          onNextDashboard={onNextDashboard}
+          onPreviousDashboard={onPreviousDashboard}
+          canGoNextDashboard={canGoNextDashboard}
+          canGoPreviousDashboard={canGoPreviousDashboard}
         />
       </div>
     </div>

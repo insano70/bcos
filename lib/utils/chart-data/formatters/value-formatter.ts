@@ -3,7 +3,11 @@
  *
  * Handles formatting of numeric values for different measure types.
  * Extracted from SimplifiedChartTransformer for reusability.
+ *
+ * Uses canonical formatCompactValue from @/lib/utils/format-value for K/M/B notation.
  */
+
+import { formatCompactValue } from '@/lib/utils/format-value';
 
 /**
  * Format value based on measure type
@@ -41,30 +45,15 @@ export function formatValue(value: number, measureType: string): string {
  * Format value with abbreviations for compact display (e.g., Y-axis labels)
  * Converts large numbers to K, M, B notation
  *
+ * Uses canonical formatCompactValue from @/lib/utils/format-value
+ *
  * @param value - Numeric value to format
  * @param measureType - Type of measure ('currency', 'count', 'percentage', 'number')
  * @returns Compact formatted string representation
  */
 export function formatValueCompact(value: number, measureType: string): string {
-  const absValue = Math.abs(value);
-  let abbreviated: string;
-
-  if (absValue >= 1_000_000_000) {
-    abbreviated = `${(value / 1_000_000_000).toFixed(1).replace(/\.0$/, '')}B`;
-  } else if (absValue >= 1_000_000) {
-    abbreviated = `${(value / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
-  } else if (absValue >= 1_000) {
-    abbreviated = `${(value / 1_000).toFixed(1).replace(/\.0$/, '')}K`;
-  } else {
-    abbreviated = value.toString();
-  }
-
-  // Add currency symbol for currency types
-  if (measureType === 'currency') {
-    return `$${abbreviated}`;
-  }
-
-  return abbreviated;
+  const style = measureType === 'currency' ? 'currency' : 'number';
+  return formatCompactValue(value, { style });
 }
 
 /**

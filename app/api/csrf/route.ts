@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { handleRouteError } from '@/lib/api/responses/error';
 import { publicRoute } from '@/lib/api/route-handlers';
+import { shouldUseSecureCookies } from '@/lib/env';
 import { log, SLOW_THRESHOLDS } from '@/lib/logger';
 import { generateAnonymousToken, setCSRFToken } from '@/lib/security/csrf-unified';
 
@@ -65,7 +66,7 @@ const getCSRFTokenHandler = async (request: NextRequest) => {
 
     response.cookies.set('csrf-token', token, {
       httpOnly: false,
-      secure: process.env.NODE_ENV === 'production',
+      secure: shouldUseSecureCookies(),
       sameSite: 'strict',
       maxAge: tokenType === 'anonymous' ? 3600 : 86400,
       path: '/',
