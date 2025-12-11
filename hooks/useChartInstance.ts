@@ -105,30 +105,54 @@ export function useChartInstance(params: UseChartInstanceParams): ChartInstanceS
       return;
     }
 
-    const ctx = canvasRef.current;
+    const canvasElement = canvasRef.current;
 
-    // Convert our ChartData to Chart.js ChartData format
-    const chartjsData = {
-      labels: chartData.labels,
-      datasets: chartData.datasets,
-    };
+    // Safety check: ensure canvas is properly mounted and connected to DOM
+    if (!canvasElement.parentElement || !canvasElement.isConnected) {
+      return;
+    }
 
-    // Determine actual Chart.js chart type
-    const actualChartType = chartType === 'line' ? 'line' : 'bar';
+    // Track whether cleanup has been called (to prevent creating chart after unmount)
+    let isCancelled = false;
+    let newChart: ChartType | null = null;
 
-    // Create new chart instance
-    const newChart = new Chart(ctx, {
-      type: actualChartType,
-      data: chartjsData,
-      options: chartOptions,
+    // Defer initialization until after React's layout phase (fixes race condition)
+    // Double RAF ensures we're after paint and canvas is fully rendered
+    const rafId = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        // Re-check connection after deferral (component may have unmounted)
+        if (isCancelled || !canvasElement.isConnected) {
+          return;
+        }
+
+        // Convert our ChartData to Chart.js ChartData format
+        const chartjsData = {
+          labels: chartData.labels,
+          datasets: chartData.datasets,
+        };
+
+        // Determine actual Chart.js chart type
+        const actualChartType = chartType === 'line' ? 'line' : 'bar';
+
+        // Create new chart instance
+        newChart = new Chart(canvasElement, {
+          type: actualChartType,
+          data: chartjsData,
+          options: chartOptions,
+        });
+
+        setChart(newChart);
+        chartRef.current = newChart;
+      });
     });
-
-    setChart(newChart);
-    chartRef.current = newChart;
 
     // Cleanup on unmount or dependencies change
     return () => {
-      newChart.destroy();
+      isCancelled = true;
+      cancelAnimationFrame(rafId);
+      if (newChart) {
+        newChart.destroy();
+      }
       setChart(null);
       chartRef.current = null;
     };

@@ -136,242 +136,266 @@ export default function DualAxisFullscreenModal({
   useEffect(() => {
     if (!isOpen || !canvasRef.current || !chartData || dimension.expandedData) return;
 
-    const ctx = canvasRef.current;
+    const canvasElement = canvasRef.current;
+
+    // Safety check: ensure canvas is properly mounted and connected to DOM
+    if (!canvasElement.parentElement || !canvasElement.isConnected) {
+      return;
+    }
 
     // Get fresh color values inside useEffect to ensure they're read after theme is loaded
     const { textColor, gridColor, tooltipBodyColor, tooltipBgColor, tooltipBorderColor } =
       chartColors;
 
-    // Convert our ChartData to Chart.js ChartData format
-    const chartjsData = {
-      labels: chartData.labels,
-      datasets: chartData.datasets,
-    };
+    // Track whether cleanup has been called (to prevent creating chart after unmount)
+    let isCancelled = false;
+    let newChart: ChartType | null = null;
 
-    const config: ChartConfiguration = {
-      type: 'bar',
-      data: chartjsData,
-      options: {
-        layout: {
-          padding: {
-            top: 8,
-            bottom: 4,
-            left: 12,
-            right: 12,
-          },
-        },
-        scales: {
-          x: {
-            display: true,
-            border: {
-              display: false,
-            },
-            grid: {
-              display: false,
-            },
-            ticks: {
-              color: darkMode ? textColor.dark : textColor.light,
-              maxRotation: 0,
-              autoSkipPadding: 48,
-              font: {
-                size: 14,
-              },
-            },
-          },
-          'y-left': {
-            type: 'linear',
-            position: 'left',
-            display: true,
-            title: {
-              display: !!primaryAxisLabel,
-              text: primaryAxisLabel || '',
-              color: darkMode ? textColor.dark : textColor.light,
-              font: {
-                size: 14,
-                weight: 'bold',
-              },
-            },
-            border: {
-              display: false,
-            },
-            grid: {
-              color: darkMode ? gridColor.dark : gridColor.light,
-            },
-            beginAtZero: true,
-            ticks: {
-              maxTicksLimit: 5,
-              color: darkMode ? textColor.dark : textColor.light,
-              font: {
-                size: 14,
-              },
-              callback: (tickValue: string | number) => {
-                const value = Number(tickValue);
-                const primaryMeasureType = chartData.datasets[0]?.measureType;
-                return formatValueCompact(value, primaryMeasureType || 'number');
-              },
-            },
-          },
-          'y-right': {
-            type: 'linear',
-            position: 'right',
-            display: true,
-            title: {
-              display: !!secondaryAxisLabel,
-              text: secondaryAxisLabel || '',
-              color: darkMode ? textColor.dark : textColor.light,
-              font: {
-                size: 14,
-                weight: 'bold',
-              },
-            },
-            border: {
-              display: false,
-            },
-            grid: {
-              drawOnChartArea: false, // Only show grid for left y-axis
-            },
-            beginAtZero: true,
-            ticks: {
-              maxTicksLimit: 5,
-              color: darkMode ? textColor.dark : textColor.light,
-              font: {
-                size: 14,
-              },
-              callback: (tickValue: string | number) => {
-                const value = Number(tickValue);
-                const secondaryMeasureType = chartData.datasets[1]?.measureType;
-                return formatValueCompact(value, secondaryMeasureType || 'number');
-              },
-            },
-          },
-        },
-        interaction: {
-          mode: 'index',
-          intersect: false,
-        },
-        plugins: {
-          legend: {
-            display: false,
-          },
-          tooltip: {
-            enabled: true,
-            mode: 'index',
-            intersect: false,
-            backgroundColor: darkMode ? tooltipBgColor.dark : tooltipBgColor.light,
-            borderColor: darkMode ? tooltipBorderColor.dark : tooltipBorderColor.light,
-            borderWidth: 1,
-            titleColor: darkMode ? tooltipBodyColor.dark : tooltipBodyColor.light,
-            bodyColor: darkMode ? tooltipBodyColor.dark : tooltipBodyColor.light,
-            bodySpacing: 8,
-            padding: 12,
-            boxPadding: 6,
-            usePointStyle: true,
-            callbacks: {
-              label: (context) => {
-                const label = context.dataset.label || '';
-                const value = context.parsed.y ?? 0;
-                const measureType = getMeasureTypeFromChart(context.dataset, 'number');
-                const formattedValue = formatValue(value, measureType);
-                return `${label}: ${formattedValue}`;
-              },
-            },
-          },
-          zoom: {
-            pan: {
-              enabled: true,
-              mode: 'x', // Only pan horizontally
-            },
-            zoom: {
-              wheel: {
-                enabled: true,
-                speed: 0.05,
-              },
-              pinch: {
-                enabled: true,
-              },
-              mode: 'x', // Only zoom horizontally
-            },
-            limits: {
-              x: { min: 'original', max: 'original' },
-              'y-left': { min: 0, max: 'original' },
-              'y-right': { min: 0, max: 'original' },
-            },
-          },
-        },
-        responsive: true,
-        maintainAspectRatio: false,
-      },
-    };
+    // Defer initialization until after React's layout phase (fixes race condition)
+    // Double RAF ensures we're after paint and canvas is fully rendered
+    const rafId = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        // Re-check connection after deferral (component may have unmounted)
+        if (isCancelled || !canvasElement.isConnected) {
+          return;
+        }
 
-    const newChart = new Chart(ctx, config);
-    setChart(newChart);
-
-    // Generate HTML legend
-    if (legendRef.current) {
-      const ul = legendRef.current;
-      ul.innerHTML = '';
-
-      const items = newChart.options.plugins?.legend?.labels?.generateLabels?.(newChart);
-
-      // Calculate totals for each dataset
-      const itemsWithTotals =
-        items?.map((item) => {
-          const dataset = newChart.data.datasets[item.datasetIndex!];
-          const dataArray = dataset?.data || [];
-          const total = dataArray.reduce((sum: number, value: unknown) => {
-            if (typeof value === 'number') {
-              return sum + value;
-            } else if (value && typeof value === 'object' && 'y' in value) {
-              const yValue = (value as { y: unknown }).y;
-              return sum + (typeof yValue === 'number' ? yValue : 0);
-            }
-            return sum;
-          }, 0) as number;
-          return { item, total };
-        }) || [];
-
-      itemsWithTotals.forEach(({ item, total }) => {
-        const li = document.createElement('li');
-        li.className =
-          'flex items-center justify-between px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded transition-colors';
-
-        const colorBox = document.createElement('span');
-        colorBox.className = 'block w-3 h-3 rounded-sm mr-2 flex-shrink-0';
-        colorBox.style.backgroundColor = String(item.fillStyle);
-        colorBox.style.borderColor = String(item.strokeStyle);
-        colorBox.style.borderWidth = `${item.lineWidth}px`;
-
-        const labelContainer = document.createElement('div');
-        labelContainer.className = 'flex items-center flex-1 min-w-0';
-        labelContainer.appendChild(colorBox);
-
-        const labelText = document.createElement('span');
-        labelText.className = 'text-sm text-gray-600 dark:text-gray-400 truncate';
-        labelText.textContent = item.text;
-        labelContainer.appendChild(labelText);
-
-        const valueSpan = document.createElement('span');
-        valueSpan.className = 'text-[15px] font-semibold text-gray-800 dark:text-gray-100 ml-3';
-        const dataset = newChart.data.datasets[item.datasetIndex!];
-        const measureType = (dataset as { measureType?: string }).measureType || 'number';
-        valueSpan.textContent = formatValue(total, measureType);
-
-        li.appendChild(labelContainer);
-        li.appendChild(valueSpan);
-
-        li.onclick = () => {
-          const index = item.datasetIndex!;
-          const meta = newChart.getDatasetMeta(index);
-          meta.hidden = !meta.hidden;
-          newChart.update();
+        // Convert our ChartData to Chart.js ChartData format
+        const chartjsData = {
+          labels: chartData.labels,
+          datasets: chartData.datasets,
         };
 
-        ul.appendChild(li);
+        const config: ChartConfiguration = {
+          type: 'bar',
+          data: chartjsData,
+          options: {
+            layout: {
+              padding: {
+                top: 8,
+                bottom: 4,
+                left: 12,
+                right: 12,
+              },
+            },
+            scales: {
+              x: {
+                display: true,
+                border: {
+                  display: false,
+                },
+                grid: {
+                  display: false,
+                },
+                ticks: {
+                  color: darkMode ? textColor.dark : textColor.light,
+                  maxRotation: 0,
+                  autoSkipPadding: 48,
+                  font: {
+                    size: 14,
+                  },
+                },
+              },
+              'y-left': {
+                type: 'linear',
+                position: 'left',
+                display: true,
+                title: {
+                  display: !!primaryAxisLabel,
+                  text: primaryAxisLabel || '',
+                  color: darkMode ? textColor.dark : textColor.light,
+                  font: {
+                    size: 14,
+                    weight: 'bold',
+                  },
+                },
+                border: {
+                  display: false,
+                },
+                grid: {
+                  color: darkMode ? gridColor.dark : gridColor.light,
+                },
+                beginAtZero: true,
+                ticks: {
+                  maxTicksLimit: 5,
+                  color: darkMode ? textColor.dark : textColor.light,
+                  font: {
+                    size: 14,
+                  },
+                  callback: (tickValue: string | number) => {
+                    const value = Number(tickValue);
+                    const primaryMeasureType = chartData.datasets[0]?.measureType;
+                    return formatValueCompact(value, primaryMeasureType || 'number');
+                  },
+                },
+              },
+              'y-right': {
+                type: 'linear',
+                position: 'right',
+                display: true,
+                title: {
+                  display: !!secondaryAxisLabel,
+                  text: secondaryAxisLabel || '',
+                  color: darkMode ? textColor.dark : textColor.light,
+                  font: {
+                    size: 14,
+                    weight: 'bold',
+                  },
+                },
+                border: {
+                  display: false,
+                },
+                grid: {
+                  drawOnChartArea: false, // Only show grid for left y-axis
+                },
+                beginAtZero: true,
+                ticks: {
+                  maxTicksLimit: 5,
+                  color: darkMode ? textColor.dark : textColor.light,
+                  font: {
+                    size: 14,
+                  },
+                  callback: (tickValue: string | number) => {
+                    const value = Number(tickValue);
+                    const secondaryMeasureType = chartData.datasets[1]?.measureType;
+                    return formatValueCompact(value, secondaryMeasureType || 'number');
+                  },
+                },
+              },
+            },
+            interaction: {
+              mode: 'index',
+              intersect: false,
+            },
+            plugins: {
+              legend: {
+                display: false,
+              },
+              tooltip: {
+                enabled: true,
+                mode: 'index',
+                intersect: false,
+                backgroundColor: darkMode ? tooltipBgColor.dark : tooltipBgColor.light,
+                borderColor: darkMode ? tooltipBorderColor.dark : tooltipBorderColor.light,
+                borderWidth: 1,
+                titleColor: darkMode ? tooltipBodyColor.dark : tooltipBodyColor.light,
+                bodyColor: darkMode ? tooltipBodyColor.dark : tooltipBodyColor.light,
+                bodySpacing: 8,
+                padding: 12,
+                boxPadding: 6,
+                usePointStyle: true,
+                callbacks: {
+                  label: (context) => {
+                    const label = context.dataset.label || '';
+                    const value = context.parsed.y ?? 0;
+                    const measureType = getMeasureTypeFromChart(context.dataset, 'number');
+                    const formattedValue = formatValue(value, measureType);
+                    return `${label}: ${formattedValue}`;
+                  },
+                },
+              },
+              zoom: {
+                pan: {
+                  enabled: true,
+                  mode: 'x', // Only pan horizontally
+                },
+                zoom: {
+                  wheel: {
+                    enabled: true,
+                    speed: 0.05,
+                  },
+                  pinch: {
+                    enabled: true,
+                  },
+                  mode: 'x', // Only zoom horizontally
+                },
+                limits: {
+                  x: { min: 'original', max: 'original' },
+                  'y-left': { min: 0, max: 'original' },
+                  'y-right': { min: 0, max: 'original' },
+                },
+              },
+            },
+            responsive: true,
+            maintainAspectRatio: false,
+          },
+        };
+
+        newChart = new Chart(canvasElement, config);
+        setChart(newChart);
+
+        // Generate HTML legend
+        if (legendRef.current) {
+          const ul = legendRef.current;
+          ul.innerHTML = '';
+
+          const items = newChart.options.plugins?.legend?.labels?.generateLabels?.(newChart);
+
+          // Calculate totals for each dataset
+          const itemsWithTotals =
+            items?.map((item) => {
+              const dataset = newChart!.data.datasets[item.datasetIndex!];
+              const dataArray = dataset?.data || [];
+              const total = dataArray.reduce((sum: number, value: unknown) => {
+                if (typeof value === 'number') {
+                  return sum + value;
+                } else if (value && typeof value === 'object' && 'y' in value) {
+                  const yValue = (value as { y: unknown }).y;
+                  return sum + (typeof yValue === 'number' ? yValue : 0);
+                }
+                return sum;
+              }, 0) as number;
+              return { item, total };
+            }) || [];
+
+          itemsWithTotals.forEach(({ item, total }) => {
+            const li = document.createElement('li');
+            li.className =
+              'flex items-center justify-between px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded transition-colors';
+
+            const colorBox = document.createElement('span');
+            colorBox.className = 'block w-3 h-3 rounded-sm mr-2 flex-shrink-0';
+            colorBox.style.backgroundColor = String(item.fillStyle);
+            colorBox.style.borderColor = String(item.strokeStyle);
+            colorBox.style.borderWidth = `${item.lineWidth}px`;
+
+            const labelContainer = document.createElement('div');
+            labelContainer.className = 'flex items-center flex-1 min-w-0';
+            labelContainer.appendChild(colorBox);
+
+            const labelText = document.createElement('span');
+            labelText.className = 'text-sm text-gray-600 dark:text-gray-400 truncate';
+            labelText.textContent = item.text;
+            labelContainer.appendChild(labelText);
+
+            const valueSpan = document.createElement('span');
+            valueSpan.className = 'text-[15px] font-semibold text-gray-800 dark:text-gray-100 ml-3';
+            const dataset = newChart!.data.datasets[item.datasetIndex!];
+            const measureType = (dataset as { measureType?: string }).measureType || 'number';
+            valueSpan.textContent = formatValue(total, measureType);
+
+            li.appendChild(labelContainer);
+            li.appendChild(valueSpan);
+
+            li.onclick = () => {
+              const index = item.datasetIndex!;
+              const meta = newChart!.getDatasetMeta(index);
+              meta.hidden = !meta.hidden;
+              newChart!.update();
+            };
+
+            ul.appendChild(li);
+          });
+        }
       });
-    }
+    });
 
     return () => {
-      newChart.destroy();
+      isCancelled = true;
+      cancelAnimationFrame(rafId);
+      if (newChart) {
+        newChart.destroy();
+      }
     };
   }, [isOpen, mounted, chartData, primaryAxisLabel, secondaryAxisLabel, darkMode, dimension.expandedData]);
 

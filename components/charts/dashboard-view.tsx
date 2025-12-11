@@ -33,6 +33,9 @@ const PieFullscreenModal = dynamic(() => import('./pie-fullscreen-modal'), {
 const TableFullscreenModal = dynamic(() => import('./table-fullscreen-modal'), {
   ssr: false,
 });
+const FullscreenLoadingModal = dynamic(() => import('./fullscreen-loading-modal'), {
+  ssr: false,
+});
 import {
   DASHBOARD_LAYOUT,
   getResponsiveColSpan,
@@ -434,8 +437,36 @@ export default function DashboardView({
   // Combined loading state (chart definitions + batch data)
   const isLoading = isLoadingCharts || isBatchLoading;
 
-  // Loading state - show title and filters with spinner
+  // Detect if we're transitioning into fullscreen mode (from cross-dashboard navigation)
+  const shouldBeFullscreen = isMobile && mobileFullscreenIndex !== null;
+
+  // Cross-dashboard navigation state (needed for both loading and loaded states)
+  const hasCrossDashboardNav = Boolean(allDashboards && allDashboards.length > 1 && currentDashboardIndex !== undefined);
+  const canGoNextDashboard = hasCrossDashboardNav && currentDashboardIndex !== undefined && allDashboards !== undefined && currentDashboardIndex < allDashboards.length - 1;
+  const canGoPrevDashboard = hasCrossDashboardNav && currentDashboardIndex !== undefined && currentDashboardIndex > 0;
+
+  // Loading state - show fullscreen loading modal if transitioning, otherwise regular loading
   if (isLoading) {
+    // If we should be in fullscreen mode (transitioning between dashboards), show fullscreen loading
+    if (shouldBeFullscreen) {
+      return (
+        <FullscreenLoadingModal
+          isOpen={true}
+          onClose={handleMobileFullscreenClose}
+          dashboardName={hasCrossDashboardNav ? dashboard.dashboard_name : undefined}
+          onNextDashboard={canGoNextDashboard && onNavigateToDashboard && currentDashboardIndex !== undefined
+            ? () => onNavigateToDashboard(currentDashboardIndex + 1, 0)
+            : undefined}
+          onPreviousDashboard={canGoPrevDashboard && onNavigateToDashboard && currentDashboardIndex !== undefined
+            ? () => onNavigateToDashboard(currentDashboardIndex - 1, -1)
+            : undefined}
+          canGoNextDashboard={canGoNextDashboard}
+          canGoPreviousDashboard={canGoPrevDashboard}
+        />
+      );
+    }
+
+    // Regular loading state for non-fullscreen
     return (
       <div className="space-y-4">
         {/* Title Row - visible during loading */}
@@ -770,12 +801,8 @@ export default function DashboardView({
 
         if (!batchChartData) return null;
 
-        // Cross-dashboard navigation state
-        const hasCrossDashboardNav = Boolean(allDashboards && allDashboards.length > 1 && currentDashboardIndex !== undefined);
-        const canGoNextDashboard = hasCrossDashboardNav && currentDashboardIndex !== undefined && allDashboards !== undefined && currentDashboardIndex < allDashboards.length - 1;
-        const canGoPrevDashboard = hasCrossDashboardNav && currentDashboardIndex !== undefined && currentDashboardIndex > 0;
-
         // Chart navigation considers cross-dashboard boundaries
+        // Note: hasCrossDashboardNav, canGoNextDashboard, canGoPrevDashboard are defined at component level
         const isLastChart = mobileFullscreenIndex >= dashboardConfig.charts.length - 1;
         const isFirstChart = mobileFullscreenIndex <= 0;
         const canGoNextChart = !isLastChart || canGoNextDashboard;
