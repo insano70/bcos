@@ -2,7 +2,7 @@
  * Chart Config Builder Service (Refactored)
  *
  * Slim orchestrator that coordinates specialized services:
- * - ChartConfigCacheService: Cache management
+ * - chartExecutionConfigCache: Redis-backed cache (singleton)
  * - ChartConfigValidator: Validation
  * - ChartFilterBuilder: Filter extraction and building
  * - ChartConfigNormalizer: Config normalization
@@ -19,7 +19,7 @@
 
 import { log } from '@/lib/logger';
 import type { ChartDefinition, ChartExecutionConfig, ResolvedFilters } from './types';
-import { ChartConfigCacheService } from './chart-config-cache';
+import { chartExecutionConfigCache } from './chart-config-cache';
 import { ChartConfigValidator } from './chart-config-validator';
 import { ChartFilterBuilder } from './chart-filter-builder';
 import { ChartConfigNormalizer } from './chart-config-normalizer';
@@ -31,16 +31,14 @@ export type { ConfigValidationResult } from './chart-config-validator';
  * Chart Config Builder Service
  *
  * Orchestrates chart config building by delegating to specialized services.
- * Maintains same public API for backward compatibility.
+ * Uses Redis-backed singleton cache for cross-request caching.
  */
 export class ChartConfigBuilderService {
-  private cache: ChartConfigCacheService;
   private validator: ChartConfigValidator;
   private filterBuilder: ChartFilterBuilder;
   private normalizer: ChartConfigNormalizer;
 
   constructor() {
-    this.cache = new ChartConfigCacheService();
     this.validator = new ChartConfigValidator();
     this.filterBuilder = new ChartFilterBuilder();
     this.normalizer = new ChartConfigNormalizer();
@@ -53,12 +51,13 @@ export class ChartConfigBuilderService {
    * @param universalFilters - Dashboard-level filters
    * @returns Array of chart execution configs
    */
-  buildChartConfigs(
+  async buildChartConfigs(
     charts: ChartDefinition[],
     universalFilters: ResolvedFilters
-  ): ChartExecutionConfig[] {
-    return charts.map((chart) =>
-      this.buildSingleChartConfig(chart, universalFilters)
+  ): Promise<ChartExecutionConfig[]> {
+    // Build configs in parallel for better performance
+    return Promise.all(
+      charts.map((chart) => this.buildSingleChartConfig(chart, universalFilters))
     );
   }
 
@@ -71,16 +70,16 @@ export class ChartConfigBuilderService {
    * @param universalFilters - Dashboard-level filters
    * @returns Chart execution config
    */
-  buildSingleChartConfig(
+  async buildSingleChartConfig(
     chart: ChartDefinition,
     universalFilters: ResolvedFilters
-  ): ChartExecutionConfig {
-    // 1. Check cache
-    const cacheKey = this.cache.buildCacheKey(
+  ): Promise<ChartExecutionConfig> {
+    // 1. Check cache (Redis-backed, persists across requests)
+    const cacheKey = chartExecutionConfigCache.buildCacheKey(
       chart.chart_definition_id,
       universalFilters
     );
-    const cached = this.cache.get(cacheKey);
+    const cached = await chartExecutionConfigCache.getConfig(cacheKey);
 
     if (cached) {
       return cached;
@@ -121,10 +120,12 @@ export class ChartConfigBuilderService {
       metadata,
     };
 
-    // 8. Cache and return
-    this.cache.set(cacheKey, config);
+    // 8. Cache (fire and forget - don't block on cache write)
+    chartExecutionConfigCache.setConfig(cacheKey, config).catch(() => {
+      // Ignore cache write errors - database is source of truth
+    });
 
-    log.debug('Chart config built, validated, and cached', {
+    log.debug('Chart config built and validated', {
       chartId: chart.chart_definition_id,
       chartName: chart.chart_name,
       chartType: chart.chart_type,
@@ -132,8 +133,6 @@ export class ChartConfigBuilderService {
       groupByValue: normalizedConfig.groupBy,
       runtimeFilterKeys: Object.keys(runtimeFilters),
       validated: true,
-      cached: true,
-      cacheStats: this.cache.getStats(),
       component: 'chart-config-builder',
     });
 
@@ -147,16 +146,7 @@ export class ChartConfigBuilderService {
    *
    * @param chartId - Optional: specific chart ID to invalidate
    */
-  invalidateCache(chartId?: string): void {
-    this.cache.invalidate(chartId);
-  }
-
-  /**
-   * Get cache statistics
-   *
-   * For monitoring and debugging.
-   */
-  getCacheStats() {
-    return this.cache.getStats();
+  async invalidateCache(chartId?: string): Promise<void> {
+    await chartExecutionConfigCache.invalidate(chartId);
   }
 }

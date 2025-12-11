@@ -1,50 +1,40 @@
 /**
- * Chart Config Cache Service
+ * Chart Execution Config Cache Service
  *
- * Manages in-memory caching of built chart configurations.
- * Provides bounded cache with LRU-style eviction to prevent memory leaks.
+ * Redis-based caching of built chart execution configurations.
+ * Provides cross-request caching with appropriate TTL.
  *
  * Single Responsibility:
  * - Cache key generation
- * - Cache storage and retrieval
+ * - Cache storage and retrieval (Redis)
  * - Cache invalidation
- * - Cache eviction when size limits exceeded
- * - Cache statistics tracking
+ *
+ * KEY NAMING:
+ *   chartexec:{chartId}:{filterHash}
+ *
+ * TTL: 24 hours (ANALYTICS_TTL.CHART_CONFIG)
  */
 
 import { createHash } from 'node:crypto';
 import { log } from '@/lib/logger';
+import { CacheService } from '@/lib/cache/base';
+import { ANALYTICS_TTL } from '@/lib/constants/cache-ttl';
 import type { ChartExecutionConfig, ResolvedFilters } from './types';
 
 /**
- * Cache statistics for monitoring
- */
-export interface CacheStats {
-  hits: number;
-  misses: number;
-  size: number;
-  hitRate: string;
-}
-
-/**
- * Chart Config Cache Service
+ * Chart Execution Config Cache Service
  *
- * Bounded in-memory cache with LRU-style eviction.
- * Thread-safe for single-threaded Node.js environment.
+ * Redis-backed cache for built chart configurations.
+ * Extends CacheService for consistent Redis operations.
  */
-export class ChartConfigCacheService {
-  private cache = new Map<string, ChartExecutionConfig>();
-  private readonly MAX_CACHE_SIZE = 1000;
-  private stats = {
-    hits: 0,
-    misses: 0,
-    size: 0,
-  };
+class ChartExecutionConfigCacheService extends CacheService<ChartExecutionConfig> {
+  protected namespace = 'chartexec';
+  protected defaultTTL = ANALYTICS_TTL.CHART_CONFIG; // 24 hours
 
   /**
    * Build deterministic cache key from chart ID and filters
    *
-   * Cache key format: config:{chartId}:{filterHash}
+   * Cache key format: chartexec:{chartId}:{filterHash}
    * Filter hash is MD5 of sorted filter components (first 16 chars)
    *
    * @param chartId - Chart definition ID
@@ -67,133 +57,81 @@ export class ChartConfigCacheService {
       .digest('hex')
       .substring(0, 16);
 
-    return `config:${chartId}:${filterHash}`;
+    return this.buildKey(chartId, filterHash);
   }
 
   /**
    * Get config from cache
    *
-   * Updates cache statistics on hit/miss.
-   *
    * @param cacheKey - Cache key from buildCacheKey()
-   * @returns Cached config or undefined if not found
+   * @returns Cached config or null if not found
    */
-  get(cacheKey: string): ChartExecutionConfig | undefined {
-    const cached = this.cache.get(cacheKey);
+  async getConfig(cacheKey: string): Promise<ChartExecutionConfig | null> {
+    const cached = await this.get<ChartExecutionConfig>(cacheKey);
 
     if (cached) {
-      this.stats.hits++;
-      log.debug('Chart config cache hit', {
+      log.debug('Chart execution config cache hit', {
         cacheKey,
-        cacheStats: this.getStats(),
-        component: 'chart-config-cache',
+        component: 'chart-exec-cache',
       });
-    } else {
-      this.stats.misses++;
     }
 
     return cached;
   }
 
   /**
-   * Store config in cache with automatic eviction
-   *
-   * If cache exceeds MAX_CACHE_SIZE, oldest 100 entries are evicted.
-   * Uses Map iteration order (insertion order) for LRU-style eviction.
+   * Store config in cache
    *
    * @param cacheKey - Cache key from buildCacheKey()
    * @param config - Chart execution config to cache
    */
-  set(cacheKey: string, config: ChartExecutionConfig): void {
-    this.cache.set(cacheKey, config);
-    this.stats.size = this.cache.size;
+  async setConfig(cacheKey: string, config: ChartExecutionConfig): Promise<void> {
+    const success = await this.set(cacheKey, config);
 
-    // LRU eviction if cache exceeds limit
-    if (this.cache.size > this.MAX_CACHE_SIZE) {
-      this.evictOldest(100);
+    if (success) {
+      log.debug('Chart execution config cached', {
+        cacheKey,
+        chartId: config.chartId,
+        chartName: config.chartName,
+        component: 'chart-exec-cache',
+      });
     }
-  }
-
-  /**
-   * Evict oldest entries from cache
-   *
-   * Uses Map iteration order (insertion order).
-   * Oldest entries are first in iteration.
-   *
-   * @param count - Number of entries to evict
-   */
-  private evictOldest(count: number): void {
-    const keysToDelete = Array.from(this.cache.keys()).slice(0, count);
-
-    for (const key of keysToDelete) {
-      this.cache.delete(key);
-    }
-
-    this.stats.size = this.cache.size;
-
-    log.warn('Config cache eviction triggered', {
-      maxSize: this.MAX_CACHE_SIZE,
-      evictedCount: keysToDelete.length,
-      newSize: this.cache.size,
-      component: 'chart-config-cache',
-    });
   }
 
   /**
    * Invalidate cache entries
    *
    * If chartId provided, invalidates all cache entries for that chart.
-   * If chartId not provided, clears entire cache and resets statistics.
+   * If chartId not provided, clears all chart execution configs.
    *
    * @param chartId - Optional chart ID to invalidate (or all if omitted)
    */
-  invalidate(chartId?: string): void {
+  async invalidate(chartId?: string): Promise<void> {
     if (chartId) {
       // Invalidate specific chart (all filter combinations)
-      const keysToDelete = Array.from(this.cache.keys()).filter((key) =>
-        key.startsWith(`config:${chartId}:`)
-      );
+      const pattern = this.buildKey(chartId, '*');
+      const deletedCount = await this.delPattern(pattern);
 
-      for (const key of keysToDelete) {
-        this.cache.delete(key);
-      }
-
-      this.stats.size = this.cache.size;
-
-      log.info('Chart config cache invalidated', {
+      log.info('Chart execution config cache invalidated', {
         chartId,
-        keysDeleted: keysToDelete.length,
-        component: 'chart-config-cache',
+        deletedCount,
+        component: 'chart-exec-cache',
       });
     } else {
-      // Clear entire cache
-      const previousSize = this.cache.size;
-      this.cache.clear();
-      this.stats = { hits: 0, misses: 0, size: 0 };
+      // Clear all chart execution configs
+      const pattern = this.buildKey('*');
+      const deletedCount = await this.delPattern(pattern);
 
-      log.info('Chart config cache cleared', {
-        previousSize,
-        component: 'chart-config-cache',
+      log.info('All chart execution configs invalidated', {
+        deletedCount,
+        component: 'chart-exec-cache',
       });
     }
   }
-
-  /**
-   * Get cache statistics
-   *
-   * Returns current cache statistics with calculated hit rate.
-   * Hit rate is percentage of cache hits out of total requests.
-   *
-   * @returns Cache statistics object
-   */
-  getStats(): CacheStats {
-    const totalRequests = this.stats.hits + this.stats.misses;
-    const hitRate =
-      totalRequests > 0 ? (this.stats.hits / totalRequests) * 100 : 0;
-
-    return {
-      ...this.stats,
-      hitRate: `${hitRate.toFixed(1)}%`,
-    };
-  }
 }
+
+// Export singleton instance for cross-request caching
+export const chartExecutionConfigCache = new ChartExecutionConfigCacheService();
+
+// Re-export types for backward compatibility
+export type { ChartExecutionConfig };

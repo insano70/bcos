@@ -88,9 +88,9 @@ export class DashboardRenderingService {
       );
       breakdown.filterResolve = Date.now() - t2;
 
-      // 3. Build chart configurations
+      // 3. Build chart configurations (async - Redis cache lookup)
       const t3 = Date.now();
-      const chartConfigs = this.configBuilder.buildChartConfigs(charts, resolvedFilters);
+      const chartConfigs = await this.configBuilder.buildChartConfigs(charts, resolvedFilters);
       breakdown.configBuild = Date.now() - t3;
 
       // 4. Execute charts in parallel
