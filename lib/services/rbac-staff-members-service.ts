@@ -213,17 +213,14 @@ export class RBACStaffMembersService extends BaseCrudService<
 
   /**
    * Get single staff member by ID
+   * Note: Base class getById() handles logging
    */
   async getStaffMember(practiceId: string, staffId: string): Promise<StaffMember> {
-    const startTime = Date.now();
-
     // Verify practice access
     await verifyPracticeAccess(practiceId, this.userContext);
 
-    // Get staff member
-    const queryStart = Date.now();
+    // Get staff member (logging handled by base class)
     const member = await this.getById(staffId);
-    const queryDuration = Date.now() - queryStart;
 
     if (!member) {
       throw new NotFoundError('Staff member', staffId);
@@ -233,24 +230,6 @@ export class RBACStaffMembersService extends BaseCrudService<
     if (member.practice_id !== practiceId) {
       throw new NotFoundError('Staff member', staffId);
     }
-
-    const duration = Date.now() - startTime;
-
-    // Use logTemplates for structured logging
-    const template = logTemplates.crud.read('staff_member', {
-      resourceId: staffId,
-      resourceName: member.name,
-      userId: this.userContext.user_id,
-      found: true,
-      duration,
-      metadata: {
-        practiceId,
-        queryDuration,
-        slow: queryDuration > SLOW_THRESHOLDS.DB_QUERY,
-      },
-    });
-
-    log.info(template.message, template.context);
 
     return member;
   }

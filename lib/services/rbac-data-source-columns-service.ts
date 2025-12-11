@@ -65,10 +65,10 @@ export class RBACDataSourceColumnsService extends BaseCrudService<
     updatedAtColumnName: 'updated_at',
     // No soft delete - uses hard delete
     permissions: {
-      read: 'data-sources:read:organization',
-      create: 'data-sources:create:organization',
-      update: 'data-sources:update:organization',
-      delete: 'data-sources:delete:organization',
+      read: ['data-sources:read:organization', 'data-sources:read:all'],
+      create: ['data-sources:create:organization', 'data-sources:create:all'],
+      update: ['data-sources:update:organization', 'data-sources:update:all'],
+      delete: ['data-sources:delete:organization', 'data-sources:delete:all'],
     },
     transformers: {
       toEntity: (row: Record<string, unknown>): DataSourceColumnWithMetadata => ({
@@ -184,14 +184,11 @@ export class RBACDataSourceColumnsService extends BaseCrudService<
 
   /**
    * Get all columns for a specific data source
-   * Note: Logging is handled by BaseCrudService.getList()
+   * Note: Permission checking and logging handled by BaseCrudService.getList()
    */
   async getDataSourceColumns(
     query: DataSourceColumnQueryOptions
   ): Promise<DataSourceColumnWithMetadata[]> {
-    // Check permissions - use requireAnyPermission for flexible permission checking
-    this.requireAnyPermission(['data-sources:read:organization', 'data-sources:read:all']);
-
     const result = await this.getList({
       data_source_id: query.data_source_id,
       is_active: query.is_active,
@@ -204,13 +201,9 @@ export class RBACDataSourceColumnsService extends BaseCrudService<
 
   /**
    * Get single column by ID
-   * Note: Logging is handled by BaseCrudService.getById()
+   * Note: Permission checking and logging handled by BaseCrudService.getById()
    */
   async getDataSourceColumnById(columnId: number): Promise<DataSourceColumnWithMetadata | null> {
-    // Check permissions
-    this.requireAnyPermission(['data-sources:read:organization', 'data-sources:read:all']);
-
-    // Use base class getById - it handles logging and entity transformation
     return this.getById(columnId);
   }
 
@@ -224,8 +217,14 @@ export class RBACDataSourceColumnsService extends BaseCrudService<
   ): Promise<DataSourceColumnWithMetadata> {
     const startTime = Date.now();
 
-    // Check permissions
-    this.requireAnyPermission(['data-sources:create:organization', 'data-sources:create:all']);
+    // Check permissions using config
+    if (this.config.permissions.create) {
+      this.requireAnyPermission(
+        Array.isArray(this.config.permissions.create)
+          ? this.config.permissions.create
+          : [this.config.permissions.create]
+      );
+    }
 
     // Execute column creation as atomic transaction to ensure data consistency.
     // Transaction guarantees: duplicate check + insert are atomic, auto-rollback on any failure.
@@ -324,8 +323,14 @@ export class RBACDataSourceColumnsService extends BaseCrudService<
   ): Promise<DataSourceColumnWithMetadata | null> {
     const startTime = Date.now();
 
-    // Check permissions
-    this.requireAnyPermission(['data-sources:update:organization', 'data-sources:update:all']);
+    // Check permissions using config
+    if (this.config.permissions.update) {
+      this.requireAnyPermission(
+        Array.isArray(this.config.permissions.update)
+          ? this.config.permissions.update
+          : [this.config.permissions.update]
+      );
+    }
 
     // Get existing column for change tracking
     const existing = await this.getDataSourceColumnById(columnId);
@@ -333,7 +338,13 @@ export class RBACDataSourceColumnsService extends BaseCrudService<
       return null;
     }
 
-    const updateData = this.config.transformers?.toUpdateValues?.(data, this.userContext) ?? data;
+    const transformedData = this.config.transformers?.toUpdateValues?.(data, this.userContext) ?? data;
+
+    // Add updated_at since we bypass base class (which auto-adds it via updatedAtColumnName config)
+    const updateData = {
+      ...transformedData,
+      updated_at: new Date(),
+    };
 
     const [updatedColumn] = await db
       .update(chart_data_source_columns)
@@ -374,8 +385,14 @@ export class RBACDataSourceColumnsService extends BaseCrudService<
   async deleteDataSourceColumn(columnId: number): Promise<boolean> {
     const startTime = Date.now();
 
-    // Check permissions
-    this.requireAnyPermission(['data-sources:delete:organization', 'data-sources:delete:all']);
+    // Check permissions using config
+    if (this.config.permissions.delete) {
+      this.requireAnyPermission(
+        Array.isArray(this.config.permissions.delete)
+          ? this.config.permissions.delete
+          : [this.config.permissions.delete]
+      );
+    }
 
     // Get column info before deletion
     const existingColumn = await this.getDataSourceColumnById(columnId);

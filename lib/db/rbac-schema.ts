@@ -1,4 +1,5 @@
 import { relations, sql } from 'drizzle-orm';
+import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 import {
   boolean,
   index,
@@ -9,6 +10,7 @@ import {
   uuid,
   varchar,
 } from 'drizzle-orm/pg-core';
+import { users } from './schema';
 
 /**
  * RBAC Database Schema for Enterprise Role-Based Access Control
@@ -23,7 +25,10 @@ export const organizations = pgTable(
     organization_id: uuid('organization_id').primaryKey().defaultRandom(),
     name: varchar('name', { length: 255 }).notNull(),
     slug: varchar('slug', { length: 100 }).notNull().unique(),
-    parent_organization_id: uuid('parent_organization_id'),
+    parent_organization_id: uuid('parent_organization_id').references(
+      (): AnyPgColumn => organizations.organization_id,
+      { onDelete: 'set null' }
+    ),
 
     // Analytics data security - practice_uid filtering
     // Array of practice_uid values from analytics database (ih.agg_app_measures, etc.)
@@ -130,14 +135,16 @@ export const user_roles = pgTable(
   'user_roles',
   {
     user_role_id: uuid('user_role_id').primaryKey().defaultRandom(),
-    user_id: uuid('user_id').notNull(), // References users.user_id (from main schema)
+    user_id: uuid('user_id')
+      .notNull()
+      .references(() => users.user_id, { onDelete: 'cascade' }),
     role_id: uuid('role_id')
       .notNull()
       .references(() => roles.role_id, { onDelete: 'cascade' }),
     organization_id: uuid('organization_id').references(() => organizations.organization_id, {
       onDelete: 'cascade',
     }),
-    granted_by: uuid('granted_by'), // References users.user_id - who granted this role
+    granted_by: uuid('granted_by').references(() => users.user_id, { onDelete: 'set null' }),
     granted_at: timestamp('granted_at', { withTimezone: true }).defaultNow(),
     expires_at: timestamp('expires_at', { withTimezone: true }), // Optional: for temporary role assignments
     is_active: boolean('is_active').default(true),
@@ -164,7 +171,9 @@ export const user_organizations = pgTable(
   'user_organizations',
   {
     user_organization_id: uuid('user_organization_id').primaryKey().defaultRandom(),
-    user_id: uuid('user_id').notNull(), // References users.user_id (from main schema)
+    user_id: uuid('user_id')
+      .notNull()
+      .references(() => users.user_id, { onDelete: 'cascade' }),
     organization_id: uuid('organization_id')
       .notNull()
       .references(() => organizations.organization_id, { onDelete: 'cascade' }),

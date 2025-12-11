@@ -1,3 +1,4 @@
+import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 import {
   boolean,
   index,
@@ -64,7 +65,10 @@ export const chart_definitions = pgTable(
     // Enables users to click chart elements and filter/navigate/swap charts
     drill_down_enabled: boolean('drill_down_enabled').default(false),
     drill_down_type: text('drill_down_type'), // 'filter' | 'navigate' | 'swap'
-    drill_down_target_chart_id: uuid('drill_down_target_chart_id'), // Self-ref FK added below
+    drill_down_target_chart_id: uuid('drill_down_target_chart_id').references(
+      (): AnyPgColumn => chart_definitions.chart_definition_id,
+      { onDelete: 'set null' }
+    ),
     drill_down_button_label: text('drill_down_button_label').default('Drill Down'),
   },
   (table) => ({

@@ -8,6 +8,7 @@ import {
   uuid,
   varchar,
 } from 'drizzle-orm/pg-core';
+import { users } from './schema';
 
 /**
  * JWT + Refresh Token Database Schema
@@ -19,7 +20,9 @@ export const refresh_tokens = pgTable(
   'refresh_tokens',
   {
     token_id: varchar('token_id', { length: 255 }).primaryKey(), // Unique token identifier
-    user_id: uuid('user_id').notNull(), // References users.user_id
+    user_id: uuid('user_id')
+      .notNull()
+      .references(() => users.user_id, { onDelete: 'cascade' }),
     token_hash: varchar('token_hash', { length: 64 }).notNull(), // SHA-256 hash of actual token
     device_fingerprint: varchar('device_fingerprint', { length: 255 }).notNull(), // IP + User-Agent hash
     ip_address: varchar('ip_address', { length: 45 }).notNull(), // IPv4 or IPv6
@@ -48,7 +51,9 @@ export const token_blacklist = pgTable(
   'token_blacklist',
   {
     jti: varchar('jti', { length: 255 }).primaryKey(), // JWT ID from access token or refresh token ID
-    user_id: uuid('user_id').notNull(),
+    user_id: uuid('user_id')
+      .notNull()
+      .references(() => users.user_id, { onDelete: 'cascade' }),
     token_type: varchar('token_type', { length: 20 }).notNull(), // 'access' or 'refresh'
     blacklisted_at: timestamp('blacklisted_at', { withTimezone: true }).defaultNow().notNull(),
     expires_at: timestamp('expires_at', { withTimezone: true }).notNull(), // When to clean up this entry
@@ -70,7 +75,9 @@ export const user_sessions = pgTable(
   'user_sessions',
   {
     session_id: varchar('session_id', { length: 255 }).primaryKey(),
-    user_id: uuid('user_id').notNull(),
+    user_id: uuid('user_id')
+      .notNull()
+      .references(() => users.user_id, { onDelete: 'cascade' }),
     refresh_token_id: varchar('refresh_token_id', { length: 255 }), // Links to current refresh token
     device_fingerprint: varchar('device_fingerprint', { length: 255 }).notNull(),
     device_name: varchar('device_name', { length: 100 }), // "Chrome on Mac", "iPhone Safari"
@@ -98,7 +105,7 @@ export const login_attempts = pgTable(
   {
     attempt_id: varchar('attempt_id', { length: 255 }).primaryKey(),
     email: varchar('email', { length: 255 }).notNull(),
-    user_id: uuid('user_id'), // null if user doesn't exist
+    user_id: uuid('user_id').references(() => users.user_id, { onDelete: 'set null' }), // null if user doesn't exist
     ip_address: varchar('ip_address', { length: 45 }).notNull(),
     user_agent: text('user_agent'),
     device_fingerprint: varchar('device_fingerprint', { length: 255 }),
@@ -122,7 +129,9 @@ export const login_attempts = pgTable(
 export const account_security = pgTable(
   'account_security',
   {
-    user_id: uuid('user_id').primaryKey(),
+    user_id: uuid('user_id')
+      .primaryKey()
+      .references(() => users.user_id, { onDelete: 'cascade' }),
     failed_login_attempts: integer('failed_login_attempts').notNull().default(0),
     last_failed_attempt: timestamp('last_failed_attempt', { withTimezone: true }),
     locked_until: timestamp('locked_until', { withTimezone: true }),

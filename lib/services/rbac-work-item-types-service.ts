@@ -225,44 +225,36 @@ export class RBACWorkItemTypesService extends BaseCrudService<
     this.requirePermission('work-items:manage:organization', undefined, data.organization_id);
     this.requireOrganizationAccess(data.organization_id);
 
-    try {
-      const [newType] = await db
-        .insert(work_item_types)
-        .values({
-          organization_id: data.organization_id,
-          name: data.name,
-          description: data.description ?? null,
-          icon: data.icon ?? null,
-          color: data.color ?? null,
-          is_active: data.is_active ?? true,
-          created_by: this.userContext.user_id,
-        })
-        .returning();
+    const [newType] = await db
+      .insert(work_item_types)
+      .values({
+        organization_id: data.organization_id,
+        name: data.name,
+        description: data.description ?? null,
+        icon: data.icon ?? null,
+        color: data.color ?? null,
+        is_active: data.is_active ?? true,
+        created_by: this.userContext.user_id,
+      })
+      .returning();
 
-      if (!newType) {
-        throw new DatabaseError('Failed to create work item type', 'write');
-      }
-
-      log.info('Work item type created successfully', {
-        workItemTypeId: newType.work_item_type_id,
-        userId: this.userContext.user_id,
-        duration: Date.now() - startTime,
-      });
-
-      // Return full details
-      const typeWithDetails = await this.getWorkItemTypeById(newType.work_item_type_id);
-      if (!typeWithDetails) {
-        throw new DatabaseError('Failed to retrieve created work item type', 'read');
-      }
-
-      return typeWithDetails;
-    } catch (error) {
-      log.error('Failed to create work item type', error, {
-        organizationId: data.organization_id,
-        duration: Date.now() - startTime,
-      });
-      throw error;
+    if (!newType) {
+      throw new DatabaseError('Failed to create work item type', 'write');
     }
+
+    log.info('Work item type created successfully', {
+      workItemTypeId: newType.work_item_type_id,
+      userId: this.userContext.user_id,
+      duration: Date.now() - startTime,
+    });
+
+    // Return full details
+    const typeWithDetails = await this.getWorkItemTypeById(newType.work_item_type_id);
+    if (!typeWithDetails) {
+      throw new DatabaseError('Failed to retrieve created work item type', 'read');
+    }
+
+    return typeWithDetails;
   }
 
   /**
@@ -299,35 +291,27 @@ export class RBACWorkItemTypesService extends BaseCrudService<
     );
     this.requireOrganizationAccess(existingType.organization_id);
 
-    try {
-      await db
-        .update(work_item_types)
-        .set({
-          ...data,
-          updated_at: new Date(),
-        })
-        .where(eq(work_item_types.work_item_type_id, typeId));
+    await db
+      .update(work_item_types)
+      .set({
+        ...data,
+        updated_at: new Date(),
+      })
+      .where(eq(work_item_types.work_item_type_id, typeId));
 
-      log.info('Work item type updated successfully', {
-        typeId,
-        userId: this.userContext.user_id,
-        duration: Date.now() - startTime,
-      });
+    log.info('Work item type updated successfully', {
+      typeId,
+      userId: this.userContext.user_id,
+      duration: Date.now() - startTime,
+    });
 
-      // Return updated details
-      const updatedType = await this.getWorkItemTypeById(typeId);
-      if (!updatedType) {
-        throw new DatabaseError('Failed to retrieve updated work item type', 'read');
-      }
-
-      return updatedType;
-    } catch (error) {
-      log.error('Failed to update work item type', error, {
-        typeId,
-        duration: Date.now() - startTime,
-      });
-      throw error;
+    // Return updated details
+    const updatedType = await this.getWorkItemTypeById(typeId);
+    if (!updatedType) {
+      throw new DatabaseError('Failed to retrieve updated work item type', 'read');
     }
+
+    return updatedType;
   }
 
   /**
@@ -380,27 +364,19 @@ export class RBACWorkItemTypesService extends BaseCrudService<
       );
     }
 
-    try {
-      // Soft delete
-      await db
-        .update(work_item_types)
-        .set({
-          deleted_at: new Date(),
-        })
-        .where(eq(work_item_types.work_item_type_id, typeId));
+    // Soft delete
+    await db
+      .update(work_item_types)
+      .set({
+        deleted_at: new Date(),
+      })
+      .where(eq(work_item_types.work_item_type_id, typeId));
 
-      log.info('Work item type deleted successfully', {
-        typeId,
-        userId: this.userContext.user_id,
-        duration: Date.now() - startTime,
-      });
-    } catch (error) {
-      log.error('Failed to delete work item type', error, {
-        typeId,
-        duration: Date.now() - startTime,
-      });
-      throw error;
-    }
+    log.info('Work item type deleted successfully', {
+      typeId,
+      userId: this.userContext.user_id,
+      duration: Date.now() - startTime,
+    });
   }
 }
 

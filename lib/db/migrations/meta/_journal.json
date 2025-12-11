@@ -267,6 +267,13 @@
       "when": 1765365529485,
       "tag": "0037_add_work_item_unique_constraints",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1765446715448,
+      "tag": "0038_add_missing_fk_constraints_and_indexes",
+      "breakpoints": true
     }
   ]
 }

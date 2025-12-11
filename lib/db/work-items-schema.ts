@@ -1,4 +1,5 @@
 import { relations } from 'drizzle-orm';
+import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 import {
   boolean,
   index,
@@ -96,8 +97,14 @@ export const work_items = pgTable(
     completed_at: timestamp('completed_at', { withTimezone: true }),
 
     // Phase 2: Hierarchy fields
-    parent_work_item_id: uuid('parent_work_item_id'),
-    root_work_item_id: uuid('root_work_item_id'),
+    parent_work_item_id: uuid('parent_work_item_id').references(
+      (): AnyPgColumn => work_items.work_item_id,
+      { onDelete: 'cascade' }
+    ),
+    root_work_item_id: uuid('root_work_item_id').references(
+      (): AnyPgColumn => work_items.work_item_id,
+      { onDelete: 'cascade' }
+    ),
     depth: integer('depth').default(0).notNull(), // 0 for root, 1 for first level, etc.
     path: text('path'), // Materialized path: '/root_id/parent_id/this_id'
 
@@ -112,6 +119,7 @@ export const work_items = pgTable(
     typeIdx: index('idx_work_items_type').on(table.work_item_type_id),
     orgIdx: index('idx_work_items_org').on(table.organization_id),
     statusIdx: index('idx_work_items_status').on(table.status_id),
+    orgStatusIdx: index('idx_work_items_org_status').on(table.organization_id, table.status_id),
     assignedIdx: index('idx_work_items_assigned').on(table.assigned_to),
     priorityIdx: index('idx_work_items_priority').on(table.priority),
     dueDateIdx: index('idx_work_items_due_date').on(table.due_date),
@@ -220,7 +228,10 @@ export const work_item_comments = pgTable(
     work_item_id: uuid('work_item_id')
       .notNull()
       .references(() => work_items.work_item_id, { onDelete: 'cascade' }),
-    parent_comment_id: uuid('parent_comment_id'),
+    parent_comment_id: uuid('parent_comment_id').references(
+      (): AnyPgColumn => work_item_comments.work_item_comment_id,
+      { onDelete: 'cascade' }
+    ),
     comment_text: text('comment_text').notNull(),
     created_by: uuid('created_by')
       .notNull()
