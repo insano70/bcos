@@ -1,0 +1,286 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1757494035694,
+      "tag": "0000_plain_toad",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1757497122270,
+      "tag": "0001_superb_magik",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1757506130944,
+      "tag": "0002_stale_madripoor",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1757601596512,
+      "tag": "0003_misty_sabretooth",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1758119005111,
+      "tag": "0007_overjoyed_vivisector",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1758198999383,
+      "tag": "0008_drop_chart_component_configs",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1758200673228,
+      "tag": "0009_rename_chart_display_configs_to_configurations",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1758639850414,
+      "tag": "0010_melodic_albert_cleary",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1758737685203,
+      "tag": "0011_unique_mandrill",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1759238868898,
+      "tag": "0014_add_chart_columns_baseline",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1759654700000,
+      "tag": "0015_saml_support",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1759654800000,
+      "tag": "0016_saml_replay_prevention",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1759654900000,
+      "tag": "0017_csrf_failure_events",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1759655000000,
+      "tag": "0018_oidc_state_management",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1759827050156,
+      "tag": "0019_clever_punisher",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1760467740000,
+      "tag": "0025_add_data_source_id_to_chart_definitions",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1760467800000,
+      "tag": "0026_add_organization_practice_uids",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1760467900000,
+      "tag": "0027_add_user_provider_uid",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1760468000000,
+      "tag": "0028_add_analytics_read_own_permission",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1760468100000,
+      "tag": "0029_drop_unused_dual_axis_config",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1760468200000,
+      "tag": "0030_add_mfa_skip_tracking",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1760627760000,
+      "tag": "0031_add_organization_id_to_dashboards",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1760909394963,
+      "tag": "0022_clear_dust",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1761081477917,
+      "tag": "0023_flawless_alex_power",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1761211200000,
+      "tag": "0032_add_hero_overlay_opacity",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1761482547164,
+      "tag": "0048_glamorous_madripoor",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1761843128845,
+      "tag": "0049_sharp_zemo",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1761846933604,
+      "tag": "0046_add_feedback_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1761848072249,
+      "tag": "0050_broad_nicolaos",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1763073426657,
+      "tag": "0029_needy_spectrum",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1763291965998,
+      "tag": "0051_add_chart_provider_colors",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1763292000000,
+      "tag": "0052_add_expansion_dimension",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1764730042853,
+      "tag": "0032_ambiguous_harrier",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1764812648587,
+      "tag": "0033_broken_wendell_rand",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1764849858995,
+      "tag": "0034_sloppy_selene",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1764880860551,
+      "tag": "0035_vengeful_nightshade",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1765222004530,
+      "tag": "0037_gorgeous_mother_askani",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1765365529485,
+      "tag": "0037_add_work_item_unique_constraints",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1765446715448,
+      "tag": "0038_add_missing_fk_constraints_and_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1765452105902,
+      "tag": "0039_add_announcements_tables",
+      "breakpoints": true
+    }
+  ]
+}

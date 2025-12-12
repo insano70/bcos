@@ -39,6 +39,7 @@
     "db:seed": "tsx --env-file=.env.local lib/db/seed.ts",
     "db:migrate": "tsx scripts/run-migrations.ts",
     "db:migrate:seed": "tsx --env-file=.env.local scripts/seed-drizzle-migrations.ts",
+    "db:migrate:reset": "tsx --env-file=.env.local scripts/reset-drizzle-migrations.ts",
     "db:push": "drizzle-kit push",
     "db:generate": "drizzle-kit generate",
     "db:validate": "tsx scripts/validate-migrations.ts",
