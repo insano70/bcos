@@ -48,6 +48,8 @@ interface DashboardLoadingStateProps {
     onNextDashboard?: (() => void) | undefined;
     onPreviousDashboard?: (() => void) | undefined;
   } | undefined;
+  /** Number of orgs user can access (hides org pill if 1) */
+  accessibleOrganizationCount?: number | undefined;
 }
 
 /**
@@ -66,6 +68,7 @@ export function DashboardLoadingState({
   showFullscreenLoading,
   onFullscreenClose,
   crossDashboardNav,
+  accessibleOrganizationCount,
 }: DashboardLoadingStateProps) {
   // If we should be in fullscreen mode (transitioning between dashboards), show fullscreen loading
   if (showFullscreenLoading && onFullscreenClose) {
@@ -99,6 +102,7 @@ export function DashboardLoadingState({
               defaultFilters={defaultFilters}
               onRemoveFilter={onRemoveFilter}
               loading={true}
+              accessibleOrganizationCount={accessibleOrganizationCount}
             />
             <DashboardFilterDropdown
               initialFilters={universalFilters}

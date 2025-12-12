@@ -174,6 +174,7 @@ export default function DashboardView({
         showFullscreenLoading={shouldBeFullscreen}
         onFullscreenClose={handleMobileFullscreenClose}
         crossDashboardNav={crossDashboardNavProps}
+        accessibleOrganizationCount={accessibleOrganizationIds.length}
       />
     );
   }
@@ -220,6 +221,7 @@ export default function DashboardView({
               defaultFilters={filterConfig?.defaultFilters as DashboardUniversalFilters | undefined}
               onRemoveFilter={handleRemoveFilter}
               loading={isLoading}
+              accessibleOrganizationCount={accessibleOrganizationIds.length}
             />
 
             {/* Filter Dropdown */}

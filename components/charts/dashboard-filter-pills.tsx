@@ -29,6 +29,8 @@ interface DashboardFilterPillsProps {
   defaultFilters?: DashboardUniversalFilters | undefined; // Dashboard default filter configuration
   onRemoveFilter: (filterKey: keyof DashboardUniversalFilters) => void;
   loading?: boolean;
+  /** Number of organizations user has access to. If 1, org pill is hidden (not useful for single-org users). */
+  accessibleOrganizationCount?: number | undefined;
 }
 
 interface DatePreset {
@@ -63,6 +65,7 @@ function DashboardFilterPillsInner({
   defaultFilters = {},
   onRemoveFilter,
   loading = false,
+  accessibleOrganizationCount,
 }: DashboardFilterPillsProps) {
   // Use React Query hook for organizations - shared across components, cached
   const { data: organizations = [], isLoading: loadingOrganizations } = useOrganizations();
@@ -94,37 +97,42 @@ function DashboardFilterPillsInner({
     isUserOverride: boolean; // Is this a user override (violet) or default (gray)?
   }> = [];
 
-  // Organization pill - ALWAYS show (either "All Organizations" or specific org)
-  const currentOrg = filters.organizationId;
-  const defaultOrg = defaultFilters.organizationId;
-  const isOrgOverride = currentOrg !== defaultOrg;
+  // Organization pill - Only show if user has access to more than 1 organization
+  // Single-org users don't need to see organization filter info (it's redundant)
+  const showOrgPill = accessibleOrganizationCount !== 1;
 
-  if (currentOrg === undefined) {
-    // Showing all organizations
-    activePills.push({
-      key: 'organizationId',
-      label: '', // No prefix for "All Organizations"
-      value: 'All Organizations',
-      tooltip: isOrgOverride
-        ? `User cleared filter. Click the filter icon to reapply.`
-        : 'Dashboard default - showing all organizations',
-      isDismissible: isOrgOverride, // Can dismiss if user explicitly cleared it
-      isUserOverride: isOrgOverride,
-      loading: false,
-    });
-  } else {
-    // Showing specific organization
-    activePills.push({
-      key: 'organizationId',
-      label: '', // Remove label - position in UI provides context
-      value: loadingOrgName ? 'Loading...' : organizationName || 'Unknown',
-      tooltip: isOrgOverride
-        ? `User override. Click × to return to: ${defaultOrg ? 'default organization' : 'All Organizations'}`
-        : `Dashboard default organization: ${organizationName || currentOrg}`,
-      isDismissible: isOrgOverride,
-      isUserOverride: isOrgOverride,
-      loading: loadingOrgName,
-    });
+  if (showOrgPill) {
+    const currentOrg = filters.organizationId;
+    const defaultOrg = defaultFilters.organizationId;
+    const isOrgOverride = currentOrg !== defaultOrg;
+
+    if (currentOrg === undefined) {
+      // Showing all organizations
+      activePills.push({
+        key: 'organizationId',
+        label: '', // No prefix for "All Organizations"
+        value: 'All Organizations',
+        tooltip: isOrgOverride
+          ? `User cleared filter. Click the filter icon to reapply.`
+          : 'Dashboard default - showing all organizations',
+        isDismissible: isOrgOverride, // Can dismiss if user explicitly cleared it
+        isUserOverride: isOrgOverride,
+        loading: false,
+      });
+    } else {
+      // Showing specific organization
+      activePills.push({
+        key: 'organizationId',
+        label: '', // Remove label - position in UI provides context
+        value: loadingOrgName ? 'Loading...' : organizationName || 'Unknown',
+        tooltip: isOrgOverride
+          ? `User override. Click × to return to: ${defaultOrg ? 'default organization' : 'All Organizations'}`
+          : `Dashboard default organization: ${organizationName || currentOrg}`,
+        isDismissible: isOrgOverride,
+        isUserOverride: isOrgOverride,
+        loading: loadingOrgName,
+      });
+    }
   }
 
   // Date range pill - Only show if there's an active date filter (default or user-applied)
