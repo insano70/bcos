@@ -38,7 +38,7 @@ export default function WorkItemDetailContent({ workItemId }: WorkItemDetailCont
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<
     'details' | 'comments' | 'activity' | 'history' | 'watchers' | 'subItems'
-  >('details');
+  >('subItems');
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isUnsavedChangesModalOpen, setIsUnsavedChangesModalOpen] = useState(false);
   const [pendingTab, setPendingTab] = useState<typeof activeTab | null>(null);
@@ -229,14 +229,14 @@ export default function WorkItemDetailContent({ workItemId }: WorkItemDetailCont
         <nav className="flex gap-6">
           <button
             type="button"
-            onClick={() => handleTabChange('details')}
+            onClick={() => handleTabChange('subItems')}
             className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === 'details'
+              activeTab === 'subItems'
                 ? 'border-gray-900 dark:border-gray-100 text-gray-900 dark:text-gray-100'
                 : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
             }`}
           >
-            Details
+            Sub-items
           </button>
           <button
             type="button"
@@ -273,14 +273,14 @@ export default function WorkItemDetailContent({ workItemId }: WorkItemDetailCont
           </button>
           <button
             type="button"
-            onClick={() => handleTabChange('subItems')}
+            onClick={() => handleTabChange('details')}
             className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === 'subItems'
+              activeTab === 'details'
                 ? 'border-gray-900 dark:border-gray-100 text-gray-900 dark:text-gray-100'
                 : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
             }`}
           >
-            Sub-items
+            Details
           </button>
         </nav>
       </div>

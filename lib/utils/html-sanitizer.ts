@@ -1,9 +1,53 @@
-import DOMPurify from 'dompurify';
+import DOMPurify from 'isomorphic-dompurify';
 
 /**
  * HTML Sanitization Utility
  * Provides XSS protection for rich text content
+ * Uses isomorphic-dompurify for seamless server/client rendering
  */
+
+/**
+ * Tabnabbing Protection Hook
+ *
+ * When a link has target="_blank", the opened page can access window.opener
+ * and potentially navigate the original tab to a phishing page.
+ *
+ * This hook enforces rel="noopener noreferrer" on all target="_blank" links
+ * to prevent this attack vector.
+ */
+DOMPurify.addHook('afterSanitizeAttributes', (node) => {
+  if (node.tagName === 'A' && node.getAttribute('target') === '_blank') {
+    node.setAttribute('rel', 'noopener noreferrer');
+  }
+});
+
+const SANITIZE_CONFIG = {
+  ALLOWED_TAGS: [
+    'p',
+    'br',
+    'strong',
+    'em',
+    'u',
+    's',
+    'h1',
+    'h2',
+    'h3',
+    'h4',
+    'h5',
+    'h6',
+    'ul',
+    'ol',
+    'li',
+    'a',
+    'span',
+    'div',
+    'blockquote',
+    'code',
+    'pre',
+  ] as string[],
+  ALLOWED_ATTR: ['href', 'target', 'rel', 'class'] as string[],
+  ALLOW_DATA_ATTR: false,
+};
 
 /**
  * Sanitize HTML content
@@ -12,69 +56,7 @@ import DOMPurify from 'dompurify';
 export function sanitizeHtml(html: string): string {
   if (typeof html !== 'string') return '';
 
-  if (typeof window === 'undefined') {
-    // Server-side: use JSDOM
-    const { JSDOM } = require('jsdom');
-    const domWindow = new JSDOM('').window;
-    const purify = DOMPurify(domWindow);
-
-    return purify.sanitize(html, {
-      ALLOWED_TAGS: [
-        'p',
-        'br',
-        'strong',
-        'em',
-        'u',
-        's',
-        'h1',
-        'h2',
-        'h3',
-        'h4',
-        'h5',
-        'h6',
-        'ul',
-        'ol',
-        'li',
-        'a',
-        'span',
-        'div',
-        'blockquote',
-        'code',
-        'pre',
-      ],
-      ALLOWED_ATTR: ['href', 'target', 'rel', 'class'],
-      ALLOW_DATA_ATTR: false,
-    });
-  }
-
-  // Client-side: use browser DOMPurify
-  return DOMPurify.sanitize(html, {
-    ALLOWED_TAGS: [
-      'p',
-      'br',
-      'strong',
-      'em',
-      'u',
-      's',
-      'h1',
-      'h2',
-      'h3',
-      'h4',
-      'h5',
-      'h6',
-      'ul',
-      'ol',
-      'li',
-      'a',
-      'span',
-      'div',
-      'blockquote',
-      'code',
-      'pre',
-    ],
-    ALLOWED_ATTR: ['href', 'target', 'rel', 'class'],
-    ALLOW_DATA_ATTR: false,
-  });
+  return DOMPurify.sanitize(html, SANITIZE_CONFIG);
 }
 
 /**
@@ -84,23 +66,18 @@ export function sanitizeHtml(html: string): string {
 export function stripHtml(html: string): string {
   if (typeof html !== 'string') return '';
 
-  if (typeof window === 'undefined') {
-    // Server-side: simple regex approach
-    return html
-      .replace(/<[^>]*>/g, '')
-      .replace(/&nbsp;/g, ' ')
-      .replace(/&amp;/g, '&')
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
-      .replace(/&quot;/g, '"')
-      .replace(/&#39;/g, "'")
-      .trim();
-  }
+  // Use DOMPurify to strip all tags, then decode entities
+  const stripped = DOMPurify.sanitize(html, { ALLOWED_TAGS: [], ALLOWED_ATTR: [] });
 
-  // Client-side: use browser's text content extraction
-  const div = document.createElement('div');
-  div.innerHTML = html;
-  return div.textContent || div.innerText || '';
+  // Decode HTML entities
+  return stripped
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .trim();
 }
 
 /**

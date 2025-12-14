@@ -35,6 +35,7 @@ import {
   createCommittedOrganization,
   createCommittedUser,
 } from '@/tests/factories/committed';
+import { rollbackTransaction } from '@/tests/helpers/db-helper';
 import { buildUserContext, mapDatabaseRoleToRole } from '@/tests/helpers/rbac-helper';
 
 describe('Dashboard Batch Rendering API', () => {
@@ -64,7 +65,10 @@ describe('Dashboard Batch Rendering API', () => {
     testUser = await createCommittedUser({ scope: scopeId });
     const role = await createTestRole({
       name: 'analytics_reader',
-      permissions: ['dashboards:read:all' as PermissionName],
+      permissions: [
+        'dashboards:read:all' as PermissionName,
+        'charts:read:all' as PermissionName, // Required for dashboard rendering to load charts
+      ],
     });
     await assignRoleToUser(testUser, mapDatabaseRoleToRole(role));
 
@@ -148,7 +152,23 @@ describe('Dashboard Batch Rendering API', () => {
   });
 
   afterEach(async () => {
-    // CRITICAL: Clean up service-created dashboards FIRST
+    // Roll back test transaction first to release locks from transaction-based factories
+    // (createTestRole, assignRoleToUser) before cleaning up committed data
+    await rollbackTransaction();
+
+    // Clean up dashboard_charts FIRST (FK constraint: references chart_definitions)
+    // Include both test dashboard and service-created dashboards
+    const dashboardIdsToClean = [
+      ...(testDashboard?.dashboard_id ? [testDashboard.dashboard_id] : []),
+      ...serviceCreatedDashboardIds,
+    ];
+    if (dashboardIdsToClean.length > 0) {
+      await db
+        .delete(dashboard_charts)
+        .where(inArray(dashboard_charts.dashboard_id, dashboardIdsToClean));
+    }
+
+    // Clean up service-created dashboards
     if (serviceCreatedDashboardIds.length > 0) {
       await db
         .delete(dashboards)

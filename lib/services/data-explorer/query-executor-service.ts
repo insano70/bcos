@@ -1,3 +1,13 @@
+/**
+ * Query Executor Service
+ * Executes validated and secured SQL queries against the analytics database
+ *
+ * SECURITY: All queries pass through QuerySecurityService for:
+ * - AST-based SQL validation
+ * - Table allow-list enforcement
+ * - Practice UID filtering (RBAC)
+ */
+
 import { BaseRBACService } from '@/lib/rbac/base-service';
 import { db } from '@/lib/db';
 import { executeAnalyticsQuery, checkAnalyticsDbHealth } from '@/lib/services/analytics-db';
@@ -6,6 +16,8 @@ import type { UserContext } from '@/lib/types/rbac';
 import type { ExecuteQueryOptions, ExecuteQueryResult } from '@/lib/types/data-explorer';
 import { env } from '@/lib/env';
 import { log, SLOW_THRESHOLDS } from '@/lib/logger';
+import { checkDestructiveOperations, parseSQL } from './sql-ast-parser';
+import { getAllowedTables } from './table-allowlist-service';
 
 export interface QueryExecutorInterface {
   execute(sql: string, options?: ExecuteQueryOptions): Promise<ExecuteQueryResult>;
@@ -32,6 +44,7 @@ export class QueryExecutorService extends BaseRBACService implements QueryExecut
       throw new Error(`Analytics database unavailable: ${healthError || 'Unknown error'}`);
     }
 
+    // Use AST-based security service for validation and filtering
     const securityService = createRBACExplorerQuerySecurityService(this.userContext);
     const securedSQL = await securityService.addSecurityFilters(sql);
 
@@ -79,21 +92,71 @@ export class QueryExecutorService extends BaseRBACService implements QueryExecut
     }
   }
 
+  /**
+   * Validate SQL query using AST-based parsing
+   *
+   * SECURITY: This method performs comprehensive validation:
+   * - Destructive operation detection (DROP, DELETE, etc.)
+   * - AST parsing and structure validation
+   * - Table allow-list enforcement
+   * - UNION/subquery detection and blocking
+   *
+   * @param sql - Raw SQL query to validate
+   * @returns Validation result with isValid flag and error messages
+   */
   async validateSQL(sql: string): Promise<{ isValid: boolean; errors: string[] }> {
     const errors: string[] = [];
 
-    const destructive = [/\bDROP\b/i, /\bTRUNCATE\b/i, /\bDELETE\b/i, /\bINSERT\b/i, /\bUPDATE\b/i, /\bALTER\b/i, /\bCREATE\b/i];
-    for (const pattern of destructive) {
-      if (pattern.test(sql)) errors.push(`Destructive operation not allowed: ${pattern}`);
+    // Step 1: Check for destructive operations
+    const destructive = checkDestructiveOperations(sql);
+    if (destructive.length > 0) {
+      errors.push(`Destructive operations not allowed: ${destructive.join(', ')}`);
     }
 
-    if (!sql.includes('ih.')) errors.push('Query must reference tables using "ih." schema prefix');
+    // Step 2: Parse SQL into AST
+    const parseResult = parseSQL(sql);
+    if (!parseResult.isValid) {
+      errors.push(...parseResult.errors);
+    }
+
+    // Step 3: Validate tables against allow-list
+    if (parseResult.ast && parseResult.tables.length > 0) {
+      const allowedTables = await getAllowedTables();
+
+      for (const tableRef of parseResult.tables) {
+        const fullName = tableRef.schema
+          ? `${tableRef.schema}.${tableRef.table}`
+          : tableRef.table;
+
+        const isAllowed =
+          allowedTables.has(fullName) ||
+          allowedTables.has(tableRef.table) ||
+          allowedTables.has(`"${fullName}"`) ||
+          allowedTables.has(`"${tableRef.table}"`);
+
+        if (!isAllowed) {
+          errors.push(`Table not in allow-list: ${fullName}`);
+        }
+      }
+    }
+
+    // Step 4: Require at least one table reference
+    if (parseResult.ast && parseResult.tables.length === 0) {
+      errors.push('Query must reference at least one table');
+    }
 
     return { isValid: errors.length === 0, errors };
   }
 
   async explainQuery(sql: string): Promise<unknown> {
     this.requireAnyPermission(['data-explorer:execute:organization', 'data-explorer:execute:all']);
+
+    // Validate before explaining
+    const validation = await this.validateSQL(sql);
+    if (!validation.isValid) {
+      throw new Error(`SQL validation failed: ${validation.errors.join(', ')}`);
+    }
+
     const explainSQL = `EXPLAIN (FORMAT JSON, ANALYZE false) ${sql}`;
     const result = await executeAnalyticsQuery<Record<string, unknown>>(explainSQL);
     return Array.isArray(result) && result.length > 0 ? result[0] : {};

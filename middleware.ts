@@ -48,7 +48,7 @@ function isCSRFExempt(pathname: string): boolean {
  * 5. Logout explicitly invalidates the cache entry
  *
  * Mitigations in place:
- * - API auth middleware uses shorter cache (60 seconds via validateRefreshTokenWithDB)
+ * - All token validation uses consistent 5-minute cache (via validateRefreshTokenWithDB)
  * - Token reuse detection catches stolen tokens on next refresh
  * - Session table has is_active flag checked on each database validation
  *
@@ -94,7 +94,7 @@ export function invalidateTokenCache(tokenId: string): void {
 /**
  * Validate refresh token with database checks
  * CRITICAL: Checks is_active and blacklist to prevent revoked token bypass
- * PERFORMANCE: 60-second cache to reduce database load
+ * PERFORMANCE: 5-minute cache to reduce database load (see AUTH-001 design note above)
  */
 async function validateRefreshTokenWithDB(refreshToken: string): Promise<boolean> {
   try {
@@ -104,7 +104,13 @@ async function validateRefreshTokenWithDB(refreshToken: string): Promise<boolean
 
     // 1. Validate JWT signature and expiration
     const { payload } = await jwtVerify(refreshToken, REFRESH_TOKEN_SECRET)
-    const tokenId = payload.jti as string
+    const tokenId = payload.jti
+
+    // Defensive check: jti is required for our tokens but is optional in JWT spec
+    if (typeof tokenId !== 'string' || !tokenId) {
+      debugLog.middleware('Refresh token missing jti claim')
+      return false
+    }
 
     // 2. Check cache first (performance optimization)
     const cacheKey = `token:${tokenId.substring(0, 32)}`
@@ -216,11 +222,13 @@ export async function middleware(request: NextRequest) {
   // Add correlation ID to response for debugging/tracing
   response.headers.set('X-Correlation-ID', correlationId)
 
-  // Also add nonce headers to response for debugging/monitoring
-  response.headers.set('X-Script-Nonce', cspNonces.scriptNonce)
-  response.headers.set('X-Style-Nonce', cspNonces.styleNonce)
-  response.headers.set('X-Nonce-Timestamp', cspNonces.timestamp.toString())
-  response.headers.set('X-Nonce-Environment', cspNonces.environment)
+  // Add nonce headers only in development (avoid unnecessary exposure in production)
+  if (process.env.NODE_ENV === 'development') {
+    response.headers.set('X-Script-Nonce', cspNonces.scriptNonce)
+    response.headers.set('X-Style-Nonce', cspNonces.styleNonce)
+    response.headers.set('X-Nonce-Timestamp', cspNonces.timestamp.toString())
+    response.headers.set('X-Nonce-Environment', cspNonces.environment)
+  }
 
   // NOTE: Global rate limiting removed from middleware due to Edge Runtime limitations
   // Rate limiting is now enforced at the API route level using Redis (see lib/api/middleware/rate-limit.ts)

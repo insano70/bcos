@@ -9,11 +9,16 @@ import {
 import { emergencyCleanup } from './cleanup';
 import '@testing-library/jest-dom';
 
-// Ensure environment variables are set for tests
-// Only set DATABASE_URL if it's not already set (to avoid overriding existing config)
+// Require DATABASE_URL to be set - no hardcoded fallbacks for security
+// Copy .env.test.example to .env.test and configure your test database
 if (!process.env.DATABASE_URL) {
-  process.env.DATABASE_URL = 'postgresql://bcos_d:oRMgpg2micRfQVXz7Bfbr@localhost:5432/bcos_d';
+  throw new Error(
+    'DATABASE_URL environment variable is required.\n' +
+      'Copy .env.test.example to .env.test and configure your test database.'
+  );
 }
+
+// JWT secrets can use test fallbacks (not sensitive - only for test isolation)
 process.env.JWT_SECRET =
   process.env.JWT_SECRET || 'test-secret-that-is-at-least-32-characters-long-for-security';
 process.env.JWT_REFRESH_SECRET =

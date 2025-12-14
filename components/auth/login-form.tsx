@@ -6,9 +6,9 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useId, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { apiClient } from '@/lib/api/client';
 import { clientDebugLog, clientErrorLog } from '@/lib/utils/debug-client';
 import { loginSchema } from '@/lib/validations/auth';
+import { AuthTransitionOverlay } from './auth-transition-overlay';
 import { useSilentAuth } from './hooks/use-silent-auth';
 import MFASetupDialog from './mfa-setup-dialog';
 import MFAVerifyDialog from './mfa-verify-dialog';
@@ -28,7 +28,6 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isMicrosoftLoading, setIsMicrosoftLoading] = useState(false);
-  const [defaultDashboardId, setDefaultDashboardId] = useState<string | null>(null);
 
   const emailId = useId();
   const passwordId = useId();
@@ -41,10 +40,8 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
   const silentAuthFailedParam = searchParams.get('silent_auth_failed'); // Silent auth result
   const loggedOutParam = searchParams.get('logged_out'); // User explicitly logged out
 
-  // Determine callback URL: use param if provided, otherwise use default dashboard if set, else /dashboard
-  const callbackUrl =
-    paramCallbackUrl ||
-    (defaultDashboardId ? `/dashboard/view/${defaultDashboardId}` : '/dashboard');
+  // Callback URL: use param if provided, otherwise /dashboard (server handles default dashboard redirect)
+  const callbackUrl = paramCallbackUrl || '/dashboard';
 
   // Silent authentication - try to authenticate without user interaction
   // Skip if:
@@ -73,30 +70,6 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
     completeMFAVerification,
     clearMFAState,
   } = useAuth();
-
-  // Fetch default dashboard on mount
-  useEffect(() => {
-    const fetchDefaultDashboard = async () => {
-      try {
-        const data = await apiClient.get<{ defaultDashboard?: { dashboard_id: string; dashboard_name: string } }>(
-          '/api/admin/analytics/dashboards/default'
-        );
-
-        if (data.defaultDashboard?.dashboard_id) {
-          setDefaultDashboardId(data.defaultDashboard.dashboard_id);
-          clientDebugLog.auth('Default dashboard found', {
-            dashboardName: data.defaultDashboard.dashboard_name,
-            dashboardId: data.defaultDashboard.dashboard_id,
-          });
-        }
-      } catch (error) {
-        // Silently fail - just use /dashboard as fallback
-        clientDebugLog.auth('No default dashboard configured or error fetching', { error });
-      }
-    };
-
-    fetchDefaultDashboard();
-  }, []);
 
   // Debug MFA state changes
   useEffect(() => {
@@ -157,15 +130,10 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
     formState: { errors, isValid },
   } = form;
 
-  // Redirect authenticated users away from login page
-  useEffect(() => {
-    if (isAuthenticated && !isSubmitting) {
-      clientDebugLog.auth('User already authenticated, redirecting', { callbackUrl });
-      router.push(callbackUrl);
-    }
-  }, [isAuthenticated, isSubmitting, callbackUrl, router]);
+  // Note: "already authenticated" redirect is handled by useSilentAuth hook
+  // to avoid duplicate navigation (replace + push) race conditions
 
-  // Handle successful login without MFA (e.g., OIDC users or when MFA gets disabled)
+  // Handle successful login without MFA (password login completion)
   useEffect(() => {
     // Only redirect if:
     // 1. User is authenticated
@@ -177,11 +145,10 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
 
       onSuccess?.();
 
-      setTimeout(() => {
-        window.location.href = callbackUrl;
-      }, 200);
+      // Use client-side navigation to avoid full page reload and auth state reset
+      router.replace(callbackUrl);
     }
-  }, [isAuthenticated, mfaRequired, mfaSetupRequired, isSubmitting, callbackUrl, onSuccess]);
+  }, [isAuthenticated, mfaRequired, mfaSetupRequired, isSubmitting, callbackUrl, onSuccess, router]);
 
   const handleMFASetupSuccess = (sessionData: {
     user: {
@@ -198,10 +165,8 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
     completeMFASetup(sessionData);
     onSuccess?.();
 
-    // Small delay to ensure auth state is synchronized before redirect
-    setTimeout(() => {
-      window.location.href = callbackUrl;
-    }, 200);
+    // Use client-side navigation to avoid full page reload and auth state reset
+    router.replace(callbackUrl);
   };
 
   const handleMFASkipSuccess = (sessionData: {
@@ -219,10 +184,8 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
     completeMFASetup(sessionData); // Reuse existing completion handler
     onSuccess?.();
 
-    // Small delay to ensure auth state is synchronized before redirect
-    setTimeout(() => {
-      window.location.href = callbackUrl;
-    }, 200);
+    // Use client-side navigation to avoid full page reload and auth state reset
+    router.replace(callbackUrl);
   };
 
   const handleMFAVerificationSuccess = (sessionData: {
@@ -240,10 +203,8 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
     completeMFAVerification(sessionData);
     onSuccess?.();
 
-    // Small delay to ensure auth state is synchronized before redirect
-    setTimeout(() => {
-      window.location.href = callbackUrl;
-    }, 200);
+    // Use client-side navigation to avoid full page reload and auth state reset
+    router.replace(callbackUrl);
   };
 
   const onSubmit = async (data: LoginFormData) => {
@@ -274,18 +235,11 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
   // Show loading state while checking for existing session / silent auth
   if (isCheckingSession) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 space-y-4">
-        <div className="relative">
-          <div className="w-12 h-12 border-4 border-violet-200 dark:border-violet-900 rounded-full" />
-          <div className="absolute top-0 left-0 w-12 h-12 border-4 border-violet-500 border-t-transparent rounded-full animate-spin" />
-        </div>
-        <div className="text-center">
-          <p className="text-gray-700 dark:text-gray-300 font-medium">Checking your session...</p>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Attempting automatic sign-in
-          </p>
-        </div>
-      </div>
+      <AuthTransitionOverlay
+        variant="inline"
+        message="Checking your session..."
+        subtitle="Attempting automatic sign-in"
+      />
     );
   }
 

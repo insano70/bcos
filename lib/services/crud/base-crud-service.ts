@@ -25,7 +25,7 @@
  * ```
  */
 
-import { and, asc, count, desc, eq, inArray, isNull, or, sql, type SQL } from 'drizzle-orm';
+import { and, asc, count, countDistinct, desc, eq, inArray, isNull, or, sql, type SQL } from 'drizzle-orm';
 import type { PgTable, TableConfig } from 'drizzle-orm/pg-core';
 
 import { db } from '@/lib/db';
@@ -166,13 +166,14 @@ export abstract class BaseCrudService<
     const conditions = this.buildBaseConditions(options);
     const table = config.table as AnyPgTable;
 
-    // Get total count (always from main table, no JOINs needed)
-    const [countResult] = await db
-      .select({ count: count() })
-      .from(table)
-      .where(conditions.length > 0 ? and(...conditions) : undefined);
+    // Check if subclass defines JOINs (need for both count and data queries)
+    const joinConfig = this.buildJoinQuery();
 
-    const total = Number(countResult?.count || 0);
+    // Get total count
+    // When JOINs exist, we must include them in the count query because:
+    // 1. Conditions may reference joined columns
+    // 2. For 1:N joins, we need COUNT(DISTINCT pk) to avoid counting duplicates
+    const total = await this.executeCountQuery(joinConfig, conditions);
 
     // Validate and clamp pagination to prevent DoS via huge page requests
     const { limit, offset } = validatePagination(
@@ -182,8 +183,6 @@ export abstract class BaseCrudService<
       config.pagination?.defaultLimit ?? CRUD_PAGINATION_DEFAULTS.DEFAULT_LIMIT
     );
 
-    // Check if subclass defines JOINs for enriched queries
-    const joinConfig = this.buildJoinQuery();
     let rows: Record<string, unknown>[];
 
     // Build ORDER BY clause
@@ -267,6 +266,16 @@ export abstract class BaseCrudService<
     let row: Record<string, unknown> | undefined;
 
     if (joinConfig) {
+      // Warn if using 1:N joins in getById - result is non-deterministic
+      if (this.hasOneToManyJoins(joinConfig)) {
+        log.warn('getById with 1:N join may return non-deterministic results', {
+          resourceType: config.resourceName,
+          resourceId: String(id),
+          userId: this.userContext.user_id,
+          hint: 'Consider fetching child records separately instead of using 1:N joins',
+        });
+      }
+
       // Use JOIN query with custom select fields
       const rows = await this.executeJoinQuery(joinConfig, conditions, 1, 0);
       row = rows[0];
@@ -332,14 +341,9 @@ export abstract class BaseCrudService<
     );
 
     const conditions = this.buildBaseConditions(options);
-    const table = config.table as AnyPgTable;
+    const joinConfig = this.buildJoinQuery();
 
-    const [countResult] = await db
-      .select({ count: count() })
-      .from(table)
-      .where(conditions.length > 0 ? and(...conditions) : undefined);
-
-    return Number(countResult?.count || 0);
+    return this.executeCountQuery(joinConfig, conditions);
   }
 
   /**
@@ -740,7 +744,24 @@ export abstract class BaseCrudService<
    * Returns null by default (backwards compatible - uses standard query).
    * When overridden, returns JoinQueryConfig with:
    * - selectFields: Record of column aliases to columns/SQL
-   * - joins: Array of JoinDefinition with table, on condition, and type
+   * - joins: Array of JoinDefinition with table, on condition, type, and cardinality
+   *
+   * ## JOIN Cardinality
+   *
+   * Each join can specify `cardinality: '1:1' | '1:N'` (default: '1:1'):
+   *
+   * - **'1:1'** (default): Each base row joins to at most one row.
+   *   Examples: user → profile, order → shipping_address
+   *   Safe for all operations.
+   *
+   * - **'1:N'**: Each base row may join to multiple rows.
+   *   Examples: order → order_items, post → comments
+   *   **Caution**: This causes row multiplication.
+   *   - `getList()`: Uses COUNT(DISTINCT pk) for correct pagination totals
+   *   - `getById()`: Returns first row only (non-deterministic), logs a warning
+   *   - Consider fetching child records separately instead of 1:N joins
+   *
+   * ## Self-Joins
    *
    * For self-joins, use Drizzle's alias() to create a table alias:
    *
@@ -760,8 +781,12 @@ export abstract class BaseCrudService<
    *       parent_name: parentType.name,  // Use aliased column
    *     },
    *     joins: [
+   *       // 1:1 join (default) - user who created the type
    *       { table: users, on: eq(work_item_types.created_by, users.user_id), type: 'left' },
+   *       // 1:1 self-join - parent type
    *       { table: parentType, on: eq(work_item_types.parent_type_id, parentType.work_item_type_id), type: 'left' },
+   *       // Example 1:N join (use with caution)
+   *       // { table: child_items, on: eq(parent.id, child_items.parent_id), type: 'left', cardinality: '1:N' },
    *     ],
    *   };
    * }
@@ -884,6 +909,72 @@ export abstract class BaseCrudService<
         );
       }
     }
+  }
+
+  /**
+   * Check if any join in the configuration has 1:N cardinality.
+   * Used to determine if we need COUNT(DISTINCT pk) for correct totals.
+   */
+  private hasOneToManyJoins(joinConfig: JoinQueryConfig | null): boolean {
+    if (!joinConfig) return false;
+    return joinConfig.joins.some((join) => join.cardinality === '1:N');
+  }
+
+  /**
+   * Execute count query, handling both standard and JOIN-based queries.
+   *
+   * When JOINs exist:
+   * - Includes JOINs to ensure conditions referencing joined columns work
+   * - Uses COUNT(DISTINCT pk) when any join is 1:N to avoid counting duplicates
+   *
+   * @param joinConfig - JOIN configuration (or null for standard query)
+   * @param conditions - WHERE conditions to apply
+   * @returns Total count of matching entities
+   */
+  private async executeCountQuery(
+    joinConfig: JoinQueryConfig | null,
+    conditions: SQL[]
+  ): Promise<number> {
+    const { config } = this;
+    const table = config.table as AnyPgTable;
+
+    if (!joinConfig) {
+      // Standard count query (no JOINs)
+      const [countResult] = await db
+        .select({ count: count() })
+        .from(table)
+        .where(conditions.length > 0 ? and(...conditions) : undefined);
+      return Number(countResult?.count || 0);
+    }
+
+    // JOIN-based count query
+    // Use COUNT(DISTINCT pk) when any join is 1:N to handle row multiplication
+    const tableColumns = table as unknown as Record<string, unknown>;
+    const pkColumn = tableColumns[config.primaryKeyName] as Parameters<typeof countDistinct>[0];
+
+    const useDistinct = this.hasOneToManyJoins(joinConfig);
+    const countExpr = useDistinct ? countDistinct(pkColumn) : count();
+
+    // Build query with JOINs
+    let query = db.select({ count: countExpr }).from(table) as unknown as ChainableQuery;
+
+    // Apply joins in order
+    for (const join of joinConfig.joins) {
+      if (join.type === 'inner') {
+        query = query.innerJoin(join.table, join.on);
+      } else {
+        query = query.leftJoin(join.table, join.on);
+      }
+    }
+
+    // Apply WHERE conditions
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions));
+    }
+
+    // Execute and return count
+    const results = await (query as unknown as Promise<{ count: number }[]>);
+    return Number(results[0]?.count || 0);
   }
 
   /**

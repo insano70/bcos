@@ -67,6 +67,8 @@ export type ProgressCallback = (progress: {
  */
 export class CacheWarmingService {
   private readonly LOCK_TTL_SECONDS = 300; // 5 minutes
+  private readonly LOCK_REFRESH_INTERVAL = 100; // Refresh lock every 100 batches
+  private readonly MAX_ROWS = 5_000_000; // 5M rows max to prevent OOM
 
   constructor(private client: IndexedCacheClient) {}
 
@@ -141,8 +143,9 @@ export class CacheWarmingService {
       const columnMapping = await columnMappingService.getMapping(datasourceId);
 
       // Build safe query using centralized function with quoted identifiers
+      // PERFORMANCE: Add LIMIT to prevent OOM on very large tables
       const safeTableRef = buildSafeTableReference(schemaName, tableName);
-      const query = `SELECT * FROM ${safeTableRef}`;
+      const query = `SELECT * FROM ${safeTableRef} LIMIT ${this.MAX_ROWS}`;
 
       log.info('Executing cache warming query', {
         datasourceId,
@@ -150,10 +153,24 @@ export class CacheWarmingService {
         table: tableName,
         columnMapping,
         timePeriodField: columnMapping.timePeriodField,
+        maxRows: this.MAX_ROWS,
         component: 'warming-service',
       });
 
       const allRows = await executeAnalyticsQuery(query, []);
+
+      // Warn if we hit the row limit (cache may be incomplete)
+      if (allRows.length === this.MAX_ROWS) {
+        log.warn('Cache warming hit row limit - cache may be incomplete', {
+          datasourceId,
+          tableName,
+          schemaName,
+          rowsReturned: allRows.length,
+          maxRows: this.MAX_ROWS,
+          incomplete: true,
+          component: 'warming-service',
+        });
+      }
 
       // Check for unusually large rows that could cause memory issues
       const sampleRowSizes = allRows.slice(0, 100).map(row => JSON.stringify(row).length);
@@ -200,7 +217,8 @@ export class CacheWarmingService {
       });
 
       // Write to SHADOW keys (zero downtime)
-      const entriesCached = await this.writeBatchesToShadow(grouped, datasourceId);
+      // Pass lockKey to refresh lock during long batch operations
+      const entriesCached = await this.writeBatchesToShadow(grouped, datasourceId, lockKey);
 
       log.info('Shadow keys populated, performing atomic swap', {
         datasourceId,
@@ -381,8 +399,13 @@ export class CacheWarmingService {
    * Write grouped data to SHADOW keys in batches using pipelines
    * Shadow keys allow us to build the new cache without affecting production
    *
+   * LOCK REFRESH: Extends lock TTL every LOCK_REFRESH_INTERVAL batches to prevent
+   * lock expiry during long warming operations. This prevents race conditions
+   * where concurrent warmers could start if the original lock expires.
+   *
    * @param grouped - Map of cache key to data rows
    * @param datasourceId - Data source ID
+   * @param lockKey - Lock key to refresh during long operations
    * @returns Number of entries cached
    */
   // Maximum size for a single cache entry (100MB to stay well under JS string limit)
@@ -390,10 +413,12 @@ export class CacheWarmingService {
 
   private async writeBatchesToShadow(
     grouped: Map<string, Record<string, unknown>[]>,
-    datasourceId: number
+    datasourceId: number,
+    lockKey: string
   ): Promise<number> {
     let entriesCached = 0;
     let entriesSkipped = 0;
+    let batchCount = 0;
     const batchSize = this.client.getBatchSize();
     let pipeline = this.client.createPipeline();
 
@@ -493,6 +518,31 @@ export class CacheWarmingService {
             component: 'warming-service',
           });
           throw new Error(`Redis pipeline failed with ${result.errorCount} errors`);
+        }
+
+        batchCount++;
+
+        // Refresh lock periodically to prevent expiry during long operations
+        if (batchCount % this.LOCK_REFRESH_INTERVAL === 0) {
+          const lockRefreshed = await this.client.refreshLock(lockKey, this.LOCK_TTL_SECONDS);
+          if (!lockRefreshed) {
+            log.error('Failed to refresh lock during batch write - lock may have expired', new Error('Lock refresh failed'), {
+              datasourceId,
+              lockKey,
+              batchCount,
+              entriesCached,
+              component: 'warming-service',
+            });
+            // Continue anyway - the operation may still complete successfully
+          } else {
+            log.debug('Lock refreshed during batch write', {
+              datasourceId,
+              batchCount,
+              entriesCached,
+              ttlSeconds: this.LOCK_TTL_SECONDS,
+              component: 'warming-service',
+            });
+          }
         }
 
         pipeline = this.client.createPipeline();

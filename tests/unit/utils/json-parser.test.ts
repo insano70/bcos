@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   parseBusinessHours,
   parseConditions,
@@ -12,23 +12,10 @@ import {
   safeJsonParse,
 } from '@/lib/utils/json-parser';
 
-// Mock the structured logger
-vi.mock('@/lib/logger', () => ({
-  log: {
-    warn: vi.fn(),
-    error: vi.fn(),
-    info: vi.fn(),
-    debug: vi.fn(),
-  },
-}));
-
-// Import the mocked logger for assertions
-import { log } from '@/lib/logger';
+// Note: safeJsonParse uses console.warn in development mode only (not test mode)
+// and uses console.warn instead of @/lib/logger for client-side compatibility
 
 describe('json-parser utilities', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
 
   describe('safeJsonParse', () => {
     it('should parse valid JSON string', () => {
@@ -81,20 +68,14 @@ describe('json-parser utilities', () => {
       expect(result).toEqual(fallback);
     });
 
-    it('should return fallback for invalid JSON and log warning', () => {
+    it('should return fallback for invalid JSON', () => {
       const invalidJson = '{"name": "John", "age": }';
       const fallback = { name: 'Default', age: 0 };
 
       const result = safeJsonParse(invalidJson, fallback);
 
       expect(result).toEqual(fallback);
-      // Implementation uses structured JSON logger
-      expect(log.warn).toHaveBeenCalledWith('Failed to parse JSON', {
-        operation: 'json_parse',
-        component: 'utils',
-        inputPreview: invalidJson.substring(0, 100),
-        errorMessage: expect.any(String),
-      });
+      // Note: console.warn is only called in development mode, not in test mode
     });
 
     it('should handle complex valid JSON', () => {

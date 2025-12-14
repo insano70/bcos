@@ -425,6 +425,39 @@ export class IndexedCacheClient extends CacheService<Record<string, unknown>[]> 
   }
 
   /**
+   * Refresh/extend distributed lock TTL
+   * Call periodically during long operations to prevent lock expiry
+   *
+   * @param lockKey - Lock key to refresh
+   * @param ttlSeconds - New TTL in seconds
+   * @returns True if lock was refreshed, false if lock doesn't exist or refresh failed
+   */
+  async refreshLock(lockKey: string, ttlSeconds: number): Promise<boolean> {
+    const client = this.getClient();
+    if (!client) {
+      return false;
+    }
+
+    try {
+      // EXPIRE returns 1 if key exists and TTL was set, 0 if key doesn't exist
+      const result = await client.expire(lockKey, ttlSeconds);
+      return result === 1;
+    } catch (error) {
+      log.error(
+        'Failed to refresh lock',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          component: 'indexed-cache-client',
+          operation: 'refresh_lock',
+          lockKey,
+          ttlSeconds,
+        }
+      );
+      return false;
+    }
+  }
+
+  /**
    * Create Redis pipeline for batch operations
    *
    * @returns Pipeline instance or null

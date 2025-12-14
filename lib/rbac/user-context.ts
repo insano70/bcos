@@ -29,7 +29,11 @@ import type {
  * This is the primary function for loading user data for permission checking
  */
 export async function getUserContext(userId: string): Promise<UserContext> {
+  const startTime = Date.now();
+  const timings: Record<string, number> = {};
+
   // 1. Get basic user information
+  const t1 = Date.now();
   const [user] = await db
     .select({
       user_id: users.user_id,
@@ -44,6 +48,7 @@ export async function getUserContext(userId: string): Promise<UserContext> {
     .from(users)
     .where(eq(users.user_id, userId))
     .limit(1);
+  timings['1_user_query'] = Date.now() - t1;
 
   if (!user) {
     throw new Error(`User not found: ${userId}`);
@@ -54,6 +59,7 @@ export async function getUserContext(userId: string): Promise<UserContext> {
   }
 
   // 2. Get user's organizations
+  const t2 = Date.now();
   const userOrgs = await db
     .select({
       user_organization_id: user_organizations.user_organization_id,
@@ -81,20 +87,26 @@ export async function getUserContext(userId: string): Promise<UserContext> {
         eq(organizations.is_active, true)
       )
     );
+  timings['2_user_orgs_query'] = Date.now() - t2;
 
   // 3. Get accessible organizations (includes children via hierarchy)
   // Expand hierarchy to include all descendant organizations
   const accessibleOrganizations: Organization[] = [];
 
   // Import hierarchy service for traversal
+  const t3 = Date.now();
   const { organizationHierarchyService } = await import(
     '@/lib/services/organization-hierarchy-service'
   );
+  timings['3_import_hierarchy_service'] = Date.now() - t3;
 
   // Get all organizations for hierarchy traversal (cached in Redis for 30 days)
+  const t4 = Date.now();
   const allOrganizations = await organizationHierarchyService.getAllOrganizations();
+  timings['4_get_all_orgs'] = Date.now() - t4;
 
   // For each direct organization membership, expand to include children
+  const t5 = Date.now();
   for (const userOrg of userOrgs) {
     // Get all organizations in hierarchy (parent + descendants)
     const hierarchyIds = await organizationHierarchyService.getOrganizationHierarchy(
@@ -145,6 +157,7 @@ export async function getUserContext(userId: string): Promise<UserContext> {
       });
     }
   }
+  timings['5_hierarchy_loop'] = Date.now() - t5;
 
   log.info('User accessible organizations resolved with hierarchy', {
     userId: user.user_id,
@@ -155,6 +168,7 @@ export async function getUserContext(userId: string): Promise<UserContext> {
   });
 
   // 4. Get user's roles with permissions (optimized with database-level deduplication)
+  const t6 = Date.now();
   const userRolesData = await db
     .selectDistinct({
       // User role info
@@ -201,6 +215,7 @@ export async function getUserContext(userId: string): Promise<UserContext> {
         eq(permissions.is_active, true)
       )
     );
+  timings['6_roles_permissions_query'] = Date.now() - t6;
 
   // 5. Transform data into structured format
   const rolesMap = new Map<string, Role>();
@@ -351,6 +366,14 @@ export async function getUserContext(userId: string): Promise<UserContext> {
     is_super_admin: isSuperAdmin,
     organization_admin_for: organizationAdminFor,
   };
+
+  // Log timing breakdown for performance analysis
+  timings.total = Date.now() - startTime;
+  log.info('[PERF] getUserContext timing breakdown', {
+    userId,
+    timings,
+    totalMs: timings.total,
+  });
 
   return userContext;
 }

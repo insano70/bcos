@@ -62,21 +62,22 @@ const AnalyticsHorizontalBarChart = forwardRef<HTMLCanvasElement, AnalyticsHoriz
       // Safety check: ensure canvas is properly mounted
       if (!ctx?.parentElement || !ctx.isConnected) return;
 
-      // Defer initialization until after React's layout phase (fixes race condition)
-      const rafId = requestAnimationFrame(() => {
-        // Double RAF ensures we're after paint
-        requestAnimationFrame(() => {
-          // Re-check connection after deferral
-          if (!ctx.isConnected) {
-            console.warn('[AnalyticsHorizontalBarChart] Canvas disconnected during initialization deferral');
-            return;
-          }
+      // Track whether cleanup has been called (to prevent creating chart after unmount)
+      let isCancelled = false;
 
-          // Destroy existing chart if any (prevents canvas reuse error)
-          if (chartRef.current) {
-            chartRef.current.destroy();
-            chartRef.current = null;
-          }
+      // Defer initialization until after React's layout phase (fixes race condition)
+      // Single RAF is sufficient - canvas should be ready after first frame
+      const rafId = requestAnimationFrame(() => {
+        // Re-check connection after deferral (component may have unmounted)
+        if (isCancelled || !ctx.isConnected) {
+          return;
+        }
+
+        // Destroy existing chart if any (prevents canvas reuse error)
+        if (chartRef.current) {
+          chartRef.current.destroy();
+          chartRef.current = null;
+        }
 
       const newChart = new Chart(ctx, {
         type: 'bar',
@@ -282,14 +283,13 @@ const AnalyticsHorizontalBarChart = forwardRef<HTMLCanvasElement, AnalyticsHoriz
         ],
       });
 
-          // Type cast needed for Chart.js union type compatibility
-          chartRef.current = newChart as Chart<keyof ChartTypeRegistry>;
-          setChart(newChart as Chart<keyof ChartTypeRegistry>);
-        });
+        // Type cast needed for Chart.js union type compatibility
+        chartRef.current = newChart as Chart<keyof ChartTypeRegistry>;
+        setChart(newChart as Chart<keyof ChartTypeRegistry>);
       });
 
       return () => {
-        // Clean up animation frame if component unmounts during deferral
+        isCancelled = true;
         cancelAnimationFrame(rafId);
         // Destroy chart using ref (avoids stale closure issue)
         if (chartRef.current) {

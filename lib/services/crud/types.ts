@@ -58,6 +58,13 @@ export type SelectableField = PgColumn | SQL | SQL.Aliased<unknown> | PgTable<Ta
  * // Then use the aliased table in the join definition
  * { table: parentType, on: eq(work_item_types.parent_type_id, parentType.work_item_type_id) }
  * ```
+ *
+ * IMPORTANT: Cardinality affects query behavior:
+ * - '1:1' (default): Safe for all operations. Each base row produces exactly one result row.
+ * - '1:N': Use with caution. Base row may produce multiple result rows.
+ *   - getList(): Pagination uses COUNT(DISTINCT pk) for correct totals
+ *   - getById(): Returns first matching row (non-deterministic for 1:N)
+ *   - Consider using a separate query for child records instead of 1:N joins
  */
 export interface JoinDefinition {
   /** The table to join. For self-joins, pass an aliased table created with alias() */
@@ -66,6 +73,15 @@ export interface JoinDefinition {
   on: SQL;
   /** Join type - defaults to 'left' */
   type?: 'left' | 'inner';
+  /**
+   * Join cardinality from the base table's perspective.
+   * - '1:1' (default): Each base row joins to at most one row (e.g., user → profile)
+   * - '1:N': Each base row may join to multiple rows (e.g., order → order_items)
+   *
+   * When ANY join is '1:N', the service uses COUNT(DISTINCT pk) for pagination
+   * to ensure correct totals despite row multiplication from the join.
+   */
+  cardinality?: '1:1' | '1:N';
 }
 
 /**

@@ -131,9 +131,10 @@ export async function spawnWarmingWorker(
         workerPath = path.resolve(process.cwd(), 'lib/cache/warming-worker.ts');
         execArgv = ['--import', 'tsx'];
       } else {
-        // Production: Use compiled JavaScript
-        // Next.js compiles server files to .next/server/
-        workerPath = path.resolve(process.cwd(), '.next/server/lib/cache/warming-worker.js');
+        // Production: Use pre-compiled worker bundle
+        // The worker is compiled separately during Docker build and placed in /app/workers/
+        // This is necessary because Next.js standalone output doesn't include worker thread files
+        workerPath = path.resolve(process.cwd(), 'workers/warming-worker.js');
         execArgv = [];
       }
 

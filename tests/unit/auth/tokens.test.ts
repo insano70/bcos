@@ -112,6 +112,13 @@ vi.mock('@/lib/api/services/audit', () => ({
   },
 }));
 
+// Mock blacklist manager for validateAccessToken tests
+let mockIsBlacklisted = false;
+vi.mock('@/lib/auth/tokens/internal/blacklist-manager', () => ({
+  isTokenBlacklisted: vi.fn(() => Promise.resolve(mockIsBlacklisted)),
+  addToBlacklist: vi.fn(() => Promise.resolve()),
+}));
+
 describe('TokenManager', () => {
   // Let TypeScript infer the complex mocked types from vitest
   let mockDb: ReturnType<typeof vi.mocked<typeof import('@/lib/db').db>>;
@@ -120,6 +127,9 @@ describe('TokenManager', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     vi.mocked(nanoid).mockReturnValue('mock-nano-id');
+
+    // Reset blacklist mock to default (not blacklisted)
+    mockIsBlacklisted = false;
 
     // Get references to mocked modules
     const dbModule = await import('@/lib/db');
@@ -164,14 +174,8 @@ describe('TokenManager', () => {
         protectedHeader: { alg: 'HS256' },
       } as unknown as Awaited<ReturnType<typeof jwtVerify>>);
 
-      // Mock database - token is blacklisted
-      mockDb.select.mockReturnValue({
-        from: vi.fn(() => ({
-          where: vi.fn(() => ({
-            limit: vi.fn(() => [{ jti: 'jti-123' }]),
-          })),
-        })),
-      } as unknown as ReturnType<typeof mockDb.select>);
+      // Set blacklist mock to return true
+      mockIsBlacklisted = true;
 
       const result = await validateAccessToken(mockToken);
 
@@ -213,10 +217,13 @@ describe('TokenManager', () => {
         })),
       } as unknown as ReturnType<typeof mockDb.select>);
 
+      // Get reference to mocked addToBlacklist
+      const { addToBlacklist } = await import('@/lib/auth/tokens/internal/blacklist-manager');
+
       const result = await revokeAllUserTokens(userId, 'security');
 
       expect(mockDb.update).toHaveBeenCalledTimes(2); // refresh_tokens and user_sessions
-      expect(mockDb.insert).toHaveBeenCalledTimes(2); // Two blacklist entries
+      expect(addToBlacklist).toHaveBeenCalledTimes(2); // Two blacklist entries
       expect(result).toBe(2);
     });
 
@@ -231,10 +238,13 @@ describe('TokenManager', () => {
         })),
       } as unknown as ReturnType<typeof mockDb.select>);
 
+      // Get reference to mocked addToBlacklist
+      const { addToBlacklist } = await import('@/lib/auth/tokens/internal/blacklist-manager');
+
       const result = await revokeAllUserTokens(userId, 'security');
 
       expect(mockDb.update).toHaveBeenCalledTimes(2); // Still updates tables
-      expect(mockDb.insert).toHaveBeenCalledTimes(0); // No blacklist entries
+      expect(addToBlacklist).toHaveBeenCalledTimes(0); // No blacklist entries
       expect(result).toBe(0);
     });
   });

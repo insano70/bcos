@@ -4,6 +4,11 @@ import { resolve } from 'path';
 import { cpus } from 'os';
 import dotenv from 'dotenv';
 
+// Set NODE_ENV before anything else - this must happen before module imports
+// that check NODE_ENV at load time (e.g., test factories)
+// Use Object.assign to avoid TypeScript read-only property error
+Object.assign(process.env, { NODE_ENV: 'test' });
+
 // Load environment variables from .env.test
 dotenv.config({ path: '.env.test' });
 
@@ -29,9 +34,21 @@ export default defineConfig({
     maxConcurrency: Math.min(cpus().length, 8), // Use available CPUs, max 8
     fileParallelism: true, // Run test files in parallel
 
+    // Exclude e2e tests from default runs (they require a running server)
+    exclude: [
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/tests/e2e/**',
+    ],
+
     // Timeouts for database operations
     testTimeout: 30000,
     hookTimeout: 30000,
+
+    // Ensure NODE_ENV is set for all test processes (including forked workers)
+    env: {
+      NODE_ENV: 'test',
+    },
 
     // Retry failed tests once (useful for flaky database tests)
     retry: 1,

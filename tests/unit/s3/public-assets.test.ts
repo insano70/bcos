@@ -3,6 +3,34 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+// Default mock config that can be modified per test
+const defaultMockConfig = {
+  region: 'us-east-1',
+  accessKeyId: 'AKIATEST',
+  secretAccessKey: 'secrettest',
+  bucket: 'test-bucket',
+  cdnUrl: 'https://cdn.bendcare.com',
+};
+
+// Create mutable config that tests can modify
+let mockConfig = { ...defaultMockConfig };
+let mockS3Enabled = true;
+
+// Mock the env module before importing S3 service
+vi.mock('@/lib/env', () => ({
+  getPublicS3Config: vi.fn(() => ({ ...mockConfig })),
+  isPublicS3Enabled: vi.fn(() => mockS3Enabled),
+  env: {
+    S3_PUBLIC_REGION: 'us-east-1',
+    S3_PUBLIC_ACCESS_KEY_ID: 'AKIATEST',
+    S3_PUBLIC_SECRET_ACCESS_KEY: 'secrettest',
+    S3_PUBLIC_BUCKET: 'test-bucket',
+    CDN_URL: 'https://cdn.bendcare.com',
+  },
+}));
+
+import { getPublicS3Config, isPublicS3Enabled } from '@/lib/env';
 import {
   extractS3Key,
   generateS3Key,
@@ -15,13 +43,13 @@ import {
 } from '@/lib/s3/public-assets';
 
 describe('S3 Public Assets Service', () => {
-  // Store original env vars
-  const originalEnv = { ...process.env };
-
   beforeEach(() => {
-    // Reset env vars before each test
-    vi.unstubAllEnvs();
-    process.env = { ...originalEnv };
+    vi.clearAllMocks();
+    // Reset mock config to defaults
+    mockConfig = { ...defaultMockConfig };
+    mockS3Enabled = true;
+    vi.mocked(getPublicS3Config).mockImplementation(() => ({ ...mockConfig }));
+    vi.mocked(isPublicS3Enabled).mockImplementation(() => mockS3Enabled);
   });
 
   describe('generateS3Key', () => {
@@ -145,10 +173,6 @@ describe('S3 Public Assets Service', () => {
   });
 
   describe('getPublicUrl', () => {
-    beforeEach(() => {
-      process.env.CDN_URL = 'https://cdn.bendcare.com';
-    });
-
     it('should convert S3 key to CloudFront URL', () => {
       const url = getPublicUrl('practices/123/logo/logo_xyz.jpg');
       expect(url).toBe('https://cdn.bendcare.com/practices/123/logo/logo_xyz.jpg');
@@ -165,7 +189,7 @@ describe('S3 Public Assets Service', () => {
     });
 
     it('should handle CDN URL with trailing slash', () => {
-      process.env.CDN_URL = 'https://cdn.bendcare.com/';
+      mockConfig.cdnUrl = 'https://cdn.bendcare.com/';
       const url = getPublicUrl('test/file.jpg');
       expect(url).toBe('https://cdn.bendcare.com/test/file.jpg');
     });
@@ -173,8 +197,7 @@ describe('S3 Public Assets Service', () => {
 
   describe('extractS3Key', () => {
     beforeEach(() => {
-      process.env.CDN_URL = 'https://cdn.bendcare.com';
-      process.env.S3_PUBLIC_BUCKET = 'bcos-public-test';
+      mockConfig.bucket = 'bcos-public-test';
     });
 
     it('should extract S3 key from CloudFront URL', () => {
@@ -218,18 +241,14 @@ describe('S3 Public Assets Service', () => {
     });
 
     it('should return null when S3 not configured', () => {
-      delete process.env.CDN_URL;
-      delete process.env.S3_PUBLIC_BUCKET;
+      mockConfig.cdnUrl = '';
+      mockConfig.bucket = '';
       const key = extractS3Key('https://cdn.bendcare.com/test/file.jpg');
       expect(key).toBeNull();
     });
   });
 
   describe('isCloudFrontUrl', () => {
-    beforeEach(() => {
-      process.env.CDN_URL = 'https://cdn.bendcare.com';
-    });
-
     it('should return true for CloudFront URLs', () => {
       expect(isCloudFrontUrl('https://cdn.bendcare.com/practices/123/logo.jpg')).toBe(true);
     });
@@ -243,7 +262,7 @@ describe('S3 Public Assets Service', () => {
     });
 
     it('should return false when CDN URL not configured', () => {
-      delete process.env.CDN_URL;
+      mockConfig.cdnUrl = '';
       expect(isCloudFrontUrl('https://cdn.bendcare.com/file.jpg')).toBe(false);
     });
   });
@@ -268,93 +287,73 @@ describe('S3 Public Assets Service', () => {
 
   describe('isS3Configured', () => {
     it('should return true when all env vars are set', () => {
-      process.env.S3_PUBLIC_REGION = 'us-east-1';
-      process.env.S3_PUBLIC_ACCESS_KEY_ID = 'AKIATEST';
-      process.env.S3_PUBLIC_SECRET_ACCESS_KEY = 'secrettest';
-      process.env.S3_PUBLIC_BUCKET = 'test-bucket';
-      process.env.CDN_URL = 'https://cdn.test.com';
-
+      mockS3Enabled = true;
       expect(isS3Configured()).toBe(true);
     });
 
     it('should return true when region is missing (uses default us-east-1)', () => {
-      delete process.env.S3_PUBLIC_REGION;
-      process.env.S3_PUBLIC_ACCESS_KEY_ID = 'AKIATEST';
-      process.env.S3_PUBLIC_SECRET_ACCESS_KEY = 'secrettest';
-      process.env.S3_PUBLIC_BUCKET = 'test-bucket';
-      process.env.CDN_URL = 'https://cdn.test.com';
-
-      // Region has a default fallback to 'us-east-1'
+      mockConfig.region = '';
+      mockS3Enabled = true;
       expect(isS3Configured()).toBe(true);
     });
 
     it('should return false when access key is missing', () => {
-      process.env.S3_PUBLIC_REGION = 'us-east-1';
-      process.env.S3_PUBLIC_SECRET_ACCESS_KEY = 'secrettest';
-      process.env.S3_PUBLIC_BUCKET = 'test-bucket';
-      process.env.CDN_URL = 'https://cdn.test.com';
-
+      mockConfig.accessKeyId = '';
+      mockS3Enabled = false;
       expect(isS3Configured()).toBe(false);
     });
 
     it('should return false when secret key is missing', () => {
-      process.env.S3_PUBLIC_REGION = 'us-east-1';
-      process.env.S3_PUBLIC_ACCESS_KEY_ID = 'AKIATEST';
-      process.env.S3_PUBLIC_BUCKET = 'test-bucket';
-      process.env.CDN_URL = 'https://cdn.test.com';
-
+      mockConfig.secretAccessKey = '';
+      mockS3Enabled = false;
       expect(isS3Configured()).toBe(false);
     });
 
     it('should return false when bucket is missing', () => {
-      process.env.S3_PUBLIC_REGION = 'us-east-1';
-      process.env.S3_PUBLIC_ACCESS_KEY_ID = 'AKIATEST';
-      process.env.S3_PUBLIC_SECRET_ACCESS_KEY = 'secrettest';
-      process.env.CDN_URL = 'https://cdn.test.com';
-
+      mockConfig.bucket = '';
+      mockS3Enabled = false;
       expect(isS3Configured()).toBe(false);
     });
 
     it('should return false when CDN URL is missing', () => {
-      process.env.S3_PUBLIC_REGION = 'us-east-1';
-      process.env.S3_PUBLIC_ACCESS_KEY_ID = 'AKIATEST';
-      process.env.S3_PUBLIC_SECRET_ACCESS_KEY = 'secrettest';
-      process.env.S3_PUBLIC_BUCKET = 'test-bucket';
-
+      mockConfig.cdnUrl = '';
+      mockS3Enabled = false;
       expect(isS3Configured()).toBe(false);
     });
 
     it('should return false when all env vars are empty strings', () => {
-      process.env.S3_PUBLIC_REGION = '';
-      process.env.S3_PUBLIC_ACCESS_KEY_ID = '';
-      process.env.S3_PUBLIC_SECRET_ACCESS_KEY = '';
-      process.env.S3_PUBLIC_BUCKET = '';
-      process.env.CDN_URL = '';
-
+      mockConfig = {
+        region: '',
+        accessKeyId: '',
+        secretAccessKey: '',
+        bucket: '',
+        cdnUrl: '',
+      };
+      mockS3Enabled = false;
       expect(isS3Configured()).toBe(false);
     });
   });
 
   describe('getBucketName', () => {
     it('should return bucket name from env', () => {
-      process.env.S3_PUBLIC_BUCKET = 'test-bucket-123';
+      mockConfig.bucket = 'test-bucket-123';
       expect(getBucketName()).toBe('test-bucket-123');
     });
 
     it('should throw error when bucket not configured', () => {
-      delete process.env.S3_PUBLIC_BUCKET;
+      mockConfig.bucket = '';
       expect(() => getBucketName()).toThrow('S3_PUBLIC_BUCKET environment variable not configured');
     });
   });
 
   describe('getCdnUrl', () => {
     it('should return CDN URL from env', () => {
-      process.env.CDN_URL = 'https://cdn.example.com';
+      mockConfig.cdnUrl = 'https://cdn.example.com';
       expect(getCdnUrl()).toBe('https://cdn.example.com');
     });
 
     it('should throw error when CDN URL not configured', () => {
-      delete process.env.CDN_URL;
+      mockConfig.cdnUrl = '';
       expect(() => getCdnUrl()).toThrow('CDN_URL environment variable not configured');
     });
   });

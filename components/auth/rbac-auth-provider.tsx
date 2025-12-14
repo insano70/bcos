@@ -352,17 +352,27 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
     }
   }, [actions, ensureCsrfToken, setCsrfToken, clearMFAState]);
 
+  // Ref to prevent duplicate RBAC context loading requests
+  const rbacLoadInProgress = useRef(false);
+
   const loadUserContext = useCallback(async () => {
     if (!state.user) return;
 
-    // Prevent overlapping user context loading requests
-    if (state.rbacLoading) {
+    // Prevent overlapping user context loading requests using ref
+    // (state.rbacLoading is pre-set to true in LOGIN_SUCCESS, so we use a ref instead)
+    if (rbacLoadInProgress.current) {
       authLogger.log('User context already loading, skipping duplicate request');
       return;
     }
 
+    rbacLoadInProgress.current = true;
+
     try {
-      actions.rbacLoadStart();
+      // Note: rbacLoading may already be true from LOGIN_SUCCESS/REFRESH_SUCCESS
+      // Only call rbacLoadStart if not already loading to avoid unnecessary state update
+      if (!state.rbacLoading) {
+        actions.rbacLoadStart();
+      }
 
       authLogger.log('Loading user context for:', { userId: state.user.id });
 
@@ -391,6 +401,8 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
       actions.rbacLoadFailure({
         error: error instanceof Error ? error.message : 'Unknown RBAC error',
       });
+    } finally {
+      rbacLoadInProgress.current = false;
     }
   }, [state.user, state.rbacLoading, actions]);
 
@@ -493,17 +505,15 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
     }
   }, [state.isAuthenticated, refreshToken, state.isLoading]);
 
-  // Load RBAC user context when user changes (with debouncing to prevent race conditions)
+  // Load RBAC user context when user changes
+  // Note: rbacLoading is pre-set to true in LOGIN_SUCCESS/REFRESH_SUCCESS to prevent
+  // a "ready-then-not-ready" gap. We check userContext to determine if load is needed.
   useEffect(() => {
-    if (state.user && state.isAuthenticated && !state.userContext && !state.rbacLoading) {
-      // Minimal debounce to batch React updates while loading context quickly
-      const timeoutId = setTimeout(() => {
-        loadUserContext();
-      }, 10); // 10ms debounce - just enough to batch updates, fast UX
-
-      return () => clearTimeout(timeoutId);
+    if (state.user && state.isAuthenticated && !state.userContext) {
+      // Load immediately without debounce to minimize loading state gap
+      loadUserContext();
     }
-  }, [state.user, state.isAuthenticated, loadUserContext, state.rbacLoading, state.userContext]);
+  }, [state.user, state.isAuthenticated, loadUserContext, state.userContext]);
 
   const login = async (email: string, password: string, remember = false) => {
     try {

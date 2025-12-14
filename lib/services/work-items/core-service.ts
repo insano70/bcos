@@ -25,7 +25,7 @@ import { BaseWorkItemsService } from './base-service';
 import { WORK_ITEM_CONSTRAINTS } from './constants';
 import { createWorkItemCustomFieldsService } from './custom-fields-service';
 import { buildWorkItemPath, calculateHierarchyFields } from './hierarchy-service';
-import { getWorkItemQueryBuilder } from './query-builder';
+import { getWorkItemQueryBuilder, getWorkItemQueryBuilderWithCount } from './query-builder';
 import { createWorkItemStatusService } from './status-service';
 import {
   validateManagementPermission,
@@ -244,10 +244,12 @@ class WorkItemCoreService extends BaseWorkItemsService {
    * - RBAC filtering
    * - Pagination validation
    * - Sorting resolution
-   * - Count query execution
-   * - List query execution
+   * - Combined count + list query (single DB round-trip using window function)
    * - Custom field retrieval
    * - Result mapping
+   *
+   * PERFORMANCE: Uses COUNT(*) OVER() window function to get total count
+   * alongside paginated results in a single query, cutting DB round-trips in half.
    *
    * @internal - Use getWorkItems() or getWorkItemsWithCount() instead
    * @param options - Query filter and pagination options
@@ -257,19 +259,10 @@ class WorkItemCoreService extends BaseWorkItemsService {
     items: WorkItemWithDetails[];
     total: number;
     pagination: { limit: number; offset: number; sortBy: string; sortOrder: string };
-    timings: { count: number; query: number; customFields: number };
+    timings: { query: number; customFields: number };
   }> {
     // Build where conditions with RBAC filtering
     const whereConditions = this.buildWorkItemWhereConditions(options);
-
-    // Execute count query
-    const countStart = Date.now();
-    const [countResult] = await db
-      .select({ count: count() })
-      .from(work_items)
-      .where(and(...whereConditions));
-    const countDuration = Date.now() - countStart;
-    const totalCount = countResult?.count || 0;
 
     // Build sorting
     const sortBy = options.sortBy || 'created_at';
@@ -302,14 +295,19 @@ class WorkItemCoreService extends BaseWorkItemsService {
       WORK_ITEM_CONSTRAINTS.DEFAULT_PAGE_LIMIT
     );
 
-    // Execute list query with joins
+    // Execute combined query with window count (single DB round-trip)
+    // COUNT(*) OVER() returns total matching rows alongside each result row
     const queryStart = Date.now();
-    const results = await getWorkItemQueryBuilder()
+    const results = await getWorkItemQueryBuilderWithCount()
       .where(and(...whereConditions))
       .orderBy(orderByClause)
       .limit(limit)
       .offset(offset);
     const queryDuration = Date.now() - queryStart;
+
+    // Extract total count from first row (window function puts it on every row)
+    const firstResult = results[0];
+    const totalCount = firstResult?.total_count ?? 0;
 
     // Fetch custom field values for all work items
     const workItemIds = results.map((r) => r.work_item_id);
@@ -318,17 +316,18 @@ class WorkItemCoreService extends BaseWorkItemsService {
     const customFieldsMap = await customFieldsService.getCustomFieldValues(workItemIds);
     const customFieldsDuration = Date.now() - customFieldsStart;
 
-    // Map results to WorkItemWithDetails
-    const items = results.map((result) =>
-      this.mapWorkItemResult(result, customFieldsMap.get(result.work_item_id))
-    );
+    // Map results to WorkItemWithDetails (exclude total_count from result mapping)
+    const items = results.map((result) => {
+      // Destructure to exclude total_count from the result passed to mapWorkItemResult
+      const { total_count: _totalCount, ...workItemData } = result;
+      return this.mapWorkItemResult(workItemData, customFieldsMap.get(result.work_item_id));
+    });
 
     return {
       items,
       total: totalCount,
       pagination: { limit, offset, sortBy, sortOrder },
       timings: {
-        count: countDuration,
         query: queryDuration,
         customFields: customFieldsDuration,
       },
@@ -395,10 +394,8 @@ class WorkItemCoreService extends BaseWorkItemsService {
         },
         duration,
         metadata: {
-          countDuration: timings.count,
           queryDuration: timings.query,
           customFieldsDuration: timings.customFields,
-          slowCount: timings.count > SLOW_THRESHOLDS.DB_QUERY,
           slowQuery: timings.query > SLOW_THRESHOLDS.DB_QUERY,
           slowCustomFields: timings.customFields > SLOW_THRESHOLDS.DB_QUERY,
           rbacScope: this.getRBACScope(),
@@ -407,6 +404,7 @@ class WorkItemCoreService extends BaseWorkItemsService {
           sortBy: pagination.sortBy,
           sortOrder: pagination.sortOrder,
           component: 'core_service',
+          optimization: 'window_count', // Single query with COUNT(*) OVER()
         },
       });
 
@@ -462,13 +460,12 @@ class WorkItemCoreService extends BaseWorkItemsService {
         duration,
         component: 'core_service',
         metadata: {
-          countDuration: timings.count,
           queryDuration: timings.query,
           customFieldsDuration: timings.customFields,
-          slowCount: timings.count > SLOW_THRESHOLDS.DB_QUERY,
           slowQuery: timings.query > SLOW_THRESHOLDS.DB_QUERY,
           slowCustomFields: timings.customFields > SLOW_THRESHOLDS.DB_QUERY,
           rbacScope: this.getRBACScope(),
+          optimization: 'window_count', // Single query with COUNT(*) OVER()
         },
       });
 

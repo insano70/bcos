@@ -81,161 +81,162 @@ export default function AnalyticsDualAxisChart({
       existingChart.destroy();
     }
 
+    // Track whether cleanup has been called (to prevent creating chart after unmount)
+    let isCancelled = false;
+    let newChart: Chart | null = null;
+
     // Defer initialization until after React's layout phase (fixes race condition)
+    // Single RAF is sufficient - canvas should be ready after first frame
     const rafId = requestAnimationFrame(() => {
-      // Double RAF ensures we're after paint
-      requestAnimationFrame(() => {
-        // Re-check connection after deferral
-        if (!canvasElement.isConnected) {
-          console.warn('[AnalyticsDualAxisChart] Canvas disconnected during initialization deferral');
-          return;
-        }
+      // Re-check connection after deferral (component may have unmounted)
+      if (isCancelled || !canvasElement.isConnected) {
+        return;
+      }
 
-    // Create chart configuration
-    const config: ChartConfiguration = {
-      type: 'bar',
-      data: chartData as ChartJSData<'bar'>,
-      options: {
-        layout: {
-          padding: 0,
-        },
-        scales: {
-          x: {
-            display: true,
-            grid: {
-              display: false,
-            },
-            ticks: {
-              color: darkMode ? textColor.dark : textColor.light,
-              font: {
-                size: 11,
+      // Create chart configuration
+      const config: ChartConfiguration = {
+        type: 'bar',
+        data: chartData as ChartJSData<'bar'>,
+        options: {
+          layout: {
+            padding: 0,
+          },
+          scales: {
+            x: {
+              display: true,
+              grid: {
+                display: false,
               },
-              maxRotation: 45,
-              minRotation: 0,
+              ticks: {
+                color: darkMode ? textColor.dark : textColor.light,
+                font: {
+                  size: 11,
+                },
+                maxRotation: 45,
+                minRotation: 0,
+              },
+            },
+            'y-left': {
+              type: 'linear',
+              position: 'left',
+              display: true,
+              title: {
+                display: !!dualAxisConfig?.primary.axisLabel,
+                text: dualAxisConfig?.primary.axisLabel || '',
+                color: darkMode ? textColor.dark : textColor.light,
+                font: {
+                  size: 12,
+                  weight: 'bold',
+                },
+              },
+              grid: {
+                color: darkMode ? gridColor.dark : gridColor.light,
+              },
+              ticks: {
+                color: darkMode ? textColor.dark : textColor.light,
+                font: {
+                  size: 11,
+                },
+                callback: (tickValue: string | number) => {
+                  const value = Number(tickValue);
+                  const primaryMeasureType = chartData.datasets[0]?.measureType;
+                  return formatValueCompact(value, primaryMeasureType || 'number');
+                },
+              },
+            },
+            'y-right': {
+              type: 'linear',
+              position: 'right',
+              display: true,
+              title: {
+                display: !!dualAxisConfig?.secondary.axisLabel,
+                text: dualAxisConfig?.secondary.axisLabel || '',
+                color: darkMode ? textColor.dark : textColor.light,
+                font: {
+                  size: 12,
+                  weight: 'bold',
+                },
+              },
+              grid: {
+                drawOnChartArea: false, // Only show grid for left y-axis
+              },
+              ticks: {
+                color: darkMode ? textColor.dark : textColor.light,
+                font: {
+                  size: 11,
+                },
+                callback: (tickValue: string | number) => {
+                  const value = Number(tickValue);
+                  const secondaryMeasureType = chartData.datasets[1]?.measureType;
+                  return formatValueCompact(value, secondaryMeasureType || 'number');
+                },
+              },
             },
           },
-          'y-left': {
-            type: 'linear',
-            position: 'left',
-            display: true,
+          plugins: {
+            legend: {
+              display: true,
+              position: 'top',
+              labels: {
+                usePointStyle: true,
+                padding: 15,
+                color: darkMode ? textColor.dark : textColor.light,
+                font: {
+                  size: 12,
+                },
+              },
+            },
             title: {
-              display: !!dualAxisConfig?.primary.axisLabel,
-              text: dualAxisConfig?.primary.axisLabel || '',
+              display: !!title,
+              text: title || '',
               color: darkMode ? textColor.dark : textColor.light,
               font: {
-                size: 12,
+                size: 16,
                 weight: 'bold',
               },
-            },
-            grid: {
-              color: darkMode ? gridColor.dark : gridColor.light,
-            },
-            ticks: {
-              color: darkMode ? textColor.dark : textColor.light,
-              font: {
-                size: 11,
-              },
-              callback: (tickValue: string | number) => {
-                const value = Number(tickValue);
-                const primaryMeasureType = chartData.datasets[0]?.measureType;
-                return formatValueCompact(value, primaryMeasureType || 'number');
+              padding: {
+                top: 10,
+                bottom: 20,
               },
             },
-          },
-          'y-right': {
-            type: 'linear',
-            position: 'right',
-            display: true,
-            title: {
-              display: !!dualAxisConfig?.secondary.axisLabel,
-              text: dualAxisConfig?.secondary.axisLabel || '',
-              color: darkMode ? textColor.dark : textColor.light,
-              font: {
-                size: 12,
-                weight: 'bold',
-              },
-            },
-            grid: {
-              drawOnChartArea: false, // Only show grid for left y-axis
-            },
-            ticks: {
-              color: darkMode ? textColor.dark : textColor.light,
-              font: {
-                size: 11,
-              },
-              callback: (tickValue: string | number) => {
-                const value = Number(tickValue);
-                const secondaryMeasureType = chartData.datasets[1]?.measureType;
-                return formatValueCompact(value, secondaryMeasureType || 'number');
+            tooltip: {
+              backgroundColor: darkMode ? tooltipBgColor.dark : tooltipBgColor.light,
+              titleColor: darkMode ? tooltipBodyColor.dark : tooltipBodyColor.light,
+              bodyColor: darkMode ? tooltipBodyColor.dark : tooltipBodyColor.light,
+              borderColor: darkMode ? tooltipBorderColor.dark : tooltipBorderColor.light,
+              borderWidth: 1,
+              padding: 12,
+              displayColors: true,
+              callbacks: {
+                label: (context) => {
+                  const label = context.dataset.label || '';
+                  const value = context.parsed.y ?? 0;
+                  const measureType = getMeasureTypeFromChart(context.dataset, 'number');
+                  const formattedValue = formatValue(value, measureType);
+                  return `${label}: ${formattedValue}`;
+                },
               },
             },
           },
+          interaction: {
+            mode: 'index',
+            intersect: false,
+          },
+          responsive: false, // Disable Chart.js responsive mode (we handle it manually)
+          maintainAspectRatio: false,
         },
-        plugins: {
-          legend: {
-            display: true,
-            position: 'top',
-            labels: {
-              usePointStyle: true,
-              padding: 15,
-              color: darkMode ? textColor.dark : textColor.light,
-              font: {
-                size: 12,
-              },
-            },
-          },
-          title: {
-            display: !!title,
-            text: title || '',
-            color: darkMode ? textColor.dark : textColor.light,
-            font: {
-              size: 16,
-              weight: 'bold',
-            },
-            padding: {
-              top: 10,
-              bottom: 20,
-            },
-          },
-          tooltip: {
-            backgroundColor: darkMode ? tooltipBgColor.dark : tooltipBgColor.light,
-            titleColor: darkMode ? tooltipBodyColor.dark : tooltipBodyColor.light,
-            bodyColor: darkMode ? tooltipBodyColor.dark : tooltipBodyColor.light,
-            borderColor: darkMode ? tooltipBorderColor.dark : tooltipBorderColor.light,
-            borderWidth: 1,
-            padding: 12,
-            displayColors: true,
-            callbacks: {
-              label: (context) => {
-                const label = context.dataset.label || '';
-                const value = context.parsed.y ?? 0;
-                const measureType = getMeasureTypeFromChart(context.dataset, 'number');
-                const formattedValue = formatValue(value, measureType);
-                return `${label}: ${formattedValue}`;
-              },
-            },
-          },
-        },
-        interaction: {
-          mode: 'index',
-          intersect: false,
-        },
-        responsive: false, // Disable Chart.js responsive mode (we handle it manually)
-        maintainAspectRatio: false,
-      },
-    };
+      };
 
-        const newChart = new Chart(ctx, config);
-        setChart(newChart);
-      });
+      newChart = new Chart(ctx, config);
+      setChart(newChart);
     });
 
     // Cleanup function
     return () => {
-      // Clean up animation frame if component unmounts during deferral
+      isCancelled = true;
       cancelAnimationFrame(rafId);
-      if (chart) {
-        chart.destroy();
+      if (newChart) {
+        newChart.destroy();
       }
     };
   }, [chartData, darkMode, theme, title, dualAxisConfig]);

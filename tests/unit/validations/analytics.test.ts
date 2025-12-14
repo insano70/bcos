@@ -585,7 +585,7 @@ describe('analytics validation schemas', () => {
 
     it('should reject invalid limit range', () => {
       const invalidData = {
-        limit: 150,
+        limit: 1001, // Schema max is 1000
       };
 
       const result = analyticsQuerySchema.safeParse(invalidData);

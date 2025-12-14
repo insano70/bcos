@@ -1,0 +1,100 @@
+name: Test Suite
+
+on:
+  pull_request:
+    branches: [main, staging]
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '24'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: bcos_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run type check
+        run: pnpm tsc --noEmit
+
+      - name: Run linter
+        run: pnpm lint
+
+      - name: Run database migrations
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/bcos_test
+        run: pnpm drizzle-kit migrate
+
+      - name: Run tests
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/bcos_test
+          REDIS_URL: redis://localhost:6379
+          JWT_SECRET: test-secret-that-is-at-least-32-characters-long-for-security
+          JWT_REFRESH_SECRET: test-refresh-secret-that-is-at-least-32-characters-long
+          CSRF_SECRET: test-csrf-secret-that-is-at-least-32-characters
+          MFA_TEMP_TOKEN_SECRET: test-mfa-secret-that-is-at-least-32-characters
+          NODE_ENV: test
+        run: pnpm test:run
+
+      - name: Verify test cleanup (no pollution)
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/bcos_test
+        run: |
+          echo "Checking for test data pollution..."
+          OUTPUT=$(pnpm tsx scripts/cleanup-test-data.ts --dry-run 2>&1)
+          echo "$OUTPUT"
+
+          # Check if any test data was found
+          if echo "$OUTPUT" | grep -q "No test data found"; then
+            echo "✅ Test database is clean - no pollution detected"
+          else
+            echo "⚠️ Test data pollution detected!"
+            echo "Tests should clean up after themselves."
+            echo ""
+            echo "If this is expected (e.g., seed data), update the cleanup patterns."
+            echo "Otherwise, fix the tests to properly clean up."
+            # Don't fail the build, just warn
+            # exit 1
+          fi

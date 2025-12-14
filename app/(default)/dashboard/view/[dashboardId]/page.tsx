@@ -7,6 +7,25 @@ import { apiClient } from '@/lib/api/client';
 import { usePublishedDashboards } from '@/lib/hooks/use-published-dashboards';
 import type { Dashboard, DashboardChart } from '@/lib/types/analytics';
 
+/**
+ * In-content loading skeleton for dashboard
+ * Uses non-fixed positioning to work correctly inside Framer Motion transforms.
+ * Auth/RBAC loading is handled by the layout's AuthTransitionOverlay.
+ */
+function DashboardLoadingSkeleton() {
+  return (
+    <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-9xl mx-auto">
+      <div className="flex flex-col items-center justify-center min-h-[60vh]">
+        <div className="relative inline-block mb-4">
+          <div className="w-12 h-12 border-4 border-violet-200 dark:border-violet-900 rounded-full" />
+          <div className="absolute top-0 left-0 w-12 h-12 border-4 border-violet-600 dark:border-violet-400 border-t-transparent rounded-full animate-spin" />
+        </div>
+        <p className="text-lg text-gray-600 dark:text-gray-400">Loading dashboard...</p>
+      </div>
+    </div>
+  );
+}
+
 interface DashboardViewData {
   dashboard: Dashboard;
   charts: DashboardChart[];
@@ -17,6 +36,9 @@ export default function DashboardViewPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const dashboardId = params.dashboardId as string;
+
+  // Note: Auth/RBAC loading is handled by layout's AuthTransitionOverlay
+  // This page only manages dashboard data loading state
 
   const [dashboardData, setDashboardData] = useState<DashboardViewData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -107,17 +129,10 @@ export default function DashboardViewPage() {
     }
   }, [dashboardId, loadDashboard]);
 
+  // Show in-content skeleton while loading dashboard data
+  // Note: Auth/RBAC loading shows layout's full-screen overlay instead
   if (loading) {
-    return (
-      <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-9xl mx-auto">
-        <div className="flex items-center justify-center h-96">
-          <div className="flex items-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-600" />
-            <span className="ml-3 text-gray-600 dark:text-gray-400">Loading...</span>
-          </div>
-        </div>
-      </div>
-    );
+    return <DashboardLoadingSkeleton />;
   }
 
   if (error || !dashboardData) {

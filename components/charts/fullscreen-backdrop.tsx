@@ -46,7 +46,7 @@ export default function FullscreenBackdrop({ isVisible, onClose }: FullscreenBac
     <AnimatePresence>
       {isVisible && (
         <motion.div
-          className="fixed inset-0 z-40 bg-black/80"
+          className="fixed inset-0 z-40 bg-black"
           variants={backdropVariants}
           initial="initial"
           animate="animate"

@@ -1,4 +1,3 @@
-import { memo } from 'react';
 import type { FieldErrors, FieldValues, UseFormSetValue, UseFormWatch } from 'react-hook-form';
 import type { CustomFieldConfig } from '../types';
 
@@ -10,7 +9,12 @@ interface CustomFieldProps<TFormData extends FieldValues = FieldValues> {
   isSubmitting: boolean;
 }
 
-function CustomFieldInner<TFormData extends FieldValues = FieldValues>({
+// NOTE: Do NOT wrap this component with memo()!
+// CustomField uses watch() to subscribe to form value changes.
+// memo() blocks re-renders triggered by watch() subscriptions because
+// it only compares props, not internal subscription state.
+// This causes the component to show stale values after selection.
+export default function CustomField<TFormData extends FieldValues = FieldValues>({
   field,
   errors,
   watch,
@@ -46,6 +50,3 @@ function CustomFieldInner<TFormData extends FieldValues = FieldValues>({
     </div>
   );
 }
-
-const CustomField = memo(CustomFieldInner) as typeof CustomFieldInner;
-export default CustomField;

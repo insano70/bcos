@@ -33,6 +33,18 @@ ENV MFA_TEMP_TOKEN_SECRET="dummy-mfa-temp-token-secret-for-build-only-min-32-cha
 
 RUN pnpm build
 
+# Compile the cache warming worker as a standalone bundle
+# This is necessary because Next.js standalone output doesn't include worker thread files
+# The worker runs in an isolated V8 context and needs its own bundled dependencies
+RUN mkdir -p workers && \
+    npx esbuild lib/cache/warming-worker.ts \
+      --bundle \
+      --platform=node \
+      --target=node24 \
+      --outfile=workers/warming-worker.js \
+      --external:pg-native \
+      --format=cjs
+
 # Production stage
 FROM node:24-alpine AS runtime
 
@@ -58,6 +70,9 @@ COPY --from=builder --chown=bcos:nodejs /app/.next/static ./.next/static
 
 # Copy runtime dependencies
 COPY --from=builder --chown=bcos:nodejs /app/node_modules ./node_modules
+
+# Copy compiled cache warming worker
+COPY --from=builder --chown=bcos:nodejs /app/workers ./workers
 
 # Copy migration files and scripts for database migrations
 COPY --from=builder --chown=bcos:nodejs /app/lib/db/migrations ./lib/db/migrations

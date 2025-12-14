@@ -1,5 +1,6 @@
 import { afterAll, afterEach, beforeAll, beforeEach } from 'vitest';
 import { log } from '@/lib/logger';
+import { logCleanupVerification } from '@/tests/helpers/cleanup-verification';
 import {
   cleanupTestDb,
   getTestTransaction,
@@ -112,6 +113,10 @@ afterAll(async () => {
     log.info('Process cleanup completed', {
       operation: 'processCleanup',
     });
+
+    // Verify no test data pollution (uses separate connection, not the test transaction)
+    // Only warn, don't fail tests (cleanup should be run separately if needed)
+    await logCleanupVerification({ silent: true });
   } catch (error) {
     log.error('Process cleanup failed', error instanceof Error ? error : new Error(String(error)), {
       operation: 'processCleanup',

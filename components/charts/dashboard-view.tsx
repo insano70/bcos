@@ -165,16 +165,9 @@ export default function DashboardView({
   if (isLoading) {
     return (
       <DashboardLoadingState
-        dashboardName={dashboard.dashboard_name}
-        showFilterBar={showFilterBar}
-        universalFilters={universalFilters}
-        defaultFilters={filterConfig?.defaultFilters as DashboardUniversalFilters | undefined}
-        onFilterChange={handleFilterChange}
-        onRemoveFilter={handleRemoveFilter}
         showFullscreenLoading={shouldBeFullscreen}
         onFullscreenClose={handleMobileFullscreenClose}
         crossDashboardNav={crossDashboardNavProps}
-        accessibleOrganizationCount={accessibleOrganizationIds.length}
       />
     );
   }

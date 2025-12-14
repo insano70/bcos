@@ -23,6 +23,9 @@ import { AuthenticationError, AuthorizationError } from '../responses/error';
  * @throws AuthenticationError for all auth-related failures (401)
  */
 export async function requireAuth(request: Request) {
+  const startTime = Date.now();
+  const timings: Record<string, number> = {};
+
   // Extract access token from Authorization header OR httpOnly cookie
   const authHeader = request.headers.get('Authorization');
   let accessToken: string | null = null;
@@ -59,7 +62,10 @@ export async function requireAuth(request: Request) {
   }
 
   // Validate access token
+  const t1 = Date.now();
   const payload = await validateAccessToken(accessToken);
+  timings.validateToken = Date.now() - t1;
+
   if (!payload) {
     log.security('auth_invalid_token', 'medium', {
       tokenSource,
@@ -72,7 +78,9 @@ export async function requireAuth(request: Request) {
   const sessionId = payload.session_id as string;
 
   // Get user info from cache or database
+  const t2 = Date.now();
   const user = await authCache.getUser(userId);
+  timings.getUser = Date.now() - t2;
 
   if (!user) {
     log.security('auth_user_not_found', 'medium', {
@@ -94,9 +102,12 @@ export async function requireAuth(request: Request) {
 
   // Get user's RBAC context - use throwing version to properly handle auth errors
   let userContext: UserContext;
+  const t3 = Date.now();
   try {
     userContext = await getUserContextOrThrow(user.user_id);
+    timings.getUserContext = Date.now() - t3;
   } catch (error) {
+    timings.getUserContext = Date.now() - t3;
     // UserContextAuthError means auth failure (user not found, inactive, etc.)
     if (error instanceof UserContextAuthError) {
       log.security('auth_context_load_failed', 'medium', {
@@ -125,6 +136,14 @@ export async function requireAuth(request: Request) {
   // Get the user's actual assigned roles
   const userRoles = userContext.roles?.map((r) => r.name) || [];
   const primaryRole = userRoles.length > 0 ? userRoles[0] : 'user';
+
+  // Log timing breakdown for performance analysis
+  timings.total = Date.now() - startTime;
+  log.info('[PERF] requireAuth timing breakdown', {
+    userId,
+    timings,
+    totalMs: timings.total,
+  });
 
   // Return session-like object with actual RBAC information
   return {

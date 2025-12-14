@@ -7,10 +7,12 @@ import { TestDatabasePool } from '../helpers/test-database-pool';
  * Handles database migrations and global initialization
  */
 export async function setup() {
-  // Ensure we have a database URL - use same fallback as test-setup.ts
+  // Require DATABASE_URL to be set - no hardcoded fallbacks for security
   if (!process.env.DATABASE_URL) {
-    process.env.DATABASE_URL = 'postgresql://bcos_d:oRMgpg2micRfQVXz7Bfbr@localhost:5432/bcos_d';
-    // TEST: console.log('📝 Using default DATABASE_URL for tests')
+    throw new Error(
+      'DATABASE_URL environment variable is required.\n' +
+        'Copy .env.test.example to .env.test and configure your test database.'
+    );
   }
 
   // TEST: console.log('📊 Initializing test database...')

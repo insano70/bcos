@@ -156,7 +156,7 @@ export function authReducer(state: AuthState, action: AuthAction): AuthState {
         isLoading: false,
         isAuthenticated: true,
         userContext: null, // Will be loaded by useEffect
-        rbacLoading: false,
+        rbacLoading: true, // Keep loading state until RBAC context loads
         rbacError: null,
       };
 
@@ -192,7 +192,7 @@ export function authReducer(state: AuthState, action: AuthAction): AuthState {
         isRefreshRetrying: false,
         refreshRetryCount: 0,
         userContext: null, // Will be reloaded if needed
-        rbacLoading: false,
+        rbacLoading: true, // Keep loading state until RBAC context loads
         rbacError: null,
       };
 

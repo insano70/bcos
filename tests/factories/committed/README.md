@@ -569,6 +569,62 @@ import { createCommittedUser } from '@/tests/factories/committed'
 const user = await createCommittedUser({ scope: scopeId })
 ```
 
+## Database Cleanup Tools
+
+### Manual Cleanup Script
+
+When the database becomes polluted with test data (e.g., after test failures or interrupted tests), run:
+
+```bash
+# Show what would be deleted (dry run)
+pnpm tsx scripts/cleanup-test-data.ts --dry-run
+
+# Delete with confirmation prompt
+pnpm tsx scripts/cleanup-test-data.ts
+
+# Delete without confirmation (CI environments)
+pnpm tsx scripts/cleanup-test-data.ts --force
+```
+
+**Safety Features**:
+- Refuses to run against production databases
+- Shows counts before deletion
+- Handles FK constraints in correct order
+
+### Cleanup Verification
+
+The test setup automatically checks for pollution after tests complete:
+
+```typescript
+import { logCleanupVerification, countTestEntities } from '@/tests/helpers/cleanup-verification'
+
+// After test run - shows warning if pollution detected
+afterAll(async () => {
+  await logCleanupVerification()
+})
+
+// Or check programmatically
+const counts = await countTestEntities()
+if (counts.users > 0) {
+  console.warn(`${counts.users} test users remain in database`)
+}
+```
+
+### Test Data Identification Patterns
+
+Test data is identified by these patterns:
+
+| Entity | Pattern |
+|--------|---------|
+| Users | `email LIKE '%@test.local'` OR `email LIKE '%test%'` OR `first_name LIKE 'Test%'` |
+| Organizations | `name LIKE 'Test%'` OR `name LIKE 'test_%'` OR `slug LIKE 'test_%'` |
+| Roles | `name LIKE 'test_%'` OR `name LIKE '%test%'` |
+| Work Item Types | `name LIKE 'Test%'` OR `name LIKE '%test%'` OR `name LIKE 'type_test_%'` |
+| Dashboards | `dashboard_name LIKE 'Test%'` OR `dashboard_name LIKE '%test%'` |
+| Practices | `name LIKE 'Test%'` OR `domain LIKE '%.local'` |
+
+**IMPORTANT**: When creating test data manually (not via factories), ensure names/emails follow these patterns for automatic cleanup.
+
 ## Further Reading
 
 - [Factory Usage Guide](../FACTORY_USAGE_GUIDE.md) - Complete usage guide

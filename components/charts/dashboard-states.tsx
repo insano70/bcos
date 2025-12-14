@@ -11,9 +11,6 @@
 
 import dynamic from 'next/dynamic';
 import { DASHBOARD_MESSAGES } from '@/lib/constants/dashboard-messages';
-import type { DashboardUniversalFilters } from '@/hooks/useDashboardData';
-import DashboardFilterDropdown from './dashboard-filter-dropdown';
-import DashboardFilterPills from './dashboard-filter-pills';
 
 // Lazy load fullscreen loading modal
 const FullscreenLoadingModal = dynamic(() => import('./fullscreen-loading-modal'), {
@@ -24,18 +21,6 @@ const FullscreenLoadingModal = dynamic(() => import('./fullscreen-loading-modal'
  * Props for DashboardLoadingState component
  */
 interface DashboardLoadingStateProps {
-  /** Dashboard name to display */
-  dashboardName: string;
-  /** Whether filter bar should be shown */
-  showFilterBar: boolean;
-  /** Current filter state */
-  universalFilters: DashboardUniversalFilters;
-  /** Filter config defaults */
-  defaultFilters?: DashboardUniversalFilters | undefined;
-  /** Handle filter changes */
-  onFilterChange: (filters: DashboardUniversalFilters) => void;
-  /** Handle filter removal */
-  onRemoveFilter: (filterKey: keyof DashboardUniversalFilters) => void;
   /** Whether to show fullscreen loading (mobile transition) */
   showFullscreenLoading?: boolean | undefined;
   /** Close handler for fullscreen loading */
@@ -48,8 +33,6 @@ interface DashboardLoadingStateProps {
     onNextDashboard?: (() => void) | undefined;
     onPreviousDashboard?: (() => void) | undefined;
   } | undefined;
-  /** Number of orgs user can access (hides org pill if 1) */
-  accessibleOrganizationCount?: number | undefined;
 }
 
 /**
@@ -59,16 +42,9 @@ interface DashboardLoadingStateProps {
  * Supports fullscreen loading modal for mobile transitions.
  */
 export function DashboardLoadingState({
-  dashboardName,
-  showFilterBar,
-  universalFilters,
-  defaultFilters,
-  onFilterChange,
-  onRemoveFilter,
   showFullscreenLoading,
   onFullscreenClose,
   crossDashboardNav,
-  accessibleOrganizationCount,
 }: DashboardLoadingStateProps) {
   // If we should be in fullscreen mode (transitioning between dashboards), show fullscreen loading
   if (showFullscreenLoading && onFullscreenClose) {
@@ -85,39 +61,18 @@ export function DashboardLoadingState({
     );
   }
 
-  // Regular loading state for non-fullscreen
+  // In-content loading state (non-fixed):
+  // Do NOT use a full-viewport fixed overlay here, because it will cover the sidebar/header
+  // and create "nav appears → fullscreen loader → nav appears" thrashing while dashboard
+  // data loads. Auth/RBAC fullscreen loading is handled by the layout-level overlay.
   return (
-    <div className="space-y-4">
-      {/* Title Row - visible during loading */}
-      <div className="flex items-center justify-between gap-4 px-4 pt-4">
-        <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
-          {dashboardName || 'Loading Dashboard...'}
-        </h1>
-
-        {/* Filter controls visible but disabled during loading */}
-        {showFilterBar && (
-          <div className="flex items-center gap-3 opacity-50 pointer-events-none">
-            <DashboardFilterPills
-              filters={universalFilters}
-              defaultFilters={defaultFilters}
-              onRemoveFilter={onRemoveFilter}
-              loading={true}
-              accessibleOrganizationCount={accessibleOrganizationCount}
-            />
-            <DashboardFilterDropdown
-              initialFilters={universalFilters}
-              onFiltersChange={onFilterChange}
-              loading={true}
-              align="right"
-            />
-          </div>
-        )}
-      </div>
-
-      {/* Simple centered spinner */}
-      <div className="flex items-center justify-center min-h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-600" />
-        <span className="ml-3 text-gray-600 dark:text-gray-400">Loading...</span>
+    <div role="status" aria-live="polite" aria-busy="true" className="flex items-center justify-center min-h-[60vh]">
+      <div className="flex items-center">
+        <div
+          className="animate-spin rounded-full h-10 w-10 border-b-2 border-violet-600"
+          aria-hidden="true"
+        />
+        <span className="ml-3 text-lg text-gray-600 dark:text-gray-400">Loading...</span>
       </div>
     </div>
   );

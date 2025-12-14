@@ -14,9 +14,15 @@ import { getAllPermissions, getAllRoles, SAMPLE_ORGANIZATIONS } from '../lib/db/
  * Do not define permissions/roles here - update rbac-seed-data.ts instead
  */
 
-// Create connection with minimal config
-const DATABASE_URL =
-  process.env.DATABASE_URL || 'postgresql://bcos_d:oRMgpg2micRfQVXz7Bfbr@localhost:5432/bcos_d';
+// Require DATABASE_URL from environment - no hardcoded credentials
+const DATABASE_URL = process.env.DATABASE_URL;
+if (!DATABASE_URL) {
+  console.error('ERROR: DATABASE_URL environment variable is required.');
+  console.error('Set it before running this script, e.g.:');
+  console.error('  DATABASE_URL=postgresql://user:pass@localhost:5432/db pnpm tsx scripts/run-rbac-migration.ts');
+  process.exit(1);
+}
+
 const client = postgres(DATABASE_URL);
 const db = drizzle(client, { schema: { permissions, roles, role_permissions, organizations } });
 

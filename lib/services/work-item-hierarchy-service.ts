@@ -35,23 +35,25 @@ export interface WorkItemHierarchyServiceInterface {
  * Provides hierarchy operations with automatic RBAC enforcement.
  */
 class WorkItemHierarchyService implements WorkItemHierarchyServiceInterface {
-  private readonly canManageAll: boolean;
-  private readonly canManageOwn: boolean;
-  private readonly canManageOrg: boolean;
+  private readonly canUpdateAll: boolean;
+  private readonly canUpdateOwn: boolean;
+  private readonly canUpdateOrg: boolean;
   private readonly accessibleOrgIds: string[];
 
   constructor(private readonly userContext: UserContext) {
     // Cache permission checks once in constructor
-    this.canManageAll =
+    // Moving work items is an update operation, not a manage operation
+    // (manage is for work item types, statuses, and fields - metadata)
+    this.canUpdateAll =
       userContext.is_super_admin ||
-      userContext.all_permissions?.some((p) => p.name === 'work-items:manage:all') ||
+      userContext.all_permissions?.some((p) => p.name === 'work-items:update:all') ||
       false;
 
-    this.canManageOwn =
-      userContext.all_permissions?.some((p) => p.name === 'work-items:manage:own') || false;
+    this.canUpdateOwn =
+      userContext.all_permissions?.some((p) => p.name === 'work-items:update:own') || false;
 
-    this.canManageOrg =
-      userContext.all_permissions?.some((p) => p.name === 'work-items:manage:organization') ||
+    this.canUpdateOrg =
+      userContext.all_permissions?.some((p) => p.name === 'work-items:update:organization') ||
       false;
 
     // Cache accessible organization IDs
@@ -75,8 +77,8 @@ class WorkItemHierarchyService implements WorkItemHierarchyServiceInterface {
     const startTime = Date.now();
 
     try {
-      // Check permission
-      if (!this.canManageAll && !this.canManageOrg && !this.canManageOwn) {
+      // Check permission (update permissions, not manage - manage is for metadata)
+      if (!this.canUpdateAll && !this.canUpdateOrg && !this.canUpdateOwn) {
         throw AuthorizationError('You do not have permission to move work items');
       }
 
@@ -93,14 +95,14 @@ class WorkItemHierarchyService implements WorkItemHierarchyServiceInterface {
       }
 
       // Check permission on this specific work item
-      if (!this.canManageAll) {
-        if (this.canManageOrg) {
+      if (!this.canUpdateAll) {
+        if (this.canUpdateOrg) {
           if (!this.accessibleOrgIds.includes(workItem.organization_id)) {
             throw AuthorizationError(
               'You do not have permission to move work items in this organization'
             );
           }
-        } else if (this.canManageOwn) {
+        } else if (this.canUpdateOwn) {
           if (workItem.created_by !== this.userContext.user_id) {
             throw AuthorizationError('You can only move your own work items');
           }
@@ -176,6 +178,10 @@ class WorkItemHierarchyService implements WorkItemHierarchyServiceInterface {
         });
       }
 
+      // Store the old path BEFORE updating - needed to find descendants
+      // Descendants still have paths starting with the old prefix
+      const oldPath = workItem.path || `/${workItemId}`;
+
       // Update the work item and all descendants in a transaction for atomicity
       const { updateDuration, descendantsUpdated, descendantsDuration } = await db.transaction(
         async (tx) => {
@@ -193,11 +199,12 @@ class WorkItemHierarchyService implements WorkItemHierarchyServiceInterface {
             .where(eq(work_items.work_item_id, workItemId));
           const txUpdateDuration = Date.now() - txUpdateStart;
 
-          // Update all descendants in parallel within transaction
+          // Update all descendants - use OLD path to find them, NEW path to update them
           const txDescendantsStart = Date.now();
           const txDescendantsUpdated = await this.updateDescendantPaths(
             tx,
             workItemId,
+            oldPath,
             newPath,
             newRootId
           );
@@ -246,7 +253,7 @@ class WorkItemHierarchyService implements WorkItemHierarchyServiceInterface {
           updateDuration,
           totalQueries: newParentId ? 5 : 2,
           slowUpdate: updateDuration > SLOW_THRESHOLDS.DB_QUERY,
-          rbacScope: this.canManageAll ? 'all' : this.canManageOrg ? 'organization' : 'own',
+          rbacScope: this.canUpdateAll ? 'all' : this.canUpdateOrg ? 'organization' : 'own',
         },
       });
 
@@ -268,23 +275,29 @@ class WorkItemHierarchyService implements WorkItemHierarchyServiceInterface {
   /**
    * Update descendant paths when a work item is moved
    *
-   * Finds all descendants by path pattern and updates their path, depth, and root.
-   * Uses parallel updates within the transaction for performance (eliminates N+1).
+   * Finds all descendants by OLD path pattern and updates their path, depth, and root.
+   * Uses batch updates within the transaction for performance (eliminates N+1).
+   *
+   * IMPORTANT: Query uses OLD path because descendants haven't been updated yet.
+   * The update replaces the old path prefix with the new path prefix.
    *
    * @param tx - Database transaction context
    * @param workItemId - Work item that was moved
-   * @param newParentPath - New path of the moved work item
+   * @param oldPath - Old path of the moved work item (used to find descendants)
+   * @param newPath - New path of the moved work item (used to update descendants)
    * @param newRootId - New root ID for all descendants
    * @returns Number of descendants updated
    */
   private async updateDescendantPaths(
     tx: DbContext,
     workItemId: string,
-    newParentPath: string,
+    oldPath: string,
+    newPath: string,
     newRootId: string
   ): Promise<number> {
     try {
-      // Get all descendants using path pattern matching
+      // Get all descendants using OLD path pattern - descendants still have old paths
+      // Pattern: oldPath/% matches all descendants (e.g., /A/B/% for children of B under A)
       const descendants = await tx
         .select({
           work_item_id: work_items.work_item_id,
@@ -292,22 +305,23 @@ class WorkItemHierarchyService implements WorkItemHierarchyServiceInterface {
           depth: work_items.depth,
         })
         .from(work_items)
-        .where(like(work_items.path, `${newParentPath}/${workItemId}/%`));
+        .where(like(work_items.path, `${oldPath}/%`));
 
       if (descendants.length === 0) {
         log.debug('no descendants to update', {
           workItemId,
-          newParentPath,
+          oldPath,
+          newPath,
         });
         return 0;
       }
 
-      // Calculate all updates upfront
+      // Calculate all updates upfront by replacing old path prefix with new path prefix
       const updates = descendants.map((descendant) => {
-        const oldPath = descendant.path || '';
-        // Extract the relative path after this work item
-        const relativePath = oldPath.replace(new RegExp(`^.*/${workItemId}/`), '');
-        const updatedPath = `${newParentPath}/${workItemId}/${relativePath}`;
+        const descendantOldPath = descendant.path || '';
+        // Replace the old path prefix with the new path prefix
+        // e.g., /A/B/C becomes /P/A/B/C when moving A under P
+        const updatedPath = descendantOldPath.replace(oldPath, newPath);
         // Calculate new depth by counting path segments
         const updatedDepth = updatedPath.split('/').filter((id) => id).length - 1;
 
@@ -341,6 +355,8 @@ class WorkItemHierarchyService implements WorkItemHierarchyServiceInterface {
       log.debug('descendants updated successfully', {
         workItemId,
         descendantsCount: descendants.length,
+        oldPath,
+        newPath,
         newRootId,
       });
 
@@ -348,7 +364,8 @@ class WorkItemHierarchyService implements WorkItemHierarchyServiceInterface {
     } catch (error) {
       log.error('failed to update descendant paths', error, {
         workItemId,
-        newParentPath,
+        oldPath,
+        newPath,
         newRootId,
       });
 
@@ -379,7 +396,10 @@ class WorkItemHierarchyService implements WorkItemHierarchyServiceInterface {
  * ```
  *
  * **Permissions Required**:
- * - Move: work-items:manage:all OR work-items:manage:organization OR work-items:manage:own
+ * - Move: work-items:update:all OR work-items:update:organization OR work-items:update:own
+ *
+ * Note: Moving uses `update` permissions, not `manage` permissions.
+ * `manage` is reserved for work item metadata (types, statuses, fields).
  *
  * **RBAC Scopes**:
  * - `all`: Super admins can move any work items

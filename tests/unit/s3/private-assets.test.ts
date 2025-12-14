@@ -2,7 +2,35 @@
  * Unit tests for S3 Private Assets Service
  */
 
-import { beforeEach, describe, expect, it, vi} from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+// Default mock config that can be modified per test
+const defaultMockConfig = {
+  region: 'us-east-1',
+  accessKeyId: 'AKIATEST',
+  secretAccessKey: 'secrettest',
+  bucket: 'test-bucket',
+  uploadExpiration: 3600,
+  downloadExpiration: 900,
+};
+
+// Create mutable config that tests can modify
+let mockConfig = { ...defaultMockConfig };
+let mockS3Enabled = true;
+
+// Mock the env module before importing S3 service
+vi.mock('@/lib/env', () => ({
+  getPrivateS3Config: vi.fn(() => ({ ...mockConfig })),
+  isPrivateS3Enabled: vi.fn(() => mockS3Enabled),
+  env: {
+    S3_PRIVATE_REGION: 'us-east-1',
+    S3_PRIVATE_ACCESS_KEY_ID: 'AKIATEST',
+    S3_PRIVATE_SECRET_ACCESS_KEY: 'secrettest',
+    S3_PRIVATE_BUCKET: 'test-bucket',
+  },
+}));
+
+import { getPrivateS3Config, isPrivateS3Enabled } from '@/lib/env';
 import {
   extractS3Key,
   generateS3Key,
@@ -21,13 +49,13 @@ import {
 } from '@/lib/s3/shared/sanitization';
 
 describe('S3 Private Assets Service', () => {
-  // Store original env vars
-  const originalEnv = { ...process.env };
-
   beforeEach(() => {
-    // Reset env vars before each test
-    vi.unstubAllEnvs();
-    process.env = { ...originalEnv };
+    vi.clearAllMocks();
+    // Reset mock config to defaults
+    mockConfig = { ...defaultMockConfig };
+    mockS3Enabled = true;
+    vi.mocked(getPrivateS3Config).mockImplementation(() => ({ ...mockConfig }));
+    vi.mocked(isPrivateS3Enabled).mockImplementation(() => mockS3Enabled);
   });
 
   describe('generateS3Key', () => {
@@ -156,7 +184,7 @@ describe('S3 Private Assets Service', () => {
       const key = generateS3Key(['work-items', '../../../etc', 'passwd'], 'file.txt', {
         addUniqueId: false,
       });
-      
+
       // Segments are sanitized, so the path is safe
       expect(key).toBe('work-items/etc/passwd/file.txt');
     });
@@ -223,7 +251,7 @@ describe('S3 Private Assets Service', () => {
 
   describe('URL Utilities', () => {
     beforeEach(() => {
-      process.env.S3_PRIVATE_BUCKET = 'bcos-private-test';
+      mockConfig.bucket = 'bcos-private-test';
     });
 
     describe('extractS3Key', () => {
@@ -318,13 +346,6 @@ describe('S3 Private Assets Service', () => {
   });
 
   describe('MIME Type Validation', () => {
-    beforeEach(() => {
-      process.env.S3_PRIVATE_REGION = 'us-east-1';
-      process.env.S3_PRIVATE_ACCESS_KEY_ID = 'AKIATEST';
-      process.env.S3_PRIVATE_SECRET_ACCESS_KEY = 'secrettest';
-      process.env.S3_PRIVATE_BUCKET = 'test-bucket';
-    });
-
     it('should accept allowed MIME types - PDF', async () => {
       await expect(
         generateUploadUrl('test/file.pdf', { contentType: 'application/pdf' })
@@ -376,13 +397,6 @@ describe('S3 Private Assets Service', () => {
   });
 
   describe('File Size Validation', () => {
-    beforeEach(() => {
-      process.env.S3_PRIVATE_REGION = 'us-east-1';
-      process.env.S3_PRIVATE_ACCESS_KEY_ID = 'AKIATEST';
-      process.env.S3_PRIVATE_SECRET_ACCESS_KEY = 'secrettest';
-      process.env.S3_PRIVATE_BUCKET = 'test-bucket';
-    });
-
     it('should accept file within default limit (100MB)', async () => {
       await expect(
         generateUploadUrl('test/file.pdf', {
@@ -461,59 +475,45 @@ describe('S3 Private Assets Service', () => {
   describe('Configuration', () => {
     describe('isS3Configured', () => {
       it('should return true when all env vars are set', () => {
-        process.env.S3_PRIVATE_REGION = 'us-east-1';
-        process.env.S3_PRIVATE_ACCESS_KEY_ID = 'AKIATEST';
-        process.env.S3_PRIVATE_SECRET_ACCESS_KEY = 'secrettest';
-        process.env.S3_PRIVATE_BUCKET = 'test-bucket';
-
+        mockS3Enabled = true;
         expect(isS3Configured()).toBe(true);
       });
 
       it('should return true when region is missing (uses default)', () => {
-        delete process.env.S3_PRIVATE_REGION;
-        process.env.S3_PRIVATE_ACCESS_KEY_ID = 'AKIATEST';
-        process.env.S3_PRIVATE_SECRET_ACCESS_KEY = 'secrettest';
-        process.env.S3_PRIVATE_BUCKET = 'test-bucket';
-
+        mockConfig.region = '';
+        mockS3Enabled = true;
         expect(isS3Configured()).toBe(true);
       });
 
       it('should return false when access key is missing', () => {
-        process.env.S3_PRIVATE_REGION = 'us-east-1';
-        process.env.S3_PRIVATE_SECRET_ACCESS_KEY = 'secrettest';
-        process.env.S3_PRIVATE_BUCKET = 'test-bucket';
-
+        mockConfig.accessKeyId = '';
+        mockS3Enabled = false;
         expect(isS3Configured()).toBe(false);
       });
 
       it('should return false when secret key is missing', () => {
-        process.env.S3_PRIVATE_REGION = 'us-east-1';
-        process.env.S3_PRIVATE_ACCESS_KEY_ID = 'AKIATEST';
-        process.env.S3_PRIVATE_BUCKET = 'test-bucket';
-
+        mockConfig.secretAccessKey = '';
+        mockS3Enabled = false;
         expect(isS3Configured()).toBe(false);
       });
 
       it('should return false when bucket is missing', () => {
-        process.env.S3_PRIVATE_REGION = 'us-east-1';
-        process.env.S3_PRIVATE_ACCESS_KEY_ID = 'AKIATEST';
-        process.env.S3_PRIVATE_SECRET_ACCESS_KEY = 'secrettest';
-
+        mockConfig.bucket = '';
+        mockS3Enabled = false;
         expect(isS3Configured()).toBe(false);
       });
     });
 
     describe('getBucketName', () => {
       it('should return bucket name from env', () => {
-        process.env.S3_PRIVATE_BUCKET = 'test-bucket-123';
+        mockConfig.bucket = 'test-bucket-123';
         expect(getBucketName()).toBe('test-bucket-123');
       });
 
       it('should throw error when bucket not configured', () => {
-        delete process.env.S3_PRIVATE_BUCKET;
+        mockConfig.bucket = '';
         expect(() => getBucketName()).toThrow('S3_PRIVATE_BUCKET environment variable not configured');
       });
     });
   });
 });
-

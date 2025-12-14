@@ -412,6 +412,19 @@ class DataSourceCacheService {
       context.permission_scope ?? 'none' // Default to 'none' for fail-closed security
     );
 
+    // SECURITY + PERFORMANCE: Empty array means user requested practices outside their RBAC scope
+    // Return empty immediately - no Redis/DB query needed (fail-closed with zero cost)
+    if (effectivePractices !== undefined && effectivePractices.length === 0) {
+      log.info('Early return - no valid practices after RBAC intersection', {
+        dataSourceId: params.dataSourceId,
+        measure: params.measure,
+        userId: userContext.user_id,
+        permissionScope: context.permission_scope,
+        component: 'data-source-cache',
+      });
+      return { rows: [], cacheHit: true };
+    }
+
     // Define the fetch function for raw data (Redis or DB)
     // This is called ONCE per unique cache key, even with parallel requests
     const fetchRawData = async (): Promise<DataSourceFetchResult> => {

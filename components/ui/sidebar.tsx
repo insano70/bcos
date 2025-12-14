@@ -1,7 +1,6 @@
 'use client';
 
 import { useId } from 'react';
-import { useAuth } from '@/components/auth/rbac-auth-provider';
 import { usePermissions } from '@/lib/hooks/use-permissions';
 import Logo from './logo';
 import { AdminMenuSection } from './sidebar/admin-menu-section';
@@ -26,7 +25,6 @@ import { WorkMenuSection } from './sidebar/work-menu-section';
  * - Expand Button (desktop sidebar expansion control)
  */
 export default function Sidebar({ variant = 'default' }: { variant?: 'default' | 'v2' }) {
-  const { rbacLoading } = useAuth();
   const { hasAnyPermission } = usePermissions();
   const { sidebar, sidebarOpen, setSidebarOpen, sidebarExpanded, setSidebarExpanded } =
     useSidebarState();
@@ -63,20 +61,7 @@ export default function Sidebar({ variant = 'default' }: { variant?: 'default' |
     'data-explorer:read:all',
   ]);
 
-  // Don't render the sidebar until authentication is loaded
-  if (rbacLoading) {
-    return (
-      <div className={`min-w-fit ${sidebarExpanded ? 'sidebar-expanded' : ''}`}>
-        <div className="flex lg:flex! flex-col absolute z-40 left-0 top-0 lg:static lg:left-auto lg:top-auto lg:translate-x-0 h-[100dvh] overflow-y-scroll lg:overflow-y-auto no-scrollbar w-64 lg:w-20 lg:sidebar-expanded:!w-64 2xl:w-64! shrink-0 bg-white dark:bg-gray-800 p-4 transition-all duration-200 ease-in-out">
-          {/* Loading placeholder */}
-          <div className="flex justify-center items-center h-full">
-            <div className="animate-pulse text-gray-400">Loading...</div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
+  // Note: Layout handles auth/RBAC loading - sidebar only renders when ready
   return (
     <div className={`min-w-fit ${sidebarExpanded ? 'sidebar-expanded' : ''}`}>
       {/* Sidebar backdrop (mobile only) */}

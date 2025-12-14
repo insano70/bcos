@@ -6,10 +6,11 @@
  * eliminating unnecessary MFA prompts.
  *
  * Flow:
- * 1. Check if user already has a valid local session
- * 2. If no local session, check if silent auth was already attempted (via URL param)
- * 3. If not attempted, redirect to silent auth endpoint (prompt=none)
- * 4. If silent auth fails (no Microsoft session), show interactive login
+ * 1. Wait for RBACAuthProvider to check existing session (avoids duplicate /api/auth/me call)
+ * 2. If already authenticated, redirect to returnUrl
+ * 3. If no local session, check if silent auth was already attempted (via URL param)
+ * 4. If not attempted, redirect to silent auth endpoint (prompt=none)
+ * 5. If silent auth fails (no Microsoft session), show interactive login
  *
  * @module components/auth/hooks/use-silent-auth
  */
@@ -17,9 +18,10 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { authLogger } from '@/lib/utils/client-logger';
 import { clearLoginHint, clearSessionExpiry, getLoginHint } from '@/lib/utils/login-hint-storage';
+import { useAuth } from '../rbac-auth-provider';
 
 interface UseSilentAuthOptions {
   /**
@@ -103,13 +105,24 @@ export function useSilentAuth(options: UseSilentAuthOptions = {}): UseSilentAuth
     skipIfAuthenticated = true,
   } = options;
 
+  const router = useRouter();
   const searchParams = useSearchParams();
-  const [isCheckingSession, setIsCheckingSession] = useState(true);
-  const [silentAuthFailed, setSilentAuthFailed] = useState(false);
+
+  // Get auth state from RBACAuthProvider (single source of truth)
+  const { isAuthenticated: authProviderAuthenticated, isLoading: authProviderLoading } = useAuth();
+
+  // Check URL params synchronously to avoid loading flash when silent auth is disabled
+  const silentFailedParam = searchParams.get('silent_auth_failed') === 'true';
+  const loggedOutParam = searchParams.get('logged_out') === 'true';
+  const shouldSkipInitially = !enabled || silentFailedParam || loggedOutParam;
+
+  // Initialize states based on whether we need to check at all
+  const [isCheckingSession, setIsCheckingSession] = useState(!shouldSkipInitially);
+  const [silentAuthFailed, setSilentAuthFailed] = useState(silentFailedParam || loggedOutParam);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   // Prevent multiple silent auth attempts
-  const hasAttemptedRef = useRef(false);
+  const hasAttemptedRef = useRef(shouldSkipInitially);
 
   // Get login hint: prefer explicit option, fall back to stored email from previous login
   // This pre-fills the Microsoft login form for returning users, saving one click
@@ -134,35 +147,18 @@ export function useSilentAuth(options: UseSilentAuthOptions = {}): UseSilentAuth
     [returnUrl, loginHint]
   );
 
-  // Check if silent auth was already attempted and failed, or if user explicitly logged out
+  // Handle side effects for logout (clear stored hints)
+  // Note: State initialization is handled synchronously above to avoid loading flash
   useEffect(() => {
-    const silentFailed = searchParams.get('silent_auth_failed') === 'true';
-    const loggedOut = searchParams.get('logged_out') === 'true';
-
-    if (loggedOut) {
-      // User explicitly logged out - do NOT attempt silent auth
-      // This prevents auto-signin when switching users
-      authLogger.log('User explicitly logged out - skipping silent auth');
-
-      // Clear stored login hint and session expiry to allow fresh login
+    if (loggedOutParam) {
+      // User explicitly logged out - clear stored login hint and session expiry
+      authLogger.log('User explicitly logged out - clearing stored auth hints');
       clearLoginHint();
       clearSessionExpiry();
-
-      setSilentAuthFailed(true); // Treat as "failed" so login form shows
-      setIsCheckingSession(false);
-      hasAttemptedRef.current = true;
-      return;
     }
+  }, [loggedOutParam]);
 
-    if (silentFailed) {
-      authLogger.log('Silent auth previously failed - showing login form');
-      setSilentAuthFailed(true);
-      setIsCheckingSession(false);
-      hasAttemptedRef.current = true;
-    }
-  }, [searchParams]);
-
-  // Main effect: check session and attempt silent auth
+  // Main effect: wait for RBACAuthProvider to check session, then attempt silent auth if needed
   useEffect(() => {
     // Skip if disabled or already attempted
     if (!enabled || hasAttemptedRef.current) {
@@ -172,68 +168,44 @@ export function useSilentAuth(options: UseSilentAuthOptions = {}): UseSilentAuth
       return;
     }
 
-    // AbortController to cancel fetch on unmount
-    const abortController = new AbortController();
-    let isMounted = true;
+    // Wait for RBACAuthProvider to finish its initial session check
+    // This avoids a duplicate /api/auth/me call
+    if (authProviderLoading) {
+      authLogger.log('Waiting for auth provider to check session...');
+      return;
+    }
 
-    const checkSessionAndAttemptSilentAuth = async () => {
-      try {
-        authLogger.log('Checking for existing session...');
+    // RBACAuthProvider has finished checking - use its result
+    if (authProviderAuthenticated) {
+      authLogger.log('Valid session found via auth provider - user is authenticated');
+      setIsAuthenticated(true);
+      setIsCheckingSession(false);
 
-        // Check if user already has a valid local session
-        const sessionResponse = await fetch('/api/auth/me', {
-          credentials: 'include',
-          signal: abortController.signal,
-        });
-
-        // Don't update state if unmounted
-        if (!isMounted) return;
-
-        if (sessionResponse.ok) {
-          authLogger.log('Valid session found - user is authenticated');
-          setIsAuthenticated(true);
-          setIsCheckingSession(false);
-
-          // Optionally redirect if already authenticated
-          if (skipIfAuthenticated) {
-            authLogger.log('Redirecting authenticated user', { returnUrl });
-            window.location.href = returnUrl;
-          }
-          return;
-        }
-
-        // No valid session - attempt silent auth
-        authLogger.log('No valid session - attempting silent Microsoft auth');
-        hasAttemptedRef.current = true;
-
-        // Redirect to silent auth endpoint
-        const silentUrl = buildLoginUrl(true);
-        authLogger.log('Redirecting to silent auth', { url: silentUrl });
-        window.location.href = silentUrl;
-      } catch (err) {
-        // Ignore abort errors (expected on unmount)
-        if (err instanceof Error && err.name === 'AbortError') {
-          return;
-        }
-
-        authLogger.error('Session check failed', err);
-        // On error, show login form (only if still mounted)
-        if (isMounted) {
-          setSilentAuthFailed(true);
-          setIsCheckingSession(false);
-          hasAttemptedRef.current = true;
-        }
+      // Redirect authenticated user using client-side navigation (no full page reload)
+      if (skipIfAuthenticated) {
+        authLogger.log('Redirecting authenticated user', { returnUrl });
+        router.replace(returnUrl);
       }
-    };
+      return;
+    }
 
-    checkSessionAndAttemptSilentAuth();
+    // No valid session found by auth provider - attempt silent OIDC auth
+    authLogger.log('No valid session - attempting silent Microsoft auth');
+    hasAttemptedRef.current = true;
 
-    // Cleanup: abort fetch and mark as unmounted
-    return () => {
-      isMounted = false;
-      abortController.abort();
-    };
-  }, [enabled, skipIfAuthenticated, returnUrl, buildLoginUrl]);
+    // Redirect to silent auth endpoint (full navigation required for OAuth flow)
+    const silentUrl = buildLoginUrl(true);
+    authLogger.log('Redirecting to silent auth', { url: silentUrl });
+    window.location.href = silentUrl;
+  }, [
+    enabled,
+    skipIfAuthenticated,
+    returnUrl,
+    buildLoginUrl,
+    authProviderLoading,
+    authProviderAuthenticated,
+    router,
+  ]);
 
   // Initiate interactive login (user clicks "Sign in with Microsoft")
   const initiateInteractiveLogin = useCallback(() => {

@@ -10,7 +10,7 @@
  * Content area is swipe-free for better interaction.
  */
 
-import { useId, useRef } from 'react';
+import { useId, useRef, useState, useEffect, useCallback } from 'react';
 import { useChartFullscreen } from '@/hooks/useChartFullscreen';
 import FullscreenModalAnimation from './fullscreen-modal-animation';
 import type { ChartData } from '@/lib/types/analytics';
@@ -38,6 +38,14 @@ interface PieFullscreenModalProps {
   canGoPreviousDashboard?: boolean | undefined;
 }
 
+/**
+ * Calculate chart size based on viewport dimensions
+ */
+function calculateChartSize(): number {
+  if (typeof window === 'undefined') return 400; // SSR fallback
+  return Math.min(window.innerWidth * 0.8, window.innerHeight * 0.6, 600);
+}
+
 export default function PieFullscreenModal({
   isOpen,
   onClose,
@@ -58,16 +66,37 @@ export default function PieFullscreenModal({
   const modalRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
 
+  // Chart size state - initialized to a reasonable default
+  const [chartSize, setChartSize] = useState(() => calculateChartSize());
+
   // Use shared hook for modal lifecycle (scroll lock, escape key)
   useChartFullscreen(isOpen, onClose);
+
+  // Handle resize events to recalculate chart dimensions
+  const handleResize = useCallback(() => {
+    setChartSize(calculateChartSize());
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    // Update size on mount (in case window size changed since last open)
+    handleResize();
+
+    // Listen for resize and orientation change events
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', handleResize);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleResize);
+    };
+  }, [isOpen, handleResize]);
 
   // Don't render if not open (AnimatePresence handles exit animations)
   if (!isOpen) {
     return null;
   }
-
-  // Calculate chart dimensions based on viewport
-  const chartSize = Math.min(window.innerWidth * 0.8, window.innerHeight * 0.6, 600);
 
   return (
     <FullscreenModalAnimation onOverlayClick={onClose} ariaLabelledBy={titleId}>

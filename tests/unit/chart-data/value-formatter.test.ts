@@ -71,7 +71,7 @@ describe('ValueFormatter', () => {
 
     it('should handle negative values', () => {
       expect(formatValueCompact(-5_000_000, 'count')).toBe('-5M');
-      expect(formatValueCompact(-3_000, 'currency')).toBe('$-3K');
+      expect(formatValueCompact(-3_000, 'currency')).toBe('-$3K');
     });
 
     it('should remove trailing .0', () => {

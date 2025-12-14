@@ -4,6 +4,76 @@ import { hashPassword } from '../auth/security';
 import { db, practice_attributes, practices, staff_members, templates, users } from './index';
 import { organizations, roles, user_organizations, user_roles } from './rbac-schema';
 
+/**
+ * SECURITY: Seed credential configuration
+ *
+ * In development: Uses defaults if env vars not set (with warning)
+ * In test: Uses defaults if env vars not set (with warning)
+ * In production: BLOCKED - seed script cannot run
+ * In staging/other: Requires env vars to be set explicitly
+ */
+const SEED_CONFIG = {
+  // Default passwords - ONLY used in development/test with warnings
+  DEFAULT_ADMIN_PASSWORD: 'admin123!',
+  DEFAULT_SAMPLE_PASSWORD: 'password123',
+
+  // Environment variable names
+  ENV_ADMIN_PASSWORD: 'SEED_ADMIN_PASSWORD',
+  ENV_SAMPLE_PASSWORD: 'SEED_SAMPLE_PASSWORD',
+} as const;
+
+/**
+ * Get seed password from environment or default (with security checks)
+ */
+function getSeedPassword(envVar: string, defaultValue: string, label: string): string {
+  const envValue = process.env[envVar];
+  const nodeEnv = process.env.NODE_ENV || 'development';
+
+  if (envValue) {
+    return envValue;
+  }
+
+  // Only allow defaults in development/test
+  if (nodeEnv === 'development' || nodeEnv === 'test') {
+    log.warn(`SECURITY: Using default ${label} password - set ${envVar} for production-like environments`, {
+      operation: 'seedPassword',
+      envVar,
+      environment: nodeEnv,
+      usingDefault: true,
+    });
+    return defaultValue;
+  }
+
+  // In any other environment, require explicit password
+  throw new Error(
+    `SECURITY: ${envVar} must be set in ${nodeEnv} environment. ` +
+    `Seed script cannot use default passwords outside development/test.`
+  );
+}
+
+/**
+ * Validate environment before seeding
+ * SECURITY: Prevents accidental seeding in production
+ */
+function validateSeedEnvironment(): void {
+  const nodeEnv = process.env.NODE_ENV || 'development';
+
+  // BLOCK production seeding entirely
+  if (nodeEnv === 'production') {
+    throw new Error(
+      'SECURITY: Seed script cannot run in production environment. ' +
+      'This prevents accidental creation of backdoor accounts. ' +
+      'If you need to seed production data, use a migration or manual process.'
+    );
+  }
+
+  log.info('Seed environment validated', {
+    operation: 'validateSeedEnvironment',
+    environment: nodeEnv,
+    allowed: true,
+  });
+}
+
 // Create Universal Logger for database seeding operations
 async function seedUsers() {
   log.info('Seeding users', {
@@ -20,8 +90,13 @@ async function seedUsers() {
       .limit(1);
 
     if (existingAdmin.length === 0) {
-      // Create admin user
-      const adminPasswordHash = await hashPassword('admin123!'); // Change this to a secure password
+      // Create admin user with secure password from env or default (dev/test only)
+      const adminPassword = getSeedPassword(
+        SEED_CONFIG.ENV_ADMIN_PASSWORD,
+        SEED_CONFIG.DEFAULT_ADMIN_PASSWORD,
+        'admin'
+      );
+      const adminPasswordHash = await hashPassword(adminPassword);
 
       const [adminUser] = await db
         .insert(users)
@@ -50,12 +125,20 @@ async function seedUsers() {
     // Note: Super admin user is now created in the RBAC seeding script
 
     // Add more sample users for development
+    // Get sample password from env or default (dev/test only)
+    const samplePassword = getSeedPassword(
+      SEED_CONFIG.ENV_SAMPLE_PASSWORD,
+      SEED_CONFIG.DEFAULT_SAMPLE_PASSWORD,
+      'sample user'
+    );
+    const samplePasswordHash = await hashPassword(samplePassword);
+
     const sampleUsers = [
       {
         email: 'john.doe@example.com',
         first_name: 'John',
         last_name: 'Doe',
-        password_hash: await hashPassword('password123'),
+        password_hash: samplePasswordHash,
         email_verified: true,
         is_active: true,
       },
@@ -63,7 +146,7 @@ async function seedUsers() {
         email: 'jane.smith@example.com',
         first_name: 'Jane',
         last_name: 'Smith',
-        password_hash: await hashPassword('password123'),
+        password_hash: samplePasswordHash,
         email_verified: false,
         is_active: true,
       },
@@ -71,7 +154,7 @@ async function seedUsers() {
         email: 'bob.johnson@example.com',
         first_name: 'Bob',
         last_name: 'Johnson',
-        password_hash: await hashPassword('password123'),
+        password_hash: samplePasswordHash,
         email_verified: true,
         is_active: false,
       },
@@ -735,6 +818,10 @@ async function seed() {
   });
 
   try {
+    // SECURITY: Validate environment before any seeding
+    // This prevents accidental backdoor account creation in production
+    validateSeedEnvironment();
+
     // Seed RBAC data first (permissions, roles, role_permissions)
     await seedRBAC();
 

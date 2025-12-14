@@ -15,7 +15,8 @@ import { useNonce, useScriptNonce, useStyleNonce } from './nonce-context';
  */
 export interface NonceScriptProps {
   children: string;
-  type?: 'application/json' | 'text/javascript' | 'application/ld+json';
+  /** Only JSON types are supported for security - executable JavaScript is not allowed */
+  type?: 'application/json' | 'application/ld+json';
   id?: string;
   className?: string;
   /**
@@ -27,7 +28,7 @@ export interface NonceScriptProps {
 
 /**
  * Validates that script content is safe
- * Very restrictive validation - only allows JSON-like content by default
+ * Only allows valid JSON content - executable JavaScript is not supported
  */
 function validateScriptContent(content: string, type: string, skipValidation?: boolean): boolean {
   if (skipValidation) {
@@ -38,46 +39,20 @@ function validateScriptContent(content: string, type: string, skipValidation?: b
     return false;
   }
 
-  // For JSON types, validate it's actually valid JSON
-  if (type === 'application/json' || type === 'application/ld+json') {
-    try {
-      JSON.parse(content);
-      // Additional check for dangerous patterns in JSON values
-      const dangerousPatterns = [/<script/i, /javascript:/i, /data:text\/html/i, /vbscript:/i];
-      return !dangerousPatterns.some((pattern) => pattern.test(content));
-    } catch {
-      return false;
-    }
+  // Only JSON types are allowed - executable JavaScript is not supported for security
+  if (type !== 'application/json' && type !== 'application/ld+json') {
+    return false;
   }
 
-  // For JavaScript, only allow very basic patterns (extremely restrictive)
-  if (type === 'text/javascript') {
-    // Only allow simple variable assignments and basic object literals
-    const allowedJSPattern = /^[\s\w={}[\]"':;,.-]*$/;
-    const dangerousJSPatterns = [
-      /eval\s*\(/i,
-      /function\s*\(/i,
-      /=>\s*{/i,
-      /document\./i,
-      /window\./i,
-      /alert\s*\(/i,
-      /prompt\s*\(/i,
-      /confirm\s*\(/i,
-      /setTimeout/i,
-      /setInterval/i,
-      /innerHTML/i,
-      /outerHTML/i,
-      /write/i,
-      /createElement/i,
-    ];
-
-    return (
-      allowedJSPattern.test(content) &&
-      !dangerousJSPatterns.some((pattern) => pattern.test(content))
-    );
+  // Validate it's actually valid JSON
+  try {
+    JSON.parse(content);
+    // Additional check for dangerous patterns in JSON values
+    const dangerousPatterns = [/<script/i, /javascript:/i, /data:text\/html/i, /vbscript:/i];
+    return !dangerousPatterns.some((pattern) => pattern.test(content));
+  } catch {
+    return false;
   }
-
-  return false;
 }
 
 export function NonceScript({

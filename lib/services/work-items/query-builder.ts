@@ -3,7 +3,7 @@
  * Provides reusable query patterns for work items operations
  */
 
-import { aliasedTable, eq } from 'drizzle-orm';
+import { aliasedTable, eq, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import {
   organizations,
@@ -95,6 +95,19 @@ export function getWorkItemSelectFields() {
 }
 
 /**
+ * Get SELECT fields with window count for paginated queries
+ * Uses COUNT(*) OVER() to get total count in single query (avoids separate count query)
+ *
+ * PERFORMANCE: Reduces DB round-trips from 2 to 1 for paginated list operations
+ */
+export function getWorkItemSelectFieldsWithCount() {
+  return {
+    ...getWorkItemSelectFields(),
+    total_count: sql<number>`count(*) over()`.as('total_count'),
+  };
+}
+
+/**
  * Get the common query builder with all necessary joins
  * Returns a query builder that can be further filtered with .where()
  *
@@ -108,6 +121,34 @@ export function getWorkItemSelectFields() {
 export function getWorkItemQueryBuilder() {
   return db
     .select(getWorkItemSelectFields())
+    .from(work_items)
+    .leftJoin(work_item_types, eq(work_items.work_item_type_id, work_item_types.work_item_type_id))
+    .leftJoin(organizations, eq(work_items.organization_id, organizations.organization_id))
+    .leftJoin(work_item_statuses, eq(work_items.status_id, work_item_statuses.work_item_status_id))
+    .leftJoin(users, eq(work_items.assigned_to, users.user_id))
+    .leftJoin(creatorUsers, eq(work_items.created_by, creatorUsers.user_id));
+}
+
+/**
+ * Get query builder with window count for paginated list queries
+ * Returns total count alongside each row using COUNT(*) OVER()
+ *
+ * PERFORMANCE: Single query replaces count + list queries, cutting DB round-trips in half
+ *
+ * Usage:
+ * ```typescript
+ * const results = await getWorkItemQueryBuilderWithCount()
+ *   .where(...)
+ *   .orderBy(...)
+ *   .limit(50)
+ *   .offset(0);
+ *
+ * const total = results.length > 0 ? results[0].total_count : 0;
+ * ```
+ */
+export function getWorkItemQueryBuilderWithCount() {
+  return db
+    .select(getWorkItemSelectFieldsWithCount())
     .from(work_items)
     .leftJoin(work_item_types, eq(work_items.work_item_type_id, work_item_types.work_item_type_id))
     .leftJoin(organizations, eq(work_items.organization_id, organizations.organization_id))
