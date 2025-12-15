@@ -21,19 +21,6 @@ import type { UserContext } from '@/lib/types/rbac';
 // Entity type derived from Drizzle schema
 export type WorkItemStatusTransition = InferSelectModel<typeof work_item_status_transitions>;
 
-// Legacy type maintained for backward compatibility
-export interface WorkItemStatusTransitionWithDetails {
-  work_item_status_transition_id: string;
-  work_item_type_id: string;
-  from_status_id: string;
-  to_status_id: string;
-  is_allowed: boolean;
-  validation_config: unknown | null;
-  action_config: unknown | null;
-  created_at: Date;
-  updated_at: Date;
-}
-
 export interface TransitionQueryOptions extends BaseQueryOptions {
   work_item_type_id?: string;
   from_status_id?: string;
@@ -233,90 +220,6 @@ export class RBACWorkItemStatusTransitionsService extends BaseCrudService<
         'A transition rule already exists for this from/to status combination. Update or delete the existing rule instead.'
       );
     }
-  }
-
-  // ===========================================================================
-  // Legacy Methods - Maintained for backward compatibility
-  // ===========================================================================
-
-  /**
-   * Get all transitions for a work item type (legacy method)
-   * @deprecated Use getList({ work_item_type_id: typeId }) instead
-   */
-  async getTransitionsByType(
-    typeId: string,
-    filters?: { from_status_id?: string; to_status_id?: string }
-  ): Promise<WorkItemStatusTransitionWithDetails[]> {
-    const options: TransitionQueryOptions = {
-      work_item_type_id: typeId,
-      limit: 1000,
-    };
-    if (filters?.from_status_id) {
-      options.from_status_id = filters.from_status_id;
-    }
-    if (filters?.to_status_id) {
-      options.to_status_id = filters.to_status_id;
-    }
-
-    const result = await this.getList(options);
-
-    return result.items.map((item) => ({
-      ...item,
-      validation_config: item.validation_config ?? null,
-      action_config: item.action_config ?? null,
-    }));
-  }
-
-  /**
-   * Get a single transition by ID (legacy method)
-   * @deprecated Use getById() instead
-   */
-  async getTransitionById(transitionId: string): Promise<WorkItemStatusTransitionWithDetails | null> {
-    const result = await this.getById(transitionId);
-    if (!result) return null;
-
-    return {
-      ...result,
-      validation_config: result.validation_config ?? null,
-      action_config: result.action_config ?? null,
-    };
-  }
-
-  /**
-   * Create a status transition rule (legacy method)
-   * @deprecated Use create() instead
-   */
-  async createTransition(data: CreateTransitionData): Promise<WorkItemStatusTransitionWithDetails> {
-    const result = await this.create(data);
-    return {
-      ...result,
-      validation_config: result.validation_config ?? null,
-      action_config: result.action_config ?? null,
-    };
-  }
-
-  /**
-   * Update a status transition rule (legacy method)
-   * @deprecated Use update() instead
-   */
-  async updateTransition(
-    transitionId: string,
-    data: UpdateTransitionData
-  ): Promise<WorkItemStatusTransitionWithDetails> {
-    const result = await this.update(transitionId, data);
-    return {
-      ...result,
-      validation_config: result.validation_config ?? null,
-      action_config: result.action_config ?? null,
-    };
-  }
-
-  /**
-   * Delete a status transition rule (legacy method)
-   * @deprecated Use delete() instead
-   */
-  async deleteTransition(transitionId: string): Promise<void> {
-    return this.delete(transitionId);
   }
 }
 

@@ -36,6 +36,7 @@ import { nanoid } from 'nanoid';
 import { jwtVerify, SignJWT } from 'jose';
 import { AuditLogger } from '@/lib/api/services/audit';
 import { ACCESS_TOKEN_SECRET, REFRESH_TOKEN_SECRET } from '@/lib/auth/jwt-secrets';
+import { authCache } from '@/lib/cache';
 import { db, refresh_tokens } from '@/lib/db';
 import { log } from '@/lib/logger';
 import {
@@ -45,6 +46,7 @@ import {
   REFRESH_TOKEN_STANDARD,
   type TokenPair,
 } from './types';
+import { fetchTokenRBACData, buildEnhancedAccessTokenPayload } from './creation';
 import { addToBlacklist, isTokenBlacklisted } from './internal/blacklist-manager';
 import { updateSessionActivity } from './internal/session-manager';
 import { revokeAllUserTokens } from './revocation';
@@ -211,16 +213,33 @@ export async function refreshTokenPair(
 
       const now = new Date();
 
-      // Create new access token
-      const accessTokenPayload = {
-        sub: userId,
-        jti: nanoid(),
-        session_id: sessionId,
-        iat: Math.floor(now.getTime() / 1000),
-        exp: Math.floor((now.getTime() + ACCESS_TOKEN_DURATION) / 1000),
-      };
+      // Fetch fresh RBAC data for enhanced token claims
+      const rbacData = await fetchTokenRBACData(userId);
 
-      const newAccessToken = await new SignJWT(accessTokenPayload)
+      // Fetch user data from cache for token claims
+      const user = await authCache.getUser(userId);
+
+      // Build enhanced access token payload with RBAC claims
+      const accessTokenPayload = buildEnhancedAccessTokenPayload(
+        userId,
+        sessionId,
+        now,
+        rbacData,
+        user ? { email: user.email, first_name: user.first_name, last_name: user.last_name } : null
+      );
+
+      log.debug('Creating enhanced access token on refresh', {
+        userId,
+        hasRbacData: !!rbacData,
+        roleCount: rbacData?.roles.length ?? 0,
+        orgAccessType: accessTokenPayload.org_access.type,
+        isSuperAdmin: accessTokenPayload.is_super_admin,
+        component: 'token-refresh',
+      });
+
+      const newAccessToken = await new SignJWT(
+        accessTokenPayload as unknown as Record<string, unknown>
+      )
         .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
         .sign(ACCESS_TOKEN_SECRET);
 

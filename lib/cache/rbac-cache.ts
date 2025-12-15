@@ -39,6 +39,7 @@ class RbacCacheService extends CacheService {
 
   // TTL constants
   private readonly USER_CONTEXT_TTL = 300; // 5 minutes
+  private readonly USER_CONTEXT_FAST_TTL = 60; // 60 seconds for JWT-augmented flow
   private readonly ROLE_PERMISSIONS_TTL = 86400; // 24 hours
   private readonly ORGANIZATION_HIERARCHY_TTL = 30 * 86400; // 30 days (self-refreshing, long TTL as safety net)
   private readonly ORGANIZATION_STALE_THRESHOLD_HOURS = 4; // Trigger background refresh after 4 hours
@@ -66,6 +67,63 @@ class RbacCacheService extends CacheService {
     // Key: rbac:user:{userId}:context
     const key = this.buildKey('user', userId, 'context');
     return await this.set(key, context, { ttl: this.USER_CONTEXT_TTL });
+  }
+
+  /**
+   * Get user context from fast cache (60-second TTL)
+   *
+   * Used when JWT contains RBAC claims - cache is augmentation, not source of truth.
+   * This shorter TTL allows faster invalidation while still providing significant
+   * performance benefits for parallel API requests.
+   *
+   * @param userId - User ID
+   * @returns UserContext or null if not cached
+   */
+  async getFastUserContext(userId: string): Promise<UserContext | null> {
+    // Key: rbac:user:{userId}:fast-context
+    const key = this.buildKey('user', userId, 'fast-context');
+    return await this.get<UserContext>(key);
+  }
+
+  /**
+   * Cache user context with short TTL (60 seconds)
+   *
+   * Used alongside JWT claims for complete UserContext.
+   * The short TTL ensures quick invalidation while still providing
+   * cache hits for parallel API requests from the same page load.
+   *
+   * @param userId - User ID
+   * @param context - User context to cache
+   * @returns true if successful
+   */
+  async setFastUserContext(userId: string, context: UserContext): Promise<boolean> {
+    // Key: rbac:user:{userId}:fast-context
+    const key = this.buildKey('user', userId, 'fast-context');
+    return await this.set(key, context, { ttl: this.USER_CONTEXT_FAST_TTL });
+  }
+
+  /**
+   * Invalidate both standard and fast user context caches
+   *
+   * Should be called when:
+   * - User roles are assigned/removed
+   * - User organization membership changes
+   * - User is deactivated
+   *
+   * @param userId - User ID
+   */
+  async invalidateAllUserContext(userId: string): Promise<void> {
+    const keys = [
+      this.buildKey('user', userId, 'context'),
+      this.buildKey('user', userId, 'fast-context'),
+    ];
+    await this.delMany(keys);
+
+    log.debug('All user context caches invalidated', {
+      component: 'rbac-cache',
+      userId,
+      keysInvalidated: keys.length,
+    });
   }
 
   /**

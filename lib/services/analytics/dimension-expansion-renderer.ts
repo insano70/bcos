@@ -52,10 +52,7 @@ import type { ChartExecutionConfig } from '@/lib/services/dashboard-rendering/ty
 import { createFilterBuilderService } from '@/lib/services/filters/filter-builder-service';
 import type { UniversalChartFilters } from '@/lib/types/filters';
 import { DimensionChartAdapter } from './dimension-chart-adapter';
-import {
-  generateDimensionCombinations,
-  calculateCombinationCount,
-} from '@/lib/utils/dimension-combinations';
+import { generateDimensionCombinations } from '@/lib/utils/dimension-combinations';
 
 /**
  * Dimension Expansion Renderer
@@ -281,10 +278,7 @@ export class DimensionExpansionRenderer {
         };
       }
 
-      // 5. Calculate and validate combination count
-      const _totalCombinations = calculateCombinationCount(dimensionValuesByColumn);
-
-      // 6. Generate cartesian product (all combinations)
+      // 5. Generate cartesian product (all combinations)
       const allCombinations = generateDimensionCombinations(dimensionValuesByColumn);
 
       // 7. Sort combinations by estimated record count (descending)

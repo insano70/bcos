@@ -63,9 +63,13 @@ describe('RBAC Data Sources Service - Integration Tests', () => {
       const user = await createCommittedUser({ scope: scopeId });
 
       // Use :all permission to avoid organization context issues with committed factories
+      // data-sources:read:all for requirePermission check, analytics:read:all for getAccessScope
       const role = await createTestRole({
         name: 'ds_reader',
-        permissions: ['data-sources:read:all' as PermissionName],
+        permissions: [
+          'data-sources:read:all' as PermissionName,
+          'analytics:read:all' as PermissionName,
+        ],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -110,9 +114,13 @@ describe('RBAC Data Sources Service - Integration Tests', () => {
       const user = await createCommittedUser({ scope: scopeId });
 
       // Use :all permission to avoid organization context issues with committed factories
+      // data-sources:read:all for requirePermission check, analytics:read:all for getAccessScope
       const role = await createTestRole({
         name: 'ds_reader',
-        permissions: ['data-sources:read:all' as PermissionName],
+        permissions: [
+          'data-sources:read:all' as PermissionName,
+          'analytics:read:all' as PermissionName,
+        ],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -158,9 +166,13 @@ describe('RBAC Data Sources Service - Integration Tests', () => {
       const user = await createCommittedUser({ scope: scopeId });
 
       // Use :all permission to avoid organization context issues with committed factories
+      // data-sources:read:all for requirePermission check, analytics:read:all for getAccessScope
       const role = await createTestRole({
         name: 'ds_reader',
-        permissions: ['data-sources:read:all' as PermissionName],
+        permissions: [
+          'data-sources:read:all' as PermissionName,
+          'analytics:read:all' as PermissionName,
+        ],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -190,9 +202,13 @@ describe('RBAC Data Sources Service - Integration Tests', () => {
       const user = await createCommittedUser({ scope: scopeId });
 
       // Use :all permission to avoid organization context issues with committed factories
+      // data-sources:read:all for requirePermission check, analytics:read:all for getAccessScope
       const role = await createTestRole({
         name: 'ds_reader',
-        permissions: ['data-sources:read:all' as PermissionName],
+        permissions: [
+          'data-sources:read:all' as PermissionName,
+          'analytics:read:all' as PermissionName,
+        ],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 

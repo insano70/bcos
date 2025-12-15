@@ -5,7 +5,7 @@ import type { PermissionName, UserContext } from '@/lib/types/rbac';
 import { RBACError } from '@/lib/errors/rbac-errors';
 import type { AuthResult } from '../api/middleware/global-auth';
 import { PermissionChecker } from './permission-checker';
-import { getUserContextSafe } from './user-context';
+import { getUserContextOrThrow, UserContextAuthError } from './user-context';
 
 /**
  * RBAC Middleware for Next.js API Routes
@@ -321,26 +321,33 @@ export const createPracticeMiddleware = (permission: PermissionName | Permission
 export async function enhanceSessionWithRBAC(
   existingSession: AuthResult | null | undefined
 ): Promise<{ session: AuthResult; userContext: UserContext } | null> {
+  if (!existingSession?.user?.id) {
+    return null;
+  }
+
   try {
-    if (!existingSession?.user?.id) {
-      return null;
-    }
-
-    const userContext = await getUserContextSafe(existingSession.user.id);
-    if (!userContext) {
-      return null;
-    }
-
+    const userContext = await getUserContextOrThrow(existingSession.user.id);
     return {
       session: existingSession,
       userContext,
     };
   } catch (error) {
+    // Auth failures (user not found, inactive) - return null for redirect to login
+    if (error instanceof UserContextAuthError) {
+      log.security('user_context_auth_failure', 'medium', {
+        userId: existingSession.user.id,
+        reason: error.reason,
+        action: 'returning_null_for_login_redirect',
+      });
+      return null;
+    }
+
+    // Server errors (database failures) - log and re-throw
     log.error('Failed to enhance session with RBAC', error, {
       operation: 'enhance_session',
       component: 'middleware',
     });
-    return null;
+    throw error;
   }
 }
 

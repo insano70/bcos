@@ -2,12 +2,10 @@
 
 import { useState } from 'react';
 import ModalBasic from '@/components/modal-basic';
-import ModalCookies from '@/components/modal-cookies';
 
 export default function BasicExamples() {
   const [basicModalOpen, setBasicModalOpen] = useState<boolean>(false);
   const [scrollbarModalOpen, setScrollbarModalOpen] = useState<boolean>(false);
-  const [cookiesModalOpen, setCookiesModalOpen] = useState<boolean>(false);
 
   return (
     <div>
@@ -141,60 +139,6 @@ export default function BasicExamples() {
               </div>
             </div>
           </ModalBasic>
-          {/* End */}
-        </div>
-
-        {/* Cookies */}
-        <div className="m-1.5">
-          {/* Start */}
-          <button
-            className="btn bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white"
-            aria-controls="cookies-modal"
-            onClick={() => {
-              setCookiesModalOpen(true);
-            }}
-          >
-            Cookies
-          </button>
-          <ModalCookies
-            isOpen={cookiesModalOpen}
-            setIsOpen={setCookiesModalOpen}
-            title="We use cookies 🍪"
-          >
-            {/* Modal content */}
-            <div className="text-sm mb-5">
-              <div className="space-y-2">
-                <p>
-                  Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor
-                  incididunt ut labore et dolore magna aliqua.
-                </p>
-                <p>
-                  Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu
-                  fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in
-                  culpa qui officia deserunt mollit anim id est laborum.
-                </p>
-              </div>
-            </div>
-            {/* Modal footer */}
-            <div className="flex flex-wrap justify-end space-x-2">
-              <button
-                className="btn-sm border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 text-gray-800 dark:text-gray-300"
-                onClick={() => {
-                  setCookiesModalOpen(false);
-                }}
-              >
-                Decline
-              </button>
-              <button
-                className="btn-sm bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white"
-                onClick={() => {
-                  setCookiesModalOpen(false);
-                }}
-              >
-                I Accept
-              </button>
-            </div>
-          </ModalCookies>
           {/* End */}
         </div>
       </div>

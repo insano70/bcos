@@ -15,6 +15,9 @@
 
 const STORAGE_KEY = 'oidc_login_hint';
 const EXPIRY_KEY = 'session_expiry';
+const AUTH_METHOD_KEY = 'auth_method';
+
+export type PreferredAuthMethod = 'oidc' | 'password';
 
 /**
  * Store user email as login hint for future OIDC authentication.
@@ -120,6 +123,58 @@ export function clearSessionExpiry(): void {
 
   try {
     localStorage.removeItem(EXPIRY_KEY);
+  } catch {
+    // localStorage might be disabled - fail silently
+  }
+}
+
+/**
+ * Store the user's preferred authentication method for future sessions.
+ * Used to decide whether to attempt automatic silent OIDC on the signin page.
+ */
+export function storePreferredAuthMethod(method: PreferredAuthMethod): void {
+  if (typeof window === 'undefined') {
+    return; // Server-side, no localStorage
+  }
+
+  try {
+    localStorage.setItem(AUTH_METHOD_KEY, method);
+  } catch {
+    // localStorage might be disabled or full - fail silently
+  }
+}
+
+/**
+ * Retrieve stored preferred authentication method.
+ */
+export function getPreferredAuthMethod(): PreferredAuthMethod | undefined {
+  if (typeof window === 'undefined') {
+    return undefined; // Server-side, no localStorage
+  }
+
+  try {
+    const raw = localStorage.getItem(AUTH_METHOD_KEY);
+    if (raw === 'oidc' || raw === 'password') {
+      return raw;
+    }
+    return undefined;
+  } catch {
+    // localStorage might be disabled - fail silently
+    return undefined;
+  }
+}
+
+/**
+ * Clear stored preferred authentication method.
+ * Called when user explicitly logs out.
+ */
+export function clearPreferredAuthMethod(): void {
+  if (typeof window === 'undefined') {
+    return; // Server-side, no localStorage
+  }
+
+  try {
+    localStorage.removeItem(AUTH_METHOD_KEY);
   } catch {
     // localStorage might be disabled - fail silently
   }

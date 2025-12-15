@@ -41,10 +41,6 @@ export interface TokenManagerMock {
 
 export interface SessionMocks {
   getCurrentUserFromToken: ReturnType<typeof vi.fn>;
-  validateTokenAndGetUser: ReturnType<typeof vi.fn>;
-  requireTokenRole: ReturnType<typeof vi.fn>;
-  requireTokenAdmin: ReturnType<typeof vi.fn>;
-  requireTokenPracticeAccess: ReturnType<typeof vi.fn>;
 }
 
 export interface RBACMocks {
@@ -158,10 +154,6 @@ export function createSessionMocks(): SessionMocks {
 
   return {
     getCurrentUserFromToken: vi.fn().mockResolvedValue(mockUser),
-    validateTokenAndGetUser: vi.fn().mockResolvedValue(mockUser),
-    requireTokenRole: vi.fn().mockResolvedValue(mockUser),
-    requireTokenAdmin: vi.fn().mockResolvedValue(mockUser),
-    requireTokenPracticeAccess: vi.fn().mockResolvedValue(mockUser),
   };
 }
 

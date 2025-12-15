@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useReorderStaff, useStaff } from '@/lib/hooks/use-staff';
 import type { StaffMember } from '@/lib/types/practice';
+import { Spinner } from '@/components/ui/spinner';
 import StaffMemberCard from './staff-member-card';
 import StaffMemberFormModal from './staff-member-form-modal';
 import { clientErrorLog } from '@/lib/utils/debug-client';
@@ -138,21 +139,13 @@ export default function StaffListEmbedded({ practiceId }: StaffListEmbeddedProps
       {/* Loading state */}
       {isLoading && (
         <div className="flex items-center justify-center py-8">
-          <svg className="animate-spin h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24">
-            <circle
-              className="opacity-25"
-              cx="12"
-              cy="12"
-              r="10"
-              stroke="currentColor"
-              strokeWidth="4"
-            />
-            <path
-              className="opacity-75"
-              fill="currentColor"
-              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-            />
-          </svg>
+          <Spinner
+            sizeClassName="w-6 h-6"
+            borderClassName="border-2"
+            trackClassName="border-current opacity-25"
+            indicatorClassName="border-current opacity-75"
+            className="text-gray-400"
+          />
           <span className="ml-2 text-gray-600 dark:text-gray-400">Loading staff...</span>
         </div>
       )}

@@ -27,7 +27,7 @@ const getTransitionHandler = async (
     const { id } = await extractRouteParams(args[0], workItemStatusTransitionParamsSchema);
 
     const transitionsService = createRBACWorkItemStatusTransitionsService(userContext);
-    const transition = await transitionsService.getTransitionById(id);
+    const transition = await transitionsService.getById(id);
 
     if (!transition) {
       throw NotFoundError('Work item status transition');
@@ -93,7 +93,7 @@ const updateTransitionHandler = async (
     }
 
     const transitionsService = createRBACWorkItemStatusTransitionsService(userContext);
-    const updatedTransition = await transitionsService.updateTransition(id, filteredData);
+    const updatedTransition = await transitionsService.update(id, filteredData);
 
     const duration = Date.now() - requestStart;
     log.info(`PATCH /api/work-item-status-transitions/${id} completed`, {
@@ -129,7 +129,7 @@ const deleteTransitionHandler = async (
     const { id } = await extractRouteParams(args[0], workItemStatusTransitionParamsSchema);
 
     const transitionsService = createRBACWorkItemStatusTransitionsService(userContext);
-    await transitionsService.deleteTransition(id);
+    await transitionsService.delete(id);
 
     const duration = Date.now() - requestStart;
     log.info(`DELETE /api/work-item-status-transitions/${id} completed`, {

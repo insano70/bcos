@@ -5,10 +5,6 @@ import { db, work_item_statuses, work_item_types, work_items } from '@/lib/db';
 import { ConflictError, ForbiddenError, NotFoundError } from '@/lib/errors/domain-errors';
 import { BaseCrudService, type BaseQueryOptions, type CrudServiceConfig } from '@/lib/services/crud';
 import type { UserContext } from '@/lib/types/rbac';
-import type { WorkItemStatusWithDetails } from '@/lib/types/work-item-statuses';
-
-// Re-export types for consumers of this service
-export type { WorkItemStatusWithDetails };
 
 /**
  * Work Item Statuses Service with RBAC
@@ -163,71 +159,6 @@ export class RBACWorkItemStatusesService extends BaseCrudService<
         { workItemCount: workItemCount.count }
       );
     }
-  }
-
-  // ===========================================================================
-  // Legacy Methods - Maintained for backward compatibility
-  // ===========================================================================
-
-  /**
-   * Get statuses for a work item type (legacy method)
-   * @deprecated Use getList({ work_item_type_id: typeId }) instead
-   */
-  async getStatusesByType(typeId: string): Promise<WorkItemStatusWithDetails[]> {
-    // Validate the type exists and check org access
-    const [workItemType] = await db
-      .select({ organization_id: work_item_types.organization_id })
-      .from(work_item_types)
-      .where(eq(work_item_types.work_item_type_id, typeId));
-
-    if (!workItemType) {
-      throw new NotFoundError('Work item type', typeId);
-    }
-
-    if (workItemType.organization_id) {
-      this.requireOrganizationAccess(workItemType.organization_id);
-    }
-
-    const result = await this.getList({
-      work_item_type_id: typeId,
-      limit: 1000,
-      sortField: 'display_order',
-      sortOrder: 'asc',
-    });
-
-    return result.items as WorkItemStatusWithDetails[];
-  }
-
-  /**
-   * Get status by ID (legacy method)
-   * @deprecated Use getById() instead
-   */
-  async getStatusById(statusId: string): Promise<WorkItemStatusWithDetails | null> {
-    return this.getById(statusId) as Promise<WorkItemStatusWithDetails | null>;
-  }
-
-  /**
-   * Create a new work item status (legacy method)
-   * @deprecated Use create() instead
-   */
-  async createStatus(data: CreateStatusData): Promise<WorkItemStatusWithDetails> {
-    return this.create(data) as Promise<WorkItemStatusWithDetails>;
-  }
-
-  /**
-   * Update a work item status (legacy method)
-   * @deprecated Use update() instead
-   */
-  async updateStatus(statusId: string, data: UpdateStatusData): Promise<WorkItemStatusWithDetails> {
-    return this.update(statusId, data) as Promise<WorkItemStatusWithDetails>;
-  }
-
-  /**
-   * Delete a work item status (legacy method)
-   * @deprecated Use delete() instead
-   */
-  async deleteStatus(statusId: string): Promise<void> {
-    return this.delete(statusId);
   }
 }
 

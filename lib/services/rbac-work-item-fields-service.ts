@@ -173,66 +173,6 @@ export class RBACWorkItemFieldsService extends BaseCrudService<
       deleted_at: (row.deleted_at as Date | null) ?? null,
     };
   }
-
-  // ===========================================================================
-  // Legacy Methods - Maintained for backward compatibility
-  // ===========================================================================
-
-  /**
-   * Get work item fields with automatic permission-based filtering (legacy method)
-   * @deprecated Use getList() instead
-   */
-  async getWorkItemFields(options: WorkItemFieldQueryOptions = {}): Promise<WorkItemField[]> {
-    const result = await this.getList(options);
-    return result.items;
-  }
-
-  /**
-   * Get a specific work item field by ID (legacy method)
-   * @deprecated Use getById() instead
-   */
-  async getWorkItemFieldById(fieldId: string): Promise<WorkItemField | null> {
-    return this.getById(fieldId);
-  }
-
-  /**
-   * Create a new work item field (legacy method)
-   * @deprecated Use create() instead
-   */
-  async createWorkItemField(fieldData: CreateWorkItemFieldData): Promise<WorkItemField> {
-    return this.create(fieldData);
-  }
-
-  /**
-   * Update a work item field (legacy method)
-   * @deprecated Use update() instead
-   */
-  async updateWorkItemField(
-    fieldId: string,
-    updateData: UpdateWorkItemFieldData
-  ): Promise<WorkItemField> {
-    return this.update(fieldId, updateData);
-  }
-
-  /**
-   * Delete a work item field (soft delete) (legacy method)
-   * @deprecated Use delete() instead
-   */
-  async deleteWorkItemField(fieldId: string): Promise<void> {
-    return this.delete(fieldId);
-  }
-
-  /**
-   * Get count of work item fields (legacy method)
-   * @deprecated Use getCount() instead
-   */
-  async getWorkItemFieldCount(workItemTypeId?: string): Promise<number> {
-    const options: WorkItemFieldQueryOptions = {};
-    if (workItemTypeId) {
-      options.work_item_type_id = workItemTypeId;
-    }
-    return this.getCount(options);
-  }
 }
 
 /**

@@ -306,31 +306,3 @@ export function validateEmailDomain(email: string, allowedDomains?: string[]): b
 
   return true;
 }
-
-/**
- * Check if user is SSO-provisioned (no password)
- * Alias for `isUserSSOOnly` from user-lookup-service
- *
- * @param user - User object
- * @returns true if user is SSO-only (no password set)
- * @deprecated Use `isUserSSOOnly` from user-lookup-service instead
- */
-export function isSSOProvisionedUser(user: User): boolean {
-  // Import dynamically to avoid circular dependencies
-  const { isUserSSOOnly } = require('./user-lookup-service');
-  return isUserSSOOnly(user);
-}
-
-/**
- * Check if user has hybrid auth (can use both SSO and password)
- * Alias for `canUserAuthenticateWithPassword` from user-lookup-service
- *
- * @param user - User object
- * @returns true if user can authenticate with both SSO and password
- * @deprecated Use `canUserAuthenticateWithPassword` from user-lookup-service instead
- */
-export function isHybridAuthUser(user: User): boolean {
-  // Import dynamically to avoid circular dependencies
-  const { canUserAuthenticateWithPassword } = require('./user-lookup-service');
-  return canUserAuthenticateWithPassword(user);
-}

@@ -12,6 +12,7 @@ import type { PermissionName } from '@/lib/types/rbac';
 import { assignRoleToUser, createTestRole } from '@/tests/factories';
 import { createTestScope, type ScopedFactoryCollection } from '@/tests/factories/base';
 import {
+  committedWorkItemFactory,
   createCommittedOrganization,
   createCommittedUser,
   createCommittedWorkItem,
@@ -339,6 +340,10 @@ describe('RBAC Work Items Service - Integration Tests', () => {
       };
 
       const result = await workItemsService.createWorkItem(workItemData);
+
+      // Track service-created work item for cleanup
+      // This ensures the work item is deleted before its dependencies (status, type)
+      committedWorkItemFactory.trackExternal(result.work_item_id, scopeId);
 
       expect(result).toBeDefined();
       expect(result.subject).toBe('New Work Item');

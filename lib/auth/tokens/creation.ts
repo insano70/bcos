@@ -36,13 +36,19 @@ import { nanoid } from 'nanoid';
 import { SignJWT } from 'jose';
 import { AuditLogger } from '@/lib/api/services/audit';
 import { ACCESS_TOKEN_SECRET, REFRESH_TOKEN_SECRET } from '@/lib/auth/jwt-secrets';
+import { authCache, rbacCache } from '@/lib/cache';
 import { db, refresh_tokens } from '@/lib/db';
+import { log } from '@/lib/logger';
+import { getCachedUserContextSafe } from '@/lib/rbac/cached-user-context';
 import {
   ACCESS_TOKEN_DURATION,
   type DeviceInfo,
+  type EnhancedAccessTokenPayload,
+  type OrgAccessClaim,
   REFRESH_TOKEN_REMEMBER_ME,
   REFRESH_TOKEN_STANDARD,
   type TokenPair,
+  type TokenRBACData,
 } from './types';
 import {
   createSessionRecord,
@@ -50,6 +56,139 @@ import {
   generateSessionId,
 } from './internal/session-manager';
 import { logLoginAttempt } from './internal/login-tracker';
+
+/**
+ * Fetch RBAC data needed for enhanced token claims
+ *
+ * PERFORMANCE: This adds ~50-100ms to login, but saves 70-170ms on EVERY subsequent request.
+ * Net benefit: Significant for any session with >1 API call.
+ *
+ * @param userId - User ID to fetch RBAC data for
+ * @returns TokenRBACData or null if user context unavailable
+ */
+async function fetchTokenRBACData(userId: string): Promise<TokenRBACData | null> {
+  try {
+    const userContext = await getCachedUserContextSafe(userId);
+    if (!userContext) {
+      log.warn('Could not fetch user context for token RBAC claims', {
+        userId,
+        component: 'token-creation',
+      });
+      return null;
+    }
+
+    // Get role versions from cache for invalidation detection
+    const rolesWithVersions = await Promise.all(
+      userContext.roles.map(async (role) => {
+        const cached = await rbacCache.getRolePermissions(role.role_id);
+        return {
+          role_id: role.role_id,
+          name: role.name,
+          version: cached?.version ?? 1,
+        };
+      })
+    );
+
+    return {
+      is_super_admin: userContext.is_super_admin,
+      roles: rolesWithVersions,
+      primary_organization_id: userContext.current_organization_id ?? null,
+      organization_admin_for: userContext.organization_admin_for,
+      direct_organization_ids: userContext.organizations.map((o) => o.organization_id),
+      provider_uid: userContext.provider_uid,
+      email_verified: userContext.email_verified,
+    };
+  } catch (error) {
+    log.error(
+      'Failed to fetch RBAC data for token',
+      error instanceof Error ? error : new Error(String(error)),
+      {
+        userId,
+        component: 'token-creation',
+      }
+    );
+    return null;
+  }
+}
+
+/**
+ * Build organization access claim for JWT
+ *
+ * Creates a compact representation of organization access that the server can interpret:
+ * - Super admins: { type: 'all' } - bypasses org filtering entirely
+ * - Normal users with <=10 orgs: { type: 'hierarchy', root_ids: [...] } - server expands hierarchy
+ * - Users with many orgs: { type: 'direct', org_ids: [...] } - explicit list
+ *
+ * @param rbacData - RBAC data containing org membership info
+ * @returns Compact organization access claim
+ */
+function buildOrgAccessClaim(rbacData: TokenRBACData): OrgAccessClaim {
+  if (rbacData.is_super_admin) {
+    return { type: 'all' };
+  }
+
+  // For most users, store root org IDs - server expands hierarchy from cache
+  // Threshold of 10 keeps token size reasonable while covering typical multi-org users
+  if (rbacData.direct_organization_ids.length <= 10) {
+    return { type: 'hierarchy', root_ids: rbacData.direct_organization_ids };
+  }
+
+  // Fallback for users with many direct org memberships
+  return { type: 'direct', org_ids: rbacData.direct_organization_ids };
+}
+
+/**
+ * Build enhanced access token payload with RBAC claims
+ *
+ * @param userId - User ID
+ * @param sessionId - Session ID
+ * @param now - Current timestamp
+ * @param rbacData - RBAC data (or null for legacy token)
+ * @param user - User data from cache
+ * @returns Enhanced JWT payload
+ */
+function buildEnhancedAccessTokenPayload(
+  userId: string,
+  sessionId: string,
+  now: Date,
+  rbacData: TokenRBACData | null,
+  user: { email: string; first_name: string; last_name: string } | null
+): EnhancedAccessTokenPayload {
+  return {
+    // Standard JWT claims
+    sub: userId,
+    jti: nanoid(),
+    session_id: sessionId,
+    iat: Math.floor(now.getTime() / 1000),
+    exp: Math.floor((now.getTime() + ACCESS_TOKEN_DURATION) / 1000),
+
+    // User identification
+    email: user?.email ?? '',
+    first_name: user?.first_name ?? '',
+    last_name: user?.last_name ?? '',
+    email_verified: rbacData?.email_verified ?? false,
+
+    // RBAC claims
+    is_super_admin: rbacData?.is_super_admin ?? false,
+    role_ids: rbacData?.roles.map((r) => r.role_id) ?? [],
+    roles_version:
+      rbacData?.roles.reduce(
+        (acc, r) => {
+          acc[r.role_id] = r.version;
+          return acc;
+        },
+        {} as Record<string, number>
+      ) ?? {},
+
+    // Organization access
+    primary_org_id: rbacData?.primary_organization_id ?? null,
+    org_admin_for: rbacData?.organization_admin_for ?? [],
+    org_access: rbacData ? buildOrgAccessClaim(rbacData) : { type: 'direct', org_ids: [] },
+
+    // Analytics
+    provider_uid: rbacData?.provider_uid,
+  };
+}
 
 /**
  * Create initial token pair on login
@@ -121,16 +260,31 @@ export async function createTokenPair(
   const sessionId = generateSessionId();
   const refreshTokenId = nanoid(32);
 
-  // Create access token (15 minutes, stateless)
-  const accessTokenPayload = {
-    sub: userId,
-    jti: nanoid(), // Unique JWT ID for blacklist capability
-    session_id: sessionId,
-    iat: Math.floor(now.getTime() / 1000),
-    exp: Math.floor((now.getTime() + ACCESS_TOKEN_DURATION) / 1000),
-  };
+  // Fetch RBAC data for enhanced token claims (adds ~50-100ms but saves on every subsequent request)
+  const rbacData = await fetchTokenRBACData(userId);
 
-  const accessToken = await new SignJWT(accessTokenPayload)
+  // Fetch user data from cache for token claims
+  const user = await authCache.getUser(userId);
+
+  // Build enhanced access token payload with RBAC claims
+  const accessTokenPayload = buildEnhancedAccessTokenPayload(
+    userId,
+    sessionId,
+    now,
+    rbacData,
+    user ? { email: user.email, first_name: user.first_name, last_name: user.last_name } : null
+  );
+
+  log.debug('Creating enhanced access token', {
+    userId,
+    hasRbacData: !!rbacData,
+    roleCount: rbacData?.roles.length ?? 0,
+    orgAccessType: accessTokenPayload.org_access.type,
+    isSuperAdmin: accessTokenPayload.is_super_admin,
+    component: 'token-creation',
+  });
+
+  const accessToken = await new SignJWT(accessTokenPayload as unknown as Record<string, unknown>)
     .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
     .sign(ACCESS_TOKEN_SECRET);
 
@@ -218,6 +372,9 @@ export async function createTokenPair(
  * @param token - Token to hash
  * @returns SHA-256 hex digest
  */
-function hashToken(token: string): string {
+export function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
 }
+
+// Export helper functions for use in refresh.ts
+export { fetchTokenRBACData, buildEnhancedAccessTokenPayload };

@@ -270,10 +270,14 @@ export default function OrganizationsContent() {
           </svg>
         ),
         onClick: handleToggleActive,
-        confirm: (o) =>
-          o.is_active
-            ? `Are you sure you want to inactivate ${o.name}?`
-            : `Are you sure you want to activate ${o.name}?`,
+        confirmModal: {
+          title: (o) => (o.is_active ? 'Inactivate Organization' : 'Activate Organization'),
+          message: (o) =>
+            o.is_active
+              ? `Are you sure you want to inactivate ${o.name}?`
+              : `Are you sure you want to activate ${o.name}?`,
+          confirmText: (o) => (o.is_active ? 'Inactivate' : 'Activate'),
+        },
       },
       {
         label: 'Delete',
@@ -284,7 +288,11 @@ export default function OrganizationsContent() {
         ),
         onClick: handleDeleteOrganization,
         variant: 'danger',
-        confirm: (o) => `Are you sure you want to delete ${o.name}? This action cannot be undone.`,
+        confirmModal: {
+          title: 'Delete Organization',
+          message: (o) => `Are you sure you want to delete ${o.name}? This action cannot be undone.`,
+          confirmText: 'Delete',
+        },
       },
     ],
     [handleEditOrganization, handleManageUsers, handleToggleActive, handleDeleteOrganization]
@@ -296,18 +304,30 @@ export default function OrganizationsContent() {
       {
         label: 'Activate Selected',
         onClick: handleBulkActivate,
-        confirm: 'Activate all selected items?',
+        confirmModal: {
+          title: 'Activate Selected',
+          message: 'Are you sure you want to activate all selected items?',
+          confirmText: 'Activate',
+        },
       },
       {
         label: 'Inactivate Selected',
         onClick: handleBulkInactivate,
-        confirm: 'Inactivate all selected items?',
+        confirmModal: {
+          title: 'Inactivate Selected',
+          message: 'Are you sure you want to inactivate all selected items?',
+          confirmText: 'Inactivate',
+        },
       },
       {
         label: 'Delete Selected',
         variant: 'danger',
         onClick: handleBulkDelete,
-        confirm: 'Delete all selected items? This action cannot be undone.',
+        confirmModal: {
+          title: 'Delete Selected',
+          message: 'Are you sure you want to delete all selected items? This action cannot be undone.',
+          confirmText: 'Delete',
+        },
       },
     ],
     [handleBulkActivate, handleBulkInactivate, handleBulkDelete]

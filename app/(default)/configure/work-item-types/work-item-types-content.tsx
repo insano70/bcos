@@ -338,10 +338,14 @@ export default function WorkItemTypesContent() {
             </svg>
           ),
           onClick: handleToggleActive,
-          confirm: (t) =>
-            t.is_active
-              ? `Are you sure you want to inactivate ${t.name}?`
-              : `Are you sure you want to activate ${t.name}?`,
+          confirmModal: {
+            title: (t) => (t.is_active ? 'Inactivate Work Item Type' : 'Activate Work Item Type'),
+            message: (t) =>
+              t.is_active
+                ? `Are you sure you want to inactivate ${t.name}?`
+                : `Are you sure you want to activate ${t.name}?`,
+            confirmText: (t) => (t.is_active ? 'Inactivate' : 'Activate'),
+          },
         });
         actions.push({
           label: 'Delete',
@@ -352,8 +356,12 @@ export default function WorkItemTypesContent() {
           ),
           onClick: handleDeleteWorkItemType,
           variant: 'danger',
-          confirm: (t) =>
-            `Are you sure you want to delete ${t.name}? This action cannot be undone.`,
+          confirmModal: {
+            title: 'Delete Work Item Type',
+            message: (t) =>
+              `Are you sure you want to delete ${t.name}? This action cannot be undone.`,
+            confirmText: 'Delete',
+          },
         });
       }
 
@@ -376,18 +384,30 @@ export default function WorkItemTypesContent() {
       {
         label: 'Activate Selected',
         onClick: handleBulkActivate,
-        confirm: 'Activate all selected items?',
+        confirmModal: {
+          title: 'Activate Selected',
+          message: 'Are you sure you want to activate all selected items?',
+          confirmText: 'Activate',
+        },
       },
       {
         label: 'Inactivate Selected',
         onClick: handleBulkInactivate,
-        confirm: 'Inactivate all selected items?',
+        confirmModal: {
+          title: 'Inactivate Selected',
+          message: 'Are you sure you want to inactivate all selected items?',
+          confirmText: 'Inactivate',
+        },
       },
       {
         label: 'Delete Selected',
         variant: 'danger',
         onClick: handleBulkDelete,
-        confirm: 'Delete all selected items? This action cannot be undone.',
+        confirmModal: {
+          title: 'Delete Selected',
+          message: 'Are you sure you want to delete all selected items? This action cannot be undone.',
+          confirmText: 'Delete',
+        },
       },
     ],
     [handleBulkActivate, handleBulkInactivate, handleBulkDelete]

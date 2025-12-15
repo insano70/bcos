@@ -28,7 +28,7 @@ const getFieldHandler = async (
 
   try {
     const fieldsService = createRBACWorkItemFieldsService(userContext);
-    const field = await fieldsService.getWorkItemFieldById(fieldId);
+    const field = await fieldsService.getById(fieldId);
 
     if (!field) {
       log.warn('Work item field not found', {
@@ -93,7 +93,7 @@ const patchFieldHandler = async (
 
     // Update field
     const fieldsService = createRBACWorkItemFieldsService(userContext);
-    const field = await fieldsService.updateWorkItemField(fieldId, validatedData as never);
+    const field = await fieldsService.update(fieldId, validatedData as never);
 
     const duration = Date.now() - startTime;
 
@@ -143,7 +143,7 @@ const deleteFieldHandler = async (
 
   try {
     const fieldsService = createRBACWorkItemFieldsService(userContext);
-    await fieldsService.deleteWorkItemField(fieldId);
+    await fieldsService.delete(fieldId);
 
     const duration = Date.now() - startTime;
 

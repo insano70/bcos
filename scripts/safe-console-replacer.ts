@@ -6,7 +6,7 @@
  */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { basename, dirname, join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 interface ConsoleReplacement {
   pattern: RegExp;
@@ -247,7 +247,6 @@ class SafeConsoleReplacer {
    */
   private createBackup(filePath: string, content: string): string {
     const timestamp = Date.now();
-    const _fileName = basename(filePath);
     const relativePath = filePath.replace(`${process.cwd()}/`, '').replace(/\//g, '_');
     const backupFileName = `${relativePath}.${timestamp}.backup`;
     const backupPath = join(this.backupDir, backupFileName);

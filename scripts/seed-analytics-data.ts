@@ -52,8 +52,6 @@ const MEASURES = {
   'CPO Invoices': { type: 'currency', min: 2000, max: 75000 },
 };
 
-const _TIME_PERIODS = ['Daily', 'Weekly', 'Monthly', 'Quarterly'];
-
 /**
  * Generate random number within range
  */
@@ -66,13 +64,6 @@ function randomBetween(min: number, max: number): number {
  */
 function randomCurrency(min: number, max: number): number {
   return Math.round((Math.random() * (max - min) + min) * 100) / 100;
-}
-
-/**
- * Get random provider
- */
-function _getRandomProvider() {
-  return PROVIDERS[Math.floor(Math.random() * PROVIDERS.length)];
 }
 
 /**

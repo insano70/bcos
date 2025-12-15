@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useMemo } from 'react';
 import { usePermissions } from '@/lib/hooks/use-permissions';
 import type { ProtectedPageProps } from '@/lib/types/rbac';
+import { Spinner } from '@/components/ui/spinner';
 
 /**
  * ProtectedPage - Page-level permission protection
@@ -74,21 +75,13 @@ export function ProtectedPage({
       loadingComponent || (
         <div className="flex items-center justify-center min-h-screen">
           <div className="flex items-center space-x-3">
-            <svg className="animate-spin h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24">
-              <circle
-                className="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                strokeWidth="4"
-              />
-              <path
-                className="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-              />
-            </svg>
+            <Spinner
+              sizeClassName="w-6 h-6"
+              borderClassName="border-2"
+              trackClassName="border-current opacity-25"
+              indicatorClassName="border-current opacity-75"
+              className="text-blue-600"
+            />
             <span className="text-gray-600">Checking authentication...</span>
           </div>
         </div>
@@ -107,21 +100,13 @@ export function ProtectedPage({
       loadingComponent || (
         <div className="flex items-center justify-center min-h-screen">
           <div className="flex items-center space-x-3">
-            <svg className="animate-spin h-6 w-6 text-orange-600" fill="none" viewBox="0 0 24 24">
-              <circle
-                className="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                strokeWidth="4"
-              />
-              <path
-                className="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-              />
-            </svg>
+            <Spinner
+              sizeClassName="w-6 h-6"
+              borderClassName="border-2"
+              trackClassName="border-current opacity-25"
+              indicatorClassName="border-current opacity-75"
+              className="text-orange-600"
+            />
             <span className="text-gray-600">Checking permissions...</span>
           </div>
         </div>

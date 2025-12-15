@@ -2,6 +2,7 @@ import { and, eq, inArray } from 'drizzle-orm';
 import { db, type DbContext } from '@/lib/db';
 import { roles, user_roles } from '@/lib/db/rbac-schema';
 import { log, logTemplates, SLOW_THRESHOLDS } from '@/lib/logger';
+import { invalidateUserContext } from '@/lib/rbac/cache-invalidation';
 import type { UserContext } from '@/lib/types/rbac';
 import { PermissionDeniedError } from '@/lib/errors/rbac-errors';
 
@@ -260,6 +261,9 @@ class UserRolesService implements UserRolesServiceInterface {
       });
 
       log.info(template.message, template.context);
+
+      // Invalidate user's cached context so next request gets fresh permissions
+      await invalidateUserContext(userId);
     } catch (error) {
       log.error('assign roles to user failed', error, {
         operation: 'assign_roles_to_user',
@@ -302,6 +306,9 @@ class UserRolesService implements UserRolesServiceInterface {
           component: 'service',
         },
       });
+
+      // Invalidate user's cached context so next request gets fresh permissions
+      await invalidateUserContext(userId);
     } catch (error) {
       log.error('remove roles from user failed', error, {
         operation: 'remove_roles_from_user',

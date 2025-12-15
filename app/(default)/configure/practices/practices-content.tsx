@@ -12,6 +12,7 @@ import DeleteButton from '@/components/delete-button';
 import FilterButton, { type ActiveFilter, type FilterGroup } from '@/components/dropdown-filter';
 import { ProtectedComponent } from '@/components/rbac/protected-component';
 import Toast from '@/components/toast';
+import { Spinner } from '@/components/ui/spinner';
 import { usePracticePermissions } from '@/lib/hooks/use-permissions';
 import { usePractices } from '@/lib/hooks/use-practices';
 import type { Practice } from '@/lib/types/practice';
@@ -298,25 +299,13 @@ export default function PracticesContent() {
         <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-[96rem] mx-auto">
           <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-6">
             <div className="flex items-center">
-              <svg
-                className="animate-spin h-6 w-6 text-blue-600 dark:text-blue-400 mr-3"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                />
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                />
-              </svg>
+              <Spinner
+                sizeClassName="w-6 h-6"
+                borderClassName="border-2"
+                trackClassName="border-current opacity-25"
+                indicatorClassName="border-current opacity-75"
+                className="text-blue-600 dark:text-blue-400 mr-3"
+              />
               <div>
                 <h3 className="text-blue-800 dark:text-blue-200 font-medium">Session Expired</h3>
                 <p className="text-blue-600 dark:text-blue-400 text-sm mt-1">
@@ -375,21 +364,13 @@ export default function PracticesContent() {
             Practices
             {isLoading && (
               <span className="ml-3 inline-flex items-center">
-                <svg className="animate-spin h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24">
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  />
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  />
-                </svg>
+                <Spinner
+                  sizeClassName="w-5 h-5"
+                  borderClassName="border-2"
+                  trackClassName="border-current opacity-25"
+                  indicatorClassName="border-current opacity-75"
+                  className="text-gray-400"
+                />
                 <span className="ml-2 text-sm text-gray-500">Loading...</span>
               </span>
             )}

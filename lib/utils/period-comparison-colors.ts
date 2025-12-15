@@ -136,13 +136,6 @@ export function getColorScheme(schemeName: string): ColorScheme {
 }
 
 /**
- * Get all available color schemes
- */
-export function getAllColorSchemes(): ColorScheme[] {
-  return Object.values(PERIOD_COMPARISON_COLOR_SCHEMES);
-}
-
-/**
  * Apply period comparison colors to chart datasets
  */
 export function applyPeriodComparisonColors(

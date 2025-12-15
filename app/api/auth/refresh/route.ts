@@ -109,8 +109,30 @@ const refreshHandler = async (request: NextRequest) => {
     }
 
     // Get user's RBAC context for complete user data
-    const { getUserContextSafe } = await import('@/lib/rbac/user-context');
-    const userContext = await getUserContextSafe(user.user_id);
+    // Use try-catch to allow token refresh even if context load fails
+    const { getUserContextOrThrow, UserContextAuthError } = await import('@/lib/rbac/user-context');
+    let userContext: Awaited<ReturnType<typeof getUserContextOrThrow>> | null = null;
+    try {
+      userContext = await getUserContextOrThrow(user.user_id);
+    } catch (error) {
+      // Auth errors during refresh are acceptable - user can still refresh tokens
+      // but will have degraded response (no roles/permissions)
+      if (error instanceof UserContextAuthError) {
+        log.warn('User context load failed during token refresh', {
+          userId: user.user_id,
+          reason: error.reason,
+          operation: 'token_refresh',
+          component: 'auth',
+        });
+      } else {
+        // Server errors should be logged but not block refresh
+        log.error('Server error loading user context during refresh', error, {
+          userId: user.user_id,
+          operation: 'token_refresh',
+          component: 'auth',
+        });
+      }
+    }
 
     // Extract device info
     const { extractRequestMetadata } = await import('@/lib/api/utils/request');

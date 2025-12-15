@@ -278,6 +278,37 @@ export abstract class BaseFactory<
   }
 
   /**
+   * Track an externally-created entity for cleanup
+   *
+   * Use this when a service creates an entity during testing that needs
+   * to be cleaned up in the proper order with factory-created entities.
+   *
+   * @param id - The ID of the externally-created entity
+   * @param scope - Optional scope for isolated cleanup
+   *
+   * @example
+   * ```typescript
+   * // Track a work item created by service
+   * const result = await workItemsService.createWorkItem(data);
+   * committedWorkItemFactory.trackExternal(result.work_item_id, scopeId);
+   * ```
+   */
+  trackExternal(id: string, scope?: string): void {
+    const finalScope = scope || this.defaultScope;
+    const trackedObject: TrackedObject = {
+      id,
+      type: this.entityType,
+      createdAt: new Date(),
+      dependents: [],
+      dependencies: [],
+      ...(finalScope !== undefined ? { scope: finalScope } : {}),
+      metadata: { factoryType: this.constructor.name, external: true },
+    };
+
+    this.cleanupTracker.track(trackedObject);
+  }
+
+  /**
    * Get count of tracked objects for this factory
    */
   getTrackedCount(scope?: string): number {

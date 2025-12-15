@@ -24,7 +24,7 @@ const getTemplatesHandler = async (request: NextRequest, userContext: UserContex
 
     // Use templates service with RBAC
     const templatesService = createRBACTemplatesService(userContext);
-    const result = await templatesService.getTemplates({
+    const result = await templatesService.getList({
       ...(query.is_active !== undefined && { is_active: query.is_active }),
       ...(query.search && { search: query.search }),
       limit: pagination.limit,
@@ -34,7 +34,7 @@ const getTemplatesHandler = async (request: NextRequest, userContext: UserContex
     });
 
     // Map template_id to id for backwards compatibility
-    const templatesData = result.templates.map((t) => ({
+    const templatesData = result.items.map((t) => ({
       id: t.template_id,
       name: t.name,
       slug: t.slug,

@@ -43,7 +43,7 @@ const postFieldHandler = async (
 
     // Create service and field
     const fieldsService = createRBACWorkItemFieldsService(userContext);
-    const field = await fieldsService.createWorkItemField(validatedData as never);
+    const field = await fieldsService.create(validatedData as never);
 
     const duration = Date.now() - startTime;
 
@@ -116,19 +116,19 @@ const getFieldsHandler = async (
 
     // Get fields
     const fieldsService = createRBACWorkItemFieldsService(userContext);
-    const fields = await fieldsService.getWorkItemFields(validatedParams as never);
+    const result = await fieldsService.getList(validatedParams as never);
 
     const duration = Date.now() - startTime;
 
     log.info('Work item fields retrieved successfully', {
       workItemTypeId,
-      count: fields.length,
+      count: result.items.length,
       duration,
       operation: 'list_work_item_fields',
       component: 'work-items',
     });
 
-    return NextResponse.json(fields);
+    return NextResponse.json(result.items);
   } catch (error) {
     const duration = Date.now() - startTime;
 

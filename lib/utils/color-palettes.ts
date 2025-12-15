@@ -246,36 +246,3 @@ export const COLOR_PALETTES: ColorPalette[] = [
     bestFor: ['Wellness spas', 'Lifestyle medicine', 'Holistic care'],
   },
 ];
-
-/**
- * Get palettes by category
- */
-export function getPalettesByCategory(category: ColorPalette['category']): ColorPalette[] {
-  return COLOR_PALETTES.filter((palette) => palette.category === category);
-}
-
-/**
- * Get palette by ID
- */
-export function getPaletteById(id: string): ColorPalette | undefined {
-  return COLOR_PALETTES.find((palette) => palette.id === id);
-}
-
-/**
- * Get all categories
- */
-export function getAllCategories(): ColorPalette['category'][] {
-  return ['professional', 'warm', 'clinical', 'modern', 'community', 'creative'];
-}
-
-/**
- * Category display names
- */
-export const CATEGORY_NAMES: Record<ColorPalette['category'], string> = {
-  professional: 'Professional',
-  warm: 'Warm & Welcoming',
-  clinical: 'Clinical',
-  modern: 'Modern',
-  community: 'Community',
-  creative: 'Creative',
-};

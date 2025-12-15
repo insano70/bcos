@@ -159,15 +159,3 @@ export function authRoute(
 ) {
   return buildAuthRoute(handler, options);
 }
-
-/**
- * Legacy alias for backward compatibility
- * @deprecated Use authRoute instead
- */
-export const legacySecureRoute = authRoute;
-
-/**
- * Legacy alias for backward compatibility
- * @deprecated Use authRoute instead
- */
-export const secureRoute = authRoute;

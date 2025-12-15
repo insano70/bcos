@@ -175,18 +175,24 @@ export async function buildUserContext(
     .leftJoin(organizations, eq(user_roles.organization_id, organizations.organization_id))
     .where(eq(user_roles.user_id, user.user_id));
 
-  // Get all permissions for user's roles
+  // Get all role IDs for populating role.permissions later
   const roleIds = userRolesData.map((ur) => ur.role_id);
+
+  // Get all permissions for user's ACTIVE roles only
+  // Filter to only include active roles before querying permissions
+  const activeRoleIds = userRolesData
+    .filter((ur) => ur.role.is_active === true)
+    .map((ur) => ur.role_id);
   const allPermissions: Permission[] = [];
 
-  if (roleIds.length > 0) {
+  if (activeRoleIds.length > 0) {
     const rolePerms = await tx
       .select({
         permission: permissions, // Select all permission fields
       })
       .from(role_permissions)
       .innerJoin(permissions, eq(role_permissions.permission_id, permissions.permission_id))
-      .where(inArray(role_permissions.role_id, roleIds));
+      .where(inArray(role_permissions.role_id, activeRoleIds));
 
     allPermissions.push(
       ...rolePerms.map((rp) => ({

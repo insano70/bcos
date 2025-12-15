@@ -33,10 +33,16 @@ const getStatusesHandler = async (
     const statusesService = createRBACWorkItemStatusesService(userContext);
 
     const queryStart = Date.now();
-    const statuses = await statusesService.getStatusesByType(typeId);
-    log.db('SELECT', 'work_item_statuses', Date.now() - queryStart, {
-      rowCount: statuses.length,
+    const result = await statusesService.getList({
+      work_item_type_id: typeId,
+      limit: 1000,
+      sortField: 'display_order',
+      sortOrder: 'asc',
     });
+    log.db('SELECT', 'work_item_statuses', Date.now() - queryStart, {
+      rowCount: result.items.length,
+    });
+    const statuses = result.items;
 
     const totalDuration = Date.now() - startTime;
     log.info('Work item statuses retrieved successfully', {
@@ -101,7 +107,7 @@ const createStatusHandler = async (
     const statusesService = createRBACWorkItemStatusesService(userContext);
 
     const createStart = Date.now();
-    const newStatus = await statusesService.createStatus({
+    const newStatus = await statusesService.create({
       work_item_type_id: typeId,
       status_name: validatedData.status_name,
       status_category: validatedData.status_category,

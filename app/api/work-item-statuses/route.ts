@@ -36,7 +36,13 @@ const getWorkItemStatusesHandler = async (request: NextRequest, userContext: Use
 
     // Use service layer for data access
     const statusesService = createRBACWorkItemStatusesService(userContext);
-    const statuses = await statusesService.getStatusesByType(work_item_type_id);
+    const result = await statusesService.getList({
+      work_item_type_id,
+      limit: 1000,
+      sortField: 'display_order',
+      sortOrder: 'asc',
+    });
+    const statuses = result.items;
 
     const duration = Date.now() - startTime;
     const filters = sanitizeFilters({ work_item_type_id });

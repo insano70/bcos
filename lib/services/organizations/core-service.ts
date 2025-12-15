@@ -1,7 +1,7 @@
 // 1. Drizzle ORM
 import { and, count, desc, eq, isNull, like } from 'drizzle-orm';
 // 4. Errors
-import { AuthorizationError, NotFoundError, ValidationError } from '@/lib/api/responses/error';
+import { APIError, AuthorizationError, NotFoundError, ValidationError } from '@/lib/api/responses/error';
 // 2. Database
 import { db, organizations, practices, user_organizations } from '@/lib/db';
 // 3. Logging
@@ -367,7 +367,8 @@ class OrganizationCoreService extends BaseOrganizationsService {
 
       return enhanced;
     } catch (error) {
-      if (error instanceof AuthorizationError) {
+      // Re-throw APIError instances (includes AuthorizationError, NotFoundError, etc.)
+      if (error instanceof APIError) {
         throw error;
       }
       log.error('read organization failed', error, {

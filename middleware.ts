@@ -335,6 +335,35 @@ export async function middleware(request: NextRequest) {
     return res
   }
 
+  const getSafeRelativeRedirect = (value: string | null): string | null => {
+    if (!value) return null
+    if (!value.startsWith('/')) return null
+    // Prevent protocol-relative and backslash-based redirects
+    if (value.startsWith('//') || value.startsWith('/\\')) return null
+    // Prevent redirect loops back to signin
+    if (value === '/signin' || value.startsWith('/signin?') || value.startsWith('/signin#')) return null
+    return value
+  }
+
+  const maybeRedirectAuthenticatedSignin = async (request: NextRequest): Promise<NextResponse | null> => {
+    const pathname = request.nextUrl.pathname
+    if (pathname !== '/signin') return null
+
+    const loggedOut = request.nextUrl.searchParams.get('logged_out') === 'true'
+    if (loggedOut) return null
+
+    const isAuthenticated = await validateAuthentication(request)
+    if (!isAuthenticated) return null
+
+    const callbackParam =
+      request.nextUrl.searchParams.get('callbackUrl') || request.nextUrl.searchParams.get('returnUrl')
+    const safeTarget = getSafeRelativeRedirect(callbackParam) || '/dashboard'
+
+    const redirectUrl = new URL(safeTarget, request.url)
+    const redirectResponse = NextResponse.redirect(redirectUrl)
+    return addSecurityHeaders(redirectResponse)
+  }
+
   /**
    * Validate user authentication for protected routes
    * Checks access token first, falls back to refresh token validation
@@ -385,6 +414,14 @@ export async function middleware(request: NextRequest) {
   if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.includes('192.168.')) {
     debugLog.middleware('Processing request for:', pathname)
 
+    // If the user is already authenticated, avoid showing signin page at all
+    if (pathname === '/signin') {
+      const signinRedirect = await maybeRedirectAuthenticatedSignin(request)
+      if (signinRedirect) {
+        return signinRedirect
+      }
+    }
+
     // Public paths (signin, reset-password, etc.) - allow through immediately
     if (isPublicPath(pathname)) {
       debugLog.middleware('Public path detected, allowing through:', pathname)
@@ -429,6 +466,14 @@ export async function middleware(request: NextRequest) {
   }
 
   if (isAdminSubdomain(hostname)) {
+    // If the user is already authenticated, avoid showing signin page at all
+    if (pathname === '/signin') {
+      const signinRedirect = await maybeRedirectAuthenticatedSignin(request)
+      if (signinRedirect) {
+        return signinRedirect
+      }
+    }
+
     if (!isPublicPath(pathname)) {
       const isAuthenticated = await validateAuthentication(request)
 
@@ -451,6 +496,14 @@ export async function middleware(request: NextRequest) {
       hostname === 'dev.bendcare.com' ||
       hostname === 'development.bendcare.com' ||
       hostname === 'test.bendcare.com') {
+
+    // If the user is already authenticated, avoid showing signin page at all
+    if (pathname === '/signin') {
+      const signinRedirect = await maybeRedirectAuthenticatedSignin(request)
+      if (signinRedirect) {
+        return signinRedirect
+      }
+    }
 
     if (!isPublicPath(pathname)) {
       const isAuthenticated = await validateAuthentication(request)

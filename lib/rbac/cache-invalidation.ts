@@ -1,6 +1,17 @@
 /**
  * Role Permission Cache Invalidation Service
  * Handles cache invalidation when roles/permissions are modified
+ *
+ * CACHE LAYERS:
+ * - rbac:user:{userId}:context - Standard UserContext cache (5 min TTL)
+ * - rbac:user:{userId}:fast-context - Fast UserContext cache (60 sec TTL)
+ * - rbac:role:{roleId}:permissions - Role permissions cache (24 hr TTL)
+ *
+ * INVALIDATION TRIGGERS:
+ * - User role assigned/removed -> invalidateUserContext(userId)
+ * - User org membership changed -> invalidateUserContext(userId)
+ * - Role permissions modified -> invalidateRolePermissions(roleId) + invalidateUsersContextWithRole(roleId)
+ * - User deactivated -> invalidateUserContext(userId) + revoke tokens
  */
 
 import { eq } from 'drizzle-orm';
@@ -35,6 +46,70 @@ export async function invalidateAllRolePermissions(): Promise<void> {
   log.warn('All role permissions cache invalidated in Redis', {
     operation: 'invalidateAllRolePermissions',
   });
+}
+
+/**
+ * Invalidate user context cache (both standard and fast cache)
+ *
+ * Should be called when:
+ * - User roles are assigned/removed
+ * - User organization membership changes
+ * - User is deactivated
+ *
+ * @param userId - User ID to invalidate
+ */
+export async function invalidateUserContext(userId: string): Promise<void> {
+  await rbacCache.invalidateAllUserContext(userId);
+
+  log.info('User context cache invalidated', {
+    userId,
+    operation: 'invalidateUserContext',
+  });
+}
+
+/**
+ * Invalidate user context cache for all users with a specific role
+ *
+ * Should be called when role permissions are modified.
+ * This ensures all affected users get fresh UserContext on next request.
+ *
+ * @param roleId - Role ID whose users should be invalidated
+ */
+export async function invalidateUsersContextWithRole(roleId: string): Promise<void> {
+  const startTime = Date.now();
+
+  try {
+    const usersWithRole = await getUsersWithRole(roleId);
+
+    if (usersWithRole.length === 0) {
+      log.info('No users found with role - no contexts to invalidate', {
+        roleId,
+      });
+      return;
+    }
+
+    // Invalidate context for each user in parallel
+    await Promise.all(
+      usersWithRole.map((user) => rbacCache.invalidateAllUserContext(user.user_id))
+    );
+
+    log.info('User contexts invalidated for role change', {
+      roleId,
+      affectedUsers: usersWithRole.length,
+      duration: Date.now() - startTime,
+      operation: 'invalidateUsersContextWithRole',
+    });
+  } catch (error) {
+    log.error(
+      'Failed to invalidate user contexts for role',
+      error instanceof Error ? error : new Error(String(error)),
+      {
+        roleId,
+        duration: Date.now() - startTime,
+      }
+    );
+    throw error;
+  }
 }
 
 /**
@@ -136,6 +211,12 @@ export async function invalidateUserTokensWithRole(
 
 /**
  * Handle role permission update with proper cache invalidation
+ *
+ * This function handles the full invalidation chain when role permissions change:
+ * 1. Updates the database
+ * 2. Invalidates role permission cache
+ * 3. Invalidates user context caches for affected users
+ * 4. Revokes tokens to force fresh JWTs
  */
 export async function updateRolePermissionsWithInvalidation(
   roleId: string,
@@ -147,10 +228,14 @@ export async function updateRolePermissionsWithInvalidation(
     // 1. Update the database
     await updateFunction();
 
-    // 2. Invalidate cache immediately
+    // 2. Invalidate role permission cache immediately
     await invalidateRolePermissions(roleId, roleName);
 
-    // 3. Optional: Invalidate user tokens (forces fresh JWTs)
+    // 3. Invalidate user context caches for all users with this role
+    // This ensures JWT version checks will trigger DB fallback
+    await invalidateUsersContextWithRole(roleId);
+
+    // 4. Revoke tokens to force fresh JWTs with updated permissions
     await invalidateUserTokensWithRole(roleId, 'permissions_updated');
 
     log.info('Role permissions updated with cache invalidation', {

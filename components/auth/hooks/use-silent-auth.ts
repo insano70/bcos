@@ -20,7 +20,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { authLogger } from '@/lib/utils/client-logger';
-import { clearLoginHint, clearSessionExpiry, getLoginHint } from '@/lib/utils/login-hint-storage';
+import {
+  clearLoginHint,
+  clearPreferredAuthMethod,
+  clearSessionExpiry,
+  getLoginHint,
+  getPreferredAuthMethod,
+} from '@/lib/utils/login-hint-storage';
 import { useAuth } from '../rbac-auth-provider';
 
 interface UseSilentAuthOptions {
@@ -73,6 +79,13 @@ interface UseSilentAuthResult {
    * Retries silent authentication.
    */
   retrySilentAuth: () => void;
+
+  /**
+   * Mark that the user interacted with the signin form (focus/typing).
+   * Cancels any pending automatic silent-auth attempt so we don't redirect
+   * while the user is actively trying to log in.
+   */
+  markUserInteracted: () => void;
 }
 
 /**
@@ -116,18 +129,28 @@ export function useSilentAuth(options: UseSilentAuthOptions = {}): UseSilentAuth
   const loggedOutParam = searchParams.get('logged_out') === 'true';
   const shouldSkipInitially = !enabled || silentFailedParam || loggedOutParam;
 
+  // Get login hint: prefer explicit option, fall back to stored email from previous login
+  // This pre-fills the Microsoft login form for returning users, saving one click
+  const storedHint = getLoginHint();
+  const loginHint = explicitLoginHint ?? storedHint;
+
+  // Only attempt automatic silent auth when the user previously preferred Microsoft SSO
+  // (prevents brand-new / password-first users from being redirected away from the form).
+  const preferredAuthMethod = getPreferredAuthMethod();
+  const autoSilentEligible = enabled && preferredAuthMethod === 'oidc' && !!loginHint;
+
   // Initialize states based on whether we need to check at all
-  const [isCheckingSession, setIsCheckingSession] = useState(!shouldSkipInitially);
+  const [isCheckingSession, setIsCheckingSession] = useState(
+    !shouldSkipInitially && autoSilentEligible
+  );
   const [silentAuthFailed, setSilentAuthFailed] = useState(silentFailedParam || loggedOutParam);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   // Prevent multiple silent auth attempts
   const hasAttemptedRef = useRef(shouldSkipInitially);
 
-  // Get login hint: prefer explicit option, fall back to stored email from previous login
-  // This pre-fills the Microsoft login form for returning users, saving one click
-  const storedHint = getLoginHint();
-  const loginHint = explicitLoginHint ?? storedHint;
+  // Small delay before auto-silent redirect so the form can render and the user can interact.
+  const AUTO_SILENT_REDIRECT_DELAY_MS = 400;
 
   // Build OIDC login URL with parameters
   const buildLoginUrl = useCallback(
@@ -147,6 +170,23 @@ export function useSilentAuth(options: UseSilentAuthOptions = {}): UseSilentAuth
     [returnUrl, loginHint]
   );
 
+  // Track user interaction to cancel auto silent auth
+  const userInteractedRef = useRef(false);
+  const autoSilentTimerRef = useRef<number | null>(null);
+
+  const clearAutoSilentTimer = useCallback(() => {
+    if (autoSilentTimerRef.current !== null) {
+      window.clearTimeout(autoSilentTimerRef.current);
+      autoSilentTimerRef.current = null;
+    }
+  }, []);
+
+  const markUserInteracted = useCallback(() => {
+    userInteractedRef.current = true;
+    clearAutoSilentTimer();
+    setIsCheckingSession(false);
+  }, [clearAutoSilentTimer]);
+
   // Handle side effects for logout (clear stored hints)
   // Note: State initialization is handled synchronously above to avoid loading flash
   useEffect(() => {
@@ -155,6 +195,7 @@ export function useSilentAuth(options: UseSilentAuthOptions = {}): UseSilentAuth
       authLogger.log('User explicitly logged out - clearing stored auth hints');
       clearLoginHint();
       clearSessionExpiry();
+      clearPreferredAuthMethod();
     }
   }, [loggedOutParam]);
 
@@ -171,7 +212,13 @@ export function useSilentAuth(options: UseSilentAuthOptions = {}): UseSilentAuth
     // Wait for RBACAuthProvider to finish its initial session check
     // This avoids a duplicate /api/auth/me call
     if (authProviderLoading) {
-      authLogger.log('Waiting for auth provider to check session...');
+      // Only show a "checking session" indicator if we're eligible to auto-silent-auth.
+      // Otherwise, let the login form render immediately without a spinner.
+      if (autoSilentEligible && !userInteractedRef.current) {
+        setIsCheckingSession(true);
+      } else {
+        setIsCheckingSession(false);
+      }
       return;
     }
 
@@ -180,6 +227,7 @@ export function useSilentAuth(options: UseSilentAuthOptions = {}): UseSilentAuth
       authLogger.log('Valid session found via auth provider - user is authenticated');
       setIsAuthenticated(true);
       setIsCheckingSession(false);
+      clearAutoSilentTimer();
 
       // Redirect authenticated user using client-side navigation (no full page reload)
       if (skipIfAuthenticated) {
@@ -189,14 +237,35 @@ export function useSilentAuth(options: UseSilentAuthOptions = {}): UseSilentAuth
       return;
     }
 
-    // No valid session found by auth provider - attempt silent OIDC auth
-    authLogger.log('No valid session - attempting silent Microsoft auth');
+    // No local session found by auth provider.
+    // Only attempt silent OIDC automatically for users who have previously preferred it,
+    // and only if they haven't started interacting with the form.
+    if (!autoSilentEligible || userInteractedRef.current) {
+      hasAttemptedRef.current = true; // Nothing else to do for this page load
+      setIsCheckingSession(false);
+      return;
+    }
+
+    authLogger.log('No valid session - scheduling silent Microsoft auth');
     hasAttemptedRef.current = true;
+    setIsCheckingSession(true);
 
     // Redirect to silent auth endpoint (full navigation required for OAuth flow)
-    const silentUrl = buildLoginUrl(true);
-    authLogger.log('Redirecting to silent auth', { url: silentUrl });
-    window.location.href = silentUrl;
+    // Delay slightly to let UI render and give user a chance to interact (cancel).
+    clearAutoSilentTimer();
+    autoSilentTimerRef.current = window.setTimeout(() => {
+      if (userInteractedRef.current) {
+        setIsCheckingSession(false);
+        return;
+      }
+      const silentUrl = buildLoginUrl(true);
+      authLogger.log('Redirecting to silent auth', { url: silentUrl });
+      window.location.href = silentUrl;
+    }, AUTO_SILENT_REDIRECT_DELAY_MS);
+
+    return () => {
+      clearAutoSilentTimer();
+    };
   }, [
     enabled,
     skipIfAuthenticated,
@@ -205,6 +274,8 @@ export function useSilentAuth(options: UseSilentAuthOptions = {}): UseSilentAuth
     authProviderLoading,
     authProviderAuthenticated,
     router,
+    autoSilentEligible,
+    clearAutoSilentTimer,
   ]);
 
   // Initiate interactive login (user clicks "Sign in with Microsoft")
@@ -220,6 +291,8 @@ export function useSilentAuth(options: UseSilentAuthOptions = {}): UseSilentAuth
     hasAttemptedRef.current = false;
     setSilentAuthFailed(false);
     setIsCheckingSession(true);
+    userInteractedRef.current = false;
+    clearAutoSilentTimer();
 
     // Clear the silent_auth_failed param from URL
     const url = new URL(window.location.href);
@@ -229,7 +302,14 @@ export function useSilentAuth(options: UseSilentAuthOptions = {}): UseSilentAuth
     // Redirect to silent auth
     const silentUrl = buildLoginUrl(true);
     window.location.href = silentUrl;
-  }, [buildLoginUrl]);
+  }, [buildLoginUrl, clearAutoSilentTimer]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      clearAutoSilentTimer();
+    };
+  }, [clearAutoSilentTimer]);
 
   return {
     isCheckingSession,
@@ -237,6 +317,7 @@ export function useSilentAuth(options: UseSilentAuthOptions = {}): UseSilentAuth
     isAuthenticated,
     initiateInteractiveLogin,
     retrySilentAuth,
+    markUserInteracted,
   };
 }
 

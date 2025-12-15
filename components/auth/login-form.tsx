@@ -7,8 +7,9 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useId, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { clientDebugLog, clientErrorLog } from '@/lib/utils/debug-client';
+import { storePreferredAuthMethod } from '@/lib/utils/login-hint-storage';
 import { loginSchema } from '@/lib/validations/auth';
-import { AuthTransitionOverlay } from './auth-transition-overlay';
+import { Spinner } from '@/components/ui/spinner';
 import { useSilentAuth } from './hooks/use-silent-auth';
 import MFASetupDialog from './mfa-setup-dialog';
 import MFAVerifyDialog from './mfa-verify-dialog';
@@ -49,7 +50,7 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
   // - Silent auth already failed
   // - User explicitly logged out (prevents auto-signin when switching users)
   const skipSilentAuth = !!oidcError || silentAuthFailedParam === 'true' || loggedOutParam === 'true';
-  const { isCheckingSession } = useSilentAuth({
+  const { isCheckingSession, markUserInteracted } = useSilentAuth({
     enabled: !skipSilentAuth,
     returnUrl: callbackUrl,
   });
@@ -143,6 +144,9 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
     if (isAuthenticated && !mfaRequired && !mfaSetupRequired && isSubmitting) {
       clientDebugLog.auth('Login completed without MFA, redirecting', { callbackUrl });
 
+      // User completed password login successfully - prefer password login in future
+      storePreferredAuthMethod('password');
+
       onSuccess?.();
 
       // Use client-side navigation to avoid full page reload and auth state reset
@@ -165,6 +169,9 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
     completeMFASetup(sessionData);
     onSuccess?.();
 
+    // MFA setup is part of password login flow
+    storePreferredAuthMethod('password');
+
     // Use client-side navigation to avoid full page reload and auth state reset
     router.replace(callbackUrl);
   };
@@ -183,6 +190,9 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
   }) => {
     completeMFASetup(sessionData); // Reuse existing completion handler
     onSuccess?.();
+
+    // MFA setup skip is part of password login flow
+    storePreferredAuthMethod('password');
 
     // Use client-side navigation to avoid full page reload and auth state reset
     router.replace(callbackUrl);
@@ -203,12 +213,16 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
     completeMFAVerification(sessionData);
     onSuccess?.();
 
+    // MFA verification is part of password login flow
+    storePreferredAuthMethod('password');
+
     // Use client-side navigation to avoid full page reload and auth state reset
     router.replace(callbackUrl);
   };
 
   const onSubmit = async (data: LoginFormData) => {
     try {
+      markUserInteracted();
       setError(null);
       setIsSubmitting(true);
       clientDebugLog.auth('Login form submitting', { email: data.email });
@@ -231,17 +245,6 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
       setIsSubmitting(false);
     }
   };
-
-  // Show loading state while checking for existing session / silent auth
-  if (isCheckingSession) {
-    return (
-      <AuthTransitionOverlay
-        variant="inline"
-        message="Checking your session..."
-        subtitle="Attempting automatic sign-in"
-      />
-    );
-  }
 
   return (
     <>
@@ -274,6 +277,18 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
       )}
 
       <div className="space-y-4">
+        {/* Non-blocking session check indicator (form stays visible) */}
+        {isCheckingSession && (
+          <div className="flex items-center gap-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/40 px-3 py-2">
+            <Spinner sizeClassName="w-4 h-4" borderClassName="border-2" className="shrink-0" />
+            <div className="min-w-0">
+              <p className="text-sm text-gray-700 dark:text-gray-300 font-medium">
+                Checking your session…
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* OIDC Error message (from callback) */}
         {oidcError && oidcErrorMessages[oidcError] && (
           <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg">
@@ -294,6 +309,8 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
         <a
           href={`/api/auth/oidc/login?returnUrl=${encodeURIComponent(callbackUrl)}`}
           onClick={(_e) => {
+            // User explicitly chose Microsoft SSO - prefer it in future visits
+            storePreferredAuthMethod('oidc');
             setIsMicrosoftLoading(true);
             // Let the browser navigate naturally - don't preventDefault
           }}
@@ -302,21 +319,12 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
         >
           {isMicrosoftLoading ? (
             <>
-              <svg className="animate-spin h-5 w-5 text-current" fill="none" viewBox="0 0 24 24">
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                ></circle>
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                ></path>
-              </svg>
+              <Spinner
+                sizeClassName="w-5 h-5"
+                borderClassName="border-2"
+                trackClassName="border-current opacity-25"
+                indicatorClassName="border-current opacity-75"
+              />
               <span className="font-medium">Authenticating with Microsoft...</span>
             </>
           ) : (
@@ -373,7 +381,9 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
               autoComplete="email"
               className="form-input w-full bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 focus:border-violet-500 focus:ring-violet-500"
               {...register('email')}
+              onFocus={() => markUserInteracted()}
               onKeyDown={(e) => {
+                markUserInteracted();
                 if (e.key === 'Enter') {
                   e.preventDefault();
                   void handleSubmit(onSubmit)();
@@ -396,7 +406,9 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
               autoComplete="current-password"
               className="form-input w-full bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 focus:border-violet-500 focus:ring-violet-500"
               {...register('password')}
+              onFocus={() => markUserInteracted()}
               onKeyDown={(e) => {
+                markUserInteracted();
                 if (e.key === 'Enter') {
                   e.preventDefault();
                   void handleSubmit(onSubmit)();
@@ -417,6 +429,7 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
               type="checkbox"
               className="form-checkbox text-violet-500 focus:ring-violet-500"
               {...register('remember')}
+              onFocus={() => markUserInteracted()}
             />
             <label htmlFor={rememberId} className="ml-2 text-sm text-gray-600 dark:text-gray-400">
               <span className="font-medium">Remember me</span>
@@ -441,25 +454,13 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
             >
               {isSubmitting ? (
                 <div className="flex items-center">
-                  <svg
-                    className="animate-spin -ml-1 mr-2 h-4 w-4 text-current"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    ></circle>
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    ></path>
-                  </svg>
+                  <Spinner
+                    sizeClassName="w-4 h-4"
+                    borderClassName="border-2"
+                    trackClassName="border-current opacity-25"
+                    indicatorClassName="border-current opacity-75"
+                    className="-ml-1 mr-2"
+                  />
                   Signing In...
                 </div>
               ) : (

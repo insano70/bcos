@@ -20,6 +20,7 @@ import type { DimensionExpandedChart, ExpansionDimension } from '@/lib/types/dim
 import BatchChartRenderer from './batch-chart-renderer';
 import { DASHBOARD_LAYOUT } from '@/lib/constants/dashboard-layout';
 import { CHARTS_PER_PAGE } from '@/lib/constants/dimension-expansion';
+import { Spinner } from '@/components/ui/spinner';
 
 // Position config type
 interface ChartPosition {
@@ -308,10 +309,12 @@ export default function DimensionComparisonView({
             >
               {isLoadingMore ? (
                 <>
-                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
+                  <Spinner
+                    sizeClassName="w-4 h-4"
+                    borderClassName="border-2"
+                    trackClassName="border-current opacity-25"
+                    indicatorClassName="border-current opacity-75"
+                  />
                   Loading...
                 </>
               ) : (

@@ -13,11 +13,11 @@
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import '@/tests/setup/integration-setup';
-import { inArray } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { db } from '@/lib/db';
 import { dashboard_charts } from '@/lib/db/analytics-schema';
-import { dashboards } from '@/lib/db/schema';
+import { chart_data_sources, dashboards } from '@/lib/db/schema';
 import { log } from '@/lib/logger';
 import {
   createDashboardRenderingService,
@@ -54,6 +54,13 @@ describe('Dashboard Batch Rendering API', () => {
     scope = createTestScope(scopeId);
     serviceCreatedDashboardIds = [];
 
+    // Ensure data source #1 is active for chart rendering tests
+    // This is needed because the test charts reference dataSourceId: 1
+    await db
+      .update(chart_data_sources)
+      .set({ is_active: true })
+      .where(eq(chart_data_sources.data_source_id, 1));
+
     // Create test organization
     testOrganization = await createCommittedOrganization({
       name: 'Test Organization',
@@ -68,6 +75,7 @@ describe('Dashboard Batch Rendering API', () => {
       permissions: [
         'dashboards:read:all' as PermissionName,
         'charts:read:all' as PermissionName, // Required for dashboard rendering to load charts
+        'data-sources:read:all' as PermissionName, // Required for chart data orchestration
       ],
     });
     await assignRoleToUser(testUser, mapDatabaseRoleToRole(role));
@@ -100,7 +108,10 @@ describe('Dashboard Batch Rendering API', () => {
       created_by: testUser.user_id,
       data_source: {
         table: 'fact_charges',
-        filters: [{ field: 'measure', operator: 'eq', value: 'Total Charges' }],
+        filters: [
+          { field: 'measure', operator: 'eq', value: 'Total Charges' },
+          { field: 'frequency', operator: 'eq', value: 'Monthly' },
+        ],
       },
       chart_config: {
         dataSourceId: 1,
@@ -117,7 +128,10 @@ describe('Dashboard Batch Rendering API', () => {
       created_by: testUser.user_id,
       data_source: {
         table: 'fact_charges',
-        filters: [{ field: 'measure', operator: 'eq', value: 'Charges by Provider' }],
+        filters: [
+          { field: 'measure', operator: 'eq', value: 'Charges by Provider' },
+          { field: 'frequency', operator: 'eq', value: 'Monthly' },
+        ],
       },
       chart_config: {
         dataSourceId: 1,
@@ -156,26 +170,19 @@ describe('Dashboard Batch Rendering API', () => {
     // (createTestRole, assignRoleToUser) before cleaning up committed data
     await rollbackTransaction();
 
-    // Clean up dashboard_charts FIRST (FK constraint: references chart_definitions)
-    // Include both test dashboard and service-created dashboards
-    const dashboardIdsToClean = [
-      ...(testDashboard?.dashboard_id ? [testDashboard.dashboard_id] : []),
-      ...serviceCreatedDashboardIds,
-    ];
-    if (dashboardIdsToClean.length > 0) {
+    // Clean up service-created dashboards (not tracked by factories)
+    if (serviceCreatedDashboardIds.length > 0) {
+      // Delete dashboard_charts first (FK constraint)
       await db
         .delete(dashboard_charts)
-        .where(inArray(dashboard_charts.dashboard_id, dashboardIdsToClean));
-    }
-
-    // Clean up service-created dashboards
-    if (serviceCreatedDashboardIds.length > 0) {
+        .where(inArray(dashboard_charts.dashboard_id, serviceCreatedDashboardIds));
+      // Then delete dashboards
       await db
         .delete(dashboards)
         .where(inArray(dashboards.dashboard_id, serviceCreatedDashboardIds));
     }
 
-    // Then cleanup factory-created data
+    // Cleanup factory-created data (CommittedChartFactory now handles dashboard_charts cleanup)
     await scope.cleanup();
 
     log.info('Test cleanup complete', { scope: scopeId });
@@ -390,7 +397,10 @@ describe('Dashboard Batch Rendering API', () => {
         created_by: testUser.user_id,
         data_source: {
           table: 'fact_charges',
-          filters: [{ field: 'measure', operator: 'eq', value: 'Provider Performance' }],
+          filters: [
+            { field: 'measure', operator: 'eq', value: 'Provider Performance' },
+            { field: 'frequency', operator: 'eq', value: 'Monthly' },
+          ],
         },
         chart_config: {
           dataSourceId: 1,
@@ -445,7 +455,10 @@ describe('Dashboard Batch Rendering API', () => {
         created_by: testUser.user_id,
         data_source: {
           table: 'fact_charges',
-          filters: [{ field: 'measure', operator: 'eq', value: 'Financial Summary' }],
+          filters: [
+            { field: 'measure', operator: 'eq', value: 'Financial Summary' },
+            { field: 'frequency', operator: 'eq', value: 'Monthly' },
+          ],
         },
         chart_config: {
           dataSourceId: 1,
@@ -505,7 +518,10 @@ describe('Dashboard Batch Rendering API', () => {
           created_by: testUser.user_id,
           data_source: {
             table: 'fact_charges',
-            filters: [{ field: 'measure', operator: 'eq', value: 'Revenue' }],
+            filters: [
+              { field: 'measure', operator: 'eq', value: 'Revenue' },
+              { field: 'frequency', operator: 'eq', value: 'Monthly' },
+            ],
           },
           chart_config: {
             dataSourceId: 1,
@@ -518,7 +534,10 @@ describe('Dashboard Batch Rendering API', () => {
           created_by: testUser.user_id,
           data_source: {
             table: 'fact_charges',
-            filters: [{ field: 'measure', operator: 'eq', value: 'Performance' }],
+            filters: [
+              { field: 'measure', operator: 'eq', value: 'Performance' },
+              { field: 'frequency', operator: 'eq', value: 'Monthly' },
+            ],
           },
           chart_config: {
             dataSourceId: 1,
@@ -531,7 +550,10 @@ describe('Dashboard Batch Rendering API', () => {
           created_by: testUser.user_id,
           data_source: {
             table: 'fact_charges',
-            filters: [{ field: 'measure', operator: 'eq', value: 'Total' }],
+            filters: [
+              { field: 'measure', operator: 'eq', value: 'Total' },
+              { field: 'frequency', operator: 'eq', value: 'Monthly' },
+            ],
           },
           chart_config: {
             dataSourceId: 1,

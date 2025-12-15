@@ -14,6 +14,7 @@
 
 import type { InferSelectModel } from 'drizzle-orm';
 import { inArray } from 'drizzle-orm';
+import { dashboard_charts } from '@/lib/db/analytics-schema';
 import { chart_definitions } from '@/lib/db/schema';
 import {
   BaseFactory,
@@ -169,12 +170,19 @@ export class CommittedChartFactory extends BaseFactory<CommittedChart, CreateCha
 
   /**
    * Clean up charts from the database
+   * First deletes dashboard_charts referencing these charts (FK constraint)
    */
   protected async cleanupFromDatabase(ids: string[]): Promise<void> {
     if (ids.length === 0) {
       return;
     }
 
+    // Delete dashboard_charts FIRST (FK: dashboard_charts references chart_definitions)
+    await this.db
+      .delete(dashboard_charts)
+      .where(inArray(dashboard_charts.chart_definition_id, ids));
+
+    // Then delete the chart_definitions
     await this.db
       .delete(chart_definitions)
       .where(inArray(chart_definitions.chart_definition_id, ids));

@@ -2,6 +2,7 @@ import { and, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { user_organizations } from '@/lib/db/schema';
 import { log } from '@/lib/logger';
+import { invalidateUserContext } from '@/lib/rbac/cache-invalidation';
 import type { UserContext } from '@/lib/types/rbac';
 import { PermissionDeniedError } from '@/lib/errors/rbac-errors';
 import type { UserWithOrganizations } from './rbac-users-service';
@@ -150,6 +151,9 @@ class UserOrganizationService implements UserOrganizationServiceInterface {
           component: 'service',
         },
       });
+
+      // Invalidate user's cached context so next request gets updated org membership
+      await invalidateUserContext(userId);
     } catch (error) {
       log.error('add user to organization failed', error, {
         operation: 'add_user_to_organization',
@@ -203,6 +207,9 @@ class UserOrganizationService implements UserOrganizationServiceInterface {
           component: 'service',
         },
       });
+
+      // Invalidate user's cached context so next request gets updated org membership
+      await invalidateUserContext(userId);
     } catch (error) {
       log.error('remove user from organization failed', error, {
         operation: 'remove_user_from_organization',

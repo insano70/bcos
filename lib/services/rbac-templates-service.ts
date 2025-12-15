@@ -48,12 +48,6 @@ export interface UpdateTemplateData {
   is_active?: boolean;
 }
 
-// Legacy response format maintained for backward compatibility
-export interface PaginatedTemplates {
-  templates: TemplateData[];
-  total: number;
-}
-
 /**
  * RBAC Templates Service
  * Provides secure template management with automatic permission checking
@@ -151,31 +145,6 @@ export class RBACTemplatesService extends BaseCrudService<
     return result;
   }
 
-  // ===========================================================================
-  // Legacy Methods - Maintained for backward compatibility
-  // ===========================================================================
-
-  /**
-   * Get templates list with filtering and pagination (legacy method)
-   * @deprecated Use getList() instead
-   */
-  async getTemplates(options: TemplateQueryOptions = {}): Promise<PaginatedTemplates> {
-    const result = await this.getList(options);
-
-    return {
-      templates: result.items as TemplateData[],
-      total: result.total,
-    };
-  }
-
-  /**
-   * Get template by ID (legacy method)
-   * @deprecated Use getById() instead
-   */
-  async getTemplateById(templateId: string): Promise<TemplateData | null> {
-    return this.getById(templateId) as Promise<TemplateData | null>;
-  }
-
   /**
    * Get template by slug
    * Note: This is a custom method not provided by BaseCrudService
@@ -194,30 +163,6 @@ export class RBACTemplatesService extends BaseCrudService<
     }
 
     return template as TemplateData;
-  }
-
-  /**
-   * Create new template (legacy method)
-   * @deprecated Use create() instead
-   */
-  async createTemplate(data: CreateTemplateData): Promise<TemplateData> {
-    return this.create(data) as Promise<TemplateData>;
-  }
-
-  /**
-   * Update template (legacy method)
-   * @deprecated Use update() instead
-   */
-  async updateTemplate(templateId: string, data: UpdateTemplateData): Promise<TemplateData> {
-    return this.update(templateId, data) as Promise<TemplateData>;
-  }
-
-  /**
-   * Delete template (soft delete) (legacy method)
-   * @deprecated Use delete() instead
-   */
-  async deleteTemplate(templateId: string): Promise<void> {
-    return this.delete(templateId);
   }
 }
 

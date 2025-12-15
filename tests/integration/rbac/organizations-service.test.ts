@@ -9,7 +9,6 @@ import '@/tests/setup/integration-setup';
 import { nanoid } from 'nanoid';
 import { createRBACOrganizationsService } from '@/lib/services/organizations';
 import type { PermissionName } from '@/lib/types/rbac';
-import { PermissionDeniedError } from '@/lib/errors/rbac-errors';
 import { assignRoleToUser, createTestRole } from '@/tests/factories';
 import { createTestScope, type ScopedFactoryCollection } from '@/tests/factories/base';
 import { createCommittedOrganization, createCommittedUser } from '@/tests/factories/committed';
@@ -49,7 +48,7 @@ describe('RBAC Organizations Service - Integration Tests', () => {
 
       const role = await createTestRole({
         name: 'org_reader',
-        permissions: ['practices:read:all' as PermissionName],
+        permissions: ['organizations:read:all' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -76,7 +75,7 @@ describe('RBAC Organizations Service - Integration Tests', () => {
 
       const role = await createTestRole({
         name: 'org_reader',
-        permissions: ['practices:read:all' as PermissionName],
+        permissions: ['organizations:read:all' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -88,7 +87,9 @@ describe('RBAC Organizations Service - Integration Tests', () => {
       expect(result.some((o: { name: string }) => o.name.includes(uniquePrefix))).toBe(true);
     });
 
-    it('should deny organization retrieval without permissions', async () => {
+    it('should return empty array when user has no read permissions', async () => {
+      // Service gracefully returns empty array for users without permissions
+      // This is intentional security behavior - don't leak existence of organizations
       const user = await createCommittedUser({ scope: scopeId });
       const role = await createTestRole({
         name: 'no_permissions',
@@ -99,7 +100,8 @@ describe('RBAC Organizations Service - Integration Tests', () => {
       const userContext = await buildUserContext(user);
       const orgsService = createRBACOrganizationsService(userContext);
 
-      await expect(orgsService.getOrganizations()).rejects.toThrow(PermissionDeniedError);
+      const result = await orgsService.getOrganizations();
+      expect(result).toEqual([]);
     });
   });
 
@@ -112,7 +114,7 @@ describe('RBAC Organizations Service - Integration Tests', () => {
 
       const role = await createTestRole({
         name: 'org_reader',
-        permissions: ['practices:read:own' as PermissionName],
+        permissions: ['organizations:read:own' as PermissionName],
         organizationId: org.organization_id,
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role), mapDatabaseOrgToOrg(org));
@@ -139,22 +141,21 @@ describe('RBAC Organizations Service - Integration Tests', () => {
       const userContext = await buildUserContext(user);
       const orgsService = createRBACOrganizationsService(userContext);
 
+      // Service throws AuthorizationError (which extends APIError) for unauthorized access
       await expect(orgsService.getOrganizationById(org.organization_id)).rejects.toThrow(
-        PermissionDeniedError
+        /permission|denied|unauthorized/i
       );
     });
   });
 
   describe('createOrganization - Creation Operations', () => {
-    it('should enforce permission check on create', async () => {
-      // Note: createOrganization has a service limitation where it calls getOrganizationById
-      // on the newly created org, which requires the org to be in accessible_organizations.
-      // This makes the method difficult to test in isolation. We verify the permission check instead.
+    it('should create organization with proper permissions', async () => {
+      // With organizations:create:all permission, user can create and read organizations
       const adminUser = await createCommittedUser({ scope: scopeId });
 
       const role = await createTestRole({
         name: 'super_admin',
-        permissions: ['practices:create:all' as PermissionName],
+        permissions: ['organizations:create:all' as PermissionName],
         isSystemRole: true,
       });
       await assignRoleToUser(adminUser, mapDatabaseRoleToRole(role));
@@ -169,9 +170,11 @@ describe('RBAC Organizations Service - Integration Tests', () => {
         is_active: true,
       };
 
-      // Permission check will pass (practices:create:all), but getOrganizationById will fail
-      // due to organization access check. This tests that the permission layer works.
-      await expect(orgsService.createOrganization(orgData)).rejects.toThrow();
+      const result = await orgsService.createOrganization(orgData);
+      expect(result).toBeTruthy();
+      expect(result.name).toBe('New Test Organization');
+      expect(result.slug).toBe(uniqueSlug);
+      expect(result.is_active).toBe(true);
     });
 
     it('should deny organization creation without permissions', async () => {
@@ -190,7 +193,9 @@ describe('RBAC Organizations Service - Integration Tests', () => {
         slug: `unauthorized-${nanoid(8)}`,
       };
 
-      await expect(orgsService.createOrganization(orgData)).rejects.toThrow(PermissionDeniedError);
+      await expect(orgsService.createOrganization(orgData)).rejects.toThrow(
+        /permission|denied|unauthorized/i
+      );
     });
   });
 
@@ -207,8 +212,8 @@ describe('RBAC Organizations Service - Integration Tests', () => {
       const role = await createTestRole({
         name: 'org_admin',
         permissions: [
-          'practices:update:own' as PermissionName,
-          'practices:read:own' as PermissionName,
+          'organizations:update:own' as PermissionName,
+          'organizations:read:own' as PermissionName,
         ],
         organizationId: org.organization_id,
       });
@@ -240,7 +245,7 @@ describe('RBAC Organizations Service - Integration Tests', () => {
 
       await expect(
         orgsService.updateOrganization(org.organization_id, { name: 'Hacked' })
-      ).rejects.toThrow(PermissionDeniedError);
+      ).rejects.toThrow(/permission|denied|unauthorized/i);
     });
   });
 
@@ -251,7 +256,7 @@ describe('RBAC Organizations Service - Integration Tests', () => {
 
       const role = await createTestRole({
         name: 'super_admin',
-        permissions: ['practices:manage:all' as PermissionName],
+        permissions: ['organizations:manage:all' as PermissionName],
         isSystemRole: true,
       });
       await assignRoleToUser(adminUser, mapDatabaseRoleToRole(role));
@@ -280,7 +285,7 @@ describe('RBAC Organizations Service - Integration Tests', () => {
       const orgsService = createRBACOrganizationsService(userContext);
 
       await expect(orgsService.deleteOrganization(org.organization_id)).rejects.toThrow(
-        PermissionDeniedError
+        /permission|denied|unauthorized/i
       );
     });
   });
@@ -294,7 +299,7 @@ describe('RBAC Organizations Service - Integration Tests', () => {
 
       const role = await createTestRole({
         name: 'org_reader',
-        permissions: ['practices:read:own' as PermissionName],
+        permissions: ['organizations:read:own' as PermissionName],
         organizationId: org.organization_id,
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role), mapDatabaseOrgToOrg(org));

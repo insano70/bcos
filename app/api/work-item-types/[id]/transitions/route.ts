@@ -41,7 +41,17 @@ const getTransitionsHandler = async (
     }
 
     const transitionsService = createRBACWorkItemStatusTransitionsService(userContext);
-    const transitions = await transitionsService.getTransitionsByType(typeId, filters);
+    const result = await transitionsService.getList({
+      work_item_type_id: typeId,
+      ...(filters.from_status_id && { from_status_id: filters.from_status_id }),
+      ...(filters.to_status_id && { to_status_id: filters.to_status_id }),
+      limit: 1000,
+    });
+    const transitions = result.items.map((item) => ({
+      ...item,
+      validation_config: item.validation_config ?? null,
+      action_config: item.action_config ?? null,
+    }));
 
     const duration = Date.now() - requestStart;
     log.info(`GET /api/work-item-types/${typeId}/transitions completed`, {
@@ -88,7 +98,7 @@ const createTransitionHandler = async (
     }
 
     const transitionsService = createRBACWorkItemStatusTransitionsService(userContext);
-    const newTransition = await transitionsService.createTransition({
+    const newTransition = await transitionsService.create({
       work_item_type_id: typeId,
       from_status_id: validatedData.from_status_id,
       to_status_id: validatedData.to_status_id,

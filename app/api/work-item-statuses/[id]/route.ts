@@ -25,7 +25,7 @@ const getStatusHandler = async (
     const { id } = await extractRouteParams(args[0], workItemStatusParamsSchema);
 
     const statusesService = createRBACWorkItemStatusesService(userContext);
-    const status = await statusesService.getStatusById(id);
+    const status = await statusesService.getById(id);
 
     if (!status) {
       const template = logTemplates.crud.read('work_item_status', {
@@ -105,7 +105,7 @@ const updateStatusHandler = async (
 
     // Get before state and filter undefined values
     const statusesService = createRBACWorkItemStatusesService(userContext);
-    const before = await statusesService.getStatusById(id);
+    const before = await statusesService.getById(id);
 
     if (!before) {
       throw NotFoundError('Work item status');
@@ -129,7 +129,7 @@ const updateStatusHandler = async (
     if (validatedData.display_order !== undefined)
       filteredData.display_order = validatedData.display_order;
 
-    const updatedStatus = await statusesService.updateStatus(id, filteredData);
+    const updatedStatus = await statusesService.update(id, filteredData);
 
     const duration = Date.now() - startTime;
     const changes = calculateChanges(
@@ -212,13 +212,13 @@ const deleteStatusHandler = async (
     const { id } = await extractRouteParams(args[0], workItemStatusParamsSchema);
 
     const statusesService = createRBACWorkItemStatusesService(userContext);
-    const status = await statusesService.getStatusById(id);
+    const status = await statusesService.getById(id);
 
     if (!status) {
       throw NotFoundError('Work item status');
     }
 
-    await statusesService.deleteStatus(id);
+    await statusesService.delete(id);
 
     const duration = Date.now() - startTime;
     const template = logTemplates.crud.delete('work_item_status', {

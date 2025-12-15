@@ -48,6 +48,74 @@ export interface RefreshTokenData {
 }
 
 /**
+ * Organization access claim - compact representation for JWT
+ *
+ * Instead of embedding all organization IDs (which could be hundreds),
+ * we embed a compact claim that the server interprets:
+ * - 'all': Super admin has access to all organizations
+ * - 'hierarchy': User has access via org hierarchy (server expands root_ids)
+ * - 'direct': Explicit list of org IDs (fallback for many direct memberships)
+ */
+export type OrgAccessClaim =
+  | { type: 'all' }
+  | { type: 'hierarchy'; root_ids: string[] }
+  | { type: 'direct'; org_ids: string[] };
+
+/**
+ * Enhanced access token payload with RBAC claims
+ *
+ * This payload embeds essential RBAC information directly in the JWT,
+ * enabling the server to build UserContext from cache without database queries.
+ *
+ * PERFORMANCE: Adding ~50-100ms to login saves 70-170ms on EVERY subsequent request.
+ *
+ * SECURITY: Claims are validated against cached role permissions with version checking.
+ * If role permissions change, the version mismatch triggers a database refresh.
+ */
+export interface EnhancedAccessTokenPayload {
+  // Standard JWT claims
+  sub: string;
+  jti: string;
+  session_id: string;
+  iat: number;
+  exp: number;
+
+  // User identification (immutable during session)
+  email: string;
+  first_name: string;
+  last_name: string;
+  email_verified: boolean;
+
+  // RBAC claims (checked every request)
+  is_super_admin: boolean;
+  role_ids: string[];
+  roles_version: Record<string, number>; // role_id -> cache version for invalidation detection
+
+  // Organization access
+  primary_org_id: string | null;
+  org_admin_for: string[];
+  org_access: OrgAccessClaim;
+
+  // Analytics filtering (optional - can be number, null, or undefined)
+  provider_uid?: number | null | undefined;
+}
+
+/**
+ * RBAC data needed to build enhanced token payload
+ *
+ * Fetched during login/refresh to populate EnhancedAccessTokenPayload.
+ */
+export interface TokenRBACData {
+  is_super_admin: boolean;
+  roles: Array<{ role_id: string; name: string; version: number }>;
+  primary_organization_id: string | null;
+  organization_admin_for: string[];
+  direct_organization_ids: string[];
+  provider_uid?: number | null | undefined;
+  email_verified: boolean;
+}
+
+/**
  * Token duration constants
  */
 export const ACCESS_TOKEN_DURATION = 15 * 60 * 1000; // 15 minutes

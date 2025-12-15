@@ -297,11 +297,14 @@ describe('RBAC Dashboards Service - Integration Tests', () => {
   });
 
   describe('createDashboard - Write Operations', () => {
-    it('should create dashboard with dashboards:create:organization permission', async () => {
+    it('should create dashboard with dashboards:manage:all permission', async () => {
       const user = await createCommittedUser({ scope: scopeId });
       const role = await createTestRole({
         name: 'dashboards_admin',
-        permissions: ['dashboards:create:organization' as PermissionName, 'dashboards:read:all' as PermissionName],
+        permissions: [
+          'dashboards:manage:all' as PermissionName,
+          'dashboards:read:all' as PermissionName,
+        ],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -328,7 +331,10 @@ describe('RBAC Dashboards Service - Integration Tests', () => {
       const user = await createCommittedUser({ scope: scopeId });
       const role = await createTestRole({
         name: 'dashboards_admin',
-        permissions: ['dashboards:create:organization' as PermissionName, 'dashboards:read:all' as PermissionName],
+        permissions: [
+          'dashboards:manage:all' as PermissionName,
+          'dashboards:read:all' as PermissionName,
+        ],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -366,11 +372,14 @@ describe('RBAC Dashboards Service - Integration Tests', () => {
   });
 
   describe('updateDashboard - Modify Operations', () => {
-    it('should update dashboard with dashboards:create:organization permission', async () => {
+    it('should update dashboard with dashboards:manage:all permission', async () => {
       const user = await createCommittedUser({ scope: scopeId });
       const role = await createTestRole({
         name: 'dashboards_admin',
-        permissions: ['dashboards:create:organization' as PermissionName, 'dashboards:read:all' as PermissionName],
+        permissions: [
+          'dashboards:manage:all' as PermissionName,
+          'dashboards:read:all' as PermissionName,
+        ],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -424,7 +433,10 @@ describe('RBAC Dashboards Service - Integration Tests', () => {
       const user = await createCommittedUser({ scope: scopeId });
       const role = await createTestRole({
         name: 'dashboards_admin',
-        permissions: ['dashboards:create:organization' as PermissionName, 'dashboards:read:all' as PermissionName],
+        permissions: [
+          'dashboards:manage:all' as PermissionName,
+          'dashboards:read:all' as PermissionName,
+        ],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -440,11 +452,14 @@ describe('RBAC Dashboards Service - Integration Tests', () => {
   });
 
   describe('deleteDashboard - Delete Operations', () => {
-    it('should delete dashboard with dashboards:create:organization permission', async () => {
+    it('should delete dashboard with dashboards:manage:all permission', async () => {
       const user = await createCommittedUser({ scope: scopeId });
       const role = await createTestRole({
         name: 'dashboards_admin',
-        permissions: ['dashboards:create:organization' as PermissionName, 'dashboards:read:all' as PermissionName],
+        permissions: [
+          'dashboards:manage:all' as PermissionName,
+          'dashboards:read:all' as PermissionName,
+        ],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -488,9 +503,13 @@ describe('RBAC Dashboards Service - Integration Tests', () => {
 
     it('should handle deletion of non-existent dashboard gracefully', async () => {
       const user = await createCommittedUser({ scope: scopeId });
+      // Use dashboards:manage:all (global scope) since we don't have an organization context
       const role = await createTestRole({
         name: 'dashboards_admin',
-        permissions: ['dashboards:create:organization' as PermissionName, 'dashboards:read:all' as PermissionName],
+        permissions: [
+          'dashboards:manage:all' as PermissionName,
+          'dashboards:read:all' as PermissionName,
+        ],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -517,12 +536,15 @@ describe('RBAC Dashboards Service - Integration Tests', () => {
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(readRole), mapDatabaseOrgToOrg(org));
 
-      // Assign global admin permission
+      // Assign global admin permission with read and create
       const adminRole = await createTestRole({
         name: 'global_admin',
-        permissions: ['dashboards:read:all' as PermissionName],
+        permissions: [
+          'dashboards:read:all' as PermissionName,
+          'dashboards:create:organization' as PermissionName,
+        ],
       });
-      await assignRoleToUser(user, mapDatabaseRoleToRole(adminRole));
+      await assignRoleToUser(user, mapDatabaseRoleToRole(adminRole), mapDatabaseOrgToOrg(org));
 
       const dashboard = await createCommittedDashboard({
         created_by: user.user_id,
@@ -591,13 +613,15 @@ describe('RBAC Dashboards Service - Integration Tests', () => {
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
+      // Use layout properties that match DashboardLayout type
+      // The service transforms layout_config through parseLayoutConfig which
+      // normalizes to DashboardLayout structure (columns, rowHeight, margin, etc.)
       const layoutConfig = {
-        widgets: [
-          { id: 'widget1', type: 'chart', position: { x: 0, y: 0 } },
-          { id: 'widget2', type: 'table', position: { x: 1, y: 0 } },
-        ],
-        columns: 12,
-        theme: 'dark',
+        columns: 16,
+        rowHeight: 120,
+        margin: 15,
+        preventCollision: true,
+        verticalCompact: false,
       };
 
       const dashboard = await createCommittedDashboard({
@@ -612,7 +636,12 @@ describe('RBAC Dashboards Service - Integration Tests', () => {
       const result = await dashboardsService.getDashboardById(dashboard.dashboard_id);
 
       if (!result) throw new Error('Expected dashboard to be defined');
-      expect(result.layout_config).toEqual(layoutConfig);
+      // Verify the DashboardLayout properties are preserved correctly
+      expect(result.layout_config.columns).toBe(16);
+      expect(result.layout_config.rowHeight).toBe(120);
+      expect(result.layout_config.margin).toBe(15);
+      expect(result.layout_config.preventCollision).toBe(true);
+      expect(result.layout_config.verticalCompact).toBe(false);
     });
 
     it('should handle null and undefined optional fields correctly', async () => {

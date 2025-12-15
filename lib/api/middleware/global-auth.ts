@@ -1,4 +1,3 @@
-import { cookies } from 'next/headers';
 import type { NextRequest } from 'next/server';
 import { log } from '@/lib/logger';
 import type { UserContext } from '@/lib/types/rbac';
@@ -45,19 +44,6 @@ export function isPublicApiRoute(pathname: string): boolean {
 
   // Check pattern matches
   return PUBLIC_ROUTE_PATTERNS.some((pattern) => pattern.test(pathname));
-}
-
-/**
- * Check if refresh token cookie exists (for debugging purposes only)
- */
-async function _checkRefreshTokenCookie(): Promise<boolean> {
-  try {
-    const cookieStore = await cookies();
-    const refreshToken = cookieStore.get('refresh-token')?.value;
-    return !!refreshToken;
-  } catch (_error) {
-    return false;
-  }
 }
 
 /**

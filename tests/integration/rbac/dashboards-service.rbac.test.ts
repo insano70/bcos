@@ -262,15 +262,22 @@ describe('RBAC Dashboards Service - Permission Enforcement', () => {
   });
 
   describe('createDashboard - permission enforcement with existing data', () => {
-    it('should pass permission check with dashboards:read:all before attempting database operation', async () => {
+    it('should pass permission check with dashboards:create:organization before attempting database operation', async () => {
       const user = await createTestUser();
+      const org = await createTestOrganization();
+      await assignUserToOrganization(user, mapDatabaseOrgToOrg(org));
+
       const role = await createTestRole({
         name: 'analytics_admin',
-        permissions: ['dashboards:read:all' as PermissionName],
+        permissions: [
+          'dashboards:read:all' as PermissionName,
+          'dashboards:create:organization' as PermissionName,
+        ],
+        organizationId: org.organization_id,
       });
-      await assignRoleToUser(user, mapDatabaseRoleToRole(role));
+      await assignRoleToUser(user, mapDatabaseRoleToRole(role), mapDatabaseOrgToOrg(org));
 
-      const userContext = await buildUserContext(user);
+      const userContext = await buildUserContext(user, org.organization_id);
       const dashboardsService = createRBACDashboardsService(userContext);
 
       const dashboardData = {
@@ -291,11 +298,14 @@ describe('RBAC Dashboards Service - Permission Enforcement', () => {
   });
 
   describe('updateDashboard - permission enforcement with existing data', () => {
-    it('should pass permission check with dashboards:read:all before attempting database operation', async () => {
+    it('should pass permission check with dashboards:manage:all before attempting database operation', async () => {
       const user = await createTestUser();
       const role = await createTestRole({
         name: 'analytics_admin',
-        permissions: ['dashboards:read:all' as PermissionName],
+        permissions: [
+          'dashboards:read:all' as PermissionName,
+          'dashboards:manage:all' as PermissionName,
+        ],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -347,16 +357,17 @@ describe('RBAC Dashboards Service - Permission Enforcement', () => {
       const result = await dashboardsService.getDashboards();
       expect(Array.isArray(result)).toBe(true);
 
-      // Test create permission check passes (will fail on FK, but that proves permission passed)
+      // Create requires dashboards:create:* permission, which this user doesn't have
+      // This verifies that read:all doesn't implicitly grant create
       await expect(
         dashboardsService.createDashboard({
           dashboard_name: 'Multi-Role Dashboard',
           dashboard_description: 'Created by user with multiple roles',
         })
-      ).rejects.toThrow(/foreign key constraint|not present in table|Failed query/);
+      ).rejects.toThrow(PermissionDeniedError);
     });
 
-    it('should allow access with inactive role (BUG: inactive roles not filtered)', async () => {
+    it('should deny access with inactive role (inactive roles are properly filtered)', async () => {
       const user = await createTestUser();
       const tx = getCurrentTransaction();
 
@@ -411,7 +422,7 @@ describe('RBAC Dashboards Service - Permission Enforcement', () => {
 
       const dashboardsService = createRBACDashboardsService(userContext);
 
-      // FIXED: Permission checker now properly filters out permissions from inactive roles
+      // Permission checker properly filters out permissions from inactive roles
       // Expected behavior: Should throw PermissionDeniedError
       // Inactive roles should not grant any permissions, even if the user-role assignment is active
       await expect(dashboardsService.getDashboards()).rejects.toThrow(PermissionDeniedError);
@@ -457,7 +468,9 @@ describe('RBAC Dashboards Service - Permission Enforcement', () => {
   });
 
   describe('permission scope validation', () => {
-    it('should require organization context for dashboards:read:organization permission', async () => {
+    it('should allow organization-scoped permission access when user has accessible organizations', async () => {
+      // Organization-scoped permissions allow access to dashboards from user's accessible organizations
+      // even without current_organization_id set. The service filters results accordingly.
       const user = await createTestUser();
       const org = await createTestOrganization();
       await assignUserToOrganization(user, mapDatabaseOrgToOrg(org));
@@ -469,18 +482,21 @@ describe('RBAC Dashboards Service - Permission Enforcement', () => {
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role), mapDatabaseOrgToOrg(org));
 
-      // WITHOUT organization context in UserContext - should fail
+      // WITHOUT organization context in UserContext - should still succeed
+      // because user has accessible_organizations populated
       const userContextNoOrg = await buildUserContext(user); // No org ID
       const dashboardsServiceNoOrg = createRBACDashboardsService(userContextNoOrg);
 
-      await expect(dashboardsServiceNoOrg.getDashboards()).rejects.toThrow(PermissionDeniedError);
+      // Service allows access and filters to user's accessible organizations + universal dashboards
+      const resultNoOrg = await dashboardsServiceNoOrg.getDashboards();
+      expect(Array.isArray(resultNoOrg)).toBe(true);
 
-      // WITH organization context - should succeed
+      // WITH organization context - should also succeed
       const userContextWithOrg = await buildUserContext(user, org.organization_id);
       const dashboardsServiceWithOrg = createRBACDashboardsService(userContextWithOrg);
 
-      const result = await dashboardsServiceWithOrg.getDashboards();
-      expect(Array.isArray(result)).toBe(true);
+      const resultWithOrg = await dashboardsServiceWithOrg.getDashboards();
+      expect(Array.isArray(resultWithOrg)).toBe(true);
     });
   });
 });

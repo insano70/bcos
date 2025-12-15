@@ -16,6 +16,23 @@ vi.mock('@/lib/services/analytics-db', () => ({
 
 vi.mock('@/lib/db', () => ({ db: {} }));
 
+// Mock the table-allowlist-service to return test tables
+// This prevents the real database query from being executed
+vi.mock('@/lib/services/data-explorer/table-allowlist-service', () => ({
+  getAllowedTables: vi.fn(async () => {
+    // Return a Set with ih.patients and patients (both formats for matching)
+    return new Set(['ih.patients', 'patients', '"ih"."patients"', '"patients"']);
+  }),
+  isTableAllowed: vi.fn(async (schema: string | null, table: string) => {
+    const allowedTables = new Set(['ih.patients', 'patients']);
+    if (schema) {
+      return allowedTables.has(`${schema}.${table}`);
+    }
+    return allowedTables.has(table);
+  }),
+  invalidateAllowListCache: vi.fn(),
+}));
+
 describe('QueryExecutorService', () => {
   let service: QueryExecutorService;
   let mockUserContext: UserContext;
@@ -62,10 +79,11 @@ describe('QueryExecutorService', () => {
       expect(result.errors).toHaveLength(0);
     });
 
-    it('should reject queries without ih schema prefix', async () => {
-      const result = await service.validateSQL('SELECT * FROM patients');
+    it('should reject queries with tables not in allow-list', async () => {
+      // 'unknown_table' is not in our mock allow-list
+      const result = await service.validateSQL('SELECT * FROM ih.unknown_table');
       expect(result.isValid).toBe(false);
-      expect(result.errors).toContain('Query must reference tables using "ih." schema prefix');
+      expect(result.errors.some((e) => e.includes('Table not in allow-list'))).toBe(true);
     });
 
     it('should reject DROP statements', async () => {

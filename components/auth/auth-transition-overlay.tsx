@@ -22,6 +22,8 @@
 
 'use client';
 
+import { Spinner } from '@/components/ui/spinner';
+
 interface AuthTransitionOverlayProps {
   /**
    * Variant determines the layout:
@@ -60,10 +62,7 @@ export function AuthTransitionOverlay({
     <div className="flex items-center justify-center">
       <div className="text-center">
         {/* Spinner */}
-        <div className="relative inline-block mb-4">
-          <div className="w-12 h-12 border-4 border-violet-200 dark:border-violet-900 rounded-full" />
-          <div className="absolute top-0 left-0 w-12 h-12 border-4 border-violet-600 dark:border-violet-400 border-t-transparent rounded-full animate-spin" />
-        </div>
+        <Spinner className="mb-4" />
 
         {/* Primary message */}
         <p className="text-lg text-gray-700 dark:text-gray-300 font-medium">{message}</p>

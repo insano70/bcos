@@ -35,13 +35,94 @@
 import { parentPort, workerData } from 'node:worker_threads';
 import postgres from 'postgres';
 import Redis, { type RedisOptions } from 'ioredis';
-import {
-  isSchemaAllowed,
-  isTableNameValid,
-  buildSafeTableReference,
-  buildWarmingLockKey,
-  ALLOWED_ANALYTICS_SCHEMAS,
-} from '../constants/cache-security';
+
+// =============================================================================
+// INLINED CONSTANTS FROM lib/constants/cache-security.ts
+// =============================================================================
+//
+// These constants are duplicated here because:
+// - Worker threads run in isolated V8 contexts
+// - Path aliases (@/lib) don't work reliably in worker threads
+// - Relative imports with tsx loader fail in worker thread contexts
+// - Dynamic imports add complexity for minimal benefit
+//
+// If you update these values, also update lib/constants/cache-security.ts:
+// - ALLOWED_ANALYTICS_SCHEMAS
+// - TABLE_NAME_PATTERN
+// - LOCK_KEY_PREFIX
+// - isSchemaAllowed()
+// - isTableNameValid()
+// - buildSafeTableReference()
+// - buildWarmingLockKey()
+// =============================================================================
+
+/**
+ * Allowed schemas for analytics data sources
+ * These schemas are whitelisted for cache warming queries.
+ */
+const ALLOWED_ANALYTICS_SCHEMAS = ['ih', 'public'] as const;
+
+type AllowedAnalyticsSchema = (typeof ALLOWED_ANALYTICS_SCHEMAS)[number];
+
+/**
+ * Validate if a schema name is allowed
+ */
+function isSchemaAllowed(schemaName: string): schemaName is AllowedAnalyticsSchema {
+  return (ALLOWED_ANALYTICS_SCHEMAS as readonly string[]).includes(schemaName);
+}
+
+/**
+ * Table name validation pattern
+ * Matches valid PostgreSQL identifier names to prevent SQL injection.
+ */
+const TABLE_NAME_PATTERN = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+
+/**
+ * Validate if a table name is safe for use in SQL
+ */
+function isTableNameValid(tableName: string): boolean {
+  return TABLE_NAME_PATTERN.test(tableName);
+}
+
+/**
+ * Build a safe SQL identifier for schema.table
+ * ALWAYS uses quoted identifiers to prevent SQL injection.
+ */
+function buildSafeTableReference(schemaName: string, tableName: string): string {
+  if (!isSchemaAllowed(schemaName)) {
+    throw new Error(
+      `Invalid schema name: ${schemaName}. Allowed schemas: ${ALLOWED_ANALYTICS_SCHEMAS.join(', ')}`
+    );
+  }
+
+  if (!isTableNameValid(tableName)) {
+    throw new Error(
+      `Invalid table name format: ${tableName}. Must match pattern: ${TABLE_NAME_PATTERN.source}`
+    );
+  }
+
+  // Always use quoted identifiers for safety
+  return `"${schemaName}"."${tableName}"`;
+}
+
+/**
+ * Cache warming lock key prefix
+ */
+const LOCK_KEY_PREFIX = 'lock:cache:warm';
+
+/**
+ * Build a standardized lock key for cache warming
+ */
+function buildWarmingLockKey(datasourceId: number): string {
+  return `${LOCK_KEY_PREFIX}:{ds:${datasourceId}}`;
+}
+
+// =============================================================================
+// END INLINED CONSTANTS
+// =============================================================================
+
+// Note: WorkerConfig and WarmingWorkerResult types are imported from a separate
+// types file that has no dependencies, so this import is safe in worker context
 import type { WorkerConfig, WarmingWorkerResult } from './warming-worker-types';
 
 // Data source info from database

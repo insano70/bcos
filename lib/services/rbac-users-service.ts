@@ -1,9 +1,11 @@
 import { and, count, eq } from 'drizzle-orm';
 import { ensureSecurityRecord, hashPassword } from '@/lib/auth/security';
+import { revokeAllUserTokens } from '@/lib/auth/tokens';
 import { account_security, db, type DbContext } from '@/lib/db';
 import { user_organizations, users } from '@/lib/db/schema';
 import { webauthn_credentials } from '@/lib/db/webauthn-schema';
 import { calculateChanges, log, logTemplates, SLOW_THRESHOLDS } from '@/lib/logger';
+import { invalidateUserContext } from '@/lib/rbac/cache-invalidation';
 import type { UserContext } from '@/lib/types/rbac';
 import { PermissionDeniedError } from '@/lib/errors/rbac-errors';
 import {
@@ -649,6 +651,11 @@ class RBACUsersService implements UsersServiceInterface {
       });
 
       log.info(template.message, template.context);
+
+      // Invalidate user's cached context and revoke all tokens
+      // This ensures the deleted user cannot continue accessing the system
+      await invalidateUserContext(userId);
+      await revokeAllUserTokens(userId, 'admin_action');
     } catch (error) {
       log.error('delete user failed', error, {
         operation: 'delete_user',

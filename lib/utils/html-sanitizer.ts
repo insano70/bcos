@@ -81,22 +81,6 @@ export function stripHtml(html: string): string {
 }
 
 /**
- * Validate that HTML content is safe
- * Returns true if content passes sanitization without modification
- */
-export function isHtmlSafe(html: string): boolean {
-  const sanitized = sanitizeHtml(html);
-  return sanitized === html;
-}
-
-/**
- * Get HTML content length (text only, excluding tags)
- */
-export function getHtmlTextLength(html: string): number {
-  return stripHtml(html).length;
-}
-
-/**
  * Sanitize URL to prevent javascript: and data: URLs
  * Returns empty string if URL is potentially dangerous
  */

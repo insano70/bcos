@@ -83,10 +83,11 @@ describe('Token Revocation on Role Change', () => {
     expect(activeTokensAfter.length).toBe(0);
 
     // Verify: Tokens should be in blacklist
+    // The reason is mapped to 'admin_action' by the invalidation logic
     const blacklistedTokens = await db
       .select()
       .from(token_blacklist)
-      .where(eq(token_blacklist.reason, 'security'));
+      .where(eq(token_blacklist.reason, 'admin_action'));
 
     expect(blacklistedTokens.length).toBeGreaterThanOrEqual(3);
   });
