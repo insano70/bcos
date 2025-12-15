@@ -36,9 +36,9 @@ RUN pnpm build
 # Compile the cache warming worker as a standalone bundle
 # This is necessary because Next.js standalone output doesn't include worker thread files
 # The worker runs in an isolated V8 context and needs its own bundled dependencies
-# Note: Use pnpm exec (not npx) since we're using pnpm for package management
+# Note: Use direct path to esbuild binary for reliability in Docker/pnpm environments
 RUN mkdir -p workers && \
-    pnpm exec esbuild lib/cache/warming-worker.ts \
+    ./node_modules/.bin/esbuild lib/cache/warming-worker.ts \
       --bundle \
       --platform=node \
       --target=node24 \
