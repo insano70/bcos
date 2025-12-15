@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import BulkUserImportModal from '@/components/bulk-user-import-modal';
 import UserModal from '@/components/user-modal';
 import { useAuth } from '@/components/auth/rbac-auth-provider';
 import DataTable, {
@@ -23,6 +24,7 @@ export default function UsersContent() {
   const { data: users, isLoading, error, refetch } = useUsers(); // Access token handled by middleware
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
   const [isEditUserModalOpen, setIsEditUserModalOpen] = useState(false);
+  const [isBulkImportModalOpen, setIsBulkImportModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([]);
   const [dateRange, setDateRange] = useState<DateRange>({
@@ -402,6 +404,29 @@ export default function UsersContent() {
           {/* Filter button */}
           <FilterButton align="right" filters={filterGroups} onFilterChange={handleFilterChange} />
 
+          {/* Import users button - protected by RBAC */}
+          <ProtectedComponent
+            permissions={['users:create:organization', 'users:manage:all']}
+            requireAll={false}
+          >
+            <button
+              type="button"
+              disabled={isLoading}
+              onClick={() => setIsBulkImportModalOpen(true)}
+              className="btn border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 text-gray-600 dark:text-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <svg
+                className="fill-current shrink-0 xs:hidden"
+                width="16"
+                height="16"
+                viewBox="0 0 16 16"
+              >
+                <path d="M8 0a8 8 0 100 16A8 8 0 008 0zm3 9H9v2c0 .6-.4 1-1 1s-1-.4-1-1V9H5c-.6 0-1-.4-1-1s.4-1 1-1h2V5c0-.6.4-1 1-1s1 .4 1 1v2h2c.6 0 1 .4 1 1s-.4 1-1 1z" />
+              </svg>
+              <span className="max-xs:sr-only">Import Users</span>
+            </button>
+          </ProtectedComponent>
+
           {/* Add user button - protected by RBAC */}
           <ProtectedComponent
             permissions={['users:create:organization', 'users:manage:all']}
@@ -464,6 +489,15 @@ export default function UsersContent() {
           refetch(); // Refresh the users list after successful update
         }}
         user={selectedUser}
+      />
+
+      {/* Bulk Import Modal */}
+      <BulkUserImportModal
+        isOpen={isBulkImportModalOpen}
+        onClose={() => setIsBulkImportModalOpen(false)}
+        onSuccess={() => {
+          refetch(); // Refresh the users list after successful import
+        }}
       />
     </div>
   );
