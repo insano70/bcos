@@ -259,8 +259,8 @@ export interface PracticeTrend {
   trend_id: number;
   practice_uid: number;
   measure_name: string;
-  trend_period: '3_month' | '6_month' | '9_month';
-  trend_direction: 'improving' | 'declining' | 'stable';
+  trend_period: import('@/lib/constants/report-card').TrendPeriod;
+  trend_direction: import('@/lib/constants/report-card').TrendDirection;
   trend_percentage: number;
   calculated_at: string;
 }
@@ -441,4 +441,30 @@ export interface SizingResult {
   practicesProcessed: number;
   bucketCounts: Record<'small' | 'medium' | 'large' | 'xlarge' | 'xxlarge', number>;
   duration: number;
+}
+
+/**
+ * Engagement Metric
+ *
+ * Measures how often users in an organization access the app.
+ * Compares actual access rate against a benchmark (peer comparison).
+ * Normalized to distinct days - multiple logins on same day count as 1.
+ */
+export interface EngagementMetric {
+  /** User's app access rate per week (last 14 days) */
+  userRate: number;
+  /** Benchmark rate (top 25% practices) */
+  benchmarkRate: number;
+  /** Whether benchmark is real peer data or fabricated */
+  benchmarkIsReal: boolean;
+  /** Benchmark label for display (e.g., "Top 25% Avg") */
+  benchmarkLabel: string;
+  /** Number of distinct access days (user+date pairs) in period */
+  accessDays: number;
+  /** Number of unique users who accessed in period */
+  uniqueUsers: number;
+  /** Measurement period in days */
+  periodDays: number;
+  /** Organization ID for the metric */
+  organizationId: string;
 }

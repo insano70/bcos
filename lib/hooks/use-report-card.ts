@@ -17,6 +17,7 @@ import type {
   GradeHistoryEntry,
   AnnualReview,
   PracticeTrend,
+  EngagementMetric,
 } from '@/lib/types/report-card';
 import type { SizeBucket } from '@/lib/constants/report-card';
 
@@ -34,6 +35,8 @@ export interface ReportCardByOrgResponse {
   gradeHistory: GradeHistoryEntry[];
   /** Trend data for all periods (3, 6, and 9 month comparisons) */
   trends: PracticeTrend[];
+  /** Engagement metric showing app access frequency vs benchmark */
+  engagementMetric: EngagementMetric;
 }
 
 /**

@@ -26,7 +26,7 @@ import type {
   AnnualReview,
   PracticeTrend,
 } from '@/lib/types/report-card';
-import type { SizeBucket } from '@/lib/constants/report-card';
+import type { SizeBucket, TrendPeriod, TrendDirection } from '@/lib/constants/report-card';
 import { getLetterGrade as sharedGetLetterGrade, compareGrades as sharedCompareGrades } from '@/lib/utils/format-value';
 
 // Extracted modules
@@ -465,8 +465,8 @@ export class RBACReportCardService extends BaseRBACService {
         trend_id: r.trend_id,
         practice_uid: r.practice_uid,
         measure_name: r.measure_name,
-        trend_period: r.trend_period as '3_month' | '6_month' | '9_month',
-        trend_direction: r.trend_direction as 'improving' | 'declining' | 'stable',
+        trend_period: r.trend_period as TrendPeriod,
+        trend_direction: r.trend_direction as TrendDirection,
         trend_percentage: parseFloat(r.trend_percentage || '0'),
         calculated_at: r.calculated_at?.toISOString() || new Date().toISOString(),
       }));

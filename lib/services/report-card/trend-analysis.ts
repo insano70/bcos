@@ -1,15 +1,14 @@
 /**
  * Trend Analysis Service
  *
- * Calculates 3, 6, and 9 month trends for each practice/measure combination.
- * 
+ * Calculates 3-month, 6-month, and year-over-year trends for each practice/measure combination.
+ *
  * TREND CALCULATION LOGIC:
  * - Report Card Month is the last full month (e.g., November if today is December)
- * - Trend = Report Card Month value vs Average of prior X months
- * - 3 Month Trend: Nov vs Avg(Aug, Sep, Oct)
- * - 6 Month Trend: Nov vs Avg(May, Jun, Jul, Aug, Sep, Oct)
- * - 9 Month Trend: Nov vs Avg(Feb, Mar, Apr, May, Jun, Jul, Aug, Sep, Oct)
- * 
+ * - 3 Month Trend: Nov vs Avg(Aug, Sep, Oct) - average of prior 3 months
+ * - 6 Month Trend: Nov vs Avg(May, Jun, Jul, Aug, Sep, Oct) - average of prior 6 months
+ * - Year-over-Year Trend: Nov 2025 vs Nov 2024 - same month, previous year (direct comparison)
+ *
  * Trends are stored in the report_card_trends table.
  */
 
@@ -151,20 +150,21 @@ export class TrendAnalysisService {
   /**
    * Get all statistics needed for trend calculation in bulk
    * Fetches data from Report Card Month back through the longest trend period
+   * For year-over-year, we need 12 months back + current month = 13 months of data
    */
   private async getStatisticsForTrends(
     practices: number[]
   ): Promise<Map<number, Map<string, Array<{ date: Date; value: number }>>>> {
     const result = new Map<number, Map<string, Array<{ date: Date; value: number }>>>();
-    
+
     if (practices.length === 0) return result;
 
     const reportCardMonth = getReportCardMonthDate();
-    
-    // Get cutoff date for longest period (9 months before report card month)
-    // Plus the report card month itself = 10 months of data
+
+    // Get cutoff date for year-over-year (12 months before report card month)
+    // Plus the report card month itself = 13 months of data
     const cutoffDate = new Date(reportCardMonth);
-    cutoffDate.setMonth(cutoffDate.getMonth() - 9);
+    cutoffDate.setMonth(cutoffDate.getMonth() - 12);
 
     // End of report card month (start of current month)
     const endDate = new Date(reportCardMonth.getFullYear(), reportCardMonth.getMonth() + 1, 1);
@@ -239,26 +239,29 @@ export class TrendAnalysisService {
 
   /**
    * Calculate trend from pre-fetched statistics
-   * 
-   * Compares the Report Card Month value against the average of the prior X months.
-   * 
+   *
+   * For 3-month and 6-month: Compares Report Card Month value against average of prior X months.
+   * For year_over_year: Compares Report Card Month value against same month last year (direct).
+   *
    * @param practiceUid - The practice to calculate trend for
    * @param measureName - The measure being analyzed
-   * @param trendPeriod - Period to analyze ('3_month', '6_month', '9_month')
+   * @param trendPeriod - Period to analyze ('3_month', '6_month', 'year_over_year')
    * @param stats - Pre-fetched statistics for the practice/measure
    * @returns TrendCalculation with direction and percentage, or null if insufficient data
-   * 
+   *
    * @example
    * // If today is December 2025, Report Card Month is November 2025
    * // For 3_month trend: Nov value vs Avg(Aug, Sep, Oct)
-   * // If Nov = $100K and Avg(Aug-Oct) = $80K:
+   * // For year_over_year: Nov 2025 value vs Nov 2024 value
+   * // If Nov 2025 = $100K and Nov 2024 = $80K:
    * // percentageChange = (100-80)/80 * 100 = +25%
    * // direction = 'improving' (since ≥5%)
-   * 
+   *
    * @remarks
    * - Returns null if Report Card Month has no data
-   * - Returns null if fewer than 1 prior month has data
-   * - Returns null if prior average is 0 (avoid division by zero)
+   * - For average comparisons: Returns null if fewer than 1 prior month has data
+   * - For YoY: Returns null if same month last year has no data
+   * - Returns null if prior value/average is 0 (avoid division by zero)
    * - Percentage change is capped at ±99999.99 for database storage
    */
   private calculateTrendFromStats(
@@ -268,13 +271,16 @@ export class TrendAnalysisService {
     stats: Array<{ date: Date; value: number }>,
     higherIsBetter: boolean
   ): TrendCalculation | null {
-    const monthsBack = this.getMonthsForPeriod(trendPeriod);
     const reportCardMonth = getReportCardMonthDate();
-    
+
     // Find the Report Card Month value (first day of last month)
     const reportCardMonthStart = reportCardMonth.getTime();
-    const reportCardMonthEnd = new Date(reportCardMonth.getFullYear(), reportCardMonth.getMonth() + 1, 1).getTime();
-    
+    const reportCardMonthEnd = new Date(
+      reportCardMonth.getFullYear(),
+      reportCardMonth.getMonth() + 1,
+      1
+    ).getTime();
+
     const reportCardValue = stats.find((s) => {
       const statTime = s.date.getTime();
       return statTime >= reportCardMonthStart && statTime < reportCardMonthEnd;
@@ -283,6 +289,47 @@ export class TrendAnalysisService {
     if (reportCardValue === undefined) {
       return null;
     }
+
+    // Year-over-year: Compare to same month last year (direct comparison)
+    if (trendPeriod === 'year_over_year') {
+      const lastYearMonth = new Date(reportCardMonth);
+      lastYearMonth.setFullYear(lastYearMonth.getFullYear() - 1);
+
+      // Find same month in previous year
+      const lastYearValue = stats.find((s) => {
+        return (
+          s.date.getMonth() === lastYearMonth.getMonth() &&
+          s.date.getFullYear() === lastYearMonth.getFullYear()
+        );
+      })?.value;
+
+      if (lastYearValue === undefined) {
+        return null;
+      }
+
+      // Direct comparison (single value, not average)
+      const trendResult = calculateTrend({
+        currentValue: reportCardValue,
+        priorValues: [lastYearValue],
+        higherIsBetter,
+      });
+
+      // Return null if prior value was 0
+      if (lastYearValue === 0) {
+        return null;
+      }
+
+      return {
+        practiceUid,
+        measureName,
+        trendPeriod,
+        direction: trendResult.direction,
+        percentageChange: trendResult.percentage,
+      };
+    }
+
+    // Standard comparison: Current month vs average of prior X months
+    const monthsBack = this.getMonthsForPeriod(trendPeriod);
 
     // Calculate the prior months range (months before report card month)
     const priorEndDate = new Date(reportCardMonth); // End is start of report card month
@@ -370,6 +417,7 @@ export class TrendAnalysisService {
 
   /**
    * Get the number of months for a trend period
+   * For year_over_year, returns 12 to signal it's a YoY calculation
    */
   private getMonthsForPeriod(period: TrendPeriod): number {
     switch (period) {
@@ -377,8 +425,8 @@ export class TrendAnalysisService {
         return 3;
       case '6_month':
         return 6;
-      case '9_month':
-        return 9;
+      case 'year_over_year':
+        return 12;
       default:
         return 3;
     }

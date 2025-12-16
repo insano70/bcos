@@ -12,3 +12,4 @@ export { default as InsightsPanel } from './insights-panel';
 export { default as ScoreHelpTooltip } from './score-help-tooltip';
 export { default as GradeHistoryTable } from './grade-history-table';
 export { default as MonthSelector } from './month-selector';
+export { default as EngagementCard } from './engagement-card';

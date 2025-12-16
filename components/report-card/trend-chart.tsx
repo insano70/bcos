@@ -17,7 +17,7 @@ import { useEffect, useRef, useState, useMemo } from 'react';
 import type { PracticeTrend } from '@/lib/types/report-card';
 import type { TrendPeriod } from '@/lib/constants/report-card';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
-import { getReportCardMonth, getPriorMonthsRange } from '@/lib/utils/format-value';
+import { getReportCardMonth, getPriorMonthsRange, getYearOverYearRange } from '@/lib/utils/format-value';
 
 // Register Chart.js components
 Chart.register(
@@ -89,11 +89,11 @@ function formatMeasureName(name: string): string {
 
 /**
  * Trend Chart Component
- * 
- * Displays trend visualization comparing Report Card Month to historical averages.
+ *
+ * Displays trend visualization comparing Report Card Month to historical data.
  * - 3 Month: Report Card Month vs Average of prior 3 months
  * - 6 Month: Report Card Month vs Average of prior 6 months
- * - 9 Month: Report Card Month vs Average of prior 9 months
+ * - Year-over-Year: Report Card Month vs Same month last year (direct comparison)
  */
 export default function TrendChart({
   trends,
@@ -113,24 +113,28 @@ export default function TrendChart({
 
   // Get period options with dynamic labels
   const periodOptions = useMemo(() => {
+    const yoyRange = getYearOverYearRange(reportCardDate);
     return [
       {
         value: '3_month' as TrendPeriod,
         months: 3,
         label: 'vs Prior 3 Mo',
         rangeInfo: getPriorMonthsRange(reportCardDate, 3),
+        isYoY: false,
       },
       {
         value: '6_month' as TrendPeriod,
         months: 6,
         label: 'vs Prior 6 Mo',
         rangeInfo: getPriorMonthsRange(reportCardDate, 6),
+        isYoY: false,
       },
       {
-        value: '9_month' as TrendPeriod,
-        months: 9,
-        label: 'vs Prior 9 Mo',
-        rangeInfo: getPriorMonthsRange(reportCardDate, 9),
+        value: 'year_over_year' as TrendPeriod,
+        months: 12,
+        label: 'vs Last Year',
+        rangeInfo: yoyRange,
+        isYoY: true,
       },
     ];
   }, [reportCardDate]);
@@ -180,7 +184,7 @@ export default function TrendChart({
         labels,
         datasets: [
           {
-            label: `${shortMonth} vs ${priorRange} Avg`,
+            label: periodInfo?.isYoY ? `${shortMonth} vs ${priorRange}` : `${shortMonth} vs ${priorRange} Avg`,
             data,
             backgroundColor: backgroundColors,
             borderColor: borderColors,
@@ -227,9 +231,15 @@ export default function TrendChart({
               label: (context) => {
                 const value = context.parsed?.y ?? 0;
                 const sign = value > 0 ? '+' : '';
+                if (periodInfo?.isYoY) {
+                  return `${shortMonth} is ${sign}${value.toFixed(1)}% vs ${priorRange}`;
+                }
                 return `${shortMonth} is ${sign}${value.toFixed(1)}% vs ${priorRange} average`;
               },
               afterLabel: () => {
+                if (periodInfo?.isYoY) {
+                  return `Comparing ${monthYear} to same month last year`;
+                }
                 return `Comparing ${monthYear} to prior ${periodInfo?.months || 3} months`;
               },
             },
@@ -264,7 +274,9 @@ export default function TrendChart({
             },
             title: {
               display: true,
-              text: `% Change (${shortMonth} vs Historical Avg)`,
+              text: periodInfo?.isYoY
+                ? `% Change (${shortMonth} vs Last Year)`
+                : `% Change (${shortMonth} vs Historical Avg)`,
               color: darkMode ? '#94a3b8' : '#64748b',
               font: { size: 11 },
             },
@@ -279,7 +291,7 @@ export default function TrendChart({
         chartRef.current = null;
       }
     };
-  }, [mounted, filteredTrends, darkMode, shortMonth, priorRange, monthYear, periodInfo?.months]);
+  }, [mounted, filteredTrends, darkMode, shortMonth, priorRange, monthYear, periodInfo?.months, periodInfo?.isYoY]);
 
   return (
     <motion.div
@@ -294,7 +306,9 @@ export default function TrendChart({
             {shortMonth} vs Historical Trends
           </h3>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-            How {monthYear} compared to the prior {periodInfo?.months || 3} months average
+            {periodInfo?.isYoY
+              ? `How ${monthYear} compared to ${priorRange}`
+              : `How ${monthYear} compared to the prior ${periodInfo?.months || 3} months average`}
           </p>
         </div>
 
@@ -321,7 +335,9 @@ export default function TrendChart({
         {filteredTrends.length === 0 ? (
           <div className="h-64 flex items-center justify-center">
             <p className="text-slate-500 dark:text-slate-400">
-              No trend data available for {shortMonth} vs prior {periodInfo?.months || 3} months
+              {periodInfo?.isYoY
+                ? `No trend data available for ${shortMonth} vs ${priorRange}`
+                : `No trend data available for ${shortMonth} vs prior ${periodInfo?.months || 3} months`}
             </p>
           </div>
         ) : (

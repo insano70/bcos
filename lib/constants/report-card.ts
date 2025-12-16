@@ -32,8 +32,11 @@ export const REPORT_CARD_LIMITS = {
 
 /**
  * Trend period definitions
+ * - 3_month: Current month vs average of prior 3 months
+ * - 6_month: Current month vs average of prior 6 months
+ * - year_over_year: Current month vs same month last year (direct comparison)
  */
-export const TREND_PERIODS = ['3_month', '6_month', '9_month'] as const;
+export const TREND_PERIODS = ['3_month', '6_month', 'year_over_year'] as const;
 export type TrendPeriod = (typeof TREND_PERIODS)[number];
 
 /**

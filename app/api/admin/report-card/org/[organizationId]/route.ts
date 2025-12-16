@@ -3,7 +3,7 @@ import { createErrorResponse, handleRouteError } from '@/lib/api/responses/error
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { log, logTemplates } from '@/lib/logger';
-import { createRBACReportCardService } from '@/lib/services/report-card';
+import { createRBACReportCardService, engagementMetricService } from '@/lib/services/report-card';
 import type { UserContext } from '@/lib/types/rbac';
 import { ReportCardNotFoundError } from '@/lib/errors/report-card-errors';
 import { PermissionDeniedError } from '@/lib/errors/rbac-errors';
@@ -76,6 +76,9 @@ const getReportCardByOrgHandler = async (
     // Get trends for the Trend Chart (3, 6, and 9 month trends)
     const trends = await service.getTrendsByOrganization(organizationId);
 
+    // Get engagement metric (logins + session resumes per week)
+    const engagementMetric = await engagementMetricService.getEngagementMetric(organizationId);
+
     const duration = Date.now() - startTime;
 
     const template = logTemplates.crud.read('report_card', {
@@ -93,7 +96,7 @@ const getReportCardByOrgHandler = async (
     });
 
     return createSuccessResponse(
-      { reportCard, previousMonth, availableMonths, gradeHistory, trends },
+      { reportCard, previousMonth, availableMonths, gradeHistory, trends, engagementMetric },
       'Report card retrieved successfully'
     );
   } catch (error) {

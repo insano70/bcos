@@ -69,8 +69,8 @@ export interface GenerationOptions {
 export interface TrendCalculation {
   practiceUid: number;
   measureName: string;
-  trendPeriod: '3_month' | '6_month' | '9_month';
-  direction: 'improving' | 'declining' | 'stable';
+  trendPeriod: import('@/lib/constants/report-card').TrendPeriod;
+  direction: import('@/lib/constants/report-card').TrendDirection;
   percentageChange: number;
 }
 

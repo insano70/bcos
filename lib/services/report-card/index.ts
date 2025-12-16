@@ -37,6 +37,11 @@ export {
   locationComparison,
 } from './location-comparison';
 
+export {
+  EngagementMetricService,
+  engagementMetricService,
+} from './engagement-metric-service';
+
 // Measures module (standalone function for CLI/cron use)
 export { getActiveMeasures } from './measures';
 export { RBACMeasureService, createRBACMeasureService } from './measures';

@@ -19,6 +19,7 @@ import {
   InsightsPanel,
   GradeHistoryTable,
   MonthSelector,
+  EngagementCard,
 } from '@/components/report-card';
 import Link from 'next/link';
 import { FileText, RefreshCcw, Calendar } from 'lucide-react';
@@ -98,6 +99,7 @@ export default function ReportCardView() {
   const availableMonths = reportCardData?.availableMonths || [];
   const gradeHistory = reportCardData?.gradeHistory || [];
   const trends = reportCardData?.trends || [];
+  const engagementMetric = reportCardData?.engagementMetric;
   const peerComparison = peerData?.comparison;
 
   const isLoading = authLoading || loadingOrgs || isLoadingReportCard;
@@ -332,6 +334,13 @@ export default function ReportCardView() {
           <div className="lg:col-span-7">
             <InsightsPanel insights={reportCard.insights} />
           </div>
+
+          {/* Engagement Card */}
+          {engagementMetric && (
+            <div className="lg:col-span-12">
+              <EngagementCard metric={engagementMetric} />
+            </div>
+          )}
 
           {/* Measure Breakdown */}
           <div className="lg:col-span-6">

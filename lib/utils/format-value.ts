@@ -237,7 +237,7 @@ export function getHistoricalMonths(months: number): string[] {
 
 /**
  * Get the prior months for trend comparison
- * 
+ *
  * @param reportCardMonth - The report card month to calculate from
  * @param monthsBack - Number of months to go back (3, 6, or 9)
  * @returns Object with month range description using full month names
@@ -251,17 +251,48 @@ export function getPriorMonthsRange(reportCardMonth: Date, monthsBack: number): 
   // e.g., for November with 3 months back: August, September, October
   const endDate = new Date(reportCardMonth);
   endDate.setMonth(endDate.getMonth() - 1); // October (month before November)
-  
+
   const startDate = new Date(reportCardMonth);
   startDate.setMonth(startDate.getMonth() - monthsBack); // August (3 months before November)
-  
+
   const startMonth = startDate.toLocaleString('en-US', { month: 'long' });
   const endMonth = endDate.toLocaleString('en-US', { month: 'long' });
-  
+
   return {
     startMonth,
     endMonth,
     rangeLabel: `${startMonth}-${endMonth}`,
+  };
+}
+
+/**
+ * Get the year-over-year comparison range
+ *
+ * For YoY comparison, we compare the same month in the previous year.
+ * e.g., November 2025 vs November 2024
+ *
+ * @param reportCardMonth - The report card month to calculate from
+ * @returns Object with comparison details for year-over-year display
+ */
+export function getYearOverYearRange(reportCardMonth: Date): {
+  startMonth: string;
+  endMonth: string;
+  rangeLabel: string;
+  comparisonMonth: string;
+  comparisonYear: number;
+} {
+  const lastYearMonth = new Date(reportCardMonth);
+  lastYearMonth.setFullYear(lastYearMonth.getFullYear() - 1);
+
+  const monthName = lastYearMonth.toLocaleString('en-US', { month: 'long' });
+  const year = lastYearMonth.getFullYear();
+
+  return {
+    startMonth: monthName,
+    endMonth: monthName,
+    rangeLabel: `${monthName} ${year}`,
+    comparisonMonth: monthName,
+    comparisonYear: year,
   };
 }
 
