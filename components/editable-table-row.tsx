@@ -3,6 +3,7 @@
 import { type ReactNode, memo, useEffect, useRef } from 'react';
 import type { EditableColumn } from './editable-data-table';
 import { getDensityClasses, type DensityMode } from './data-table/utils';
+import { Button } from '@/components/ui/button';
 
 /** Configurable labels for i18n support */
 export interface EditableTableRowLabels {
@@ -209,50 +210,52 @@ function EditableTableRowComponent<T extends { id: string }>({
               >
                 {isEditing ? (
                   <div className="flex items-center gap-2">
-                    <button
-                      type="button"
+                    <Button
+                      variant="primary"
+                      size="sm"
                       onClick={onSave}
                       disabled={isSaving}
+                      loading={isSaving}
+                      loadingText={labels.saving}
                       title={labels.saveHint}
-                      className="btn-sm bg-indigo-500 hover:bg-indigo-600 text-white disabled:opacity-60"
                     >
-                      {isSaving ? labels.saving : labels.save}
-                    </button>
-                    <button
-                      type="button"
+                      {labels.save}
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
                       onClick={onCancel}
                       disabled={isSaving}
                       title={labels.cancelHint}
-                      className="btn-sm bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-gray-300 text-gray-700 dark:text-gray-300 disabled:opacity-60"
                     >
                       {labels.cancel}
-                    </button>
+                    </Button>
                   </div>
                 ) : (
                   <div className="flex items-center gap-2">
-                    <button
-                      type="button"
+                    <Button
+                      variant="secondary"
+                      size="sm"
                       onClick={onEdit}
-                      className="btn-sm bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-gray-300 text-gray-700 dark:text-gray-300"
                     >
                       {labels.edit}
-                    </button>
-                    <button
-                      type="button"
+                    </Button>
+                    <Button
+                      variant="danger-outline"
+                      size="sm"
                       onClick={onDelete}
-                      className="btn-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
                     >
                       {labels.delete}
-                    </button>
+                    </Button>
                     {onNavigate && (
-                      <button
-                        type="button"
+                      <Button
+                        variant="secondary"
+                        size="sm"
                         onClick={onNavigate}
-                        className="btn-sm bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-gray-300 text-gray-700 dark:text-gray-300"
                         title={labels.viewDetails}
                       >
                         →
-                      </button>
+                      </Button>
                     )}
                   </div>
                 )}

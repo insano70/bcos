@@ -3,7 +3,11 @@ import type { RequestScopedCache } from '@/lib/cache/request-scoped-cache';
 import { createRBACDataSourceColumnsService } from '@/lib/services/rbac-data-source-columns-service';
 import type { ChartData } from '@/lib/types/analytics';
 import type { UserContext } from '@/lib/types/rbac';
-import { type FormatType, formatTableData } from '@/lib/utils/table-formatters';
+import {
+  type FormatType,
+  formatTableData,
+  inferFormatFromDataType,
+} from '@/lib/utils/table-formatters';
 import { BaseChartHandler } from './base-handler';
 
 /**
@@ -160,9 +164,12 @@ export class TableChartHandler extends BaseChartHandler {
       });
 
       // Build format type map for all columns
+      // Use explicit format_type if set, otherwise infer from data_type
+      // This ensures dates are formatted as dates (not ISO strings), integers as integers, etc.
       const columnFormats = new Map<string, FormatType>();
       for (const col of columns) {
-        columnFormats.set(col.columnName, col.formatType as FormatType);
+        const formatType = col.formatType || inferFormatFromDataType(col.dataType);
+        columnFormats.set(col.columnName, formatType as FormatType);
       }
 
       // Build icon mapping map for columns with icon display enabled

@@ -17,6 +17,7 @@ import { apiClient } from '@/lib/api/client';
 import type { SecurityEvent, SecurityEventsResponse } from '@/lib/monitoring/types';
 import { exportToCSV, formatDateForCSV } from '@/lib/utils/csv-export';
 import { clientErrorLog } from '@/lib/utils/debug-client';
+import { Spinner } from '@/components/ui/spinner';
 
 interface SecurityEventsFeedProps {
   autoRefresh?: boolean;
@@ -191,7 +192,7 @@ export default function SecurityEventsFeed({
       {/* Loading State */}
       {loading && !data && (
         <div className="flex items-center justify-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-500"></div>
+          <Spinner size="md" />
         </div>
       )}
 

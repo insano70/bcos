@@ -9,6 +9,7 @@ import Toast from '../toast';
 import FieldRenderer from './field-renderer';
 import type { CrudModalProps } from './types';
 import { clientErrorLog } from '@/lib/utils/debug-client';
+import { Button } from '@/components/ui/button';
 
 const sizeClasses = {
   sm: 'max-w-sm',     // 384px
@@ -203,17 +204,18 @@ export default function CrudModal<TFormData extends FieldValues = FieldValues, T
                   <Dialog.Title className="text-lg font-semibold text-gray-800 dark:text-gray-100">
                     {title}
                   </Dialog.Title>
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    aria-label="Close"
                     onClick={handleClose}
                     disabled={isSubmitting}
-                    className="text-gray-400 dark:text-gray-500 hover:text-gray-500 dark:hover:text-gray-400 disabled:opacity-50"
+                    className="p-0"
                   >
-                    <div className="sr-only">Close</div>
                     <svg className="fill-current" width="16" height="16" viewBox="0 0 16 16">
                       <path d="M7.95 6.536l4.242-4.243a1 1 0 111.415 1.414L9.364 7.95l4.243 4.242a1 1 0 11-1.415 1.415L7.95 9.364l-4.243 4.243a1 1 0 01-1.414-1.415L6.536 7.95 2.293 3.707a1 1 0 011.414-1.414L7.95 6.536z" />
                     </svg>
-                  </button>
+                  </Button>
                 </div>
               </div>
 
@@ -273,24 +275,21 @@ export default function CrudModal<TFormData extends FieldValues = FieldValues, T
               {/* Modal footer */}
               <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700/60 bg-gray-50 dark:bg-gray-800/50">
                 <div className="flex justify-end space-x-3">
-                  <button
-                    type="button"
+                  <Button
+                    variant="secondary"
                     onClick={handleClose}
                     disabled={isSubmitting}
-                    className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
                   >
                     {cancelButtonText}
-                  </button>
-                  <button
-                    type="submit"
+                  </Button>
+                  <Button
+                    variant="blue"
                     onClick={handleSubmit(handleFormSubmit)}
-                    disabled={isSubmitting}
-                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    loading={isSubmitting}
+                    loadingText={`${mode === 'create' ? 'Creating' : 'Updating'}...`}
                   >
-                    {isSubmitting
-                      ? `${mode === 'create' ? 'Creating' : 'Updating'}...`
-                      : finalSubmitText}
-                  </button>
+                    {finalSubmitText}
+                  </Button>
                 </div>
               </div>
             </DialogPanel>

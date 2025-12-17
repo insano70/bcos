@@ -1,4 +1,5 @@
 import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
+import { Button } from '@/components/ui/button';
 
 interface ModalBasicProps {
   children: React.ReactNode;
@@ -39,17 +40,20 @@ export default function ModalBasic({ children, title, isOpen, setIsOpen }: Modal
                 <Dialog.Title className="font-semibold text-gray-800 dark:text-gray-100">
                   {title}
                 </Dialog.Title>
-                <button type="button" className="text-gray-400 dark:text-gray-500 hover:text-gray-500 dark:hover:text-gray-400"
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  aria-label="Close"
                   onClick={(e) => {
                     e.stopPropagation();
                     setIsOpen(false);
                   }}
+                  className="p-0"
                 >
-                  <div className="sr-only">Close</div>
                   <svg className="fill-current" width="16" height="16" viewBox="0 0 16 16">
                     <path d="M7.95 6.536l4.242-4.243a1 1 0 111.415 1.414L9.364 7.95l4.243 4.242a1 1 0 11-1.415 1.415L7.95 9.364l-4.243 4.243a1 1 0 01-1.414-1.415L6.536 7.95 2.293 3.707a1 1 0 011.414-1.414L7.95 6.536z" />
                   </svg>
-                </button>
+                </Button>
               </div>
             </div>
             {children}

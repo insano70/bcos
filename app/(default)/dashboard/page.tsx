@@ -45,11 +45,12 @@ export default async function DashboardPage() {
             up a home dashboard, or explore the available options below.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            {/* Link styled as Button variant="violet" */}
             <Link
               href="/dashboard/analytics"
-              className="btn bg-violet-500 hover:bg-violet-600 text-white"
+              className="btn bg-violet-500 hover:bg-violet-600 text-white border-transparent rounded-lg shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-violet-500 dark:focus-visible:ring-offset-gray-900"
             >
-              <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="w-4 h-4 mr-2 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -59,11 +60,12 @@ export default async function DashboardPage() {
               </svg>
               View Analytics
             </Link>
+            {/* Link styled as Button variant="secondary" */}
             <Link
               href="/configure/dashboards"
-              className="btn bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 text-gray-800 dark:text-gray-100"
+              className="btn bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 text-gray-800 dark:text-gray-300 rounded-lg shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-violet-500 dark:focus-visible:ring-offset-gray-900"
             >
-              <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="w-4 h-4 mr-2 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"

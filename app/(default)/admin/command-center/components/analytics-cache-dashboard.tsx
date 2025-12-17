@@ -15,6 +15,8 @@ import Toast from '@/components/toast';
 import { apiClient } from '@/lib/api/client';
 import type { AnalyticsCacheStatsResponse } from '@/lib/monitoring/types';
 import { clientErrorLog } from '@/lib/utils/debug-client';
+import { Spinner } from '@/components/ui/spinner';
+import { Button } from '@/components/ui/button';
 import AnalyticsCacheDatasourceCard from './analytics-cache-datasource-card';
 import WarmingJobList from './warming-job-list';
 
@@ -154,7 +156,7 @@ export default function AnalyticsCacheDashboard({
     return (
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
         <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-violet-500"></div>
+          <Spinner size="lg" />
         </div>
       </div>
     );
@@ -183,27 +185,27 @@ export default function AnalyticsCacheDashboard({
           Analytics Cache Overview
         </h3>
         <div className="flex items-center gap-3">
-          <button
-            type="button"
+          <Button
+            variant="violet"
+            size="sm"
             onClick={handleWarmAll}
             disabled={loading}
-            className="px-3 py-1.5 bg-violet-600 text-white text-sm font-medium rounded hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5"
             title="Warm all datasource caches"
             aria-label="Warm all caches"
           >
-            <span className="text-base">🔥</span>
             Warm All
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => {
               setLoading(true);
               fetchStats();
             }}
             disabled={loading}
-            className="text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 disabled:text-gray-400 flex items-center gap-1 text-sm"
             title="Refresh stats"
             aria-label="Refresh cache statistics"
+            className="text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300"
           >
             <svg
               className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`}
@@ -219,7 +221,7 @@ export default function AnalyticsCacheDashboard({
               />
             </svg>
             Refresh
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -355,25 +357,20 @@ export default function AnalyticsCacheDashboard({
           </div>
           <p className="text-sm text-gray-600 dark:text-gray-400">{confirmMessage}</p>
           <div className="flex justify-end gap-3 mt-6">
-            <button
-              type="button"
-              onClick={() => setConfirmModalOpen(false)}
-              className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-            >
+            <Button variant="secondary" onClick={() => setConfirmModalOpen(false)}>
               Cancel
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant="violet"
               onClick={() => {
                 setConfirmModalOpen(false);
                 if (confirmAction) {
                   confirmAction();
                 }
               }}
-              className="px-4 py-2 text-sm font-medium text-white bg-violet-600 rounded hover:bg-violet-700 transition-colors"
             >
               Confirm
-            </button>
+            </Button>
           </div>
         </div>
       </ModalAction>

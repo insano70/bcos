@@ -28,6 +28,7 @@ import { useTheme } from 'next-themes';
 import { useEffect, useRef, useState } from 'react';
 import 'chartjs-adapter-moment';
 import { chartColors } from '@/components/charts/chartjs-config';
+import { Spinner } from '@/components/ui/spinner';
 
 // Track if Chart.js has been initialized with all plugins
 let chartInitialized = false;
@@ -251,7 +252,7 @@ export default function BaseTimeSeriesChart({
       </div>
       {(loading || !isReady) && (
         <div className="flex items-center justify-center flex-1">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-500"></div>
+          <Spinner size="md" />
         </div>
       )}
       {error && <div className="text-center text-red-600 py-8 flex-1">{error}</div>}

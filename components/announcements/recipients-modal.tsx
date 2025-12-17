@@ -4,6 +4,8 @@ import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/re
 import { useCallback, useEffect, useState } from 'react';
 
 import { apiClient } from '@/lib/api/client';
+import { Button } from '@/components/ui/button';
+import { Spinner } from '@/components/ui/spinner';
 
 interface Recipient {
   user_id: string;
@@ -115,16 +117,17 @@ export default function RecipientsModal({
                     {announcementSubject}
                   </p>
                 </div>
-                <button
-                  type="button"
-                  className="text-gray-400 dark:text-gray-500 hover:text-gray-500 dark:hover:text-gray-400"
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={onClose}
+                  aria-label="Close"
+                  className="p-0"
                 >
-                  <span className="sr-only">Close</span>
                   <svg className="fill-current" width="16" height="16" viewBox="0 0 16 16">
                     <path d="M7.95 6.536l4.242-4.243a1 1 0 111.415 1.414L9.364 7.95l4.243 4.242a1 1 0 11-1.415 1.415L7.95 9.364l-4.243 4.243a1 1 0 01-1.414-1.415L6.536 7.95 2.293 3.707a1 1 0 011.414-1.414L7.95 6.536z" />
                   </svg>
-                </button>
+                </Button>
               </div>
             </div>
 
@@ -132,7 +135,7 @@ export default function RecipientsModal({
             <div className="flex-1 overflow-y-auto">
               {loading ? (
                 <div className="flex items-center justify-center py-12">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-500" />
+                  <Spinner size="md" />
                 </div>
               ) : error ? (
                 <div className="flex flex-col items-center justify-center py-12 text-red-500">
@@ -189,13 +192,9 @@ export default function RecipientsModal({
               <p className="text-sm text-gray-500 dark:text-gray-400">
                 {recipients.length} recipient{recipients.length !== 1 ? 's' : ''}
               </p>
-              <button
-                type="button"
-                onClick={onClose}
-                className="btn bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 text-gray-800 dark:text-gray-300"
-              >
+              <Button variant="secondary" onClick={onClose}>
                 Close
-              </button>
+              </Button>
             </div>
           </DialogPanel>
         </TransitionChild>

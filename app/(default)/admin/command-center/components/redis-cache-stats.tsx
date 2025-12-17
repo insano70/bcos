@@ -16,6 +16,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { apiClient } from '@/lib/api/client';
 import type { RedisStats } from '@/lib/monitoring/types';
 import { clientErrorLog } from '@/lib/utils/debug-client';
+import { Spinner } from '@/components/ui/spinner';
 
 interface RedisCacheStatsProps {
   autoRefresh?: boolean;
@@ -83,7 +84,7 @@ export default function RedisCacheStats({
     return (
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
         <div className="flex items-center justify-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-500"></div>
+          <Spinner size="md" />
         </div>
       </div>
     );

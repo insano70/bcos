@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useMemo, useState } from 'react';
+import { Button } from '@/components/ui/button';
 import WorkItemTypeModal from '@/components/work-item-type-modal';
 import DataTable, {
   type DataTableBulkAction,
@@ -13,6 +14,7 @@ import ManageRelationshipsModal from '@/components/manage-relationships-modal';
 import ManageStatusesModal from '@/components/manage-statuses-modal';
 import ManageWorkItemFieldsModal from '@/components/manage-work-item-fields-modal';
 import { ProtectedComponent } from '@/components/rbac/protected-component';
+import { Spinner } from '@/components/ui/spinner';
 import WorkflowVisualizationModal from '@/components/workflow-visualization-modal';
 import { apiClient } from '@/lib/api/client';
 import { useWorkItemTypes, type WorkItemType } from '@/lib/hooks/use-work-item-types';
@@ -433,6 +435,18 @@ export default function WorkItemTypesContent() {
         <div className="mb-4 sm:mb-0">
           <h1 className="text-2xl md:text-3xl text-gray-800 dark:text-gray-100 font-bold">
             Work Item Types
+            {isLoading && (
+              <span className="ml-3 inline-flex items-center">
+                <Spinner
+                  sizeClassName="w-5 h-5"
+                  borderClassName="border-2"
+                  trackClassName="border-current opacity-25"
+                  indicatorClassName="border-current opacity-75"
+                  className="text-gray-400"
+                />
+                <span className="ml-2 text-sm text-gray-500">Loading...</span>
+              </span>
+            )}
           </h1>
         </div>
 
@@ -446,16 +460,17 @@ export default function WorkItemTypesContent() {
 
           {/* Add type button */}
           <ProtectedComponent permission="work-items:manage:organization">
-            <button
-              type="button"
-              className="btn bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white"
+            <Button
+              variant="primary"
               onClick={() => setIsAddModalOpen(true)}
+              leftIcon={
+                <svg className="fill-current shrink-0" width="16" height="16" viewBox="0 0 16 16">
+                  <path d="M15 7H9V1c0-.6-.4-1-1-1S7 .4 7 1v6H1c-.6 0-1 .4-1 1s.4 1 1 1h6v6c0 .6.4 1 1 1s1-.4 1-1V9h6c.6 0 1-.4 1-1s-.4-1-1-1z" />
+                </svg>
+              }
             >
-              <svg className="fill-current shrink-0" width="16" height="16" viewBox="0 0 16 16">
-                <path d="M15 7H9V1c0-.6-.4-1-1-1S7 .4 7 1v6H1c-.6 0-1 .4-1 1s.4 1 1 1h6v6c0 .6.4 1 1 1s1-.4 1-1V9h6c.6 0 1-.4 1-1s-.4-1-1-1z" />
-              </svg>
-              <span className="hidden xs:block ml-2">Add Work Item Type</span>
-            </button>
+              <span className="hidden xs:block">Add Work Item Type</span>
+            </Button>
           </ProtectedComponent>
         </div>
       </div>

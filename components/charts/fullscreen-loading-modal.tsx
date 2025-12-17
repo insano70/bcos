@@ -13,6 +13,7 @@
 
 import { useId, useRef } from 'react';
 import { useChartFullscreen } from '@/hooks/useChartFullscreen';
+import { Spinner } from '@/components/ui/spinner';
 import FullscreenModalAnimation from './fullscreen-modal-animation';
 import FullscreenModalFooter from './fullscreen-modal-footer';
 
@@ -82,7 +83,7 @@ export default function FullscreenLoadingModal({
         {/* Content - Loading spinner */}
         <div className="flex-1 flex items-center justify-center p-6">
           <div className="flex flex-col items-center gap-4">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-violet-600" />
+            <Spinner size="lg" />
             <span className="text-gray-600 dark:text-gray-400 text-lg">Loading dashboard...</span>
           </div>
         </div>

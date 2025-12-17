@@ -1,3 +1,5 @@
+import { Spinner } from '@/components/ui/spinner';
+
 export const metadata = {
   title: 'Button - Thrive',
   description: 'Page description',
@@ -93,14 +95,11 @@ export default function ButtonLibrary() {
                     className="btn w-full bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white disabled:border-gray-200 dark:disabled:border-gray-700 disabled:bg-white dark:disabled:bg-gray-800 disabled:text-gray-300 dark:disabled:text-gray-600 disabled:cursor-not-allowed"
                     disabled
                   >
-                    <svg
-                      className="animate-spin fill-current shrink-0"
-                      width="16"
-                      height="16"
-                      viewBox="0 0 16 16"
-                    >
-                      <path d="M8 16a7.928 7.928 0 01-3.428-.77l.857-1.807A6.006 6.006 0 0014 8c0-3.309-2.691-6-6-6a6.006 6.006 0 00-5.422 8.572l-1.806.859A7.929 7.929 0 010 8c0-4.411 3.589-8 8-8s8 3.589 8 8-3.589 8-8 8z" />
-                    </svg>
+                    <Spinner
+                      size="sm"
+                      trackClassName="border-current opacity-25"
+                      indicatorClassName="border-current opacity-75"
+                    />
                     <span className="ml-2">Loading</span>
                   </button>
                   {/* End */}

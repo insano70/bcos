@@ -16,6 +16,7 @@ import { apiClient } from '@/lib/api/client';
 import { clientDebugLog } from '@/lib/utils/debug-client';
 import { type User, useUsers } from '@/lib/hooks/use-users';
 import { Spinner } from '@/components/ui/spinner';
+import { Button } from '@/components/ui/button';
 
 export default function UsersContent() {
   // Component rendered (client-side debug)
@@ -310,19 +311,9 @@ export default function UsersContent() {
   if (authLoading) {
     return (
       <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-[96rem] mx-auto">
-        <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl p-8">
-          <div className="flex items-center justify-center">
-            <Spinner
-              sizeClassName="w-8 h-8"
-              borderClassName="border-2"
-              trackClassName="border-current opacity-25"
-              indicatorClassName="border-current opacity-75"
-              className="text-gray-400"
-            />
-            <span className="ml-3 text-gray-600 dark:text-gray-400">
-              Checking authentication...
-            </span>
-          </div>
+        <div className="flex flex-col items-center justify-center py-24 gap-3">
+          <Spinner size="lg" />
+          <span className="text-gray-600 dark:text-gray-400">Checking authentication...</span>
         </div>
       </div>
     );
@@ -356,13 +347,14 @@ export default function UsersContent() {
               <p className="text-red-600 dark:text-red-400 text-sm mt-1">
                 {error instanceof Error ? error.message : 'An unexpected error occurred'}
               </p>
-              <button
-                type="button"
+              <Button
+                variant="danger"
+                size="sm"
                 onClick={() => refetch()}
-                className="mt-3 btn-sm bg-red-600 hover:bg-red-700 text-white"
+                className="mt-3"
               >
                 Try Again
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -409,22 +401,23 @@ export default function UsersContent() {
             permissions={['users:create:organization', 'users:manage:all']}
             requireAll={false}
           >
-            <button
-              type="button"
+            <Button
+              variant="secondary"
               disabled={isLoading}
               onClick={() => setIsBulkImportModalOpen(true)}
-              className="btn border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 text-gray-600 dark:text-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+              leftIcon={
+                <svg
+                  className="fill-current shrink-0 xs:hidden"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 16 16"
+                >
+                  <path d="M8 0a8 8 0 100 16A8 8 0 008 0zm3 9H9v2c0 .6-.4 1-1 1s-1-.4-1-1V9H5c-.6 0-1-.4-1-1s.4-1 1-1h2V5c0-.6.4-1 1-1s1 .4 1 1v2h2c.6 0 1 .4 1 1s-.4 1-1 1z" />
+                </svg>
+              }
             >
-              <svg
-                className="fill-current shrink-0 xs:hidden"
-                width="16"
-                height="16"
-                viewBox="0 0 16 16"
-              >
-                <path d="M8 0a8 8 0 100 16A8 8 0 008 0zm3 9H9v2c0 .6-.4 1-1 1s-1-.4-1-1V9H5c-.6 0-1-.4-1-1s.4-1 1-1h2V5c0-.6.4-1 1-1s1 .4 1 1v2h2c.6 0 1 .4 1 1s-.4 1-1 1z" />
-              </svg>
               <span className="max-xs:sr-only">Import Users</span>
-            </button>
+            </Button>
           </ProtectedComponent>
 
           {/* Add user button - protected by RBAC */}
@@ -432,22 +425,23 @@ export default function UsersContent() {
             permissions={['users:create:organization', 'users:manage:all']}
             requireAll={false}
           >
-            <button
-              type="button"
+            <Button
+              variant="primary"
               disabled={isLoading}
               onClick={() => setIsAddUserModalOpen(true)}
-              className="btn bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed"
+              leftIcon={
+                <svg
+                  className="fill-current shrink-0 xs:hidden"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 16 16"
+                >
+                  <path d="M15 7H9V1c0-.6-.4-1-1-1S7 .4 7 1v6H1c-.6 0-1 .4-1 1s.4 1 1 1h6v6c0 .6.4 1 1 1s1-.4 1-1V9h6c.6 0 1-.4 1-1s-.4-1-1-1z" />
+                </svg>
+              }
             >
-              <svg
-                className="fill-current shrink-0 xs:hidden"
-                width="16"
-                height="16"
-                viewBox="0 0 16 16"
-              >
-                <path d="M15 7H9V1c0-.6-.4-1-1-1S7 .4 7 1v6H1c-.6 0-1 .4-1 1s.4 1 1 1h6v6c0 .6.4 1 1 1s1-.4 1-1V9h6c.6 0 1-.4 1-1s-.4-1-1-1z" />
-              </svg>
               <span className="max-xs:sr-only">Add User</span>
-            </button>
+            </Button>
           </ProtectedComponent>
         </div>
       </div>

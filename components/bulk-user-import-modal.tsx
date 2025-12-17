@@ -7,7 +7,7 @@ import type { ResolvedCSVRow, UserCreationResult } from '@/lib/validations/bulk-
 import { CSV_FILE_SIZE_LIMIT, parseCSVLine } from '@/lib/utils/csv-import';
 import CSVPreviewTable from './csv-preview-table';
 import ModalBlank from './modal-blank';
-import { Spinner } from './ui/spinner';
+import { Button } from './ui/button';
 
 type Step = 'upload' | 'preview' | 'results';
 
@@ -231,10 +231,12 @@ export default function BulkUserImportModal({
               {step === 'preview' && 'Review Import Data'}
               {step === 'results' && 'Import Results'}
             </h2>
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={handleClose}
-              className="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300"
+              aria-label="Close"
+              className="p-0"
             >
               <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
                 <path
@@ -243,7 +245,7 @@ export default function BulkUserImportModal({
                   clipRule="evenodd"
                 />
               </svg>
-            </button>
+            </Button>
           </div>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
             {step === 'upload' && 'Upload a CSV file to create multiple users at once.'}
@@ -369,10 +371,12 @@ export default function BulkUserImportModal({
                     </p>
                   </div>
                 </div>
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={() => setFile(null)}
-                  className="text-gray-400 hover:text-gray-500"
+                  aria-label="Remove file"
+                  className="p-0"
                 >
                   <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
                     <path
@@ -381,40 +385,27 @@ export default function BulkUserImportModal({
                       clipRule="evenodd"
                     />
                   </svg>
-                </button>
+                </Button>
               </div>
             )}
 
             {/* Upload button */}
             <div className="flex justify-end gap-3">
-              <button
-                type="button"
+              <Button
+                variant="secondary"
                 onClick={handleClose}
-                className="btn border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 text-gray-600 dark:text-gray-300"
               >
                 Cancel
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="primary"
                 onClick={handleUpload}
-                disabled={!file || isUploading}
-                className="btn bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={!file}
+                loading={isUploading}
+                loadingText="Validating..."
               >
-                {isUploading ? (
-                  <span className="flex items-center">
-                    <Spinner
-                      sizeClassName="w-4 h-4"
-                      borderClassName="border-2"
-                      trackClassName="border-current opacity-25"
-                      indicatorClassName="border-current opacity-75"
-                      className="mr-2"
-                    />
-                    Validating...
-                  </span>
-                ) : (
-                  'Upload & Validate'
-                )}
-              </button>
+                Upload & Validate
+              </Button>
             </div>
           </div>
         )}
@@ -431,17 +422,16 @@ export default function BulkUserImportModal({
             </div>
 
             <div className="flex justify-between">
-              <button
-                type="button"
+              <Button
+                variant="secondary"
                 onClick={() => {
                   setStep('upload');
                   setValidationResult(null);
                 }}
                 disabled={isImporting}
-                className="btn border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 text-gray-600 dark:text-gray-300 disabled:opacity-50"
               >
                 Back
-              </button>
+              </Button>
             </div>
           </div>
         )}
@@ -493,13 +483,9 @@ export default function BulkUserImportModal({
 
             {/* Close button */}
             <div className="flex justify-end">
-              <button
-                type="button"
-                onClick={handleClose}
-                className="btn bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white"
-              >
+              <Button variant="primary" onClick={handleClose}>
                 Close
-              </button>
+              </Button>
             </div>
           </div>
         )}

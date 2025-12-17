@@ -2,6 +2,7 @@
 
 import { memo } from 'react';
 import type React from 'react';
+import { Spinner, type SpinnerSize } from '@/components/ui/spinner';
 
 interface SkeletonProps {
   className?: string;
@@ -147,41 +148,19 @@ function LoadingSpinnerInner({
   size?: 'sm' | 'md' | 'lg';
   className?: string;
 }) {
-  const sizeClasses = {
-    sm: 'h-4 w-4',
-    md: 'h-8 w-8',
-    lg: 'h-12 w-12',
+  // Map LoadingSpinner sizes to Spinner size presets
+  const spinnerSizeMap: Record<'sm' | 'md' | 'lg', SpinnerSize> = {
+    sm: 'sm',
+    md: 'md',
+    lg: 'lg',
   };
 
   return (
     <div className={`flex items-center justify-center ${className}`}>
-      <div
-        className={`animate-spin rounded-full border-b-2 border-violet-500 ${sizeClasses[size]}`}
-      ></div>
-      <span className="ml-3 text-gray-600 dark:text-gray-400">{text}</span>
+      <Spinner size={spinnerSizeMap[size]} />
+      {text && <span className="ml-3 text-gray-600 dark:text-gray-400">{text}</span>}
     </div>
   );
 }
 
 export const LoadingSpinner = memo(LoadingSpinnerInner);
-
-// Full page loading overlay
-function LoadingOverlayInner({
-  text = 'Loading...',
-  isVisible = true,
-}: {
-  text?: string;
-  isVisible?: boolean;
-}) {
-  if (!isVisible) return null;
-
-  return (
-    <div className="fixed inset-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm z-50 flex items-center justify-center">
-      <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-lg">
-        <LoadingSpinner text={text} size="lg" />
-      </div>
-    </div>
-  );
-}
-
-export const LoadingOverlay = memo(LoadingOverlayInner);

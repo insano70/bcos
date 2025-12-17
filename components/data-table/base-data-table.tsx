@@ -128,7 +128,7 @@ export function BaseDataTableComponent<T>({
                                     <tr key={`skeleton-${idx}`}>
                                         {expandable && (
                                             <td className="px-2 first:pl-5 last:pr-5 py-3">
-                                                <div className="h-4 w-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                                                <div className="h-4 w-4 bg-gradient-to-r from-slate-200 via-slate-300 to-slate-200 dark:from-slate-700 dark:via-slate-600 dark:to-slate-700 rounded animate-shimmer bg-[length:200%_100%]" />
                                             </td>
                                         )}
                                         {columns.map((col) => (
@@ -136,7 +136,7 @@ export function BaseDataTableComponent<T>({
                                                 key={`skeleton-col-${idx}-${String(col.key)}`}
                                                 className="px-2 first:pl-5 last:pr-5 py-3"
                                             >
-                                                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                                                <div className="h-4 bg-gradient-to-r from-slate-200 via-slate-300 to-slate-200 dark:from-slate-700 dark:via-slate-600 dark:to-slate-700 rounded animate-shimmer bg-[length:200%_100%]" />
                                             </td>
                                         ))}
                                     </tr>

@@ -17,6 +17,7 @@ import 'chartjs-adapter-moment';
 import { chartColors } from '@/components/charts/chartjs-config';
 import { apiClient } from '@/lib/api/client';
 import type { PerformanceHistoryResponse } from '@/lib/monitoring/types';
+import { Spinner } from '@/components/ui/spinner';
 
 const BRAND_COLOR = '#00AEEF'; // violet-500
 
@@ -320,7 +321,7 @@ export default function PerformanceChart({
       </div>
       {loading && (
         <div className="flex items-center justify-center flex-1">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-500"></div>
+          <Spinner size="md" />
         </div>
       )}
       {error && <div className="text-center text-red-600 py-8 flex-1">{error}</div>}

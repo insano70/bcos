@@ -1,6 +1,8 @@
 'use client';
 
 import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
+import { Button } from '@/components/ui/button';
+import { Spinner } from '@/components/ui/spinner';
 
 interface DiscoveryProgressModalProps {
   isOpen: boolean;
@@ -54,7 +56,7 @@ export default function DiscoveryProgressModal({
 
               {isDiscovering && (
                 <div className="text-center py-8">
-                  <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-violet-500 mb-4" />
+                  <Spinner size="lg" className="mb-4" />
                   <p className="text-sm text-gray-600 dark:text-gray-400">
                     Analyzing ih schema tables and columns...
                   </p>
@@ -118,14 +120,15 @@ export default function DiscoveryProgressModal({
               )}
 
               <div className="mt-6 flex justify-end">
-                <button
-                  type="button"
+                <Button
+                  variant="violet"
                   onClick={onClose}
                   disabled={isDiscovering}
-                  className="btn bg-violet-500 hover:bg-violet-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                  loading={isDiscovering}
+                  loadingText="Discovering..."
                 >
-                  {isDiscovering ? 'Discovering...' : 'Close'}
-                </button>
+                  Close
+                </Button>
               </div>
             </div>
           </DialogPanel>

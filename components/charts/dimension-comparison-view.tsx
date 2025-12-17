@@ -36,7 +36,7 @@ interface ChartPosition {
 function ChartSkeleton({ height }: { height: number }) {
   return (
     <div
-      className="flex-shrink-0 animate-pulse overflow-hidden rounded-lg"
+      className="flex-shrink-0 overflow-hidden rounded-lg"
       style={{
         width: 'min(90vw, 500px)',
       }}
@@ -44,11 +44,11 @@ function ChartSkeleton({ height }: { height: number }) {
       {/* Label skeleton */}
       <div className="mb-1.5 px-1">
         <div className="flex items-baseline justify-between gap-2 min-w-0">
-          <div className="h-4 w-32 bg-slate-200 dark:bg-slate-700 rounded" />
-          <div className="h-3 w-16 bg-slate-200 dark:bg-slate-700 rounded flex-shrink-0" />
+          <div className="h-4 w-32 bg-gradient-to-r from-slate-200 via-slate-300 to-slate-200 dark:from-slate-700 dark:via-slate-600 dark:to-slate-700 rounded animate-shimmer bg-[length:200%_100%]" />
+          <div className="h-3 w-16 bg-gradient-to-r from-slate-200 via-slate-300 to-slate-200 dark:from-slate-700 dark:via-slate-600 dark:to-slate-700 rounded animate-shimmer bg-[length:200%_100%] flex-shrink-0" />
         </div>
       </div>
-      
+
       {/* Chart skeleton */}
       <div
         className="bg-white dark:bg-gray-800 rounded-lg overflow-hidden"
@@ -56,12 +56,12 @@ function ChartSkeleton({ height }: { height: number }) {
       >
         <div className="h-full flex flex-col p-4">
           {/* Chart area skeleton */}
-          <div className="flex-1 bg-slate-100 dark:bg-slate-800 rounded-lg mb-4" />
+          <div className="flex-1 bg-gradient-to-r from-slate-100 via-slate-200 to-slate-100 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800 rounded-lg mb-4 animate-shimmer bg-[length:200%_100%]" />
           {/* Legend skeleton */}
           <div className="flex gap-4 justify-center">
-            <div className="h-3 w-20 bg-slate-200 dark:bg-slate-700 rounded" />
-            <div className="h-3 w-24 bg-slate-200 dark:bg-slate-700 rounded" />
-            <div className="h-3 w-16 bg-slate-200 dark:bg-slate-700 rounded" />
+            <div className="h-3 w-20 bg-gradient-to-r from-slate-200 via-slate-300 to-slate-200 dark:from-slate-700 dark:via-slate-600 dark:to-slate-700 rounded animate-shimmer bg-[length:200%_100%]" />
+            <div className="h-3 w-24 bg-gradient-to-r from-slate-200 via-slate-300 to-slate-200 dark:from-slate-700 dark:via-slate-600 dark:to-slate-700 rounded animate-shimmer bg-[length:200%_100%]" />
+            <div className="h-3 w-16 bg-gradient-to-r from-slate-200 via-slate-300 to-slate-200 dark:from-slate-700 dark:via-slate-600 dark:to-slate-700 rounded animate-shimmer bg-[length:200%_100%]" />
           </div>
         </div>
       </div>

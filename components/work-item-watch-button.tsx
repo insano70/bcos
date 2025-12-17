@@ -5,9 +5,10 @@
  * Phase 7: Watchers and notifications
  */
 
-import { Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
 import { useUnwatchWorkItem, useWatchWorkItem } from '@/lib/hooks/use-work-item-watchers';
 
 interface WorkItemWatchButtonProps {
@@ -44,27 +45,19 @@ export function WorkItemWatchButton({
   };
 
   return (
-    <button type="button" onClick={handleToggleWatch}
-      disabled={isLoading}
-      className={`btn flex items-center gap-2 ${
-        isWatching
-          ? 'bg-blue-500 dark:bg-blue-600 text-white hover:bg-blue-600 dark:hover:bg-blue-700'
-          : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 text-gray-700 dark:text-gray-300'
-      } ${isLoading ? 'opacity-50 cursor-not-allowed' : ''} ${className}`}
+    <Button
+      variant={isWatching ? 'blue' : 'secondary'}
+      onClick={handleToggleWatch}
+      loading={isLoading}
+      className={className}
       title={
         isWatching
           ? 'Click to stop watching this work item'
           : 'Click to watch this work item for updates'
       }
+      leftIcon={isWatching ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
     >
-      {isLoading ? (
-        <Loader2 className="h-4 w-4 animate-spin" />
-      ) : isWatching ? (
-        <Eye className="h-4 w-4" />
-      ) : (
-        <EyeOff className="h-4 w-4" />
-      )}
       <span className="hidden sm:inline">{isWatching ? 'Watching' : 'Watch'}</span>
-    </button>
+    </Button>
   );
 }

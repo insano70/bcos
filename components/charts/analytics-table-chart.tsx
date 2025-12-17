@@ -1,6 +1,7 @@
 'use client';
 
 import { memo, useEffect, useRef, useState } from 'react';
+import { Spinner } from '@/components/ui/spinner';
 
 interface TableColumn {
   columnName: string;
@@ -115,7 +116,7 @@ function AnalyticsTableChartInner({
   if (!mounted) {
     return (
       <div style={{ height: `${height}px` }} className="flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-600"></div>
+        <Spinner size="md" />
       </div>
     );
   }

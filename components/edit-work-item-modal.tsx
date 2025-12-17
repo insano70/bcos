@@ -14,6 +14,7 @@ import { useUpdateWorkItem, type WorkItem } from '@/lib/hooks/use-work-items';
 import { createSafeTextSchema } from '@/lib/validations/sanitization';
 import Toast from './toast';
 import { clientErrorLog } from '@/lib/utils/debug-client';
+import { Button } from '@/components/ui/button';
 
 const updateWorkItemSchema = z.object({
   subject: createSafeTextSchema(1, 500, 'Subject'),
@@ -192,17 +193,18 @@ export default function EditWorkItemModal({
                 <Dialog.Title className="text-lg font-semibold text-gray-800 dark:text-gray-100">
                   Edit Work Item
                 </Dialog.Title>
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  aria-label="Close"
                   onClick={handleClose}
                   disabled={isSubmitting}
-                  className="text-gray-400 dark:text-gray-500 hover:text-gray-500 dark:hover:text-gray-400 disabled:opacity-50"
+                  className="p-0"
                 >
-                  <div className="sr-only">Close</div>
                   <svg className="fill-current" width="16" height="16" viewBox="0 0 16 16">
                     <path d="M7.95 6.536l4.242-4.243a1 1 0 111.415 1.414L9.364 7.95l4.243 4.242a1 1 0 11-1.415 1.415L7.95 9.364l-4.243 4.243a1 1 0 01-1.414-1.415L6.536 7.95 2.293 3.707a1 1 0 011.414-1.414L7.95 6.536z" />
                   </svg>
-                </button>
+                </Button>
               </div>
               <div className="mt-2">
                 <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -383,21 +385,21 @@ export default function EditWorkItemModal({
               </div>
 
               <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700/60 flex justify-end gap-3">
-                <button
-                  type="button"
+                <Button
+                  variant="secondary"
                   onClick={handleClose}
                   disabled={isSubmitting}
-                  className="btn border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 text-gray-600 dark:text-gray-300 disabled:opacity-50"
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="primary"
                   type="submit"
-                  disabled={isSubmitting}
-                  className="btn bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white disabled:opacity-50"
+                  loading={isSubmitting}
+                  loadingText="Updating..."
                 >
-                  {isSubmitting ? 'Updating...' : 'Update Work Item'}
-                </button>
+                  Update Work Item
+                </Button>
               </div>
             </form>
           </DialogPanel>

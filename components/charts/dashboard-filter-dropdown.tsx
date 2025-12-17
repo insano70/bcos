@@ -2,6 +2,7 @@
 
 import { Popover, PopoverButton, PopoverPanel, Transition } from '@headlessui/react';
 import { useEffect, useState } from 'react';
+import { Button } from '@/components/ui/button';
 import type { DashboardUniversalFilters } from '@/hooks/useDashboardData';
 import { useStickyFilters } from '@/hooks/useStickyFilters';
 import { useOrganizations } from '@/lib/hooks/use-organizations';
@@ -443,22 +444,24 @@ export default function DashboardFilterDropdown({
               {/* Footer with Apply/Clear */}
               <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 flex-shrink-0">
                 <div className="flex items-center justify-between gap-2">
-                  <button
-                    type="button"
+                  <Button
+                    variant="danger-outline"
+                    size="xs"
                     onClick={handleClear}
                     disabled={loading}
-                    className="btn-xs bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 text-red-500 disabled:opacity-50"
                   >
                     Clear
-                  </button>
-                  <button
-                    type="button"
+                  </Button>
+                  <Button
+                    variant="violet"
+                    size="xs"
                     onClick={() => handleApply(close)}
                     disabled={loading}
-                    className="btn-xs bg-violet-500 hover:bg-violet-600 text-white disabled:opacity-50"
+                    loading={loading}
+                    loadingText="Applying..."
                   >
-                    {loading ? 'Applying...' : 'Apply Filters'}
-                  </button>
+                    Apply Filters
+                  </Button>
                 </div>
               </div>
             </div>

@@ -10,7 +10,9 @@
  */
 
 import dynamic from 'next/dynamic';
+import { Button } from '@/components/ui/button';
 import { DASHBOARD_MESSAGES } from '@/lib/constants/dashboard-messages';
+import { Spinner } from '@/components/ui/spinner';
 
 // Lazy load fullscreen loading modal
 const FullscreenLoadingModal = dynamic(() => import('./fullscreen-loading-modal'), {
@@ -68,10 +70,7 @@ export function DashboardLoadingState({
   return (
     <div role="status" aria-live="polite" aria-busy="true" className="flex items-center justify-center min-h-[60vh]">
       <div className="flex items-center">
-        <div
-          className="animate-spin rounded-full h-10 w-10 border-b-2 border-violet-600"
-          aria-hidden="true"
-        />
+        <Spinner size="md" />
         <span className="ml-3 text-lg text-gray-600 dark:text-gray-400">Loading...</span>
       </div>
     </div>
@@ -120,13 +119,9 @@ export function DashboardErrorState({
           <h3 className="text-red-800 dark:text-red-200 font-medium">{title}</h3>
           <p className="text-red-600 dark:text-red-400 text-sm mt-1">{message}</p>
           {onRetry && (
-            <button
-              type="button"
-              onClick={onRetry}
-              className="mt-3 btn-sm bg-red-600 hover:bg-red-700 text-white"
-            >
+            <Button variant="danger" size="sm" onClick={onRetry} className="mt-3">
               {DASHBOARD_MESSAGES.ACTIONS.RETRY}
-            </button>
+            </Button>
           )}
         </div>
       </div>

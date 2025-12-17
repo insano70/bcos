@@ -18,10 +18,10 @@ export default function WorkItemBreadcrumbs({
   if (isLoading) {
     return (
       <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-4">
-        <div className="animate-pulse flex items-center gap-2">
-          <div className="h-4 w-20 bg-gray-200 dark:bg-gray-700 rounded"></div>
+        <div className="flex items-center gap-2">
+          <div className="h-4 w-20 bg-gradient-to-r from-slate-200 via-slate-300 to-slate-200 dark:from-slate-700 dark:via-slate-600 dark:to-slate-700 rounded animate-shimmer bg-[length:200%_100%]" />
           <span>/</span>
-          <div className="h-4 w-24 bg-gray-200 dark:bg-gray-700 rounded"></div>
+          <div className="h-4 w-24 bg-gradient-to-r from-slate-200 via-slate-300 to-slate-200 dark:from-slate-700 dark:via-slate-600 dark:to-slate-700 rounded animate-shimmer bg-[length:200%_100%]" />
         </div>
       </div>
     );

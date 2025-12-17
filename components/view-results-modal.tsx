@@ -1,6 +1,7 @@
 'use client';
 
 import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
+import { Button } from '@/components/ui/button';
 
 interface ViewResultsModalProps {
   isOpen: boolean;
@@ -134,13 +135,9 @@ export default function ViewResultsModal({
             {/* Modal footer */}
             <div className="px-4 sm:px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
               <div className="flex justify-end">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="btn border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 text-gray-800 dark:text-gray-300"
-                >
+                <Button variant="secondary" onClick={onClose}>
                   Close
-                </button>
+                </Button>
               </div>
             </div>
           </DialogPanel>

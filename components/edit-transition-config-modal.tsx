@@ -16,6 +16,7 @@ import {
 } from '@/lib/validations/workflow-transitions';
 import { TransitionActionBuilder } from './transition-action-builder';
 import { TransitionValidationBuilder } from './transition-validation-builder';
+import { Button } from '@/components/ui/button';
 
 interface EditTransitionConfigModalProps {
   isOpen: boolean;
@@ -137,16 +138,17 @@ export default function EditTransitionConfigModal({
                       {fromStatusName} → {toStatusName}
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    className="text-gray-400 dark:text-gray-500 hover:text-gray-500 dark:hover:text-gray-400"
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={handleCancelClick}
+                    aria-label="Close"
+                    className="p-0"
                   >
-                    <span className="sr-only">Close</span>
                     <svg className="w-4 h-4 fill-current">
                       <path d="M7.95 6.536l4.242-4.243a1 1 0 111.415 1.414L9.364 7.95l4.243 4.242a1 1 0 11-1.415 1.415L7.95 9.364l-4.243 4.243a1 1 0 01-1.414-1.415L6.536 7.95 2.293 3.707a1 1 0 011.414-1.414L7.95 6.536z" />
                     </svg>
-                  </button>
+                  </Button>
                 </div>
 
                 {/* Tabs */}
@@ -202,21 +204,18 @@ export default function EditTransitionConfigModal({
                     )}
                   </div>
                   <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={handleCancelClick}
-                      className="btn border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 text-gray-800 dark:text-gray-300"
-                    >
+                    <Button variant="secondary" onClick={handleCancelClick}>
                       Cancel
-                    </button>
-                    <button
-                      type="button"
+                    </Button>
+                    <Button
+                      variant="blue"
                       onClick={handleSave}
-                      disabled={!hasChanges || updateTransition.isPending}
-                      className="btn bg-blue-500 hover:bg-blue-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={!hasChanges}
+                      loading={updateTransition.isPending}
+                      loadingText="Saving..."
                     >
-                      {updateTransition.isPending ? 'Saving...' : 'Save Configuration'}
-                    </button>
+                      Save Configuration
+                    </Button>
                   </div>
                 </div>
               </div>

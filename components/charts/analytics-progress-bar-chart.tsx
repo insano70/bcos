@@ -2,6 +2,7 @@
 
 import { memo, useEffect, useState } from 'react';
 import { getPaletteColors } from '@/lib/services/color-palettes';
+import { Spinner } from '@/components/ui/spinner';
 
 interface ProgressBarData {
   label: string;
@@ -33,7 +34,7 @@ function AnalyticsProgressBarChartInner({
   if (!mounted) {
     return (
       <div style={{ height: `${height}px` }} className="flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-600"></div>
+        <Spinner size="md" />
       </div>
     );
   }

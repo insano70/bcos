@@ -2,6 +2,7 @@
 
 import { Popover, PopoverButton, PopoverPanel, Transition } from '@headlessui/react';
 import { useState } from 'react';
+import { Button } from '@/components/ui/button';
 
 export interface FilterOption {
   label: string;
@@ -198,22 +199,22 @@ export default function DropdownFilter({
               <div className="py-2 px-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700 opacity-100">
                 <ul className="flex items-center justify-between">
                   <li>
-                    <button
-                      type="button"
-                      className="btn-xs bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 text-red-500"
+                    <Button
+                      variant="danger-outline"
+                      size="xs"
                       onClick={handleClear}
                     >
                       Clear
-                    </button>
+                    </Button>
                   </li>
                   <li>
-                    <button
-                      type="button"
-                      className="btn-xs bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 text-gray-800 dark:text-gray-300"
+                    <Button
+                      variant="secondary"
+                      size="xs"
                       onClick={() => handleApply(close)}
                     >
                       Apply
-                    </button>
+                    </Button>
                   </li>
                 </ul>
               </div>

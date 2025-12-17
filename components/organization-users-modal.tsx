@@ -11,6 +11,7 @@ import {
 import DataTable, { type DataTableColumn } from './data-table-standard';
 import Toast from './toast';
 import { clientErrorLog } from '@/lib/utils/debug-client';
+import { Button } from '@/components/ui/button';
 
 interface OrganizationUsersModalProps {
   isOpen: boolean;
@@ -238,17 +239,18 @@ export default function OrganizationUsersModal({
                       {organization?.name}
                     </p>
                   </div>
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={handleClose}
                     disabled={isSubmitting}
-                    className="text-gray-400 dark:text-gray-500 hover:text-gray-500 dark:hover:text-gray-400 disabled:opacity-50"
+                    aria-label="Close"
+                    className="p-0"
                   >
-                    <span className="sr-only">Close</span>
                     <svg className="fill-current" width="16" height="16" viewBox="0 0 16 16">
                       <path d="M7.95 6.536l4.242-4.243a1 1 0 111.415 1.414L9.364 7.95l4.243 4.242a1 1 0 11-1.415 1.415L7.95 9.364l-4.243 4.243a1 1 0 01-1.414-1.415L6.536 7.95 2.293 3.707a1 1 0 011.414-1.414L7.95 6.536z" />
                     </svg>
-                  </button>
+                  </Button>
                 </div>
               </div>
 
@@ -286,22 +288,22 @@ export default function OrganizationUsersModal({
                   {selectedUserIds.size} of {users.length} users selected
                 </div>
                 <div className="flex gap-3">
-                  <button
-                    type="button"
+                  <Button
+                    variant="secondary"
                     onClick={handleClose}
                     disabled={isSubmitting}
-                    className="btn border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 text-gray-600 dark:text-gray-300 disabled:opacity-50"
                   >
                     Cancel
-                  </button>
-                  <button
-                    type="button"
+                  </Button>
+                  <Button
+                    variant="primary"
                     onClick={handleSave}
-                    disabled={isSubmitting || isLoading}
-                    className="btn bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white disabled:opacity-50"
+                    disabled={isLoading}
+                    loading={isSubmitting}
+                    loadingText="Saving..."
                   >
-                    {isSubmitting ? 'Saving...' : 'Save Changes'}
-                  </button>
+                    Save Changes
+                  </Button>
                 </div>
               </div>
             </DialogPanel>

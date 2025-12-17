@@ -2,6 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api/client';
+import { Spinner } from '@/components/ui/spinner';
 
 interface ActivityItem {
   work_item_activity_id: string;
@@ -204,7 +205,7 @@ export default function WorkItemActivitySection({ workItemId }: WorkItemActivity
       <div className="p-6">
         {isLoading ? (
           <div className="text-center py-8">
-            <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900 dark:border-gray-100"></div>
+            <Spinner size="md" />
             <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Loading activity...</p>
           </div>
         ) : activity.length === 0 ? (

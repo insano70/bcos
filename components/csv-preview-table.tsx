@@ -1,5 +1,6 @@
 'use client';
 
+import { Button } from '@/components/ui/button';
 import type { ResolvedCSVRow } from '@/lib/validations/bulk-import';
 
 interface CSVPreviewTableProps {
@@ -40,14 +41,15 @@ export default function CSVPreviewTable({ rows, onImport, isImporting }: CSVPrev
             </span>
           </span>
         </div>
-        <button
-          type="button"
+        <Button
+          variant="primary"
           onClick={onImport}
-          disabled={!hasValidRows || isImporting}
-          className="btn bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled={!hasValidRows}
+          loading={isImporting}
+          loadingText="Importing..."
         >
-          {isImporting ? 'Importing...' : `Import ${validCount} Valid Row${validCount !== 1 ? 's' : ''}`}
-        </button>
+          Import {validCount} Valid Row{validCount !== 1 ? 's' : ''}
+        </Button>
       </div>
 
       {/* Table */}

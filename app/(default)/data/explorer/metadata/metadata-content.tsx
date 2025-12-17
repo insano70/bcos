@@ -13,6 +13,8 @@ import { apiClient } from '@/lib/api/client';
 import { useTableMetadata, useAnalyzeTableColumns, useAnalyzeSchema } from '@/lib/hooks/use-data-explorer';
 import type { TableMetadata } from '@/lib/types/data-explorer';
 import ModalBlank from '@/components/modal-blank';
+import { Spinner } from '@/components/ui/spinner';
+import { Button } from '@/components/ui/button';
 
 export default function MetadataManagementContent() {
   const { data: tables = [], isLoading, refetch } = useTableMetadata({ 
@@ -187,44 +189,47 @@ export default function MetadataManagementContent() {
         {/* Actions */}
         <div className="grid grid-flow-col sm:auto-cols-max justify-start sm:justify-end gap-2">
           <ProtectedComponent permission="data-explorer:manage:all">
-            <button
-              type="button"
+            <Button
+              variant="secondary"
               onClick={() => setIsCreateModalOpen(true)}
-              className="btn border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 text-gray-800 dark:text-gray-300"
+              leftIcon={
+                <svg className="w-4 h-4 fill-current shrink-0" viewBox="0 0 16 16">
+                  <path d="M15 7H9V1c0-.6-.4-1-1-1S7 .4 7 1v6H1c-.6 0-1 .4-1 1s.4 1 1 1h6v6c0 .6.4 1 1 1s1-.4 1-1V9h6c.6 0 1-.4 1-1s-.4-1-1-1z" />
+                </svg>
+              }
             >
-              <svg className="w-4 h-4 fill-current shrink-0" viewBox="0 0 16 16">
-                <path d="M15 7H9V1c0-.6-.4-1-1-1S7 .4 7 1v6H1c-.6 0-1 .4-1 1s.4 1 1 1h6v6c0 .6.4 1 1 1s1-.4 1-1V9h6c.6 0 1-.4 1-1s-.4-1-1-1z" />
-              </svg>
-              <span className="ml-2 max-xs:sr-only">Add Table</span>
-            </button>
+              <span className="max-xs:sr-only">Add Table</span>
+            </Button>
           </ProtectedComponent>
 
           <ProtectedComponent permission="data-explorer:manage:all">
-            <button
-              type="button"
+            <Button
+              variant="violet"
               onClick={handleDiscoverTables}
               disabled={isDiscovering}
-              className="btn bg-violet-500 hover:bg-violet-600 text-white disabled:opacity-50"
+              leftIcon={
+                <svg className="w-4 h-4 fill-current shrink-0" viewBox="0 0 16 16">
+                  <path d="M8 0C3.6 0 0 3.6 0 8s3.6 8 8 8 8-3.6 8-8-3.6-8-8-8zm1 12H7V7h2v5zM8 6c-.6 0-1-.4-1-1s.4-1 1-1 1 .4 1 1-.4 1-1 1z" />
+                </svg>
+              }
             >
-              <svg className="w-4 h-4 fill-current shrink-0" viewBox="0 0 16 16">
-                <path d="M8 0C3.6 0 0 3.6 0 8s3.6 8 8 8 8-3.6 8-8-3.6-8-8-8zm1 12H7V7h2v5zM8 6c-.6 0-1-.4-1-1s.4-1 1-1 1 .4 1 1-.4 1-1 1z" />
-              </svg>
-              <span className="ml-2">Discover Tables</span>
-            </button>
+              Discover Tables
+            </Button>
           </ProtectedComponent>
 
           <ProtectedComponent permission="data-explorer:manage:all">
-            <button
-              type="button"
+            <Button
+              variant="success"
               onClick={handleAnalyzeAllTables}
               disabled={analyzeSchema.isPending}
-              className="btn bg-emerald-500 hover:bg-emerald-600 text-white disabled:opacity-50"
+              leftIcon={
+                <svg className="w-4 h-4 fill-current shrink-0" viewBox="0 0 16 16">
+                  <path d="M15 2h-2V0h-2v2H9V0H7v2H5V0H3v2H1a1 1 0 00-1 1v12a1 1 0 001 1h14a1 1 0 001-1V3a1 1 0 00-1-1zM2 14V5h12v9H2z" />
+                </svg>
+              }
             >
-              <svg className="w-4 h-4 fill-current shrink-0" viewBox="0 0 16 16">
-                <path d="M15 2h-2V0h-2v2H9V0H7v2H5V0H3v2H1a1 1 0 00-1 1v12a1 1 0 001 1h14a1 1 0 001-1V3a1 1 0 00-1-1zM2 14V5h12v9H2z" />
-              </svg>
-              <span className="ml-2">Analyze Statistics</span>
-            </button>
+              Analyze Statistics
+            </Button>
           </ProtectedComponent>
         </div>
       </div>
@@ -303,12 +308,7 @@ export default function MetadataManagementContent() {
           {analyzeTableColumns.isPending || analyzeSchema.isPending ? (
             <div className="text-center py-8">
               <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-violet-100 dark:bg-violet-500/30 mb-4">
-                <svg
-                  className="w-8 h-8 fill-current text-violet-500 animate-spin"
-                  viewBox="0 0 16 16"
-                >
-                  <path d="M8 0a8 8 0 00-8 8h2a6 6 0 116 6v2a8 8 0 008-8z" />
-                </svg>
+                <Spinner size="md" />
               </div>
               <div className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-1">
                 Analyzing Column Statistics...
@@ -372,8 +372,8 @@ export default function MetadataManagementContent() {
 
         <div className="px-5 py-4 border-t border-gray-200 dark:border-gray-700/60">
           <div className="flex flex-wrap justify-end space-x-2">
-            <button
-              className="btn border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 text-gray-800 dark:text-gray-300"
+            <Button
+              variant="secondary"
               onClick={() => {
                 setIsAnalysisModalOpen(false);
                 setAnalysisResult(null);
@@ -381,7 +381,7 @@ export default function MetadataManagementContent() {
               }}
             >
               Close
-            </button>
+            </Button>
           </div>
         </div>
       </ModalBlank>

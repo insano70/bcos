@@ -211,7 +211,7 @@ export default function AnnualReviewView() {
   );
 
   const SkeletonLine = ({ width = 'w-full', height = 'h-4' }: { width?: string; height?: string }) => (
-    <div className={`${width} ${height} bg-slate-200 dark:bg-slate-700 rounded animate-pulse`} />
+    <div className={`${width} ${height} bg-gradient-to-r from-slate-200 via-slate-300 to-slate-200 dark:from-slate-700 dark:via-slate-600 dark:to-slate-700 rounded animate-shimmer bg-[length:200%_100%]`} />
   );
 
   // Loading state - shows header and skeleton that matches actual layout
@@ -312,7 +312,7 @@ export default function AnnualReviewView() {
             <div className="mt-6 flex gap-3 overflow-hidden">
               {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((i) => (
                 <div key={i} className="flex flex-col items-center flex-shrink-0">
-                  <div className="w-16 h-20 rounded-xl bg-slate-100 dark:bg-slate-700 animate-pulse" />
+                  <div className="w-16 h-20 rounded-xl bg-gradient-to-r from-slate-100 via-slate-200 to-slate-100 dark:from-slate-700 dark:via-slate-600 dark:to-slate-700 animate-shimmer bg-[length:200%_100%]" />
                   <SkeletonLine width="w-8" height="h-3" />
                   <SkeletonLine width="w-10" height="h-2" />
                 </div>

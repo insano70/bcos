@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import React, { useCallback, useMemo, useState } from 'react';
+import { Button } from '@/components/ui/button';
 import { SelectedItemsProvider } from '@/app/selected-items-context';
 import DataTable, {
   type DataTableColumn,
@@ -408,13 +409,14 @@ export default function ChartBuilderPage() {
                 Error loading chart definitions
               </h3>
               <p className="text-red-600 dark:text-red-400 text-sm mt-1">{error}</p>
-              <button
-                type="button"
+              <Button
+                variant="danger"
+                size="sm"
                 onClick={() => loadCharts()}
-                className="mt-3 btn-sm bg-red-600 hover:bg-red-700 text-white"
+                className="mt-3"
               >
                 Try Again
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -449,21 +451,17 @@ export default function ChartBuilderPage() {
             />
 
             {/* Create chart button */}
-            <button
-              type="button"
+            <Button
+              variant="violet"
               onClick={handleCreateChart}
-              className="btn bg-violet-500 hover:bg-violet-600 text-white"
+              leftIcon={
+                <svg className="fill-current shrink-0 xs:hidden" width="16" height="16" viewBox="0 0 16 16">
+                  <path d="m7 7V3c0-.6.4-1 1-1s1 .4 1 1v4h4c.6 0 1 .4 1 1s-.4 1-1 1H9v4c0 .6-.4 1-1 1s-1-.4-1-1V9H3c-.6 0-1-.4-1-1s.4-1 1-1h4Z" />
+                </svg>
+              }
             >
-              <svg
-                className="fill-current shrink-0 xs:hidden"
-                width="16"
-                height="16"
-                viewBox="0 0 16 16"
-              >
-                <path d="m7 7V3c0-.6.4-1 1-1s1 .4 1 1v4h4c.6 0 1 .4 1 1s-.4 1-1 1H9v4c0 .6-.4 1-1 1s-1-.4-1-1V9H3c-.6 0-1-.4-1-1s.4-1 1-1h4Z" />
-              </svg>
               <span className="max-xs:sr-only">Create Chart</span>
-            </button>
+            </Button>
           </div>
         </div>
 

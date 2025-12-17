@@ -3,6 +3,7 @@
 import { format } from 'date-fns';
 import { useState } from 'react';
 import DeleteConfirmationModal from '@/components/delete-confirmation-modal';
+import { Spinner } from '@/components/ui/spinner';
 import {
   formatFileSize,
   getFileIcon,
@@ -56,7 +57,7 @@ export default function AttachmentsList({ workItemId }: AttachmentsListProps) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 dark:border-blue-400"></div>
+        <Spinner size="md" />
       </div>
     );
   }
@@ -154,7 +155,7 @@ export default function AttachmentsList({ workItemId }: AttachmentsListProps) {
                   title="Delete"
                 >
                   {isDeleting ? (
-                    <div className="w-5 h-5 border-2 border-gray-300 border-t-transparent rounded-full animate-spin" />
+                    <Spinner size="sm" sizeClassName="w-5 h-5" borderClassName="border-2" trackClassName="border-gray-300 dark:border-gray-600" indicatorClassName="border-gray-500 dark:border-gray-400" />
                   ) : (
                     <svg
                       className="w-5 h-5"

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { DashboardUniversalFilters } from '@/hooks/useDashboardData';
 import { apiClient } from '@/lib/api/client';
+import { Spinner } from '@/components/ui/spinner';
 import type {
   ChartDefinition,
   ChartFilter,
@@ -86,7 +87,7 @@ function ChartPreviewPlaceholder({ chartName, chartType, onLoad, isLoading }: Ch
         >
           {isLoading ? (
             <>
-              <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+              <Spinner size="sm" trackClassName="border-white/30" indicatorClassName="border-white" />
               Loading...
             </>
           ) : (
@@ -209,7 +210,7 @@ export default function DashboardPreview({
   if (isLoadingCharts) {
     return (
       <div className="flex items-center justify-center min-h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-600"></div>
+        <Spinner size="md" />
         <span className="ml-3 text-gray-600 dark:text-gray-400">Loading preview...</span>
       </div>
     );

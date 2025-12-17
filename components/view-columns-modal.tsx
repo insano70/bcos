@@ -3,6 +3,8 @@
 import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
 import { useEffect, useState, useCallback } from 'react';
 import { apiClient } from '@/lib/api/client';
+import { Spinner } from '@/components/ui/spinner';
+import { Button } from '@/components/ui/button';
 import type { ColumnMetadata } from '@/lib/types/data-explorer';
 import { clientErrorLog } from '@/lib/utils/debug-client';
 
@@ -80,16 +82,17 @@ export default function ViewColumnsModal({
                 <Dialog.Title className="text-lg font-semibold text-gray-800 dark:text-gray-100">
                   Columns: {tableName}
                 </Dialog.Title>
-                <button
-                  type="button"
-                  className="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300"
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={onClose}
+                  aria-label="Close"
+                  className="p-0"
                 >
-                  <span className="sr-only">Close</span>
                   <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
-                </button>
+                </Button>
               </div>
             </div>
 
@@ -97,7 +100,7 @@ export default function ViewColumnsModal({
             <div className="px-4 sm:px-6 py-4 overflow-y-auto max-h-[calc(90vh-140px)]">
               {isLoading && (
                 <div className="text-center py-8">
-                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-violet-500" />
+                  <Spinner size="md" />
                   <p className="mt-2 text-sm text-gray-500">Loading columns...</p>
                 </div>
               )}
@@ -105,13 +108,9 @@ export default function ViewColumnsModal({
               {error && (
                 <div className="text-center py-8">
                   <p className="text-red-600 dark:text-red-400">{error}</p>
-                  <button
-                    type="button"
-                    onClick={fetchColumns}
-                    className="mt-4 btn bg-violet-500 hover:bg-violet-600 text-white"
-                  >
+                  <Button variant="violet" onClick={fetchColumns} className="mt-4">
                     Retry
-                  </button>
+                  </Button>
                 </div>
               )}
 
@@ -196,8 +195,9 @@ export default function ViewColumnsModal({
                                   placeholder="Add description"
                                   autoFocus
                                 />
-                                <button
-                                  type="button"
+                                <Button
+                                  variant="violet"
+                                  size="xs"
                                   onClick={async () => {
                                     try {
                                       await apiClient.put(
@@ -210,17 +210,16 @@ export default function ViewColumnsModal({
                                       clientErrorLog('Failed to update:', err);
                                     }
                                   }}
-                                  className="btn-sm bg-violet-500 hover:bg-violet-600 text-white"
                                 >
                                   Save
-                                </button>
-                                <button
-                                  type="button"
+                                </Button>
+                                <Button
+                                  variant="secondary"
+                                  size="xs"
                                   onClick={() => setEditingColumn(null)}
-                                  className="btn-sm border-gray-200"
                                 >
                                   Cancel
-                                </button>
+                                </Button>
                               </div>
                             ) : (
                               <div className="flex items-center justify-between group">
@@ -229,19 +228,20 @@ export default function ViewColumnsModal({
                                     <span className="italic text-gray-400">No description</span>
                                   )}
                                 </span>
-                                <button
-                                  type="button"
+                                <Button
+                                  variant="ghost"
+                                  size="xs"
                                   onClick={() => {
                                     setEditingColumn(col.column_metadata_id);
                                     setEditDescription(col.description || '');
                                   }}
-                                  className="opacity-0 group-hover:opacity-100 ml-2 text-violet-600 hover:text-violet-700"
-                                  title="Edit description"
+                                  className="opacity-0 group-hover:opacity-100 ml-2 text-violet-600 hover:text-violet-700 p-0"
+                                  aria-label="Edit description"
                                 >
                                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                   </svg>
-                                </button>
+                                </Button>
                               </div>
                             )}
                           </td>
@@ -294,13 +294,9 @@ export default function ViewColumnsModal({
                 <p className="text-sm text-gray-600 dark:text-gray-400">
                   {columns.length} {columns.length === 1 ? 'column' : 'columns'} total
                 </p>
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="btn border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 text-gray-800 dark:text-gray-300"
-                >
+                <Button variant="secondary" onClick={onClose}>
                   Close
-                </button>
+                </Button>
               </div>
             </div>
           </DialogPanel>

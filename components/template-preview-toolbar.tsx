@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { getAllTemplateOptions } from '@/lib/template-loader';
+import { Spinner } from '@/components/ui/spinner';
 
 interface TemplatePreviewToolbarProps {
   currentTemplate: string;
@@ -55,7 +56,7 @@ export default function TemplatePreviewToolbar({
             <span className="text-sm font-medium text-gray-700">Preview Templates:</span>
             {isLoading && (
               <div className="flex items-center space-x-1">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                <Spinner size="sm" trackClassName="border-blue-200" indicatorClassName="border-blue-600" />
                 <span className="text-sm text-gray-500">Loading...</span>
               </div>
             )}

@@ -1,6 +1,7 @@
 'use client';
 
 import { memo } from 'react';
+import { Button } from '@/components/ui/button';
 import type { DataTableBulkAction } from './types';
 
 /** Configurable labels for i18n support */
@@ -116,70 +117,68 @@ function DataTableToolbarInner<T>({
                 <div className="flex items-center gap-2">
                     {/* Quick Add */}
                     {onQuickAdd && (
-                        <button
-                            type="button"
+                        <Button
+                            variant="primary"
                             onClick={onQuickAdd}
                             disabled={isQuickAdding}
-                            className="btn bg-indigo-500 hover:bg-indigo-600 text-white disabled:opacity-60"
                         >
                             {isQuickAdding ? labels.adding : labels.addRow}
-                        </button>
+                        </Button>
                     )}
 
                     {/* Bulk Actions */}
                     {showBulkActions &&
                         bulkActions?.map((action) => (
-                            <button
+                            <Button
                                 key={action.label}
-                                type="button"
+                                variant={action.variant === 'danger' ? 'danger' : 'primary'}
+                                size="sm"
                                 onClick={() => onBulkAction?.(action)}
-                                className={`btn-sm ${action.variant === 'danger'
-                                        ? 'bg-red-500 hover:bg-red-600 text-white'
-                                        : 'bg-gray-900 hover:bg-gray-800 text-gray-100'
-                                    }`}
+                                leftIcon={action.icon}
                             >
-                                {action.icon && <span className="mr-1">{action.icon}</span>}
                                 {action.label}
-                            </button>
+                            </Button>
                         ))}
 
                     {/* Density Toggle */}
                     {densityToggle && onDensityChange && (
-                        <button
-                            type="button"
+                        <Button
+                            variant="secondary"
+                            size="sm"
                             onClick={() => onDensityChange(density === 'normal' ? 'compact' : 'normal')}
-                            className="btn-sm bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 text-gray-600 dark:text-gray-300"
                             title={density === 'normal' ? labels.switchToCompact : labels.switchToNormal}
+                            leftIcon={
+                                <svg className="w-4 h-4 fill-current" viewBox="0 0 16 16">
+                                    {density === 'normal' ? (
+                                        <>
+                                            <rect x="2" y="3" width="12" height="1" />
+                                            <rect x="2" y="7" width="12" height="1" />
+                                            <rect x="2" y="11" width="12" height="1" />
+                                        </>
+                                    ) : (
+                                        <>
+                                            <rect x="2" y="2" width="12" height="1" />
+                                            <rect x="2" y="5" width="12" height="1" />
+                                            <rect x="2" y="8" width="12" height="1" />
+                                            <rect x="2" y="11" width="12" height="1" />
+                                        </>
+                                    )}
+                                </svg>
+                            }
                         >
-                            <svg className="w-4 h-4 fill-current" viewBox="0 0 16 16">
-                                {density === 'normal' ? (
-                                    <>
-                                        <rect x="2" y="3" width="12" height="1" />
-                                        <rect x="2" y="7" width="12" height="1" />
-                                        <rect x="2" y="11" width="12" height="1" />
-                                    </>
-                                ) : (
-                                    <>
-                                        <rect x="2" y="2" width="12" height="1" />
-                                        <rect x="2" y="5" width="12" height="1" />
-                                        <rect x="2" y="8" width="12" height="1" />
-                                        <rect x="2" y="11" width="12" height="1" />
-                                    </>
-                                )}
-                            </svg>
-                            <span className="ml-2">{density === 'normal' ? labels.densityNormal : labels.densityCompact}</span>
-                        </button>
+                            {density === 'normal' ? labels.densityNormal : labels.densityCompact}
+                        </Button>
                     )}
 
                     {/* Export */}
                     {exportable && onExport && (
-                        <button
-                            type="button"
+                        <Button
+                            variant="secondary"
+                            size="sm"
                             onClick={onExport}
-                            className="btn-sm bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 text-gray-600 dark:text-gray-300"
                         >
                             {labels.exportCsv}
-                        </button>
+                        </Button>
                     )}
                 </div>
             </div>

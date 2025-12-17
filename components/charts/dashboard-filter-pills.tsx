@@ -1,8 +1,8 @@
 'use client';
 
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 import type { DashboardUniversalFilters } from '@/hooks/useDashboardData';
-import { useOrganizations } from '@/lib/hooks/use-organizations';
+import type { Organization } from '@/lib/types/rbac';
 
 /**
  * Dashboard Filter Pills Component
@@ -15,10 +15,10 @@ import { useOrganizations } from '@/lib/hooks/use-organizations';
  * - Click X to remove individual filter
  * - Hover tooltips with full details
  * - Responsive design
- * - Graceful loading states
+ * - Instant organization name resolution (no API call needed)
  *
  * Filter Types:
- * - Organization: Shows org name (from shared React Query cache)
+ * - Organization: Shows org name (from userContext.accessible_organizations)
  * - Date Range: Shows preset label (e.g., "Last 30 Days")
  * - Practice: Shows practice UID count
  * - Provider: Shows provider name
@@ -29,8 +29,8 @@ interface DashboardFilterPillsProps {
   defaultFilters?: DashboardUniversalFilters | undefined; // Dashboard default filter configuration
   onRemoveFilter: (filterKey: keyof DashboardUniversalFilters) => void;
   loading?: boolean;
-  /** Number of organizations user has access to. If 1, org pill is hidden (not useful for single-org users). */
-  accessibleOrganizationCount?: number | undefined;
+  /** Organizations the user has access to. Used to resolve org names without API call. If only 1, org pill is hidden. */
+  accessibleOrganizations?: Organization[] | undefined;
 }
 
 interface DatePreset {
@@ -65,16 +65,14 @@ function DashboardFilterPillsInner({
   defaultFilters = {},
   onRemoveFilter,
   loading = false,
-  accessibleOrganizationCount,
+  accessibleOrganizations = [],
 }: DashboardFilterPillsProps) {
-  // Use React Query hook for organizations - shared across components, cached
-  const { data: organizations = [], isLoading: loadingOrganizations } = useOrganizations();
-
-  // Find organization name from cached organizations data
-  const organizationName = filters.organizationId
-    ? organizations.find((o) => o.id === filters.organizationId)?.name || null
-    : null;
-  const loadingOrgName = filters.organizationId ? loadingOrganizations : false;
+  // Find organization name from passed organizations data (no API call needed)
+  const organizationName = useMemo(() => {
+    if (!filters.organizationId) return null;
+    const org = accessibleOrganizations.find((o) => o.organization_id === filters.organizationId);
+    return org?.name || null;
+  }, [filters.organizationId, accessibleOrganizations]);
 
   // Get date range label
   const getDateRangeLabel = (): string | null => {
@@ -99,7 +97,7 @@ function DashboardFilterPillsInner({
 
   // Organization pill - Only show if user has access to more than 1 organization
   // Single-org users don't need to see organization filter info (it's redundant)
-  const showOrgPill = accessibleOrganizationCount !== 1;
+  const showOrgPill = accessibleOrganizations.length !== 1;
 
   if (showOrgPill) {
     const currentOrg = filters.organizationId;
@@ -120,17 +118,17 @@ function DashboardFilterPillsInner({
         loading: false,
       });
     } else {
-      // Showing specific organization
+      // Showing specific organization - name resolved immediately from userContext
       activePills.push({
         key: 'organizationId',
         label: '', // Remove label - position in UI provides context
-        value: loadingOrgName ? 'Loading...' : organizationName || 'Unknown',
+        value: organizationName || 'Unknown',
         tooltip: isOrgOverride
           ? `User override. Click × to return to: ${defaultOrg ? 'default organization' : 'All Organizations'}`
           : `Dashboard default organization: ${organizationName || currentOrg}`,
         isDismissible: isOrgOverride,
         isUserOverride: isOrgOverride,
-        loading: loadingOrgName,
+        loading: false,
       });
     }
   }

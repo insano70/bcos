@@ -3,7 +3,6 @@ export const metadata = {
   description: 'Page description',
 };
 
-import PaginationNumeric from '@/components/pagination-numeric';
 import PaginationClassic from '@/components/pagination-classic';
 
 export default function PaginationLibrary() {
@@ -20,17 +19,11 @@ export default function PaginationLibrary() {
         <div>
           {/* Components */}
           <div className="space-y-8 mt-8">
-            {/* Option 1 */}
+            {/* Classic Pagination */}
             <div>
-              <h2 className="text-2xl text-gray-800 dark:text-gray-100 font-bold mb-6">Option 1</h2>
-              <div className="px-6 py-8 bg-gray-100 dark:bg-gray-800/50 rounded-lg">
-                <PaginationNumeric />
-              </div>
-            </div>
-
-            {/* Option 2 */}
-            <div>
-              <h2 className="text-2xl text-gray-800 dark:text-gray-100 font-bold mb-6">Option 2</h2>
+              <h2 className="text-2xl text-gray-800 dark:text-gray-100 font-bold mb-6">
+                Classic Pagination
+              </h2>
               <div className="px-6 py-8 bg-gray-100 dark:bg-gray-800/50 rounded-lg">
                 <PaginationClassic />
               </div>

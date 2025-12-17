@@ -3,6 +3,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { apiClient } from '@/lib/api/client';
+import { Button } from '@/components/ui/button';
+import { Spinner } from '@/components/ui/spinner';
 import { clientErrorLog } from '@/lib/utils/debug-client';
 
 interface Comment {
@@ -123,13 +125,15 @@ export default function WorkItemCommentsSection({ workItemId }: WorkItemComments
                 disabled={isSubmitting}
               />
               <div className="mt-2 flex justify-end">
-                <button
+                <Button
+                  variant="primary"
                   type="submit"
                   disabled={isSubmitting || !newComment.trim()}
-                  className="btn bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed"
+                  loading={isSubmitting}
+                  loadingText="Posting..."
                 >
-                  {isSubmitting ? 'Posting...' : 'Post Comment'}
-                </button>
+                  Post Comment
+                </Button>
               </div>
             </div>
           </div>
@@ -138,7 +142,7 @@ export default function WorkItemCommentsSection({ workItemId }: WorkItemComments
         {/* Comments List */}
         {isLoading ? (
           <div className="text-center py-8">
-            <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900 dark:border-gray-100"></div>
+            <Spinner size="md" />
             <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Loading comments...</p>
           </div>
         ) : comments.length === 0 ? (

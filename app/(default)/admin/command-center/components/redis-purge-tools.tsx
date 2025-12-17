@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { apiClient } from '@/lib/api/client';
 import ConfirmModal from './confirm-modal';
 import { useToast } from './toast';
+import { Button } from '@/components/ui/button';
 
 export default function RedisPurgeTools() {
   const [purgePattern, setPurgePattern] = useState('');
@@ -90,14 +91,13 @@ export default function RedisPurgeTools() {
         <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
           Nuclear option: Delete ALL keys from Redis instantly. Use during development when you need a clean slate.
         </p>
-        <button
-          type="button"
+        <Button
+          variant="danger"
           onClick={() => setShowFlushAllConfirm(true)}
           disabled={loading}
-          className="px-4 py-2 bg-red-700 text-white rounded-lg hover:bg-red-800 disabled:opacity-50 font-semibold"
         >
-          🗑️ FLUSH ALL KEYS
-        </button>
+          FLUSH ALL KEYS
+        </Button>
       </div>
 
       <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
@@ -113,18 +113,20 @@ export default function RedisPurgeTools() {
             className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800"
           />
           <div className="flex gap-2">
-            <button type="button" onClick={handlePreview}
+            <Button
+              variant="blue"
+              onClick={handlePreview}
               disabled={loading || !purgePattern.trim()}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
             >
               Preview
-            </button>
-            <button type="button" onClick={() => setShowConfirm(true)}
+            </Button>
+            <Button
+              variant="danger"
+              onClick={() => setShowConfirm(true)}
               disabled={loading || !purgePattern.trim() || previewCount === null}
-              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
             >
               Purge {previewCount !== null && `(${previewCount} keys)`}
-            </button>
+            </Button>
           </div>
         </div>
       </div>

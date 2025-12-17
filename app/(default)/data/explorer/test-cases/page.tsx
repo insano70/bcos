@@ -7,6 +7,7 @@ import {
   useGenerateTestCases,
 } from '@/lib/hooks/use-data-explorer';
 import ProtectedComponent from '@/components/rbac/protected-component';
+import { Spinner } from '@/components/ui/spinner';
 import { clientErrorLog } from '@/lib/utils/debug-client';
 
 export default function TestCasesPage() {
@@ -82,7 +83,7 @@ export default function TestCasesPage() {
         {/* Test Cases List */}
         {isLoading ? (
           <div className="text-center py-12">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-violet-500" />
+            <Spinner size="md" />
             <p className="text-gray-600 dark:text-gray-400 mt-4">Loading test cases...</p>
           </div>
         ) : !testCases || testCases.length === 0 ? (

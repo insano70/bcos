@@ -37,6 +37,7 @@ import ChartHeader from './chart-header';
 import ChartRenderer from './chart-renderer';
 import ResponsiveChartContainer from './responsive-chart-container';
 import { DrillDownIcon } from './drill-down-icon';
+import { Spinner } from '@/components/ui/spinner';
 
 // Lazy load fullscreen modals (like AnalyticsChart)
 const ChartFullscreenModal = dynamic(() => import('./chart-fullscreen-modal'), {
@@ -484,7 +485,7 @@ export default function BatchChartRenderer({
       {/* Loading overlay when fetching filtered data */}
       {isLoadingFilter && (
         <div className="absolute inset-0 bg-white/50 dark:bg-gray-900/50 flex items-center justify-center z-10 rounded-xl">
-          <div className="w-6 h-6 border-2 border-violet-600 border-t-transparent rounded-full animate-spin" />
+          <Spinner sizeClassName="w-6 h-6" borderClassName="border-2" />
         </div>
       )}
 

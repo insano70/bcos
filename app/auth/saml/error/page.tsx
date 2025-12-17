@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
+import { Spinner } from '@/components/ui/spinner';
 
 function SamlErrorContent() {
   const searchParams = useSearchParams();
@@ -216,7 +217,8 @@ export default function SamlErrorPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-white dark:bg-gray-900 flex items-center justify-center">
+        <div className="min-h-screen bg-white dark:bg-gray-900 flex flex-col items-center justify-center gap-4">
+          <Spinner size="lg" />
           <div className="text-gray-600 dark:text-gray-400">Loading...</div>
         </div>
       }

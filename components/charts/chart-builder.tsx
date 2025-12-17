@@ -1,10 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Toast from '@/components/toast';
+import { useToast } from '@/components/toast';
 import { FormSkeleton, Skeleton } from '@/components/ui/loading-skeleton';
 import { apiClient } from '@/lib/api/client';
-import { useToast } from '@/lib/hooks/use-toast';
 import { clientDebugLog, clientErrorLog } from '@/lib/utils/debug-client';
 import type {
   ChartDefinition,
@@ -124,7 +123,7 @@ export default function FunctionalChartBuilder({
   });
 
   // Toast notifications
-  const { toast, showToast, setToastOpen } = useToast();
+  const { showToast } = useToast();
 
   // Derived values
   const isEditMode = !!editingChart;
@@ -306,22 +305,22 @@ export default function FunctionalChartBuilder({
 
   const handlePreview = () => {
     if (!chartConfig.chartName.trim()) {
-      showToast('error', 'Chart name is required');
+      showToast({ type: 'error', message: 'Chart name is required' });
       return;
     }
 
     // For dual-axis charts, validate dual-axis configuration
     if (chartConfig.chartType === 'dual-axis') {
       if (!chartConfig.dualAxisConfig) {
-        showToast('error', 'Dual-axis configuration is required');
+        showToast({ type: 'error', message: 'Dual-axis configuration is required' });
         return;
       }
       if (!chartConfig.dualAxisConfig.primary.measure) {
-        showToast('error', 'Primary measure is required for dual-axis charts');
+        showToast({ type: 'error', message: 'Primary measure is required for dual-axis charts' });
         return;
       }
       if (!chartConfig.dualAxisConfig.secondary.measure) {
-        showToast('error', 'Secondary measure is required for dual-axis charts');
+        showToast({ type: 'error', message: 'Secondary measure is required for dual-axis charts' });
         return;
       }
     }
@@ -331,7 +330,7 @@ export default function FunctionalChartBuilder({
       !chartConfig.useMultipleSeries &&
       !chartConfig.measure
     ) {
-      showToast('error', 'Measure selection is required');
+      showToast({ type: 'error', message: 'Measure selection is required' });
       return;
     }
 
@@ -342,7 +341,7 @@ export default function FunctionalChartBuilder({
 
   const handleSave = async () => {
     if (!chartConfig.selectedDataSource) {
-      showToast('error', 'Data source selection is required');
+      showToast({ type: 'error', message: 'Data source selection is required' });
       return;
     }
 
@@ -369,10 +368,10 @@ export default function FunctionalChartBuilder({
 
       await (isEditMode ? apiClient.patch(url, payload) : apiClient.post(url, payload));
 
-      showToast(
-        'success',
-        `Chart "${chartConfig.chartName}" ${isEditMode ? 'updated' : 'saved'} successfully!`
-      );
+      showToast({
+        type: 'success',
+        message: `Chart "${chartConfig.chartName}" ${isEditMode ? 'updated' : 'saved'} successfully!`,
+      });
 
       // Call success callback or reset form
       if (onSaveSuccess) {
@@ -383,10 +382,10 @@ export default function FunctionalChartBuilder({
         setCurrentStep('configure');
       }
     } catch (error) {
-      showToast(
-        'error',
-        `Failed to ${isEditMode ? 'update' : 'save'} chart: ${error instanceof Error ? error.message : 'Unknown error'}`
-      );
+      showToast({
+        type: 'error',
+        message: `Failed to ${isEditMode ? 'update' : 'save'} chart: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
     } finally {
       setIsSaving(false);
     }
@@ -496,16 +495,6 @@ export default function FunctionalChartBuilder({
 
       {/* Schema Information Panel */}
       <ChartBuilderSchema schemaInfo={schemaInfo} />
-
-      {/* Toast Notification */}
-      <Toast
-        type={toast.type}
-        open={toast.show}
-        setOpen={setToastOpen}
-        className="fixed bottom-4 right-4 z-50"
-      >
-        {toast.message}
-      </Toast>
     </div>
   );
 }

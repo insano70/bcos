@@ -12,6 +12,7 @@ import type {
 import { getTemplateDefaultColors, getPracticeCSS } from '@/lib/utils/color-utils';
 import { validateCSSColor } from '@/lib/validations/css-validation';
 import { clientErrorLog } from '@/lib/utils/debug-client';
+import { Spinner } from '@/components/ui/spinner';
 
 interface TemplateSwitcherProps {
   practice: Practice;
@@ -164,7 +165,7 @@ export default function TemplateSwitcher({
         <div className="text-center">
           {isLoading ? (
             <>
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <Spinner size="lg" trackClassName="border-blue-200" indicatorClassName="border-blue-600" className="mx-auto mb-4" />
               <p className="text-gray-600">Loading template...</p>
             </>
           ) : (

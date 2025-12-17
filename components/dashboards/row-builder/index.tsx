@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import DashboardPreviewModal from '@/components/dashboard-preview-modal';
 import Toast from '@/components/toast';
+import { Spinner } from '@/components/ui/spinner';
 import type { ChartDefinition } from '@/lib/types/analytics';
 import DashboardActions from './components/dashboard-actions';
 // Components
@@ -99,7 +100,7 @@ export default function RowBasedDashboardBuilder({
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-600"></div>
+        <Spinner size="md" />
         <span className="ml-3 text-gray-600 dark:text-gray-400">Loading charts...</span>
       </div>
     );

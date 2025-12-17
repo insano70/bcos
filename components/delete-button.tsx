@@ -1,5 +1,6 @@
 'use client';
 
+import { Button } from '@/components/ui/button';
 import { useSelectedItems } from '@/app/selected-items-context';
 
 export default function DeleteButton() {
@@ -11,9 +12,9 @@ export default function DeleteButton() {
         <div className="hidden xl:block text-sm italic mr-2 whitespace-nowrap">
           <span>{selectedItems.length}</span> items selected
         </div>
-        <button type="button" className="btn bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 text-red-500">
+        <Button variant="danger-outline">
           Delete
-        </button>
+        </Button>
       </div>
     </div>
   );

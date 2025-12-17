@@ -2,6 +2,7 @@
 
 import { notFound, useParams, useRouter, useSearchParams } from 'next/navigation';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Button } from '@/components/ui/button';
 import DashboardView from '@/components/charts/dashboard-view';
 import { apiClient } from '@/lib/api/client';
 import { usePublishedDashboards } from '@/lib/hooks/use-published-dashboards';
@@ -136,13 +137,9 @@ export default function DashboardViewPage() {
               <p className="text-red-600 dark:text-red-400 text-sm mt-1">
                 {error}
               </p>
-              <button
-                type="button"
-                onClick={loadDashboard}
-                className="mt-3 btn-sm bg-red-600 hover:bg-red-700 text-white"
-              >
+              <Button variant="danger" size="sm" onClick={loadDashboard} className="mt-3">
                 Try Again
-              </button>
+              </Button>
             </div>
           </div>
         </div>

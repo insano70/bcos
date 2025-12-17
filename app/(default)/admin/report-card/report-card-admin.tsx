@@ -11,7 +11,9 @@ import {
   useGenerateReportCards,
   type MeasureCombination,
 } from '@/lib/hooks/use-report-card';
-import { Play, Loader2 } from 'lucide-react';
+import { Play } from 'lucide-react';
+import { Spinner } from '@/components/ui/spinner';
+import { Button } from '@/components/ui/button';
 import type { MeasureConfig, FilterCriteria } from '@/lib/types/report-card';
 import { useQueryClient } from '@tanstack/react-query';
 import DeleteConfirmationModal from '@/components/delete-confirmation-modal';
@@ -227,7 +229,7 @@ export default function ReportCardAdmin() {
     return (
       <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-9xl mx-auto">
         <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500" />
+          <Spinner size="md" />
           <span className="ml-3 text-slate-600 dark:text-slate-400">Loading measures...</span>
         </div>
       </div>
@@ -258,37 +260,29 @@ export default function ReportCardAdmin() {
           </p>
         </div>
         <div className="flex gap-2">
-          <button
+          <Button
+            variant="success"
             onClick={handleGenerateReportCards}
-            disabled={isGenerating}
-            className="btn bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-2 disabled:opacity-50"
+            loading={isGenerating}
+            loadingText="Generating..."
+            leftIcon={<Play className="w-4 h-4" />}
           >
-            {isGenerating ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Generating...
-              </>
-            ) : (
-              <>
-                <Play className="w-4 h-4" />
-                Generate Report Cards
-              </>
-            )}
-          </button>
-          <button
+            Generate Report Cards
+          </Button>
+          <Button
+            variant="secondary"
             onClick={() => setShowDiscoverModal(true)}
-            className="btn bg-slate-600 hover:bg-slate-700 text-white flex items-center gap-2"
+            leftIcon={<Database className="w-4 h-4" />}
           >
-            <Database className="w-4 h-4" />
             Discover Measures
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="primary"
             onClick={() => setIsCreating(true)}
-            className="btn bg-indigo-500 hover:bg-indigo-600 text-white flex items-center gap-2"
+            leftIcon={<Plus className="w-4 h-4" />}
           >
-            <Plus className="w-4 h-4" />
             Add Measure
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -361,12 +355,15 @@ export default function ReportCardAdmin() {
                 </p>
               )}
             </div>
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => setGenerationResult(null)}
-              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 ml-4"
+              className="ml-4"
+              aria-label="Close alert"
             >
               ×
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -391,12 +388,14 @@ export default function ReportCardAdmin() {
           <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
             Configured Measures ({measures.length})
           </h2>
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => refetch()}
-            className="text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+            aria-label="Refresh measures"
           >
             <RefreshCw className="w-4 h-4" />
-          </button>
+          </Button>
         </div>
 
         {measures.length === 0 ? (
@@ -405,12 +404,12 @@ export default function ReportCardAdmin() {
             <p className="text-slate-500 dark:text-slate-400 mb-4">
               No measures configured yet. Add measures to enable report card generation.
             </p>
-            <button
+            <Button
+              variant="primary"
               onClick={() => setShowDiscoverModal(true)}
-              className="btn bg-indigo-500 hover:bg-indigo-600 text-white"
             >
               Discover from Analytics DB
-            </button>
+            </Button>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -726,14 +725,13 @@ function MeasureFormModal({ measure, onClose, onSave, filterableColumns }: Measu
                   placeholder="Value"
                   className="flex-1 px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
                 />
-                <button
-                  type="button"
+                <Button
+                  variant="primary"
                   onClick={addFilter}
                   disabled={!filterKey || !filterValue}
-                  className="px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Add
-                </button>
+                </Button>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
                 These filters define which rows to collect from ih.agg_chart_data
@@ -812,20 +810,20 @@ function MeasureFormModal({ measure, onClose, onSave, filterableColumns }: Measu
 
           {/* Actions */}
           <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-700">
-            <button
-              type="button"
+            <Button
+              variant="secondary"
               onClick={onClose}
-              className="px-4 py-2 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700"
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="primary"
               type="submit"
-              disabled={isSaving}
-              className="px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 disabled:opacity-50"
+              loading={isSaving}
+              loadingText="Saving..."
             >
-              {isSaving ? 'Saving...' : measure ? 'Update Measure' : 'Create Measure'}
-            </button>
+              {measure ? 'Update Measure' : 'Create Measure'}
+            </Button>
           </div>
         </form>
       </div>
@@ -896,7 +894,7 @@ function DiscoverMeasuresModal({
         <div className="flex-1 overflow-y-auto p-6">
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500" />
+              <Spinner size="md" />
               <span className="ml-3 text-slate-600 dark:text-slate-400">Discovering measures...</span>
             </div>
           ) : combinations.length === 0 ? (
@@ -968,20 +966,21 @@ function DiscoverMeasuresModal({
         </div>
 
         <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-3">
-          <button
+          <Button
+            variant="secondary"
             onClick={onClose}
-            className="px-4 py-2 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700"
           >
             Cancel
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="primary"
             onClick={onSeed}
-            disabled={selectedCombinations.length === 0 || isSeedingMeasures}
-            className="px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            disabled={selectedCombinations.length === 0}
+            loading={isSeedingMeasures}
+            loadingText="Creating..."
           >
-            {isSeedingMeasures && <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />}
-            {isSeedingMeasures ? 'Creating...' : `Create ${selectedCombinations.length} Measure(s)`}
-          </button>
+            Create {selectedCombinations.length} Measure(s)
+          </Button>
         </div>
       </div>
     </div>

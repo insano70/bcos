@@ -12,8 +12,10 @@
 
 import { ChevronDown, ChevronRight, HelpCircle, Plus, X } from 'lucide-react';
 import { memo, useState, useCallback } from 'react';
+import { Button } from '@/components/ui/button';
 import { useUsers } from '@/lib/hooks/use-users';
 import { useWorkItemFields } from '@/lib/hooks/use-work-item-fields';
+import { Spinner } from '@/components/ui/spinner';
 import type {
   ActionConfig,
   AssignmentAction,
@@ -490,7 +492,8 @@ export function TransitionActionBuilder({
 
   if (fieldsLoading || usersLoading) {
     return (
-      <div className="flex items-center justify-center py-8">
+      <div className="flex flex-col items-center justify-center py-8 gap-3">
+        <Spinner size="md" />
         <div className="text-gray-500 dark:text-gray-400">Loading...</div>
       </div>
     );
@@ -551,14 +554,14 @@ export function TransitionActionBuilder({
               Send email notifications when this transition occurs.
             </p>
           </div>
-          <button
-            type="button"
+          <Button
+            variant="blue"
+            size="sm"
             onClick={handleAddNotification}
-            className="btn-sm bg-blue-500 hover:bg-blue-600 text-white flex items-center gap-1"
+            leftIcon={<Plus className="h-3 w-3" />}
           >
-            <Plus className="h-3 w-3" />
             Add Notification
-          </button>
+          </Button>
         </div>
 
         <div className="space-y-3">
@@ -592,14 +595,14 @@ export function TransitionActionBuilder({
               Automatically update field values when this transition occurs.
             </p>
           </div>
-          <button
-            type="button"
+          <Button
+            variant="blue"
+            size="sm"
             onClick={handleAddFieldUpdate}
-            className="btn-sm bg-blue-500 hover:bg-blue-600 text-white flex items-center gap-1"
+            leftIcon={<Plus className="h-3 w-3" />}
           >
-            <Plus className="h-3 w-3" />
             Add Field Update
-          </button>
+          </Button>
         </div>
 
         <div className="space-y-3">
@@ -634,14 +637,14 @@ export function TransitionActionBuilder({
               Automatically assign the work item when this transition occurs.
             </p>
           </div>
-          <button
-            type="button"
+          <Button
+            variant="blue"
+            size="sm"
             onClick={handleAddAssignment}
-            className="btn-sm bg-blue-500 hover:bg-blue-600 text-white flex items-center gap-1"
+            leftIcon={<Plus className="h-3 w-3" />}
           >
-            <Plus className="h-3 w-3" />
             Add Assignment
-          </button>
+          </Button>
         </div>
 
         <div className="space-y-3">

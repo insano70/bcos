@@ -23,6 +23,7 @@ import {
 } from '@/components/report-card';
 import Link from 'next/link';
 import { FileText, RefreshCcw, Calendar } from 'lucide-react';
+import { Spinner } from '@/components/ui/spinner';
 
 /**
  * Report Card View Component
@@ -189,7 +190,7 @@ export default function ReportCardView() {
     return (
       <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-7xl mx-auto">
         <div className="flex flex-col items-center justify-center py-24">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-violet-500 mb-4" />
+          <Spinner size="lg" className="mb-4" />
           <span className="text-slate-600 dark:text-slate-400">Loading your report card...</span>
         </div>
       </div>

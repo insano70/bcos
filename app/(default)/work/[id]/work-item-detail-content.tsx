@@ -3,10 +3,12 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useAuth } from '@/components/auth/rbac-auth-provider';
+import { Button } from '@/components/ui/button';
 import DeleteConfirmationModal from '@/components/delete-confirmation-modal';
 import DeleteWorkItemModal from '@/components/delete-work-item-modal';
 import EditWorkItemModal from '@/components/edit-work-item-modal';
 import { ProtectedComponent } from '@/components/rbac/protected-component';
+import { Spinner } from '@/components/ui/spinner';
 import { WorkItemWatchButton } from '@/components/work-item-watch-button';
 import { WorkItemWatchersList } from '@/components/work-item-watchers-list';
 import EditableWorkItemsTable from '@/components/editable-work-items-table';
@@ -74,7 +76,7 @@ export default function WorkItemDetailContent({ workItemId }: WorkItemDetailCont
     return (
       <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-[96rem] mx-auto">
         <div className="text-center py-12">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 dark:border-gray-100"></div>
+          <Spinner size="md" />
           <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">Loading work item...</p>
         </div>
       </div>
@@ -158,32 +160,34 @@ export default function WorkItemDetailContent({ workItemId }: WorkItemDetailCont
               ]}
               requireAll={false}
             >
-              <button
-                type="button"
+              <Button
+                variant="secondary"
                 onClick={() => setIsEditModalOpen(true)}
-                className="btn bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 text-gray-800 dark:text-gray-300"
+                leftIcon={
+                  <svg className="w-4 h-4 fill-current shrink-0" viewBox="0 0 16 16">
+                    <path d="m13.7 2.3-1-1c-.4-.4-1-.4-1.4 0l-10 10c-.2.2-.3.4-.3.7v4c0 .6.4 1 1 1h4c.3 0 .5-.1.7-.3l10-10c.4-.4.4-1 0-1.4zM10.5 6.5L9 5l.5-.5L11 6l-.5.5zM2 14v-3l6-6 3 3-6 6H2z" />
+                  </svg>
+                }
               >
-                <svg className="w-4 h-4 fill-current shrink-0" viewBox="0 0 16 16">
-                  <path d="m13.7 2.3-1-1c-.4-.4-1-.4-1.4 0l-10 10c-.2.2-.3.4-.3.7v4c0 .6.4 1 1 1h4c.3 0 .5-.1.7-.3l10-10c.4-.4.4-1 0-1.4zM10.5 6.5L9 5l.5-.5L11 6l-.5.5zM2 14v-3l6-6 3 3-6 6H2z" />
-                </svg>
-                <span className="ml-2">Edit</span>
-              </button>
+                Edit
+              </Button>
             </ProtectedComponent>
 
             <ProtectedComponent
               permissions={['work-items:delete:organization', 'work-items:delete:all']}
               requireAll={false}
             >
-              <button
-                type="button"
+              <Button
+                variant="danger-outline"
                 onClick={() => setIsDeleteModalOpen(true)}
-                className="btn bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 text-red-600 dark:text-red-400"
+                leftIcon={
+                  <svg className="w-4 h-4 fill-current shrink-0" viewBox="0 0 16 16">
+                    <path d="M5 7h6v6H5V7zm6-3.5V2h-1V.5a.5.5 0 0 0-.5-.5h-3a.5.5 0 0 0-.5.5V2H5v1.5H4V4h8v-.5H11zM7 2V1h2v1H7zM6 5v6h1V5H6zm3 0v6h1V5H9z" />
+                  </svg>
+                }
               >
-                <svg className="w-4 h-4 fill-current shrink-0" viewBox="0 0 16 16">
-                  <path d="M5 7h6v6H5V7zm6-3.5V2h-1V.5a.5.5 0 0 0-.5-.5h-3a.5.5 0 0 0-.5.5V2H5v1.5H4V4h8v-.5H11zM7 2V1h2v1H7zM6 5v6h1V5H6zm3 0v6h1V5H9z" />
-                </svg>
-                <span className="ml-2">Delete</span>
-              </button>
+                Delete
+              </Button>
             </ProtectedComponent>
           </div>
         </div>

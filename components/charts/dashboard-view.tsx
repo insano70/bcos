@@ -233,7 +233,7 @@ export default function DashboardView({
               defaultFilters={filterConfig?.defaultFilters as DashboardUniversalFilters | undefined}
               onRemoveFilter={handleRemoveFilter}
               loading={isLoading}
-              accessibleOrganizationCount={accessibleOrganizationIds.length}
+              accessibleOrganizations={userContext?.accessible_organizations}
             />
 
             {/* Filter Dropdown */}

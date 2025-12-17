@@ -1,5 +1,7 @@
 'use client';
 
+import { Spinner } from '@/components/ui/spinner';
+
 interface DashboardActionsProps {
   isSaving: boolean;
   isEditMode: boolean;
@@ -44,7 +46,7 @@ export default function DashboardActions({
       >
         {isSaving ? (
           <>
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+            <Spinner size="sm" className="mr-2" trackClassName="border-white/30" indicatorClassName="border-white" />
             Saving Dashboard...
           </>
         ) : (

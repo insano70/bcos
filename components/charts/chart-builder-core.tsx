@@ -8,6 +8,7 @@ import type {
   MultipleSeriesConfig,
   PeriodComparisonConfig,
 } from '@/lib/types/analytics';
+import { Spinner } from '@/components/ui/spinner';
 import ColorPaletteSelector from './color-palette-selector';
 import DataSourceSelector from './data-source-selector';
 import DateRangePresets from './date-range-presets';
@@ -114,7 +115,7 @@ export default function ChartBuilderCore({
       {/* Schema-dependent fields - Conditional */}
       {isLoadingSchema ? (
         <div className="text-center py-8">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-violet-500 mb-3"></div>
+          <Spinner size="md" className="mb-3" />
           <p className="text-sm text-gray-500 dark:text-gray-400">
             Loading schema for {chartConfig.selectedDataSource?.name}...
           </p>

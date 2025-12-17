@@ -5,6 +5,7 @@ import { useEffect, useMemo } from 'react';
 import { usePermissions } from '@/lib/hooks/use-permissions';
 import type { ProtectedPageProps } from '@/lib/types/rbac';
 import { Spinner } from '@/components/ui/spinner';
+import { Button } from '@/components/ui/button';
 
 /**
  * ProtectedPage - Page-level permission protection
@@ -254,24 +255,18 @@ export function UnauthorizedPage() {
         </div>
 
         <div className="space-y-3">
-          <button type="button" onClick={() => router.push('/dashboard')}
-            className="w-full btn bg-blue-600 text-white hover:bg-blue-700"
-          >
+          <Button variant="blue" fullWidth onClick={() => router.push('/dashboard')}>
             Go to Dashboard
-          </button>
+          </Button>
 
           {isAuthenticated ? (
-            <button type="button" onClick={() => router.back()}
-              className="w-full btn bg-gray-200 text-gray-800 hover:bg-gray-300"
-            >
+            <Button variant="secondary" fullWidth onClick={() => router.back()}>
               Go Back
-            </button>
+            </Button>
           ) : (
-            <button type="button" onClick={() => router.push('/signin')}
-              className="w-full btn bg-gray-200 text-gray-800 hover:bg-gray-300"
-            >
+            <Button variant="secondary" fullWidth onClick={() => router.push('/signin')}>
               Sign In
-            </button>
+            </Button>
           )}
         </div>
       </div>

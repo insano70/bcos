@@ -9,6 +9,7 @@ import { useForm } from 'react-hook-form';
 import { clientDebugLog, clientErrorLog } from '@/lib/utils/debug-client';
 import { storePreferredAuthMethod } from '@/lib/utils/login-hint-storage';
 import { loginSchema } from '@/lib/validations/auth';
+import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { useSilentAuth } from './hooks/use-silent-auth';
 import MFASetupDialog from './mfa-setup-dialog';
@@ -447,26 +448,16 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
             >
               Forgot Password?
             </Link>
-            <button
+            <Button
               type="submit"
+              variant="primary"
               disabled={!isValid || isSubmitting}
-              className="btn bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed ml-3"
+              loading={isSubmitting}
+              loadingText="Signing In..."
+              className="ml-3"
             >
-              {isSubmitting ? (
-                <div className="flex items-center">
-                  <Spinner
-                    sizeClassName="w-4 h-4"
-                    borderClassName="border-2"
-                    trackClassName="border-current opacity-25"
-                    indicatorClassName="border-current opacity-75"
-                    className="-ml-1 mr-2"
-                  />
-                  Signing In...
-                </div>
-              ) : (
-                'Sign In'
-              )}
-            </button>
+              Sign In
+            </Button>
           </div>
         </form>
       </div>

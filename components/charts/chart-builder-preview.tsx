@@ -1,6 +1,7 @@
 'use client';
 
 import type { FrequencyType, MeasureType } from '@/lib/types/analytics';
+import { Spinner } from '@/components/ui/spinner';
 import AnalyticsChart from './analytics-chart';
 import type { ChartConfig } from './chart-builder-core';
 
@@ -90,7 +91,7 @@ export default function ChartBuilderPreview({
         >
           {isSaving ? (
             <>
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+              <Spinner size="sm" className="mr-2" trackClassName="border-white/30" indicatorClassName="border-white" />
               Saving...
             </>
           ) : (

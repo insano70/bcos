@@ -11,6 +11,7 @@
 
 import { ChevronDown, ChevronRight, Plus, X } from 'lucide-react';
 import { memo, useState, useCallback } from 'react';
+import { Button } from '@/components/ui/button';
 import { useWorkItemFields } from '@/lib/hooks/use-work-item-fields';
 import type { ValidationConfig, ValidationRule } from '@/lib/validations/workflow-transitions';
 
@@ -271,14 +272,14 @@ export function TransitionValidationBuilder({
               Define custom rules that must pass before this transition can occur.
             </p>
           </div>
-          <button
-            type="button"
+          <Button
+            variant="blue"
+            size="sm"
             onClick={handleAddCustomRule}
-            className="btn-sm bg-blue-500 hover:bg-blue-600 text-white flex items-center gap-1"
+            leftIcon={<Plus className="h-3 w-3" />}
           >
-            <Plus className="h-3 w-3" />
             Add Rule
-          </button>
+          </Button>
         </div>
 
         <div className="space-y-3">

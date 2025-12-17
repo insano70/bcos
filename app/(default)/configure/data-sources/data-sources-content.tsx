@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { Button } from '@/components/ui/button';
 import DataSourceModal from '@/components/data-source-modal';
 import { useAuth } from '@/components/auth/rbac-auth-provider';
 import DataSourceConnectionTestModal from '@/components/data-source-connection-test-modal';
@@ -137,16 +138,10 @@ export default function DataSourcesContent() {
   // Loading state
   if (authLoading) {
     return (
-      <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl p-8">
-        <div className="flex items-center justify-center">
-          <Spinner
-            sizeClassName="w-8 h-8"
-            borderClassName="border-2"
-            trackClassName="border-current opacity-25"
-            indicatorClassName="border-current opacity-75"
-            className="text-gray-400"
-          />
-          <span className="ml-3 text-gray-600 dark:text-gray-400">Loading...</span>
+      <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-[96rem] mx-auto">
+        <div className="flex flex-col items-center justify-center py-24 gap-3">
+          <Spinner size="lg" />
+          <span className="text-gray-600 dark:text-gray-400">Loading...</span>
         </div>
       </div>
     );
@@ -155,8 +150,10 @@ export default function DataSourcesContent() {
   // Error state
   if (error) {
     return (
-      <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl p-8">
-        <div className="text-center text-red-500">Failed to load data sources: {error.message}</div>
+      <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-[96rem] mx-auto">
+        <div className="text-center text-red-500 py-24">
+          Failed to load data sources: {error.message}
+        </div>
       </div>
     );
   }
@@ -369,22 +366,23 @@ export default function DataSourcesContent() {
 
           {/* Add data source button - protected by RBAC */}
           <ProtectedComponent permission="data-sources:create:organization">
-            <button
-              type="button"
+            <Button
+              variant="primary"
               disabled={isLoading}
               onClick={() => setIsAddDataSourceModalOpen(true)}
-              className="btn bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed"
+              leftIcon={
+                <svg
+                  className="fill-current shrink-0 xs:hidden"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 16 16"
+                >
+                  <path d="M15 7H9V1c0-.6-.4-1-1-1S7 .4 7 1v6H1c-.6 0-1 .4-1 1s.4 1 1 1h6v6c0 .6.4 1 1 1s1-.4 1-1V9h6c.6 0 1-.4 1-1s-.4-1-1-1z" />
+                </svg>
+              }
             >
-              <svg
-                className="fill-current shrink-0 xs:hidden"
-                width="16"
-                height="16"
-                viewBox="0 0 16 16"
-              >
-                <path d="M15 7H9V1c0-.6-.4-1-1-1S7 .4 7 1v6H1c-.6 0-1 .4-1 1s.4 1 1 1h6v6c0 .6.4 1 1 1s1-.4 1-1V9h6c.6 0 1-.4 1-1s-.4-1-1-1z" />
-              </svg>
               <span className="max-xs:sr-only">Add Data Source</span>
-            </button>
+            </Button>
           </ProtectedComponent>
         </div>
       </div>

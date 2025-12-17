@@ -5,9 +5,11 @@
  * Phase 7: Watchers and notifications
  */
 
-import { Loader2, Settings, User } from 'lucide-react';
+import { Settings, User } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { Spinner } from '@/components/ui/spinner';
 import {
   useUpdateWatcherPreferences,
   useWorkItemWatchers,
@@ -26,7 +28,7 @@ export function WorkItemWatchersList({ workItemId, currentUserId }: WorkItemWatc
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-8">
-        <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+        <Spinner size="md" className="text-gray-400" />
       </div>
     );
   }
@@ -189,21 +191,18 @@ function WatcherItem({
             </label>
 
             <div className="flex gap-2 mt-3">
-              <button type="button" onClick={handleSavePreferences}
+              <Button
+                variant="blue"
+                size="sm"
+                onClick={handleSavePreferences}
                 disabled={updatePreferences.isPending}
-                className="btn-sm bg-blue-500 hover:bg-blue-600 text-white"
+                loading={updatePreferences.isPending}
               >
-                {updatePreferences.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  'Save'
-                )}
-              </button>
-              <button type="button" onClick={onEditToggle}
-                className="btn-sm bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 text-gray-700 dark:text-gray-300"
-              >
+                Save
+              </Button>
+              <Button variant="secondary" size="sm" onClick={onEditToggle}>
                 Cancel
-              </button>
+              </Button>
             </div>
           </div>
         ) : (

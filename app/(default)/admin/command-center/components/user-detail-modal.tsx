@@ -22,6 +22,7 @@ import {
 import type { AtRiskUser, LoginHistoryResponse } from '@/lib/monitoring/types';
 import ConfirmModal from './confirm-modal';
 import { useToast } from './toast';
+import { Spinner } from '@/components/ui/spinner';
 
 interface UserDetailModalProps {
   user: AtRiskUser | null;
@@ -278,7 +279,7 @@ export default function UserDetailModal({
               </h4>
               {loading ? (
                 <div className="text-center py-4">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-violet-500 mx-auto"></div>
+                  <Spinner size="sm" className="mx-auto" />
                 </div>
               ) : loginHistory && loginHistory.attempts.length > 0 ? (
                 <div className="space-y-2 max-h-64 overflow-y-auto">

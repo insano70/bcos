@@ -17,6 +17,8 @@ import {
 import { createSafeTextSchema } from '@/lib/validations/sanitization';
 import Toast from './toast';
 import { clientErrorLog } from '@/lib/utils/debug-client';
+import { Button } from '@/components/ui/button';
+import { Spinner } from '@/components/ui/spinner';
 
 const statusSchema = z.object({
   status_name: createSafeTextSchema(1, 100, 'Status name'),
@@ -201,16 +203,17 @@ export default function ManageStatusesModal({
                     <h2 className="font-semibold text-gray-800 dark:text-gray-100">
                       Manage Statuses - {workItemTypeName}
                     </h2>
-                    <button
-                      type="button"
-                      className="text-gray-400 dark:text-gray-500 hover:text-gray-500 dark:hover:text-gray-400"
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       onClick={onClose}
+                      aria-label="Close"
+                      className="p-0"
                     >
-                      <span className="sr-only">Close</span>
                       <svg className="w-4 h-4 fill-current">
                         <path d="M7.95 6.536l4.242-4.243a1 1 0 111.415 1.414L9.364 7.95l4.243 4.242a1 1 0 11-1.415 1.415L7.95 9.364l-4.243 4.243a1 1 0 01-1.414-1.415L6.536 7.95 2.293 3.707a1 1 0 011.414-1.414L7.95 6.536z" />
                       </svg>
-                    </button>
+                    </Button>
                   </div>
                 </div>
 
@@ -219,16 +222,17 @@ export default function ManageStatusesModal({
                   {/* Add Status Button */}
                   {!isAddingStatus && !editingStatusId && (
                     <div className="mb-4">
-                      <button
-                        type="button"
+                      <Button
+                        variant="primary"
                         onClick={handleAddStatus}
-                        className="btn bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white"
+                        leftIcon={
+                          <svg className="w-4 h-4 fill-current shrink-0" viewBox="0 0 16 16">
+                            <path d="M15 7H9V1c0-.6-.4-1-1-1S7 .4 7 1v6H1c-.6 0-1 .4-1 1s.4 1 1 1h6v6c0 .6.4 1 1 1s1-.4 1-1V9h6c.6 0 1-.4 1-1s-.4-1-1-1z" />
+                          </svg>
+                        }
                       >
-                        <svg className="w-4 h-4 fill-current shrink-0" viewBox="0 0 16 16">
-                          <path d="M15 7H9V1c0-.6-.4-1-1-1S7 .4 7 1v6H1c-.6 0-1 .4-1 1s.4 1 1 1h6v6c0 .6.4 1 1 1s1-.4 1-1V9h6c.6 0 1-.4 1-1s-.4-1-1-1z" />
-                        </svg>
-                        <span className="ml-2">Add Status</span>
-                      </button>
+                        Add Status
+                      </Button>
                     </div>
                   )}
 
@@ -341,26 +345,22 @@ export default function ManageStatusesModal({
                       </div>
 
                       <div className="flex gap-2 mt-4">
-                        <button
-                          type="submit"
-                          className="btn bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white"
-                        >
+                        <Button variant="primary" type="submit">
                           {isAddingStatus ? 'Add Status' : 'Save Changes'}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleCancelEdit}
-                          className="btn border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 text-gray-800 dark:text-gray-300"
-                        >
+                        </Button>
+                        <Button variant="secondary" onClick={handleCancelEdit}>
                           Cancel
-                        </button>
+                        </Button>
                       </div>
                     </form>
                   )}
 
                   {/* Statuses List */}
                   {isLoading ? (
-                    <div className="text-center py-8 text-gray-500">Loading statuses...</div>
+                    <div className="flex flex-col items-center justify-center py-8 gap-3">
+                      <Spinner size="md" />
+                      <div className="text-gray-500">Loading statuses...</div>
+                    </div>
                   ) : statuses.length === 0 ? (
                     <div className="text-center py-8 text-gray-500">
                       No statuses defined. Add your first status to get started.
@@ -413,26 +413,28 @@ export default function ManageStatusesModal({
 
                             {/* Actions */}
                             <div className="flex gap-2">
-                              <button
-                                type="button"
+                              <Button
+                                variant="ghost"
+                                size="xs"
                                 onClick={() => handleEditStatus(status)}
-                                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                                title="Edit"
+                                aria-label="Edit"
+                                className="p-1"
                               >
                                 <svg className="w-4 h-4 fill-current" viewBox="0 0 16 16">
                                   <path d="m13.7 2.3-1-1c-.4-.4-1-.4-1.4 0l-10 10c-.2.2-.3.4-.3.7v4c0 .6.4 1 1 1h4c.3 0 .5-.1.7-.3l10-10c.4-.4.4-1 0-1.4zM10.5 6.5L9 5l.5-.5L11 6l-.5.5zM2 14v-3l6-6 3 3-6 6H2z" />
                                 </svg>
-                              </button>
-                              <button
-                                type="button"
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="xs"
                                 onClick={() => handleDeleteClick(status)}
-                                className="text-red-400 hover:text-red-600 dark:hover:text-red-300"
-                                title="Delete"
+                                aria-label="Delete"
+                                className="p-1 text-red-400 hover:text-red-600 dark:hover:text-red-300"
                               >
                                 <svg className="w-4 h-4 fill-current" viewBox="0 0 16 16">
                                   <path d="M5 7h6v6H5V7zm6-3.5V2h-1V.5a.5.5 0 0 0-.5-.5h-3a.5.5 0 0 0-.5.5V2H5v1.5H4V4h8v-.5H11zM7 2V1h2v1H7zM6 5v6h1V5H6zm3 0v6h1V5H9z" />
                                 </svg>
-                              </button>
+                              </Button>
                             </div>
                           </div>
                         ))}
@@ -443,13 +445,9 @@ export default function ManageStatusesModal({
                 {/* Modal footer */}
                 <div className="px-5 py-4 border-t border-gray-200 dark:border-gray-700/60">
                   <div className="flex justify-end">
-                    <button
-                      type="button"
-                      onClick={onClose}
-                      className="btn border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 text-gray-800 dark:text-gray-300"
-                    >
+                    <Button variant="secondary" onClick={onClose}>
                       Close
-                    </button>
+                    </Button>
                   </div>
                 </div>
               </DialogPanel>

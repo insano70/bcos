@@ -3,6 +3,8 @@
 import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
 import { useState, useEffect, useCallback } from 'react';
 import { apiClient } from '@/lib/api/client';
+import { Spinner } from '@/components/ui/spinner';
+import { Button } from '@/components/ui/button';
 import type { SchemaInstruction } from '@/lib/types/data-explorer';
 import DeleteConfirmationModal from './delete-confirmation-modal';
 import Toast from './toast';
@@ -187,16 +189,17 @@ export default function SchemaInstructionsModal({ isOpen, onClose }: SchemaInstr
                       Global rules that guide AI SQL generation
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    className="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300"
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={onClose}
+                    aria-label="Close"
+                    className="p-0"
                   >
-                    <span className="sr-only">Close</span>
                     <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
-                  </button>
+                  </Button>
                 </div>
               </div>
 
@@ -294,24 +297,22 @@ export default function SchemaInstructionsModal({ isOpen, onClose }: SchemaInstr
                       </div>
 
                       <div className="flex gap-2 justify-end">
-                        <button
-                          type="button"
+                        <Button
+                          variant="secondary"
                           onClick={() => {
                             setIsEditing(false);
                             setIsCreating(false);
                           }}
-                          className="btn border-gray-200 dark:border-gray-700/60"
                         >
                           Cancel
-                        </button>
-                        <button
-                          type="button"
+                        </Button>
+                        <Button
+                          variant="violet"
                           onClick={handleSave}
                           disabled={!formTitle.trim() || !formInstruction.trim()}
-                          className="btn bg-violet-500 hover:bg-violet-600 text-white disabled:opacity-50"
                         >
                           Save
-                        </button>
+                        </Button>
                       </div>
                     </div>
                   </div>
@@ -319,20 +320,16 @@ export default function SchemaInstructionsModal({ isOpen, onClose }: SchemaInstr
 
                 {isLoading && (
                   <div className="text-center py-8">
-                    <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-violet-500" />
+                    <Spinner size="md" />
                   </div>
                 )}
 
                 {!isLoading && !isEditing && !isCreating && instructions.length === 0 && (
                   <div className="text-center py-8">
                     <p className="text-gray-500 mb-4">No schema instructions defined</p>
-                    <button
-                      type="button"
-                      onClick={handleCreate}
-                      className="btn bg-violet-500 hover:bg-violet-600 text-white"
-                    >
+                    <Button variant="violet" onClick={handleCreate}>
                       Create First Instruction
-                    </button>
+                    </Button>
                   </div>
                 )}
 
@@ -356,27 +353,30 @@ export default function SchemaInstructionsModal({ isOpen, onClose }: SchemaInstr
                             {getCategoryBadge(inst.category)}
                           </div>
                           <div className="flex items-center gap-2">
-                            <button
-                              type="button"
+                            <Button
+                              variant="ghost"
+                              size="xs"
                               onClick={() => handleEdit(inst)}
-                              className="text-sm text-blue-600 hover:text-blue-700"
+                              className="text-blue-600 hover:text-blue-700"
                             >
                               Edit
-                            </button>
-                            <button
-                              type="button"
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="xs"
                               onClick={() => handleToggleActive(inst)}
-                              className="text-sm text-violet-600 hover:text-violet-700"
+                              className="text-violet-600 hover:text-violet-700"
                             >
                               {inst.is_active ? 'Disable' : 'Enable'}
-                            </button>
-                            <button
-                              type="button"
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="xs"
                               onClick={() => handleDeleteClick(inst)}
-                              className="text-sm text-red-600 hover:text-red-700"
+                              className="text-red-600 hover:text-red-700"
                             >
                               Delete
-                            </button>
+                            </Button>
                           </div>
                         </div>
                         <p className="text-sm text-gray-700 dark:text-gray-300 mb-2">
@@ -410,21 +410,13 @@ export default function SchemaInstructionsModal({ isOpen, onClose }: SchemaInstr
                   </div>
                   <div className="flex gap-2">
                     {!isEditing && !isCreating && (
-                      <button
-                        type="button"
-                        onClick={handleCreate}
-                        className="btn bg-violet-500 hover:bg-violet-600 text-white"
-                      >
+                      <Button variant="violet" onClick={handleCreate}>
                         Add Instruction
-                      </button>
+                      </Button>
                     )}
-                    <button
-                      type="button"
-                      onClick={onClose}
-                      className="btn border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 text-gray-800 dark:text-gray-300"
-                    >
+                    <Button variant="secondary" onClick={onClose}>
                       Close
-                    </button>
+                    </Button>
                   </div>
                 </div>
               </div>

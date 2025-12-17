@@ -3,6 +3,7 @@
 import { memo, useState } from 'react';
 import type { StaticImageData } from 'next/image';
 import Image from 'next/image';
+import { Button } from '@/components/ui/button';
 
 interface RichItem {
   id: number;
@@ -54,16 +55,18 @@ function AccordionTableRichItemInner({ item }: RichItemProps) {
         </td>
         <td className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap w-px">
           <div className="flex items-center">
-            <button type="button" className={`text-gray-400 hover:text-gray-500 dark:text-gray-500 dark:hover:text-gray-400 ${open && 'rotate-180'}`}
+            <Button
+              variant="ghost"
+              className={open ? 'rotate-180' : ''}
               aria-expanded={open}
               onClick={() => setOpen(!open)}
               aria-controls={`description-${item.id}`}
+              aria-label="Toggle details"
             >
-              <span className="sr-only">Menu</span>
               <svg className="w-8 h-8 fill-current" viewBox="0 0 32 32">
                 <path d="M16 20l-5.4-5.4 1.4-1.4 4 4 4-4 1.4 1.4z" />
               </svg>
-            </button>
+            </Button>
           </div>
         </td>
       </tr>
@@ -81,9 +84,9 @@ function AccordionTableRichItemInner({ item }: RichItemProps) {
               </div>
               <div>{item.descriptionBody}</div>
             </div>
-            <button type="button" className="btn-sm bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white">
+            <Button variant="primary" size="sm">
               Approve
-            </button>
+            </Button>
           </div>
         </td>
       </tr>

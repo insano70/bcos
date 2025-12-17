@@ -3,6 +3,7 @@
 import { useState, useId } from 'react';
 import { usePendingFeedback, useResolveFeedback } from '@/lib/hooks/use-data-explorer';
 import ProtectedComponent from '@/components/rbac/protected-component';
+import { Spinner } from '@/components/ui/spinner';
 import type { QueryFeedback, ResolveFeedbackParams } from '@/lib/types/data-explorer';
 import { clientErrorLog } from '@/lib/utils/debug-client';
 
@@ -130,7 +131,7 @@ export default function FeedbackDashboardPage() {
         {/* Feedback List */}
         {isLoading ? (
           <div className="text-center py-12">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-violet-500" />
+            <Spinner size="md" />
             <p className="text-gray-600 dark:text-gray-400 mt-4">Loading feedback...</p>
           </div>
         ) : !feedback || feedback.length === 0 ? (

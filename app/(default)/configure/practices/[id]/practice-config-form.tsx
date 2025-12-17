@@ -104,8 +104,7 @@ export default function PracticeConfigForm({
       <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-[96rem] mx-auto">
         <div className="flex items-center justify-center py-12">
           <Spinner
-            sizeClassName="w-8 h-8"
-            borderClassName="border-2"
+            size="md"
             trackClassName="border-current opacity-25"
             indicatorClassName="border-current opacity-75"
             className="text-gray-400"

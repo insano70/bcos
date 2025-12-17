@@ -2,7 +2,9 @@
 
 import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
+import { Button } from '@/components/ui/button';
 import RowBasedDashboardBuilder from '@/components/dashboards/row-builder';
+import { Spinner } from '@/components/ui/spinner';
 import { apiClient } from '@/lib/api/client';
 import type { Dashboard, DashboardChart } from '@/lib/types/analytics';
 import { clientErrorLog } from '@/lib/utils/debug-client';
@@ -78,7 +80,7 @@ export default function EditDashboardPage() {
     return (
       <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-9xl mx-auto">
         <div className="flex items-center justify-center min-h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-600"></div>
+          <Spinner size="md" />
           <span className="ml-3 text-gray-600 dark:text-gray-400">Loading dashboard...</span>
         </div>
       </div>
@@ -109,20 +111,12 @@ export default function EditDashboardPage() {
               </h3>
               <p className="text-red-600 dark:text-red-400 text-sm mt-1">{error}</p>
               <div className="mt-3 space-x-3">
-                <button
-                  type="button"
-                  onClick={loadDashboardData}
-                  className="btn-sm bg-red-600 hover:bg-red-700 text-white"
-                >
+                <Button variant="danger" size="sm" onClick={loadDashboardData}>
                   Try Again
-                </button>
-                <button
-                  type="button"
-                  onClick={handleCancel}
-                  className="btn-sm bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
-                >
+                </Button>
+                <Button variant="secondary" size="sm" onClick={handleCancel}>
                   Back to Dashboards
-                </button>
+                </Button>
               </div>
             </div>
           </div>
@@ -141,13 +135,9 @@ export default function EditDashboardPage() {
           <p className="text-gray-600 dark:text-gray-400 mt-2">
             The dashboard you're looking for doesn't exist or has been deleted.
           </p>
-          <button
-            type="button"
-            onClick={handleCancel}
-            className="mt-4 btn-sm bg-violet-600 hover:bg-violet-700 text-white"
-          >
+          <Button variant="violet" size="sm" onClick={handleCancel} className="mt-4">
             Back to Dashboards
-          </button>
+          </Button>
         </div>
       </div>
     );

@@ -27,6 +27,40 @@ export type FormatType =
   | null;
 
 /**
+ * Infer format type from data type
+ *
+ * When a column has no explicit format_type set, this function infers
+ * the appropriate format type from the column's data_type. This ensures
+ * dates are formatted as dates (not ISO strings), integers as integers, etc.
+ *
+ * @param dataType - The column's data type (e.g., 'date', 'integer', 'decimal')
+ * @returns The inferred format type, or null if no inference is possible
+ */
+export function inferFormatFromDataType(dataType: string | null | undefined): FormatType {
+  if (!dataType) return null;
+
+  const typeMap: Record<string, FormatType> = {
+    date: 'date',
+    datetime: 'datetime',
+    timestamp: 'datetime',
+    timestamptz: 'datetime',
+    integer: 'integer',
+    int: 'integer',
+    bigint: 'integer',
+    smallint: 'integer',
+    decimal: 'decimal',
+    numeric: 'decimal',
+    float: 'decimal',
+    double: 'decimal',
+    real: 'decimal',
+    boolean: 'boolean',
+    bool: 'boolean',
+  };
+
+  return typeMap[dataType.toLowerCase()] || null;
+}
+
+/**
  * Formatted cell value with both display and raw values
  */
 export interface FormattedCell {

@@ -16,6 +16,7 @@
 
 import { useId, useRef, useMemo, useEffect, useState } from 'react';
 import { useTheme } from 'next-themes';
+import { Spinner } from '@/components/ui/spinner';
 import FullscreenModalAnimation from './fullscreen-modal-animation';
 import type { Chart, ChartTypeRegistry, ChartEvent, ActiveElement } from 'chart.js';
 import type { ChartData } from '@/lib/types/analytics';
@@ -374,7 +375,7 @@ export default function ChartFullscreenModal({
                     aria-busy="true"
                   >
                     <div className="flex items-center gap-3 px-4 py-2 bg-white dark:bg-gray-700 rounded-lg shadow-lg">
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-violet-600" aria-hidden="true" />
+                      <Spinner size="sm" />
                       <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
                         Expanding by {dimension.selectedDimensionColumns
                           .map(col => dimension.availableDimensions.find(d => d.columnName === col)?.displayName || col)

@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { apiClient } from '@/lib/api/client';
 import type { DrillDownTargetChart } from '@/lib/types/drill-down';
+import { Spinner } from '@/components/ui/spinner';
 
 /**
  * Chart type to icon mapping
@@ -247,7 +248,7 @@ export function DrillDownChartSelector({
         <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-60 overflow-auto">
           {loading && (
             <div className="px-3 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
-              <div className="w-5 h-5 border-2 border-violet-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+              <Spinner size="sm" className="mx-auto mb-2" />
               Loading charts...
             </div>
           )}

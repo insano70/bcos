@@ -330,10 +330,7 @@ export default function UserAnnouncementModal({
                   </div>
                 ) : loading ? (
                   <div className="flex flex-col items-center justify-center py-16">
-                    <div className="relative">
-                      <div className="w-12 h-12 rounded-full border-4 border-violet-100 dark:border-violet-900/50" />
-                      <div className="absolute inset-0 w-12 h-12 rounded-full border-4 border-transparent border-t-violet-500 animate-spin" />
-                    </div>
+                    <Spinner size="lg" trackClassName="border-violet-100 dark:border-violet-900/50" indicatorClassName="border-violet-500" />
                     <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">Loading announcements...</p>
                   </div>
                 ) : announcements.length === 0 ? (
@@ -432,10 +429,7 @@ export default function UserAnnouncementModal({
                   </div>
                 ) : historyLoading ? (
                   <div className="flex flex-col items-center justify-center py-16">
-                    <div className="relative">
-                      <div className="w-12 h-12 rounded-full border-4 border-violet-100 dark:border-violet-900/50" />
-                      <div className="absolute inset-0 w-12 h-12 rounded-full border-4 border-transparent border-t-violet-500 animate-spin" />
-                    </div>
+                    <Spinner size="lg" trackClassName="border-violet-100 dark:border-violet-900/50" indicatorClassName="border-violet-500" />
                     <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">Loading history...</p>
                   </div>
                 ) : historyAnnouncements.length === 0 ? (

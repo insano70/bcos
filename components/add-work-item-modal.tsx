@@ -16,6 +16,7 @@ import { useCreateWorkItem, useWorkItem } from '@/lib/hooks/use-work-items';
 import { createSafeTextSchema } from '@/lib/validations/sanitization';
 import Toast from './toast';
 import { clientErrorLog } from '@/lib/utils/debug-client';
+import { Button } from '@/components/ui/button';
 
 /**
  * Client-side form schema for work item creation
@@ -525,21 +526,22 @@ export default function AddWorkItemModal({ isOpen, onClose, onSuccess, parentWor
               </div>
 
               <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700/60 flex justify-end gap-3">
-                <button
-                  type="button"
+                <Button
+                  variant="secondary"
                   onClick={handleClose}
                   disabled={isSubmitting}
-                  className="btn border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 text-gray-600 dark:text-gray-300 disabled:opacity-50"
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="primary"
                   type="submit"
-                  disabled={isSubmitting || typesLoading}
-                  className="btn bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white disabled:opacity-50"
+                  disabled={typesLoading}
+                  loading={isSubmitting}
+                  loadingText="Creating..."
                 >
-                  {isSubmitting ? 'Creating...' : 'Create Work Item'}
-                </button>
+                  Create Work Item
+                </Button>
               </div>
             </form>
           </DialogPanel>

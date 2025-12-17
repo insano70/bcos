@@ -18,7 +18,7 @@ function LoginFormFallback() {
   return (
     <div aria-busy="true" aria-live="polite" className="space-y-4">
       {/* Inline skeleton that preserves layout while the client form hydrates */}
-      <div className="h-11 w-full rounded-lg bg-gray-200 dark:bg-gray-800 animate-pulse" />
+      <div className="h-11 w-full rounded-lg bg-gradient-to-r from-slate-200 via-slate-300 to-slate-200 dark:from-slate-700 dark:via-slate-600 dark:to-slate-700 animate-shimmer bg-[length:200%_100%]" />
       <div className="relative my-6">
         <div className="absolute inset-0 flex items-center">
           <div className="w-full border-t border-gray-300 dark:border-gray-600" />
@@ -30,14 +30,14 @@ function LoginFormFallback() {
         </div>
       </div>
       <div className="space-y-3">
-        <div className="h-4 w-28 rounded bg-gray-200 dark:bg-gray-800 animate-pulse" />
-        <div className="h-10 w-full rounded-lg bg-gray-200 dark:bg-gray-800 animate-pulse" />
-        <div className="h-4 w-24 rounded bg-gray-200 dark:bg-gray-800 animate-pulse" />
-        <div className="h-10 w-full rounded-lg bg-gray-200 dark:bg-gray-800 animate-pulse" />
+        <div className="h-4 w-28 rounded bg-gradient-to-r from-slate-200 via-slate-300 to-slate-200 dark:from-slate-700 dark:via-slate-600 dark:to-slate-700 animate-shimmer bg-[length:200%_100%]" />
+        <div className="h-10 w-full rounded-lg bg-gradient-to-r from-slate-200 via-slate-300 to-slate-200 dark:from-slate-700 dark:via-slate-600 dark:to-slate-700 animate-shimmer bg-[length:200%_100%]" />
+        <div className="h-4 w-24 rounded bg-gradient-to-r from-slate-200 via-slate-300 to-slate-200 dark:from-slate-700 dark:via-slate-600 dark:to-slate-700 animate-shimmer bg-[length:200%_100%]" />
+        <div className="h-10 w-full rounded-lg bg-gradient-to-r from-slate-200 via-slate-300 to-slate-200 dark:from-slate-700 dark:via-slate-600 dark:to-slate-700 animate-shimmer bg-[length:200%_100%]" />
       </div>
       <div className="flex items-center justify-between mt-6">
-        <div className="h-4 w-28 rounded bg-gray-200 dark:bg-gray-800 animate-pulse" />
-        <div className="h-10 w-28 rounded bg-gray-200 dark:bg-gray-800 animate-pulse" />
+        <div className="h-4 w-28 rounded bg-gradient-to-r from-slate-200 via-slate-300 to-slate-200 dark:from-slate-700 dark:via-slate-600 dark:to-slate-700 animate-shimmer bg-[length:200%_100%]" />
+        <div className="h-10 w-28 rounded bg-gradient-to-r from-slate-200 via-slate-300 to-slate-200 dark:from-slate-700 dark:via-slate-600 dark:to-slate-700 animate-shimmer bg-[length:200%_100%]" />
       </div>
     </div>
   );

@@ -22,6 +22,7 @@ import {
 } from '@/lib/monitoring/risk-score';
 import type { AtRiskUser, AtRiskUsersResponse } from '@/lib/monitoring/types';
 import { exportToCSV, formatDateForCSV } from '@/lib/utils/csv-export';
+import { Spinner } from '@/components/ui/spinner';
 
 interface AtRiskUsersPanelProps {
   autoRefresh?: boolean;
@@ -252,7 +253,7 @@ export default function AtRiskUsersPanel({
       {/* Loading State */}
       {loading && !data && (
         <div className="flex items-center justify-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-500"></div>
+          <Spinner size="md" />
         </div>
       )}
 

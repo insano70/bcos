@@ -8,6 +8,7 @@ import type {
   MeasureType,
 } from '@/lib/types/analytics';
 import AnalyticsChart from './analytics-chart';
+import { Spinner } from '@/components/ui/spinner';
 
 // New row-based data structures
 export interface DashboardChartSlot {
@@ -85,7 +86,7 @@ const ChartSlotPlaceholder = memo(function ChartSlotPlaceholder({ chartName, cha
         >
           {isLoading ? (
             <>
-              <div className="animate-spin rounded-full h-2.5 w-2.5 border border-white border-t-transparent" />
+              <Spinner size="sm" sizeClassName="w-2.5 h-2.5" borderClassName="border" trackClassName="border-white/30" indicatorClassName="border-white" />
               Loading...
             </>
           ) : (

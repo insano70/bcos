@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import type { ClinectRating, ClinectReview } from '@/lib/types/practice';
 import { clientErrorLog } from '@/lib/utils/debug-client';
+import { Spinner } from '@/components/ui/spinner';
 
 export interface ClinectRatingsWidgetProps {
   practiceSlug: string;
@@ -96,8 +97,9 @@ export default function ClinectRatingsWidget({
 
   if (loading) {
     return (
-      <div className={`flex items-center justify-center py-8 ${className}`}>
-        <div className="animate-pulse text-gray-500">Loading ratings...</div>
+      <div className={`flex flex-col items-center justify-center py-8 gap-3 ${className}`}>
+        <Spinner size="md" />
+        <div className="text-gray-500">Loading ratings...</div>
       </div>
     );
   }

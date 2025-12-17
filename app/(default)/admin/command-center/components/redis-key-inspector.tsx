@@ -5,6 +5,8 @@ import ModalAction from '@/components/modal-action';
 import { apiClient } from '@/lib/api/client';
 import type { RedisKeyDetails } from '@/lib/monitoring/types';
 import { useToast } from './toast';
+import { Spinner } from '@/components/ui/spinner';
+import { Button } from '@/components/ui/button';
 
 interface RedisKeyInspectorProps {
   keyName: string | null;
@@ -83,7 +85,7 @@ export default function RedisKeyInspector({
           <div className="px-6 py-4 max-h-[70vh] overflow-y-auto">
             {loading ? (
               <div className="text-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-500 mx-auto"></div>
+                <Spinner size="md" className="mx-auto" />
               </div>
             ) : details ? (
               <div className="space-y-4">
@@ -122,16 +124,12 @@ export default function RedisKeyInspector({
           </div>
 
           <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-2">
-            <button type="button" onClick={handleDeleteClick}
-              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-            >
+            <Button variant="danger" onClick={handleDeleteClick}>
               Delete Key
-            </button>
-            <button type="button" onClick={onClose}
-              className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg"
-            >
+            </Button>
+            <Button variant="secondary" onClick={onClose}>
               Close
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -151,20 +149,12 @@ export default function RedisKeyInspector({
             </p>
           </div>
           <div className="flex justify-end gap-3 mt-6">
-            <button
-              type="button"
-              onClick={() => setDeleteModalOpen(false)}
-              className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-            >
+            <Button variant="secondary" onClick={() => setDeleteModalOpen(false)}>
               Cancel
-            </button>
-            <button
-              type="button"
-              onClick={handleDeleteConfirm}
-              className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded hover:bg-red-700 transition-colors"
-            >
+            </Button>
+            <Button variant="danger" onClick={handleDeleteConfirm}>
               Delete
-            </button>
+            </Button>
           </div>
         </div>
       </ModalAction>

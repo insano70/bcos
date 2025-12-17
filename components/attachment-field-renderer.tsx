@@ -10,6 +10,7 @@ import {
   useFieldAttachmentThumbnailUrl,
 } from '@/lib/hooks/use-field-attachments';
 import type { WorkItemField } from '@/lib/types/work-item-fields';
+import { Spinner } from '@/components/ui/spinner';
 
 interface AttachmentFieldRendererProps {
   field: WorkItemField;
@@ -381,7 +382,7 @@ export default function AttachmentFieldRenderer({
       {uploadProgress && (
         <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
           <div className="flex items-center gap-3 mb-2">
-            <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full flex-shrink-0" />
+            <Spinner size="sm" trackClassName="border-blue-200 dark:border-blue-800" indicatorClassName="border-blue-500 dark:border-blue-400" className="flex-shrink-0" />
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-blue-700 dark:text-blue-300 truncate">
                 {uploadingFileName || 'Uploading file...'}
@@ -415,12 +416,12 @@ export default function AttachmentFieldRenderer({
           {[1, 2].map((i) => (
             <div
               key={i}
-              className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 animate-pulse"
+              className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700"
             >
-              <div className="w-8 h-8 bg-gray-300 dark:bg-gray-600 rounded" />
+              <div className="w-8 h-8 bg-gradient-to-r from-slate-200 via-slate-300 to-slate-200 dark:from-slate-700 dark:via-slate-600 dark:to-slate-700 rounded animate-shimmer bg-[length:200%_100%]" />
               <div className="flex-1 space-y-2">
-                <div className="h-4 bg-gray-300 dark:bg-gray-600 rounded w-1/2" />
-                <div className="h-3 bg-gray-300 dark:bg-gray-600 rounded w-1/3" />
+                <div className="h-4 bg-gradient-to-r from-slate-200 via-slate-300 to-slate-200 dark:from-slate-700 dark:via-slate-600 dark:to-slate-700 rounded w-1/2 animate-shimmer bg-[length:200%_100%]" />
+                <div className="h-3 bg-gradient-to-r from-slate-200 via-slate-300 to-slate-200 dark:from-slate-700 dark:via-slate-600 dark:to-slate-700 rounded w-1/3 animate-shimmer bg-[length:200%_100%]" />
               </div>
             </div>
           ))}
@@ -477,7 +478,7 @@ export default function AttachmentFieldRenderer({
                 >
                   {downloadMutation.isPending ? (
                     <span className="flex items-center gap-1">
-                      <div className="animate-spin h-3 w-3 border-2 border-violet-500 border-t-transparent rounded-full" />
+                      <Spinner size="sm" sizeClassName="h-3 w-3" borderClassName="border-2" />
                       <span>Downloading...</span>
                     </span>
                   ) : (

@@ -25,6 +25,7 @@ import { apiClient } from '@/lib/api/client';
 import { orchestrationResultToBatchChartData } from '@/lib/services/dashboard-rendering/mappers';
 import type { BatchChartData } from '@/lib/services/dashboard-rendering/mappers';
 import BatchChartRenderer from './batch-chart-renderer';
+import { Spinner } from '@/components/ui/spinner';
 
 /**
  * Response type for chart definition fetch
@@ -282,7 +283,7 @@ export function DrillDownModal({
           {chartLoading && (
             <div className="flex items-center justify-center h-full">
               <div className="text-center">
-                <div className="w-8 h-8 border-4 border-violet-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                <Spinner size="md" className="mx-auto mb-2" />
                 <p className="text-sm text-gray-500 dark:text-gray-400">
                   Loading chart...
                 </p>

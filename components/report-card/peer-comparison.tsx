@@ -1,7 +1,8 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Users, ArrowUp, ArrowDown, Minus, ChevronDown, Loader2, AlertTriangle } from 'lucide-react';
+import { Users, ArrowUp, ArrowDown, Minus, ChevronDown, AlertTriangle } from 'lucide-react';
+import { Spinner } from '@/components/ui/spinner';
 import type { PeerComparison, MeasureScore } from '@/lib/types/report-card';
 import type { SizeBucket } from '@/lib/constants/report-card';
 import { SIZE_BUCKETS } from '@/lib/constants/report-card';
@@ -370,7 +371,7 @@ function BucketSelector({
           : 'bg-slate-100 dark:bg-slate-800'
       }`}>
         {isLoading ? (
-          <Loader2 className="w-4 h-4 text-slate-400 animate-spin" />
+          <Spinner sizeClassName="w-4 h-4" borderClassName="border" className="text-slate-400" />
         ) : (
           <>
             {practiceCount <= MIN_PEERS_FOR_COMPARISON && (

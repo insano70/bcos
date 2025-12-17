@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
+import { Button } from '@/components/ui/button';
 import { useAuth } from '@/components/auth/rbac-auth-provider';
 import DataTable, {
   type DataTableColumn,
@@ -133,19 +134,11 @@ export default function DataSourceColumnsContent({ dataSourceId }: DataSourceCol
   if (authLoading || !dataSource) {
     return (
       <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-[96rem] mx-auto">
-        <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl p-8">
-          <div className="flex items-center justify-center">
-            <Spinner
-              sizeClassName="w-8 h-8"
-              borderClassName="border-2"
-              trackClassName="border-current opacity-25"
-              indicatorClassName="border-current opacity-75"
-              className="text-gray-400"
-            />
-            <span className="ml-3 text-gray-600 dark:text-gray-400">
-              {authLoading ? 'Authenticating...' : 'Loading data source...'}
-            </span>
-          </div>
+        <div className="flex flex-col items-center justify-center py-24 gap-3">
+          <Spinner size="lg" />
+          <span className="text-gray-600 dark:text-gray-400">
+            {authLoading ? 'Authenticating...' : 'Loading data source...'}
+          </span>
         </div>
       </div>
     );
@@ -175,13 +168,9 @@ export default function DataSourceColumnsContent({ dataSourceId }: DataSourceCol
             </h3>
             <p className="mt-1 text-sm text-red-500">Failed to load columns: {error.message}</p>
             <div className="mt-6">
-              <button
-                type="button"
-                onClick={() => refetch()}
-                className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              >
+              <Button variant="blue" onClick={() => refetch()}>
                 Try Again
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -459,43 +448,45 @@ export default function DataSourceColumnsContent({ dataSourceId }: DataSourceCol
           {/* Introspect button - only show when no columns exist */}
           {columns.length === 0 && (
             <ProtectedComponent permission="data-sources:create:organization">
-              <button
-                type="button"
+              <Button
+                variant="blue"
                 disabled={isLoading}
                 onClick={() => setIsIntrospectModalOpen(true)}
-                className="btn bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                leftIcon={
+                  <svg
+                    className="fill-current shrink-0 xs:hidden"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 16 16"
+                  >
+                    <path d="M8 0C3.6 0 0 3.6 0 8s3.6 8 8 8 8-3.6 8-8-3.6-8-8-8zm0 12c-.6 0-1-.4-1-1s.4-1 1-1 1 .4 1 1-.4 1-1 1zm1-3H7V4h2v5z" />
+                  </svg>
+                }
               >
+                <span className="max-xs:sr-only">Introspect</span>
+              </Button>
+            </ProtectedComponent>
+          )}
+
+          {/* Add column button - protected by RBAC */}
+          <ProtectedComponent permission="data-sources:create:organization">
+            <Button
+              variant="primary"
+              disabled={isLoading}
+              onClick={() => setIsAddColumnModalOpen(true)}
+              leftIcon={
                 <svg
                   className="fill-current shrink-0 xs:hidden"
                   width="16"
                   height="16"
                   viewBox="0 0 16 16"
                 >
-                  <path d="M8 0C3.6 0 0 3.6 0 8s3.6 8 8 8 8-3.6 8-8-3.6-8-8-8zm0 12c-.6 0-1-.4-1-1s.4-1 1-1 1 .4 1 1-.4 1-1 1zm1-3H7V4h2v5z" />
+                  <path d="M15 7H9V1c0-.6-.4-1-1-1S7 .4 7 1v6H1c-.6 0-1 .4-1 1s.4 1 1 1h6v6c0 .6.4 1 1 1s1-.4 1-1V9h6c.6 0 1-.4 1-1s-.4-1-1-1z" />
                 </svg>
-                <span className="max-xs:sr-only">Introspect</span>
-              </button>
-            </ProtectedComponent>
-          )}
-
-          {/* Add column button - protected by RBAC */}
-          <ProtectedComponent permission="data-sources:create:organization">
-            <button
-              type="button"
-              disabled={isLoading}
-              onClick={() => setIsAddColumnModalOpen(true)}
-              className="btn bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed"
+              }
             >
-              <svg
-                className="fill-current shrink-0 xs:hidden"
-                width="16"
-                height="16"
-                viewBox="0 0 16 16"
-              >
-                <path d="M15 7H9V1c0-.6-.4-1-1-1S7 .4 7 1v6H1c-.6 0-1 .4-1 1s.4 1 1 1h6v6c0 .6.4 1 1 1s1-.4 1-1V9h6c.6 0 1-.4 1-1s-.4-1-1-1z" />
-              </svg>
               <span className="max-xs:sr-only">Add Column</span>
-            </button>
+            </Button>
           </ProtectedComponent>
         </div>
       </div>

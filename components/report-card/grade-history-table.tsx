@@ -57,13 +57,13 @@ const SKELETON_ROWS = ['row-1', 'row-2', 'row-3', 'row-4', 'row-5', 'row-6'];
 
 function TableSkeleton() {
   return (
-    <div className="animate-pulse space-y-2">
+    <div className="space-y-2">
       {SKELETON_ROWS.map((rowId) => (
         <div key={rowId} className="flex items-center gap-4 py-2">
-          <div className="h-4 w-20 bg-slate-200 dark:bg-slate-700 rounded" />
-          <div className="h-6 w-10 bg-slate-200 dark:bg-slate-700 rounded" />
-          <div className="h-4 w-12 bg-slate-200 dark:bg-slate-700 rounded" />
-          <div className="h-4 w-16 bg-slate-200 dark:bg-slate-700 rounded" />
+          <div className="h-4 w-20 bg-gradient-to-r from-slate-200 via-slate-300 to-slate-200 dark:from-slate-700 dark:via-slate-600 dark:to-slate-700 rounded animate-shimmer bg-[length:200%_100%]" />
+          <div className="h-6 w-10 bg-gradient-to-r from-slate-200 via-slate-300 to-slate-200 dark:from-slate-700 dark:via-slate-600 dark:to-slate-700 rounded animate-shimmer bg-[length:200%_100%]" />
+          <div className="h-4 w-12 bg-gradient-to-r from-slate-200 via-slate-300 to-slate-200 dark:from-slate-700 dark:via-slate-600 dark:to-slate-700 rounded animate-shimmer bg-[length:200%_100%]" />
+          <div className="h-4 w-16 bg-gradient-to-r from-slate-200 via-slate-300 to-slate-200 dark:from-slate-700 dark:via-slate-600 dark:to-slate-700 rounded animate-shimmer bg-[length:200%_100%]" />
         </div>
       ))}
     </div>

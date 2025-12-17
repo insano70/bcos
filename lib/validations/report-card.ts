@@ -102,7 +102,7 @@ export const measureParamsSchema = z.object({
  */
 export const measureQuerySchema = z.object({
   is_active: z.coerce.boolean().optional(),
-  limit: z.coerce.number().int().min(1).max(100).optional().default(50),
+  limit: z.coerce.number().int().min(1).max(1000).optional().default(1000),
   offset: z.coerce.number().int().min(0).optional().default(0),
 });
 
