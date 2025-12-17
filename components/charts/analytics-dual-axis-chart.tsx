@@ -241,6 +241,28 @@ export default function AnalyticsDualAxisChart({
     };
   }, [chartData, darkMode, theme, title, dualAxisConfig]);
 
+  // Manual responsive handling (same pattern as bar chart - fixes container sizing)
+  useEffect(() => {
+    if (!chart || !canvas.current?.isConnected) return;
+
+    // Observe parent container for size changes
+    const container = canvas.current.parentElement;
+    if (!container) return;
+
+    const resizeObserver = new ResizeObserver(() => {
+      // Defer resize to next frame for safety
+      requestAnimationFrame(() => {
+        if (chart && canvas.current?.isConnected) {
+          chart.resize();
+        }
+      });
+    });
+
+    resizeObserver.observe(container);
+
+    return () => resizeObserver.disconnect();
+  }, [chart]);
+
   if (chartData.datasets.length === 0) {
     return (
       <div
@@ -253,17 +275,19 @@ export default function AnalyticsDualAxisChart({
   }
 
   return (
-    <div className="w-full h-full">
-      <canvas
-        ref={canvas}
-        width={_width}
-        height={height}
-        style={{
-          width: '100%',
-          height: '100%',
-          display: 'block',
-        }}
-      ></canvas>
+    <div className="w-full h-full flex flex-col">
+      <div className="flex-1 min-h-0">
+        <canvas
+          ref={canvas}
+          width={_width}
+          height={height}
+          style={{
+            width: '100%',
+            height: '100%',
+            display: 'block',
+          }}
+        ></canvas>
+      </div>
     </div>
   );
 }

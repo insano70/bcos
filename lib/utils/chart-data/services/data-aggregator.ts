@@ -8,9 +8,31 @@
 import type { AggAppMeasure } from '@/lib/types/analytics';
 import { parseNumericValue } from '../formatters/value-formatter';
 
+/**
+ * Normalize date value to YYYY-MM-DD format
+ * Handles Date objects, ISO timestamps, and simple date strings
+ */
+const normalizeDate = (value: unknown): string => {
+  if (!value) return '';
+
+  // Handle Date objects
+  if (value instanceof Date) {
+    const parts = value.toISOString().split('T');
+    return parts[0] ?? '';
+  }
+
+  // Handle strings - strip time component: "2025-01-15T00:00:00.000Z" → "2025-01-15"
+  if (typeof value === 'string') {
+    const parts = value.split('T');
+    return parts[0] ?? '';
+  }
+
+  return '';
+};
+
 // Helper functions for safe dynamic column access
 const getDate = (m: AggAppMeasure): string => {
-  return (m.date_index ?? m.date_value ?? '') as string;
+  return normalizeDate(m.date_index ?? m.date_value);
 };
 
 const getMeasureValue = (m: AggAppMeasure): string | number => {
@@ -191,7 +213,10 @@ export function extractAndSortDates(measures: AggAppMeasure[]): string[] {
   const allDates = new Set<string>();
 
   measures.forEach((measure) => {
-    allDates.add(getDate(measure));
+    const date = getDate(measure);
+    if (date) {
+      allDates.add(date);
+    }
   });
 
   return Array.from(allDates).sort(

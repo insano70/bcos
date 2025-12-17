@@ -31,8 +31,12 @@ import DashboardFilterPills from './dashboard-filter-pills';
 import MobileFullscreenModalSwitch from './mobile-fullscreen-modal-switch';
 
 interface DashboardViewProps {
-  dashboard: Dashboard;
-  dashboardCharts: DashboardChart[];
+  /** Dashboard data - optional during initial load */
+  dashboard?: Dashboard | undefined;
+  /** Dashboard charts - optional during initial load */
+  dashboardCharts?: DashboardChart[] | undefined;
+  /** Whether the page is still loading dashboard metadata */
+  isLoadingDashboard?: boolean | undefined;
   /** All published dashboards for cross-dashboard navigation */
   allDashboards?: Array<{ dashboard_id: string; dashboard_name: string }> | undefined;
   /** Current dashboard index in allDashboards array */
@@ -44,6 +48,7 @@ interface DashboardViewProps {
 export default function DashboardView({
   dashboard,
   dashboardCharts,
+  isLoadingDashboard = false,
   allDashboards,
   currentDashboardIndex,
   onNavigateToDashboard,
@@ -56,8 +61,8 @@ export default function DashboardView({
     return userContext?.accessible_organizations?.map(org => org.organization_id) || [];
   }, [userContext?.accessible_organizations]);
 
-  // Dashboard configuration
-  const filterConfig = dashboard.layout_config?.filterConfig;
+  // Dashboard configuration - only access when dashboard is available
+  const filterConfig = dashboard?.layout_config?.filterConfig;
 
   // Use extracted hooks for chart definitions, filters, and mobile navigation
   const {
@@ -87,7 +92,7 @@ export default function DashboardView({
     hasCrossDashboardNav,
     canGoNextDashboard,
     canGoPreviousDashboard,
-  } = useMobileFullscreenNavigation(dashboardCharts.length, {
+  } = useMobileFullscreenNavigation(dashboardCharts?.length ?? 0, {
     allDashboards,
     currentDashboardIndex,
     onNavigateToDashboard,
@@ -97,6 +102,7 @@ export default function DashboardView({
   const { swappedCharts, handleChartSwap, handleRevertSwap } = useChartSwapping();
 
   // Batch rendering data - dashboards always use batch rendering
+  // Only fetch when dashboard is available and chart definitions are loaded
   const {
     data: batchData,
     isLoading: isBatchLoading,
@@ -104,16 +110,28 @@ export default function DashboardView({
     refetch: refetchBatch,
     metrics: batchMetrics,
   } = useDashboardData({
-    dashboardId: dashboard.dashboard_id,
+    dashboardId: dashboard?.dashboard_id ?? '',
     universalFilters,
-    enabled: !isLoadingCharts, // Only fetch after chart definitions loaded
+    enabled: !isLoadingDashboard && !!dashboard && !isLoadingCharts,
   });
 
   // Create dashboard configuration from saved dashboard data
   // Memoized to prevent unnecessary re-renders and duplicate chart loads
+  // Pass empty defaults when dashboard data is not yet available
+  const emptyDashboard: Dashboard = {
+    dashboard_id: '',
+    dashboard_name: '',
+    layout_config: { columns: 12, rowHeight: 150, margin: 10 },
+    created_by: '',
+    created_at: '',
+    updated_at: '',
+    is_active: false,
+    is_published: false,
+    is_default: false,
+  };
   const dashboardConfig = useDashboardConfig({
-    dashboard,
-    dashboardCharts,
+    dashboard: dashboard ?? emptyDashboard,
+    dashboardCharts: dashboardCharts ?? [],
     chartsById,
   });
 
@@ -132,7 +150,7 @@ export default function DashboardView({
 
   // Memoized cross-dashboard navigation props to prevent object recreation
   const crossDashboardNavProps = useMemo(() => ({
-    dashboardName: hasCrossDashboardNav ? dashboard.dashboard_name : undefined,
+    dashboardName: hasCrossDashboardNav ? dashboard?.dashboard_name : undefined,
     hasCrossDashboardNav,
     canGoNextDashboard,
     canGoPreviousDashboard,
@@ -140,7 +158,7 @@ export default function DashboardView({
     onPreviousDashboard: canGoPreviousDashboard ? handlePreviousDashboard : undefined,
   }), [
     hasCrossDashboardNav,
-    dashboard.dashboard_name,
+    dashboard?.dashboard_name,
     canGoNextDashboard,
     canGoPreviousDashboard,
     handleNextDashboard,
@@ -155,13 +173,14 @@ export default function DashboardView({
     }
   }, [batchError, clearInvalidOrgFilter]);
 
-  // Combined loading state (chart definitions + batch data)
-  const isLoading = isLoadingCharts || isBatchLoading;
+  // Combined loading state (dashboard metadata + chart definitions + batch data)
+  // This is the ONLY loading state - covers all phases of dashboard loading
+  const isLoading = isLoadingDashboard || !dashboard || isLoadingCharts || isBatchLoading;
 
   // Detect if we're transitioning into fullscreen mode (from cross-dashboard navigation)
   const shouldBeFullscreen = isMobile && mobileFullscreenIndex !== null;
 
-  // Loading state - show fullscreen loading modal if transitioning, otherwise regular loading
+  // Unified loading state - single spinner for all loading phases
   if (isLoading) {
     return (
       <DashboardLoadingState

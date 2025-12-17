@@ -156,18 +156,34 @@ export class ComboChartHandler extends BaseChartHandler {
       return { labels: [], datasets: [] };
     }
 
-    // Collect all unique dates from both measure sets
+    // Helper to normalize date values to YYYY-MM-DD format
+    const normalizeDate = (value: unknown): string => {
+      if (!value) return '';
+      if (value instanceof Date) {
+        const parts = value.toISOString().split('T');
+        return parts[0] ?? '';
+      }
+      if (typeof value === 'string') {
+        const parts = value.split('T');
+        return parts[0] ?? '';
+      }
+      return '';
+    };
+
+    // Collect all unique dates from both measure sets (normalized to YYYY-MM-DD)
     const allDatesSet = new Set<string>();
     for (const measure of primaryData) {
       const dateValue = measure[dateColumn];
-      if (dateValue) {
-        allDatesSet.add(String(dateValue));
+      const normalizedDate = normalizeDate(dateValue);
+      if (normalizedDate) {
+        allDatesSet.add(normalizedDate);
       }
     }
     for (const measure of secondaryData) {
       const dateValue = measure[dateColumn];
-      if (dateValue) {
-        allDatesSet.add(String(dateValue));
+      const normalizedDate = normalizeDate(dateValue);
+      if (normalizedDate) {
+        allDatesSet.add(normalizedDate);
       }
     }
 
@@ -197,8 +213,8 @@ export class ComboChartHandler extends BaseChartHandler {
         typeof measureValue === 'string'
           ? Number.parseFloat(measureValue)
           : (measureValue as number) || 0;
-      if (dateValue) {
-        const dateKey = String(dateValue);
+      const dateKey = normalizeDate(dateValue);
+      if (dateKey) {
         const currentValue = primaryDataMap.get(dateKey) || 0;
         primaryDataMap.set(dateKey, currentValue + value);
       }
@@ -213,8 +229,8 @@ export class ComboChartHandler extends BaseChartHandler {
         typeof measureValue === 'string'
           ? Number.parseFloat(measureValue)
           : (measureValue as number) || 0;
-      if (dateValue) {
-        const dateKey = String(dateValue);
+      const dateKey = normalizeDate(dateValue);
+      if (dateKey) {
         const currentValue = secondaryDataMap.get(dateKey) || 0;
         secondaryDataMap.set(dateKey, currentValue + value);
       }

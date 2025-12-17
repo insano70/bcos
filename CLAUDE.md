@@ -87,6 +87,7 @@ EOF
 - Fix symptoms without understanding root cause
 - Declare "Fixed!" without codebase-wide search
 - Use try-catch to mask errors without fixing underlying problem
+- Guess or make assumptions without verification
 
 ---
 
@@ -124,13 +125,13 @@ EOF
 - ✅ `pnpm lint` passes with no errors
 - ✅ All relevant tests passing
 - ✅ Verified in running environment (if applicable)
+- **MUST** fix ALL failures before declaring complete, even if they existed before your changes
 
 **ABSOLUTE PROHIBITIONS:**
 
 - **NEVER** dismiss test failures as "pre-existing issues unrelated to changes"
 - **NEVER** dismiss linting errors as "pre-existing issues unrelated to changes"
 - **NEVER** ignore ANY failing test or linting issue, regardless of origin
-- **MUST** fix ALL failures before declaring complete, even if they existed before your changes
 - **NEVER** skip running `pnpm tsc` and `pnpm lint` after changes
 - **Rationale**: Code quality is a collective responsibility. All failures block completion.
 

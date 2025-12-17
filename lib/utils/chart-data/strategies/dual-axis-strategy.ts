@@ -69,29 +69,33 @@ export class DualAxisStrategy extends BaseChartTransformStrategy {
     // Build data map for primary measure - sum all values for each date
     const primaryDataMap = new Map<string, number>();
     primaryMeasures.forEach((m) => {
-      const dateKey = (m.date_index ?? m.date_value ?? '') as string;
+      const dateKey = this.normalizeDate(m.date_index ?? m.date_value);
       const rawValue = m.measure_value ?? m.numeric_value ?? 0;
       const value = this.parseValue(
         typeof rawValue === 'string' || typeof rawValue === 'number' ? rawValue : 0
       );
 
       // Sum values for the same date
-      const currentValue = primaryDataMap.get(dateKey) || 0;
-      primaryDataMap.set(dateKey, currentValue + value);
+      if (dateKey) {
+        const currentValue = primaryDataMap.get(dateKey) || 0;
+        primaryDataMap.set(dateKey, currentValue + value);
+      }
     });
 
     // Build data map for secondary measure - sum all values for each date
     const secondaryDataMap = new Map<string, number>();
     secondaryMeasures.forEach((m) => {
-      const dateKey = (m.date_index ?? m.date_value ?? '') as string;
+      const dateKey = this.normalizeDate(m.date_index ?? m.date_value);
       const rawValue = m.measure_value ?? m.numeric_value ?? 0;
       const value = this.parseValue(
         typeof rawValue === 'string' || typeof rawValue === 'number' ? rawValue : 0
       );
 
       // Sum values for the same date
-      const currentValue = secondaryDataMap.get(dateKey) || 0;
-      secondaryDataMap.set(dateKey, currentValue + value);
+      if (dateKey) {
+        const currentValue = secondaryDataMap.get(dateKey) || 0;
+        secondaryDataMap.set(dateKey, currentValue + value);
+      }
     });
 
     // Extract measure types

@@ -64,16 +64,34 @@ export class InMemoryFilterService {
         return false; // Filter out rows without date value
       }
 
-      if (startDate && dateValue < startDate) {
+      // Normalize date to YYYY-MM-DD format for proper string comparison
+      // Database dates may include time components (e.g., "2025-11-30T00:00:00.000Z")
+      // which would cause incorrect comparisons with date-only strings
+      const normalizedDate = this.normalizeDate(dateValue);
+
+      if (startDate && normalizedDate < startDate) {
         return false;
       }
 
-      if (endDate && dateValue > endDate) {
+      if (endDate && normalizedDate > endDate) {
         return false;
       }
 
       return true;
     });
+  }
+
+  /**
+   * Normalize date value to YYYY-MM-DD format
+   * Strips time component from ISO timestamps for proper date comparison
+   *
+   * @param value - Date value (ISO timestamp or date string)
+   * @returns Normalized date string in YYYY-MM-DD format
+   */
+  private normalizeDate(value: string): string {
+    // Strip time component: "2025-11-30T00:00:00.000Z" → "2025-11-30"
+    const parts = value.split('T');
+    return parts[0] ?? value;
   }
 
   /**

@@ -112,11 +112,11 @@ export abstract class BaseChartTransformStrategy implements ChartTransformStrate
    * Sort measures by date chronologically
    */
   protected sortMeasuresByDate(measures: AggAppMeasure[]): AggAppMeasure[] {
-    return measures.sort(
-      (a, b) =>
-        new Date(`${a.date_index}T00:00:00`).getTime() -
-        new Date(`${b.date_index}T00:00:00`).getTime()
-    );
+    return measures.sort((a, b) => {
+      const dateA = this.normalizeDate(a.date_index ?? a.date_value);
+      const dateB = this.normalizeDate(b.date_index ?? b.date_value);
+      return new Date(`${dateA}T00:00:00`).getTime() - new Date(`${dateB}T00:00:00`).getTime();
+    });
   }
 
   /**
@@ -138,6 +138,32 @@ export abstract class BaseChartTransformStrategy implements ChartTransformStrate
    */
   protected parseValue(value: string | number): number {
     return typeof value === 'string' ? parseFloat(value) : value;
+  }
+
+  /**
+   * Normalize date value to YYYY-MM-DD format
+   * Handles Date objects, ISO timestamps, and simple date strings
+   *
+   * @param value - Date value (Date object, ISO string, or YYYY-MM-DD string)
+   * @returns Normalized date string in YYYY-MM-DD format, or empty string if invalid
+   */
+  protected normalizeDate(value: unknown): string {
+    if (!value) return '';
+
+    // Handle Date objects
+    if (value instanceof Date) {
+      const parts = value.toISOString().split('T');
+      return parts[0] ?? '';
+    }
+
+    // Handle strings
+    if (typeof value === 'string') {
+      // Strip time component: "2025-01-15T00:00:00.000Z" → "2025-01-15"
+      const parts = value.split('T');
+      return parts[0] ?? '';
+    }
+
+    return '';
   }
 
   /**
@@ -178,7 +204,10 @@ export abstract class BaseChartTransformStrategy implements ChartTransformStrate
   protected extractAndSortDates(measures: AggAppMeasure[]): string[] {
     const allDates = new Set<string>();
     measures.forEach((m) => {
-      allDates.add((m.date_index ?? m.date_value ?? '') as string);
+      const normalizedDate = this.normalizeDate(m.date_index ?? m.date_value);
+      if (normalizedDate) {
+        allDates.add(normalizedDate);
+      }
     });
     return Array.from(allDates).sort(
       (a, b) => new Date(`${a}T00:00:00`).getTime() - new Date(`${b}T00:00:00`).getTime()

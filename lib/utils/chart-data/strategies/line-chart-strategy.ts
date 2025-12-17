@@ -59,15 +59,17 @@ export class LineChartStrategy extends BaseChartTransformStrategy {
     const frequency = (measures[0]?.frequency ?? 'Monthly') as string;
 
     measures.forEach((measure) => {
-      const dateKey = (measure.date_index ?? measure.date_value ?? '') as string;
+      const dateKey = this.normalizeDate(measure.date_index ?? measure.date_value);
       const value = measure.measure_value ?? measure.numeric_value ?? 0;
       const measureValue = this.parseValue(
         typeof value === 'string' || typeof value === 'number' ? value : 0
       );
 
       // Sum values for the same date
-      const currentValue = aggregatedByDate.get(dateKey) || 0;
-      aggregatedByDate.set(dateKey, currentValue + measureValue);
+      if (dateKey) {
+        const currentValue = aggregatedByDate.get(dateKey) || 0;
+        aggregatedByDate.set(dateKey, currentValue + measureValue);
+      }
     });
 
     // Sort dates chronologically
@@ -116,7 +118,9 @@ export class LineChartStrategy extends BaseChartTransformStrategy {
 
     measures.forEach((measure) => {
       const groupKey = this.getGroupKey(measure, groupBy, config);
-      const dateKey = (measure.date_index ?? measure.date_value ?? '') as string;
+      const dateKey = this.normalizeDate(measure.date_index ?? measure.date_value);
+
+      if (!dateKey) return; // Skip measures with invalid dates
 
       allDates.add(dateKey);
 

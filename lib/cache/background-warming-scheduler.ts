@@ -222,7 +222,12 @@ async function shouldWarmCache(client: ReturnType<typeof getRedisClient>): Promi
 
   try {
     // Get all data source metadata keys
-    const pattern = 'cache:meta:{ds:*}:last_warm';
+    // IMPORTANT: ioredis keyPrefix is NOT automatically applied to SCAN patterns,
+    // so we must include the prefix in the pattern. SCAN returns full keys (with prefix),
+    // but single-key operations like GET auto-prepend the prefix, so we must strip it
+    // from SCAN results before using them.
+    const keyPrefix = client.options.keyPrefix || '';
+    const pattern = `${keyPrefix}cache:meta:{ds:*}:last_warm`;
     const keys: string[] = [];
     let cursor = '0';
 
@@ -243,7 +248,9 @@ async function shouldWarmCache(client: ReturnType<typeof getRedisClient>): Promi
 
     // Check age of each data source's cache
     for (const key of keys) {
-      const cached = await client.get(key);
+      // Strip prefix from SCAN result - GET will add it automatically
+      const keyWithoutPrefix = keyPrefix ? key.replace(keyPrefix, '') : key;
+      const cached = await client.get(keyWithoutPrefix);
       if (!cached) {
         log.info('Missing cache metadata for key', {
           key,

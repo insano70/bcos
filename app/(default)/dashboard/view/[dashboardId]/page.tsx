@@ -7,25 +7,6 @@ import { apiClient } from '@/lib/api/client';
 import { usePublishedDashboards } from '@/lib/hooks/use-published-dashboards';
 import type { Dashboard, DashboardChart } from '@/lib/types/analytics';
 
-/**
- * In-content loading skeleton for dashboard
- * Uses non-fixed positioning to work correctly inside Framer Motion transforms.
- * Auth/RBAC loading is handled by the layout's AuthTransitionOverlay.
- */
-function DashboardLoadingSkeleton() {
-  return (
-    <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-9xl mx-auto">
-      <div className="flex flex-col items-center justify-center min-h-[60vh]">
-        <div className="relative inline-block mb-4">
-          <div className="w-12 h-12 border-4 border-violet-200 dark:border-violet-900 rounded-full" />
-          <div className="absolute top-0 left-0 w-12 h-12 border-4 border-violet-600 dark:border-violet-400 border-t-transparent rounded-full animate-spin" />
-        </div>
-        <p className="text-lg text-gray-600 dark:text-gray-400">Loading dashboard...</p>
-      </div>
-    </div>
-  );
-}
-
 interface DashboardViewData {
   dashboard: Dashboard;
   charts: DashboardChart[];
@@ -129,13 +110,8 @@ export default function DashboardViewPage() {
     }
   }, [dashboardId, loadDashboard]);
 
-  // Show in-content skeleton while loading dashboard data
-  // Note: Auth/RBAC loading shows layout's full-screen overlay instead
-  if (loading) {
-    return <DashboardLoadingSkeleton />;
-  }
-
-  if (error || !dashboardData) {
+  // Show error state if dashboard fetch failed
+  if (error) {
     return (
       <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-9xl mx-auto">
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-6">
@@ -158,7 +134,7 @@ export default function DashboardViewPage() {
                 Error loading dashboard
               </h3>
               <p className="text-red-600 dark:text-red-400 text-sm mt-1">
-                {error || 'Dashboard not found'}
+                {error}
               </p>
               <button
                 type="button"
@@ -174,14 +150,14 @@ export default function DashboardViewPage() {
     );
   }
 
-  const { dashboard, charts } = dashboardData;
-
+  // Render DashboardView with loading state - it handles ALL loading UI
+  // This ensures a single, consistent spinner for the entire loading process
   return (
     <div className="px-4 sm:px-6 lg:px-8 py-4 w-full max-w-9xl mx-auto">
-      {/* Dashboard Content - DashboardView includes its own title */}
       <DashboardView
-        dashboard={dashboard}
-        dashboardCharts={charts}
+        isLoadingDashboard={loading}
+        dashboard={dashboardData?.dashboard}
+        dashboardCharts={dashboardData?.charts}
         allDashboards={allDashboards}
         currentDashboardIndex={currentDashboardIndex}
         onNavigateToDashboard={handleNavigateToDashboard}
