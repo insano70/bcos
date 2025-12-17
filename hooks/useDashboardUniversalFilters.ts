@@ -9,7 +9,7 @@
  * @module hooks/useDashboardUniversalFilters
  */
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type { DashboardUniversalFilters } from '@/hooks/useDashboardData';
 import { useStickyFilters } from '@/hooks/useStickyFilters';
@@ -125,6 +125,57 @@ export function useDashboardUniversalFilters(
           undefined,
       } as DashboardUniversalFilters;
     });
+
+  // Track whether we've applied dashboard defaults (to avoid re-applying on every render)
+  const hasAppliedDefaultsRef = useRef(false);
+
+  // Apply dashboard defaults when filterConfig becomes available
+  // This handles the timing issue where filterConfig is undefined on initial render
+  // but becomes available after the dashboard data loads
+  useEffect(() => {
+    const defaultFilters = filterConfig?.defaultFilters;
+
+    // Skip if no default filters configured or already applied
+    if (!defaultFilters || hasAppliedDefaultsRef.current) {
+      return;
+    }
+
+    // Check if user already has filters set (URL params or localStorage)
+    const savedPreferences = loadPreferences();
+    const hasUrlParams = searchParams.get('datePreset') || searchParams.get('org') ||
+                         searchParams.get('provider') || searchParams.get('practice');
+    const hasSavedPrefs = savedPreferences.dateRangePreset || savedPreferences.organizationId ||
+                          savedPreferences.providerName ||
+                          (savedPreferences.practiceUids && savedPreferences.practiceUids.length > 0);
+
+    // Only apply defaults if user hasn't set any filters
+    if (hasUrlParams || hasSavedPrefs) {
+      hasAppliedDefaultsRef.current = true;
+      return;
+    }
+
+    // Check if current filters are empty (need defaults)
+    const currentFiltersEmpty = !universalFilters.dateRangePreset &&
+                                !universalFilters.organizationId &&
+                                !universalFilters.providerName &&
+                                (!universalFilters.practiceUids || universalFilters.practiceUids.length === 0);
+
+    if (currentFiltersEmpty && (defaultFilters.dateRangePreset || defaultFilters.organizationId)) {
+      clientDebugLog.component('Applying dashboard default filters (late initialization)', {
+        defaults: defaultFilters,
+      });
+
+      // Apply defaults without saving to localStorage (they're just defaults)
+      // Only update fields that have actual default values
+      setUniversalFilters({
+        ...universalFilters,
+        ...(defaultFilters.dateRangePreset && { dateRangePreset: defaultFilters.dateRangePreset }),
+        ...(defaultFilters.organizationId && { organizationId: defaultFilters.organizationId }),
+      });
+    }
+
+    hasAppliedDefaultsRef.current = true;
+  }, [filterConfig, searchParams, loadPreferences, universalFilters]);
 
   // URL param management
   const updateUrlParams = useCallback(
