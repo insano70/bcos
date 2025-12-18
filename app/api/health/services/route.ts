@@ -57,6 +57,8 @@ const servicesHealthHandler = async (request: NextRequest, userContext: UserCont
       component: 'health',
     });
 
+    // For degraded state, return health data with 503 status so clients can see which services are unhealthy
+    // This intentionally uses Response.json to preserve the health data format
     if (statusCode === 503) {
       return Response.json(healthData, { status: statusCode });
     }

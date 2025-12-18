@@ -142,7 +142,7 @@ export default function ManageRelationshipsModal({
                   d="M13 10V3L4 14h7v7l9-11h-7z"
                 />
               </svg>
-              <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">
+              <h3 className="mt-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
                 No child type relationships
               </h3>
               <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">

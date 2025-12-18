@@ -2,7 +2,7 @@
 
 import { memo, type ReactNode } from 'react';
 import { motion } from 'framer-motion';
-import { RotateCcw } from 'lucide-react';
+import { RefreshCcw } from 'lucide-react';
 
 /**
  * Animation configuration for dashboard chart cards
@@ -120,7 +120,7 @@ export function DashboardChartPlaceholder({
               onClick={onRevert}
               className="mt-2 inline-flex items-center gap-1 text-xs text-violet-600 hover:text-violet-800 dark:text-violet-400"
             >
-              <RotateCcw className="w-3 h-3" />
+              <RefreshCcw className="w-3 h-3" />
               Revert to original chart
             </button>
           )}

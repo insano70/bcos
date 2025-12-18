@@ -189,7 +189,7 @@ export default function AnnualReviewView() {
             <div className="p-4 rounded-full bg-slate-100 dark:bg-slate-800 w-20 h-20 mx-auto mb-4 flex items-center justify-center">
               <Calendar className="w-10 h-10 text-slate-400 dark:text-slate-500" />
             </div>
-            <h3 className="text-lg font-medium text-slate-800 dark:text-slate-200 mb-2">
+            <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-2">
               {selectableOrgs.length === 0 ? 'No Organization Access' : 'Select an Organization'}
             </h3>
             <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto">
@@ -384,7 +384,7 @@ export default function AnnualReviewView() {
             <div className="p-4 rounded-full bg-slate-100 dark:bg-slate-800 w-20 h-20 mx-auto mb-4 flex items-center justify-center">
               <BarChart3 className="w-10 h-10 text-slate-400" />
             </div>
-            <h3 className="text-lg font-medium text-slate-800 dark:text-slate-200 mb-2">
+            <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-2">
               No Data Available
             </h3>
             <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto">
@@ -568,7 +568,7 @@ export default function AnnualReviewView() {
 
               {review.forecast.monthlyProjections && review.forecast.monthlyProjections.length > 0 && (
                 <div className="mt-4 p-4 bg-white/50 dark:bg-slate-800/50 rounded-xl">
-                  <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">
+                  <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">
                     Month-by-Month Forecast
                   </h3>
                   <div className="grid grid-cols-3 gap-2">

@@ -18,7 +18,7 @@ export default function ChartBuilderSave({
   return (
     <div className="space-y-6">
       <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-6">
-        <h3 className="text-lg font-medium text-green-800 dark:text-green-200 mb-4">
+        <h3 className="text-lg font-semibold text-green-800 dark:text-green-200 mb-4">
           Ready to Save: {chartConfig.chartName}
         </h3>
 

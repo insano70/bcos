@@ -56,7 +56,7 @@ export default function ChartBuilderAdvanced({
   if (chartConfig.chartType === 'table') {
     return (
       <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
-        <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
           Advanced Options
         </h3>
 
@@ -101,7 +101,7 @@ export default function ChartBuilderAdvanced({
   // For all other chart types, show full advanced options
   return (
     <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
-      <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">
+      <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
         Advanced Options
       </h3>
 

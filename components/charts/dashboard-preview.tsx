@@ -69,7 +69,7 @@ function ChartPreviewPlaceholder({ chartName, chartType, onLoad, isLoading }: Ch
     <div className="h-full w-full bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col">
       {/* Header mimics chart header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-        <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
           {chartName}
         </h3>
         <Badge color="gray" size="sm" shape="rounded">{chartType}</Badge>

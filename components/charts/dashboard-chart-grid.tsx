@@ -14,7 +14,7 @@
  * @module components/charts/dashboard-chart-grid
  */
 
-import { RotateCcw } from 'lucide-react';
+import { RefreshCcw } from 'lucide-react';
 import {
   DASHBOARD_LAYOUT,
   getResponsiveColSpan,
@@ -176,7 +176,7 @@ export function DashboardChartGrid({
                   title="Revert to original chart"
                   aria-label="Revert to original chart"
                 >
-                  <RotateCcw className="w-3.5 h-3.5" />
+                  <RefreshCcw className="w-3.5 h-3.5" />
                 </button>
               </div>
             )}

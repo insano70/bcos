@@ -36,7 +36,7 @@ export default function RowControls({
   return (
     <div className="mb-6">
       <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
           Dashboard Layout ({rows.length} row{rows.length !== 1 ? 's' : ''})
         </h3>
 

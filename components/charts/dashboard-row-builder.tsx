@@ -265,7 +265,7 @@ function DashboardRowBuilderInner({
               </svg>
             </button>
 
-            <h3 className="font-medium text-gray-900 dark:text-gray-100">
+            <h3 className="font-semibold text-gray-900 dark:text-gray-100">
               Row {row.charts.length} chart{row.charts.length !== 1 ? 's' : ''}
             </h3>
 

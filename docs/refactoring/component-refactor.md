@@ -42,7 +42,7 @@ A comprehensive analysis of the codebase examined **16 UI pattern categories** a
 11. [Navigation/Tabs](#11-navigationtabs---completed-) ✅
 12. [Icons](#12-icons---deferred-) ⏸️ Deferred
 13. [Alerts/Toasts](#13-alertstoasts---legacy-hook-conflict)
-14. [Typography](#14-typography---heading-weight-hierarchy)
+14. [Typography](#14-typography---completed-) ✅
 15. [Pagination](#15-pagination---completed-) ✅
 16. [List Items](#16-list-items---spacing-inconsistency)
 17. [Dead Code to Remove](#17-dead-code-to-remove)
@@ -1482,66 +1482,81 @@ Many components implement inline alerts manually:
 
 ---
 
-## 14. Typography - Heading Weight Hierarchy
+## 14. Typography - COMPLETED ✅
 
-**Severity: LOW** | **Files Affected: 15+** | **Effort: Low**
+**Severity: LOW** | **Files Affected: 40** | **Effort: Low** | **Status: COMPLETE (December 2024)**
 
-### Problem Statement
+### Solution Implemented
 
-H3 headings use `font-medium` (500) which is lighter than expected in the hierarchy.
+All H3 headings have been migrated from `font-medium` (500) to `font-semibold` (600) for proper heading weight hierarchy.
 
-### Current Heading Weights
+### Migration Summary
 
-| Level | Weight | Value | Correct? |
-|-------|--------|-------|----------|
-| H1 | `font-bold` | 700 | Yes |
-| H2 | `font-semibold` | 600 | Yes |
-| H3 | `font-medium` | 500 | No (should be 600) |
+**Total instances migrated: 40 across 37 files**
 
-### Heading Patterns
+| Category | Files | Instances |
+|----------|-------|-----------|
+| Confirmation/Delete Modals | 10 | 10 |
+| Chart Builder Components | 10 | 12 |
+| Dashboard Components | 4 | 4 |
+| Data Explorer Pages | 3 | 3 |
+| Report Card Views | 2 | 4 |
+| Configure Pages | 3 | 3 |
+| UI Components | 2 | 2 |
+| Other Components | 3 | 2 |
 
-#### H1 (Page Titles)
+### Standard Heading Pattern
+
 ```tsx
-className="text-2xl md:text-3xl text-gray-800 dark:text-gray-100 font-bold"
-```
-**Used in**: Configuration pages, work items
+// H3 - Widget/Section Titles (STANDARDIZED)
+className="text-lg font-semibold text-gray-900 dark:text-gray-100"
 
-#### H2 (Section Titles)
-```tsx
-className="text-xl font-semibold text-gray-900 dark:text-gray-100"
+// For Report Card (slate palette)
+className="text-lg font-semibold text-slate-800 dark:text-slate-200"
 ```
-**Used in**: Modals, panels
 
-#### H3 (Widget Titles)
-```tsx
-className="text-lg font-medium text-gray-900 dark:text-gray-100"
-```
-**Used in**: Chart headers, cards
+### Heading Weight Hierarchy (Now Correct)
+
+| Level | Weight | Value | Status |
+|-------|--------|-------|--------|
+| H1 | `font-bold` | 700 | ✅ Correct |
+| H2 | `font-semibold` | 600 | ✅ Correct |
+| H3 | `font-semibold` | 600 | ✅ Fixed |
+
+### Files Migrated
+
+**Modals:**
+- `delete-work-item-modal.tsx`, `delete-confirmation-modal.tsx`, `feedback-modal.tsx`
+- `reset-mfa-confirmation-modal.tsx`, `manage-relationships-modal.tsx`, `manage-work-item-fields-modal.tsx`
+- `data-source-connection-test-modal.tsx`
+
+**Chart Components:**
+- `chart-builder-save.tsx`, `chart-builder-advanced.tsx`, `chart-builder-core.tsx`
+- `chart-builder-drill-down.tsx`, `chart-builder-preview.tsx`, `date-range-presets.tsx`
+- `advanced-filter-builder.tsx`, `historical-comparison-widget.tsx`, `dashboard-preview.tsx`
+- `dashboard-states.tsx`, `dashboard-row-builder.tsx`
+
+**Pages:**
+- `data/explorer/suggestions/page.tsx`, `data/explorer/feedback/page.tsx`, `data/explorer/test-cases/page.tsx`
+- `dashboard/report-card/report-card-view.tsx`, `dashboard/report-card/annual-review/annual-review-view.tsx`
+- `configure/practices/practices-content.tsx`, `configure/practices/[id]/sections/branding-section.tsx`
+- `configure/dashboards/[dashboardId]/edit/page.tsx`, `configure/charts/[chartId]/edit/page.tsx`
+- `admin/report-card/report-card-admin.tsx`
+
+**Components:**
+- `gallery-manager.tsx`, `staff-list-embedded.tsx`, `staff-member-card.tsx`
+- `services-editor.tsx`, `conditions-editor.tsx`, `error-display.tsx`
+- `color-palette-selector.tsx`, `ui/empty-state.tsx`, `dashboards/row-builder/components/row-controls.tsx`
+
+### Caption Text
+
+Caption text is already standardized via the `FormHelp` component (`text-xs text-gray-500 dark:text-gray-400`).
 
 ### Text Truncation
 
-Only `truncate` (single-line) is used. No `line-clamp-*` utilities found.
+The `line-clamp-*` utility is available via Tailwind and already used in 2 locations. No further changes needed.
 
-**Files using truncate**:
-- `/components/dropdown-switch.tsx`
-- `/components/channel-menu.tsx`
-- `/components/charts/ChartLegend.tsx`
-- `/components/user-picker.tsx`
-
-**Issue**: Multi-line truncation not available
-
-### Caption Text Inconsistency
-
-| Pattern | Size | Files |
-|---------|------|-------|
-| Pattern A | `text-xs` | CRUD fields, table headers |
-| Pattern B | `text-sm` with gray-500 | Help text, descriptions |
-
-### Recommended Solution
-
-1. Upgrade H3 to `font-semibold`
-2. Add `line-clamp-2`, `line-clamp-3` utilities where needed
-3. Document typography hierarchy
+**Implementation Plan**: See [typography-standardization-plan.md](plans/typography-standardization-plan.md) for full details.
 
 ---
 
@@ -1585,44 +1600,56 @@ The unused `pagination-numeric.tsx` was deleted in commit `19f71c6e`. The pagina
 
 ---
 
-## 16. List Items - Spacing Inconsistency
+## 16. List Items - DEFERRED ⏸️
 
-**Severity: LOW** | **Files Affected: 15+** | **Effort: Low**
+**Severity: LOW** | **Files Affected: 15+** | **Effort: Medium** | **Status: DEFERRED (December 2024)**
 
-### Problem Statement
+### Decision
 
-List spacing and padding vary across components.
+After comprehensive analysis (286 `space-y-*` occurrences across 159 files), this item was **deferred** as low-value:
 
-### Spacing Variations
+1. **Variations are intentional** - Different list types legitimately need different spacing
+2. **Consistent within categories** - Comments, attachments, timelines each follow their own consistent pattern
+3. **Zero functional bugs** - All lists render correctly
+4. **Low ROI** - A ListItem component would add abstraction overhead without meaningful benefit
 
-| Pattern | Files |
-|---------|-------|
-| `space-y-2` | Various |
-| `space-y-3` | Various |
-| `space-y-4` | Various |
-| `gap-2`, `gap-3`, `gap-4` | Flex layouts |
+Unlike Button/Modal/FormField standardization which eliminated **behavioral inconsistencies**, list spacing variations are appropriate contextual design choices.
 
-### Padding Variations
+**Analysis document**: See [list-items-standardization-plan.md](plans/list-items-standardization-plan.md) for full findings.
 
-| Pattern | Files |
-|---------|-------|
-| `p-3` | Comments, smaller items |
-| `p-4` | Attachments, relationships |
-| `px-5 py-3` | Recipients (divided list) |
-| `pb-8` | Activity timeline |
+### Spacing Hierarchy (Validated as Correct)
 
-### Border/Divider Patterns
+```
+space-y-8  → Page/Modal sections
+space-y-6  → Form sections, major blocks
+space-y-4  → Cards, comments (visually distinct items)
+space-y-3  → Standard list items (watchers, events)
+space-y-2  → Compact lists (attachments, nested items)
+space-y-1  → Metadata, tight sub-items
+```
 
-| Pattern | Files |
-|---------|-------|
-| `divide-y divide-gray-200` | Recipients modal |
-| `border border-gray-200 rounded-lg` | Attachments, relationships |
-| `bg-gray-50 rounded-lg` | Comments (card style) |
-| Connector line | Activity timeline |
+### Pattern Summary
 
-### Recommended Solution
+| Component Type | Container | Item Gap | Item Padding | Border Style |
+|---------------|-----------|----------|--------------|--------------|
+| **Timeline** | `-mb-8` | `pb-8` | N/A | Connector line |
+| **Comments** | `space-y-4` | `gap-3` | `p-3` | Background card |
+| **Attachments** | `space-y-2` | `gap-4` | `p-4` | Border card |
+| **Recipients** | `divide-y` | N/A | `py-3 px-5` | Divider line |
+| **Watchers** | `space-y-3` | `gap-3` | `p-3` | Border card |
 
-Standardize list spacing tokens in design system
+### If Revisited Later
+
+If this becomes a priority, document spacing tokens (not components):
+
+```tsx
+// lib/constants/spacing.ts
+export const LIST_SPACING = {
+  tight: 'space-y-2',    // Compact items (attachments)
+  normal: 'space-y-3',   // Standard lists (watchers, events)
+  relaxed: 'space-y-4',  // Card-style lists (comments)
+} as const;
+```
 
 ---
 
@@ -1681,8 +1708,9 @@ The following dead code files have been removed from the codebase:
 | Unify tooltip/popover animations | 27+ | Medium | Pending |
 | ~~Standardize tab active states~~ | ~~20+~~ | ~~Low~~ | ✅ Done |
 | Create InlineAlert component | 70+ | Low | Pending |
-| Fix typography hierarchy | 15+ | Low | Pending |
+| ~~Fix typography hierarchy~~ | ~~40~~ | ~~Low~~ | ✅ Done |
 | ~~Remove dead code~~ | ~~3 files~~ | ~~Minimal~~ | ✅ Done |
+| ~~Standardize list item spacing~~ | ~~15+~~ | ~~Medium~~ | ⏸️ Deferred (intentional variation) |
 
 ---
 
@@ -1703,5 +1731,6 @@ The following dead code files have been removed from the codebase:
 | Navigation | 1 standard (`/components/ui/tabs.tsx`) | 3 files migrated, 6 path bugs fixed | ✅ Done |
 | Icons | 0 constants | 195+ usages | ⏸️ Deferred |
 | Alerts | 4 | 202 inline | Pending |
-| Typography | 0 | - | Pending |
+| Typography | N/A (40 H3 instances migrated) | - | ✅ Done |
 | Pagination | 3 (`usePagination`, `PaginationClassic`, `DataTablePagination`) | 17 files using standard pattern | ✅ Done |
+| List Items | N/A (intentional variation) | 286 space-y-* occurrences | ⏸️ Deferred |

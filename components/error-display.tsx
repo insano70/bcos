@@ -411,7 +411,7 @@ function InlineError({
         </div>
         <div className="flex-1 min-w-0">
           {title && (
-            <h3 className="text-red-800 dark:text-red-200 font-medium">
+            <h3 className="text-red-800 dark:text-red-200 font-semibold">
               Error loading {title.toLowerCase()}
             </h3>
           )}

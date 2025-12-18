@@ -294,7 +294,7 @@ export default function PracticesContent() {
                 className="text-blue-600 dark:text-blue-400 mr-3"
               />
               <div>
-                <h3 className="text-blue-800 dark:text-blue-200 font-medium">Session Expired</h3>
+                <h3 className="text-blue-800 dark:text-blue-200 font-semibold">Session Expired</h3>
                 <p className="text-blue-600 dark:text-blue-400 text-sm mt-1">
                   Redirecting to login page...
                 </p>

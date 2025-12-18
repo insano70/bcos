@@ -1,6 +1,7 @@
-import { type NextRequest, NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 import { rbacRoute } from '@/lib/api/route-handlers';
-import { handleRouteError } from '@/lib/api/responses/error';
+import { createErrorResponse, handleRouteError } from '@/lib/api/responses/error';
+import { createSuccessResponse } from '@/lib/api/responses/success';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
 import { log } from '@/lib/logger';
 import { createRBACWorkItemTypeRelationshipsService } from '@/lib/services/rbac-work-item-type-relationships-service';
@@ -31,7 +32,7 @@ const getRelationshipHandler = async (
     const relationship = await relationshipsService.getRelationshipById(relationshipId);
 
     if (!relationship) {
-      return NextResponse.json({ error: 'Work item type relationship not found' }, { status: 404 });
+      return createErrorResponse('Work item type relationship not found', 404, _request);
     }
 
     const duration = Date.now() - startTime;
@@ -41,7 +42,7 @@ const getRelationshipHandler = async (
       duration,
     });
 
-    return NextResponse.json(relationship);
+    return createSuccessResponse(relationship);
   } catch (error) {
     const duration = Date.now() - startTime;
 
@@ -101,7 +102,7 @@ const patchRelationshipHandler = async (
       duration,
     });
 
-    return NextResponse.json(relationship);
+    return createSuccessResponse(relationship);
   } catch (error) {
     const duration = Date.now() - startTime;
 
@@ -151,7 +152,7 @@ const deleteRelationshipHandler = async (
       duration,
     });
 
-    return NextResponse.json({ success: true }, { status: 200 });
+    return createSuccessResponse({ deleted: true });
   } catch (error) {
     const duration = Date.now() - startTime;
 

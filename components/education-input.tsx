@@ -1,6 +1,9 @@
 'use client';
 
+import { Plus } from 'lucide-react';
 import { useId, useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { FormLabel } from '@/components/ui/form-label';
 import type { Education } from '@/lib/types/practice';
 
 interface EducationInputProps {
@@ -54,9 +57,7 @@ export default function EducationInput({
 
   return (
     <div>
-      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-        {label}
-      </label>
+      <FormLabel className="mb-2">{label}</FormLabel>
 
       {/* Current education entries */}
       {value.length > 0 && (
@@ -110,26 +111,16 @@ export default function EducationInput({
 
       {/* Add new education entry */}
       {!isAdding && value.length < maxItems && (
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="md"
           onClick={() => setIsAdding(true)}
-          className="w-full px-4 py-2 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-gray-600 dark:text-gray-400 hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+          className="w-full border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-blue-500"
+          leftIcon={<Plus className="w-5 h-5" />}
         >
-          <svg
-            className="w-5 h-5 inline mr-2"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-            />
-          </svg>
           Add Education Entry
-        </button>
+        </Button>
       )}
 
       {/* New education form */}
@@ -160,24 +151,26 @@ export default function EducationInput({
           </div>
 
           <div className="flex justify-end gap-2">
-            <button
+            <Button
               type="button"
+              variant="secondary"
+              size="sm"
               onClick={() => {
                 setIsAdding(false);
                 setNewEducation({ degree: '', school: '', year: '' });
               }}
-              className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="blue"
+              size="sm"
               onClick={addEducation}
               disabled={!isFormValid}
-              className="px-3 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Add Education
-            </button>
+            </Button>
           </div>
         </div>
       )}

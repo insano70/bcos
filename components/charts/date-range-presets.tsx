@@ -321,7 +321,7 @@ export default function DateRangePresets({
 
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Date Range</h3>
+      <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Date Range</h3>
 
       {/* Preset Buttons */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2">

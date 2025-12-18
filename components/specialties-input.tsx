@@ -1,6 +1,8 @@
 'use client';
 
 import { useId, useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { FormLabel } from '@/components/ui/form-label';
 
 interface SpecialtiesInputProps {
   value: string[];
@@ -41,12 +43,9 @@ export default function SpecialtiesInput({
 
   return (
     <div>
-      <label
-        htmlFor={`${uid}-specialties`}
-        className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-      >
+      <FormLabel htmlFor={`${uid}-specialties`} className="mb-2">
         {label}
-      </label>
+      </FormLabel>
 
       {/* Current specialties */}
       {value.length > 0 && (
@@ -88,16 +87,17 @@ export default function SpecialtiesInput({
           className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           disabled={value.length >= maxItems}
         />
-        <button
+        <Button
           type="button"
+          variant="blue"
+          size="md"
           onClick={addSpecialty}
           disabled={
             !newSpecialty.trim() || value.includes(newSpecialty.trim()) || value.length >= maxItems
           }
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Add
-        </button>
+        </Button>
       </div>
 
       {value.length >= maxItems && (

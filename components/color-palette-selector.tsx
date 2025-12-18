@@ -51,7 +51,7 @@ export default function ColorPaletteSelector({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
           <div className="text-left">
-            <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100">
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
               Color Palette Templates
             </h3>
             <p className="text-xs text-gray-500 dark:text-gray-400">

@@ -91,7 +91,7 @@ export default function DataSourceConnectionTestModal({
                     {/* Data Source Info */}
                     {dataSource && (
                       <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                        <h3 className="font-medium text-gray-900 dark:text-gray-100 mb-2">
+                        <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-2">
                           {dataSource.data_source_name}
                         </h3>
                         <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1">

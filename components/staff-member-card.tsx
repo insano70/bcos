@@ -3,6 +3,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
 import { useDeleteStaff } from '@/lib/hooks/use-staff';
 import type { StaffMember } from '@/lib/types/practice';
 import { getActiveStatusColor } from '@/lib/utils/badge-colors';
@@ -49,7 +50,7 @@ export default function StaffMemberCard({
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:shadow-md transition-shadow">
+    <Card radius="lg" padding="sm" shadow="none" className="hover:shadow-md transition-shadow">
       <div className="flex items-start gap-4">
         {/* Photo */}
         <div className="flex-shrink-0">
@@ -83,7 +84,7 @@ export default function StaffMemberCard({
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between">
             <div>
-              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                 {staffMember.name}
               </h3>
               {staffMember.title && (
@@ -211,6 +212,6 @@ export default function StaffMemberCard({
           )}
         </div>
       </div>
-    </div>
+    </Card>
   );
 }

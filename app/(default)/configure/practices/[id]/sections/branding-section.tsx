@@ -62,7 +62,7 @@ export function BrandingSection({
           />
         </div>
 
-        <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2 mt-6">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2 mt-6">
           Custom Colors
         </h3>
         <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">

@@ -102,7 +102,7 @@ export default function ChartBuilderCore({
 }: ChartBuilderCoreProps) {
   return (
     <div className="space-y-6">
-      <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">
+      <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
         Basic Configuration
       </h3>
 
@@ -326,7 +326,7 @@ export default function ChartBuilderCore({
             {/* Dual-Axis Configuration - Show when dual-axis chart type selected */}
             {chartConfig.chartType === 'dual-axis' && (
               <div className="md:col-span-2 border-t border-gray-200 dark:border-gray-700 pt-6 mt-6">
-                <h3 className="text-md font-medium text-gray-900 dark:text-gray-100 mb-4">
+                <h3 className="text-md font-semibold text-gray-900 dark:text-gray-100 mb-4">
                   Dual-Axis Configuration
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Settings, Plus, Pencil, Trash2, Database, RefreshCw, CheckCircle, XCircle, Filter } from 'lucide-react';
+import { Settings, Plus, Pencil, Trash2, Database, RefreshCcw, CheckCircle, XCircle, Filter } from 'lucide-react';
 import {
   useMeasures,
   useCreateMeasure,
@@ -374,7 +374,7 @@ export default function ReportCardAdmin() {
         <div className="flex gap-3">
           <Filter className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
           <div>
-            <h3 className="font-medium text-blue-800 dark:text-blue-300">Filter Criteria</h3>
+            <h3 className="font-semibold text-blue-800 dark:text-blue-300">Filter Criteria</h3>
             <p className="text-sm text-blue-700 dark:text-blue-400 mt-1">
               Each measure can have filter criteria that defines which data to collect from <code className="bg-blue-100 dark:bg-blue-900/50 px-1 rounded">ih.agg_chart_data</code>.
               For example, to track &quot;New Patients&quot;, set filter criteria to <code className="bg-blue-100 dark:bg-blue-900/50 px-1 rounded">{`{"measure": "Visits", "entity_name": "New Patient"}`}</code>.
@@ -395,7 +395,7 @@ export default function ReportCardAdmin() {
             onClick={() => refetch()}
             aria-label="Refresh measures"
           >
-            <RefreshCw className="w-4 h-4" />
+            <RefreshCcw className="w-4 h-4" />
           </Button>
         </div>
 

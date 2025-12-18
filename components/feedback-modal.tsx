@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useId } from 'react';
+import { Button } from '@/components/ui/button';
 import { FormLabel } from '@/components/ui/form-label';
 import { useSubmitFeedback } from '@/lib/hooks/use-data-explorer';
 import type { SubmitFeedbackParams } from '@/lib/types/data-explorer';
@@ -79,7 +80,7 @@ export default function FeedbackModal({
             <div className="bg-white dark:bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
               <div className="sm:flex sm:items-start">
                 <div className="mt-3 text-center sm:mt-0 sm:text-left w-full">
-                  <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-gray-100" id={modalTitleId}>
+                  <h3 className="text-lg leading-6 font-semibold text-gray-900 dark:text-gray-100" id={modalTitleId}>
                     Report Query Issue
                   </h3>
                   <div className="mt-4 space-y-4">
@@ -190,22 +191,27 @@ export default function FeedbackModal({
             </div>
 
             {/* Footer */}
-            <div className="bg-gray-50 dark:bg-gray-900 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-              <button
+            <div className="bg-gray-50 dark:bg-gray-900 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse gap-3">
+              <Button
                 type="submit"
+                variant="violet"
+                size="md"
                 disabled={submitFeedback.isPending}
-                className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-violet-600 text-base font-medium text-white hover:bg-violet-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-violet-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                loading={submitFeedback.isPending}
+                loadingText="Submitting..."
               >
-                {submitFeedback.isPending ? 'Submitting...' : 'Submit Feedback'}
-              </button>
-              <button
+                Submit Feedback
+              </Button>
+              <Button
                 type="button"
+                variant="secondary"
+                size="md"
                 onClick={onClose}
                 disabled={submitFeedback.isPending}
-                className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 dark:border-gray-600 shadow-sm px-4 py-2 bg-white dark:bg-gray-800 text-base font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-violet-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                className="mt-3 sm:mt-0"
               >
                 Cancel
-              </button>
+              </Button>
             </div>
           </form>
         </div>

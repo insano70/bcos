@@ -65,7 +65,7 @@ export default function ResetMFAConfirmationModal({
 
         {/* Content */}
         <div className="text-center">
-          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
             Reset MFA for {userName}
           </h3>
           <div className="text-left bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 mb-4">

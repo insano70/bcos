@@ -1,4 +1,4 @@
-import { and, count, eq } from 'drizzle-orm';
+import { and, count, eq, inArray } from 'drizzle-orm';
 import { ensureSecurityRecord, hashPassword } from '@/lib/auth/security';
 import { revokeAllUserTokens } from '@/lib/auth/tokens';
 import { account_security, db, type DbContext } from '@/lib/db';
@@ -779,7 +779,12 @@ class RBACUsersService implements UsersServiceInterface {
           count: count(),
         })
         .from(webauthn_credentials)
-        .where(and(eq(webauthn_credentials.is_active, true)))
+        .where(
+          and(
+            eq(webauthn_credentials.is_active, true),
+            inArray(webauthn_credentials.user_id, userIds)
+          )
+        )
         .groupBy(webauthn_credentials.user_id);
 
       const queryDuration = Date.now() - queryStart;

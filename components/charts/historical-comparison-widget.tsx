@@ -147,7 +147,7 @@ export default function HistoricalComparisonWidget({
     >
       {/* Header */}
       <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-        <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 flex items-center">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 flex items-center">
           <span className="mr-2">📊</span>
           Historical Comparison
         </h3>

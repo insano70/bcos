@@ -24,7 +24,7 @@ import { getChartTypeBadgeColor, getActiveStatusColor } from '@/lib/utils/badge-
 export default function ChartBuilderPage() {
   const router = useRouter();
   const [savedCharts, setSavedCharts] = useState<ChartDefinitionListItem[]>([]);
-  const [_isLoading, _setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [chartToDelete, setChartToDelete] = useState<ChartDefinitionListItem | null>(null);
@@ -150,6 +150,7 @@ export default function ChartBuilderPage() {
 
   const loadCharts = useCallback(async () => {
     setError(null);
+    setIsLoading(true);
 
     try {
       clientDebugLog.api('Loading chart definitions from API');
@@ -199,6 +200,8 @@ export default function ChartBuilderPage() {
       clientErrorLog('Failed to load charts', error);
       setError(errorMessage);
       setSavedCharts([]); // Ensure we always have an array
+    } finally {
+      setIsLoading(false);
     }
   }, []);
 
@@ -425,7 +428,7 @@ export default function ChartBuilderPage() {
           dropdownActions={getDropdownActions}
           pagination={{ itemsPerPage: 10 }}
           selectionMode="multi"
-          isLoading={false}
+          isLoading={isLoading}
           searchable={true}
           searchPlaceholder="Search charts..."
           exportable={true}

@@ -29,7 +29,7 @@ export default function ChartBuilderPreview({
     <div className="space-y-6">
       <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
             Chart Preview: {chartConfig.chartName}
           </h3>
           {chartConfig.periodComparison?.enabled && (

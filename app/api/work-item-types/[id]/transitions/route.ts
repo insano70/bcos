@@ -132,10 +132,10 @@ const createTransitionHandler = async (
 
 export const GET = rbacRoute(getTransitionsHandler, {
   permission: 'work-items:manage:organization',
-  requireAuth: true,
+  rateLimit: 'api',
 });
 
 export const POST = rbacRoute(createTransitionHandler, {
   permission: 'work-items:manage:organization',
-  requireAuth: true,
+  rateLimit: 'api',
 });

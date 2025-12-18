@@ -9,6 +9,8 @@ interface CheckboxFieldProps<TFormData extends FieldValues = FieldValues> {
   isSubmitting: boolean;
 }
 
+// NOTE: Checkbox has a fundamentally different layout (label after input),
+// so it doesn't use BaseFieldWrapper like other fields.
 function CheckboxFieldInner<TFormData extends FieldValues = FieldValues>({
   field,
   register,

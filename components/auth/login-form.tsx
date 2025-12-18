@@ -10,6 +10,7 @@ import { clientDebugLog, clientErrorLog } from '@/lib/utils/debug-client';
 import { storePreferredAuthMethod } from '@/lib/utils/login-hint-storage';
 import { loginSchema } from '@/lib/validations/auth';
 import { Button } from '@/components/ui/button';
+import { FormLabel } from '@/components/ui/form-label';
 import { ErrorDisplay } from '@/components/error-display';
 import { Spinner } from '@/components/ui/spinner';
 import { useSilentAuth } from './hooks/use-silent-auth';
@@ -350,9 +351,9 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
 
           {/* Email field */}
           <div>
-            <label className="block text-sm font-medium mb-1" htmlFor={emailId}>
+            <FormLabel htmlFor={emailId} className="mb-1">
               Email Address
-            </label>
+            </FormLabel>
             <input
               id={emailId}
               type="email"
@@ -375,9 +376,9 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
 
           {/* Password field */}
           <div>
-            <label className="block text-sm font-medium mb-1" htmlFor={passwordId}>
+            <FormLabel htmlFor={passwordId} className="mb-1">
               Password
-            </label>
+            </FormLabel>
             <input
               id={passwordId}
               type="password"

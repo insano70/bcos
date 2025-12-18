@@ -154,15 +154,15 @@ const deleteTransitionHandler = async (
 
 export const GET = rbacRoute(getTransitionHandler, {
   permission: 'work-items:manage:organization',
-  requireAuth: true,
+  rateLimit: 'api',
 });
 
 export const PATCH = rbacRoute(updateTransitionHandler, {
   permission: 'work-items:manage:organization',
-  requireAuth: true,
+  rateLimit: 'api',
 });
 
 export const DELETE = rbacRoute(deleteTransitionHandler, {
   permission: 'work-items:manage:organization',
-  requireAuth: true,
+  rateLimit: 'api',
 });

@@ -106,7 +106,7 @@ export function DashboardErrorState({
       <div className="flex items-center">
         <AlertCircle className="w-6 h-6 text-red-600 dark:text-red-400 mr-3 flex-shrink-0" />
         <div>
-          <h3 className="text-red-800 dark:text-red-200 font-medium">{title}</h3>
+          <h3 className="text-red-800 dark:text-red-200 font-semibold">{title}</h3>
           <p className="text-red-600 dark:text-red-400 text-sm mt-1">{message}</p>
           {onRetry && (
             <Button

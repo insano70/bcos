@@ -1,7 +1,9 @@
 'use client';
 
 import { useQueryClient } from '@tanstack/react-query';
+import { Plus } from 'lucide-react';
 import { useState } from 'react';
+import { Button } from '@/components/ui/button';
 import { useReorderStaff, useStaff } from '@/lib/hooks/use-staff';
 import type { StaffMember } from '@/lib/types/practice';
 import { Spinner } from '@/components/ui/spinner';
@@ -86,7 +88,7 @@ export default function StaffListEmbedded({ practiceId }: StaffListEmbeddedProps
       {/* Header with Add button */}
       <div className="flex justify-between items-center mb-4">
         <div>
-          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
             Staff Members
             {!isLoading && (
               <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">
@@ -99,22 +101,16 @@ export default function StaffListEmbedded({ practiceId }: StaffListEmbeddedProps
           </p>
         </div>
 
-        <button
+        <Button
           type="button"
+          variant="blue"
+          size="md"
           onClick={handleAdd}
           disabled={isLoading}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          leftIcon={<Plus className="w-4 h-4" />}
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-            />
-          </svg>
           Add Staff Member
-        </button>
+        </Button>
       </div>
 
       {/* Loading state */}
@@ -149,19 +145,20 @@ export default function StaffListEmbedded({ practiceId }: StaffListEmbeddedProps
                   d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
                 />
               </svg>
-              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
                 No staff members yet
               </h3>
               <p className="text-gray-600 dark:text-gray-400 mb-4">
                 Add your first staff member to showcase your team on your practice website.
               </p>
-              <button
+              <Button
                 type="button"
+                variant="blue"
+                size="md"
                 onClick={handleAdd}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
               >
                 Add First Staff Member
-              </button>
+              </Button>
             </div>
           ) : (
             staff.map((staffMember, index) => (

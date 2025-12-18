@@ -75,7 +75,7 @@ export function EmptyState({
           </div>
         </div>
       )}
-      <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
+      <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
         {title}
       </h3>
       {description && (

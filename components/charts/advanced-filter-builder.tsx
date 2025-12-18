@@ -398,7 +398,7 @@ export default function AdvancedFilterBuilder({
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
-        <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Advanced Filters</h3>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Advanced Filters</h3>
         <button type="button" onClick={() => setRootGroup({ id: 'root', logic: 'AND', filters: [], groups: [] })}
           className="px-3 py-1 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
         >

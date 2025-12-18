@@ -1,6 +1,7 @@
-import { type NextRequest, NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 import { rbacRoute } from '@/lib/api/route-handlers';
-import { handleRouteError } from '@/lib/api/responses/error';
+import { createErrorResponse, handleRouteError } from '@/lib/api/responses/error';
+import { createSuccessResponse } from '@/lib/api/responses/success';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
 import { log } from '@/lib/logger';
 import { createRBACWorkItemFieldsService } from '@/lib/services/rbac-work-item-fields-service';
@@ -35,7 +36,7 @@ const getFieldHandler = async (
         fieldId,
         userId: userContext.user_id,
       });
-      return NextResponse.json({ error: 'Work item field not found' }, { status: 404 });
+      return createErrorResponse('Work item field not found', 404, _request);
     }
 
     const duration = Date.now() - startTime;
@@ -45,7 +46,7 @@ const getFieldHandler = async (
       duration,
     });
 
-    return NextResponse.json(field);
+    return createSuccessResponse(field);
   } catch (error) {
     const duration = Date.now() - startTime;
 
@@ -102,7 +103,7 @@ const patchFieldHandler = async (
       duration,
     });
 
-    return NextResponse.json(field);
+    return createSuccessResponse(field);
   } catch (error) {
     const duration = Date.now() - startTime;
 
@@ -152,7 +153,7 @@ const deleteFieldHandler = async (
       duration,
     });
 
-    return new NextResponse(null, { status: 204 });
+    return new Response(null, { status: 204 });
   } catch (error) {
     const duration = Date.now() - startTime;
 

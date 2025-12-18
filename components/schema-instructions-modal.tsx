@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useReducer } from 'react';
 import { apiClient } from '@/lib/api/client';
 import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/spinner';
@@ -16,36 +16,112 @@ interface SchemaInstructionsModalProps {
   onClose: () => void;
 }
 
+interface FormState {
+  title: string;
+  instruction: string;
+  category: string;
+  priority: number;
+  exampleQuery: string;
+  exampleSQL: string;
+}
+
+interface ModalState {
+  instructions: SchemaInstruction[];
+  isLoading: boolean;
+  toast: { show: boolean; message: string };
+  mode: 'list' | 'editing' | 'creating';
+  editingInstruction: SchemaInstruction | null;
+  deleteModal: { isOpen: boolean; instruction: SchemaInstruction | null };
+  form: FormState;
+}
+
+type ModalAction =
+  | { type: 'SET_INSTRUCTIONS'; payload: SchemaInstruction[] }
+  | { type: 'SET_LOADING'; payload: boolean }
+  | { type: 'SHOW_TOAST'; payload: string }
+  | { type: 'HIDE_TOAST' }
+  | { type: 'START_EDIT'; payload: SchemaInstruction }
+  | { type: 'START_CREATE' }
+  | { type: 'CANCEL_FORM' }
+  | { type: 'OPEN_DELETE_MODAL'; payload: SchemaInstruction }
+  | { type: 'CLOSE_DELETE_MODAL' }
+  | { type: 'UPDATE_FORM'; payload: Partial<FormState> };
+
+const initialFormState: FormState = {
+  title: '',
+  instruction: '',
+  category: 'filtering',
+  priority: 2,
+  exampleQuery: '',
+  exampleSQL: '',
+};
+
+const initialState: ModalState = {
+  instructions: [],
+  isLoading: false,
+  toast: { show: false, message: '' },
+  mode: 'list',
+  editingInstruction: null,
+  deleteModal: { isOpen: false, instruction: null },
+  form: initialFormState,
+};
+
+function modalReducer(state: ModalState, action: ModalAction): ModalState {
+  switch (action.type) {
+    case 'SET_INSTRUCTIONS':
+      return { ...state, instructions: action.payload };
+    case 'SET_LOADING':
+      return { ...state, isLoading: action.payload };
+    case 'SHOW_TOAST':
+      return { ...state, toast: { show: true, message: action.payload } };
+    case 'HIDE_TOAST':
+      return { ...state, toast: { ...state.toast, show: false } };
+    case 'START_EDIT':
+      return {
+        ...state,
+        mode: 'editing',
+        editingInstruction: action.payload,
+        form: {
+          title: action.payload.title,
+          instruction: action.payload.instruction,
+          category: action.payload.category || 'filtering',
+          priority: action.payload.priority,
+          exampleQuery: action.payload.example_query || '',
+          exampleSQL: action.payload.example_sql || '',
+        },
+      };
+    case 'START_CREATE':
+      return {
+        ...state,
+        mode: 'creating',
+        editingInstruction: null,
+        form: initialFormState,
+      };
+    case 'CANCEL_FORM':
+      return { ...state, mode: 'list', editingInstruction: null, form: initialFormState };
+    case 'OPEN_DELETE_MODAL':
+      return { ...state, deleteModal: { isOpen: true, instruction: action.payload } };
+    case 'CLOSE_DELETE_MODAL':
+      return { ...state, deleteModal: { isOpen: false, instruction: null } };
+    case 'UPDATE_FORM':
+      return { ...state, form: { ...state.form, ...action.payload } };
+    default:
+      return state;
+  }
+}
+
 export default function SchemaInstructionsModal({ isOpen, onClose }: SchemaInstructionsModalProps) {
-  const [instructions, setInstructions] = useState<SchemaInstruction[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [showToast, setShowToast] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
-  const [isEditing, setIsEditing] = useState(false);
-  const [editingInstruction, setEditingInstruction] = useState<SchemaInstruction | null>(null);
-  const [isCreating, setIsCreating] = useState(false);
-
-  // Delete confirmation state
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [instructionToDelete, setInstructionToDelete] = useState<SchemaInstruction | null>(null);
-
-  // Form state
-  const [formTitle, setFormTitle] = useState('');
-  const [formInstruction, setFormInstruction] = useState('');
-  const [formCategory, setFormCategory] = useState<string>('filtering');
-  const [formPriority, setFormPriority] = useState(2);
-  const [formExampleQuery, setFormExampleQuery] = useState('');
-  const [formExampleSQL, setFormExampleSQL] = useState('');
+  const [state, dispatch] = useReducer(modalReducer, initialState);
 
   const fetchInstructions = useCallback(async () => {
-    setIsLoading(true);
+    dispatch({ type: 'SET_LOADING', payload: true });
     try {
       const data = await apiClient.get<SchemaInstruction[]>('/api/data/explorer/schema-instructions');
-      setInstructions(data);
+      dispatch({ type: 'SET_INSTRUCTIONS', payload: data });
     } catch (error) {
       clientErrorLog('Failed to fetch instructions:', error);
     } finally {
-      setIsLoading(false);
+      dispatch({ type: 'SET_LOADING', payload: false });
     }
   }, []);
 
@@ -56,56 +132,40 @@ export default function SchemaInstructionsModal({ isOpen, onClose }: SchemaInstr
   }, [isOpen, fetchInstructions]);
 
   const handleEdit = (instruction: SchemaInstruction) => {
-    setEditingInstruction(instruction);
-    setFormTitle(instruction.title);
-    setFormInstruction(instruction.instruction);
-    setFormCategory(instruction.category || 'filtering');
-    setFormPriority(instruction.priority);
-    setFormExampleQuery(instruction.example_query || '');
-    setFormExampleSQL(instruction.example_sql || '');
-    setIsEditing(true);
+    dispatch({ type: 'START_EDIT', payload: instruction });
   };
 
   const handleCreate = () => {
-    setEditingInstruction(null);
-    setFormTitle('');
-    setFormInstruction('');
-    setFormCategory('filtering');
-    setFormPriority(2);
-    setFormExampleQuery('');
-    setFormExampleSQL('');
-    setIsCreating(true);
+    dispatch({ type: 'START_CREATE' });
   };
 
   const handleSave = async () => {
     try {
-      if (editingInstruction) {
+      if (state.editingInstruction) {
         // Update existing
-        await apiClient.put(`/api/data/explorer/schema-instructions/${editingInstruction.instruction_id}`, {
-          title: formTitle,
-          instruction: formInstruction,
-          category: formCategory,
-          priority: formPriority,
-          example_query: formExampleQuery || undefined,
-          example_sql: formExampleSQL || undefined,
+        await apiClient.put(`/api/data/explorer/schema-instructions/${state.editingInstruction.instruction_id}`, {
+          title: state.form.title,
+          instruction: state.form.instruction,
+          category: state.form.category,
+          priority: state.form.priority,
+          example_query: state.form.exampleQuery || undefined,
+          example_sql: state.form.exampleSQL || undefined,
         });
-        setToastMessage('Instruction updated');
+        dispatch({ type: 'SHOW_TOAST', payload: 'Instruction updated' });
       } else {
         // Create new
         await apiClient.post('/api/data/explorer/schema-instructions', {
-          title: formTitle,
-          instruction: formInstruction,
-          category: formCategory,
-          priority: formPriority,
-          example_query: formExampleQuery || undefined,
-          example_sql: formExampleSQL || undefined,
+          title: state.form.title,
+          instruction: state.form.instruction,
+          category: state.form.category,
+          priority: state.form.priority,
+          example_query: state.form.exampleQuery || undefined,
+          example_sql: state.form.exampleSQL || undefined,
         });
-        setToastMessage('Instruction created');
+        dispatch({ type: 'SHOW_TOAST', payload: 'Instruction created' });
       }
-      
-      setShowToast(true);
-      setIsEditing(false);
-      setIsCreating(false);
+
+      dispatch({ type: 'CANCEL_FORM' });
       fetchInstructions();
     } catch (error) {
       clientErrorLog('Save failed:', error);
@@ -113,17 +173,16 @@ export default function SchemaInstructionsModal({ isOpen, onClose }: SchemaInstr
   };
 
   const handleDeleteClick = (instruction: SchemaInstruction) => {
-    setInstructionToDelete(instruction);
-    setIsDeleteModalOpen(true);
+    dispatch({ type: 'OPEN_DELETE_MODAL', payload: instruction });
   };
 
   const confirmDeleteInstruction = async () => {
-    if (!instructionToDelete) return;
+    if (!state.deleteModal.instruction) return;
 
     try {
-      await apiClient.delete(`/api/data/explorer/schema-instructions/${instructionToDelete.instruction_id}`);
-      setToastMessage('Instruction deleted');
-      setShowToast(true);
+      await apiClient.delete(`/api/data/explorer/schema-instructions/${state.deleteModal.instruction.instruction_id}`);
+      dispatch({ type: 'SHOW_TOAST', payload: 'Instruction deleted' });
+      dispatch({ type: 'CLOSE_DELETE_MODAL' });
       fetchInstructions();
     } catch (error) {
       clientErrorLog('Delete failed:', error);
@@ -135,8 +194,7 @@ export default function SchemaInstructionsModal({ isOpen, onClose }: SchemaInstr
       await apiClient.put(`/api/data/explorer/schema-instructions/${instruction.instruction_id}`, {
         is_active: !instruction.is_active,
       });
-      setToastMessage(instruction.is_active ? 'Instruction disabled' : 'Instruction enabled');
-      setShowToast(true);
+      dispatch({ type: 'SHOW_TOAST', payload: instruction.is_active ? 'Instruction disabled' : 'Instruction enabled' });
       fetchInstructions();
     } catch (error) {
       clientErrorLog('Toggle failed:', error);
@@ -165,10 +223,10 @@ export default function SchemaInstructionsModal({ isOpen, onClose }: SchemaInstr
       >
         <div className="px-4 sm:px-6 py-4 overflow-y-auto max-h-[calc(90vh-140px)]">
                 {/* Create/Edit Form */}
-                {(isEditing || isCreating) && (
+                {(state.mode === 'editing' || state.mode === 'creating') && (
                   <div className="mb-4 p-4 border border-violet-200 dark:border-violet-700 rounded-lg bg-violet-50 dark:bg-violet-900/20">
                     <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-3">
-                      {isEditing ? 'Edit Instruction' : 'New Instruction'}
+                      {state.mode === 'editing' ? 'Edit Instruction' : 'New Instruction'}
                     </h4>
                     <div className="space-y-3">
                       <div>
@@ -177,8 +235,8 @@ export default function SchemaInstructionsModal({ isOpen, onClose }: SchemaInstr
                         </label>
                         <input
                           type="text"
-                          value={formTitle}
-                          onChange={(e) => setFormTitle(e.target.value)}
+                          value={state.form.title}
+                          onChange={(e) => dispatch({ type: 'UPDATE_FORM', payload: { title: e.target.value } })}
                           className="form-input w-full"
                           placeholder="e.g., Drug Filtering Rule"
                         />
@@ -189,8 +247,8 @@ export default function SchemaInstructionsModal({ isOpen, onClose }: SchemaInstr
                           Instruction *
                         </label>
                         <textarea
-                          value={formInstruction}
-                          onChange={(e) => setFormInstruction(e.target.value)}
+                          value={state.form.instruction}
+                          onChange={(e) => dispatch({ type: 'UPDATE_FORM', payload: { instruction: e.target.value } })}
                           rows={3}
                           className="form-textarea w-full"
                           placeholder="e.g., When filtering by drug names, always use procedure_code column"
@@ -203,8 +261,8 @@ export default function SchemaInstructionsModal({ isOpen, onClose }: SchemaInstr
                             Category
                           </label>
                           <select
-                            value={formCategory}
-                            onChange={(e) => setFormCategory(e.target.value)}
+                            value={state.form.category}
+                            onChange={(e) => dispatch({ type: 'UPDATE_FORM', payload: { category: e.target.value } })}
                             className="form-select w-full"
                           >
                             <option value="filtering">Filtering</option>
@@ -219,8 +277,8 @@ export default function SchemaInstructionsModal({ isOpen, onClose }: SchemaInstr
                             Priority
                           </label>
                           <select
-                            value={formPriority}
-                            onChange={(e) => setFormPriority(Number(e.target.value))}
+                            value={state.form.priority}
+                            onChange={(e) => dispatch({ type: 'UPDATE_FORM', payload: { priority: Number(e.target.value) } })}
                             className="form-select w-full"
                           >
                             <option value={1}>Critical</option>
@@ -236,8 +294,8 @@ export default function SchemaInstructionsModal({ isOpen, onClose }: SchemaInstr
                         </label>
                         <input
                           type="text"
-                          value={formExampleQuery}
-                          onChange={(e) => setFormExampleQuery(e.target.value)}
+                          value={state.form.exampleQuery}
+                          onChange={(e) => dispatch({ type: 'UPDATE_FORM', payload: { exampleQuery: e.target.value } })}
                           className="form-input w-full"
                           placeholder="e.g., Show me all patients on Drug X"
                         />
@@ -248,8 +306,8 @@ export default function SchemaInstructionsModal({ isOpen, onClose }: SchemaInstr
                           Example SQL (Optional)
                         </label>
                         <textarea
-                          value={formExampleSQL}
-                          onChange={(e) => setFormExampleSQL(e.target.value)}
+                          value={state.form.exampleSQL}
+                          onChange={(e) => dispatch({ type: 'UPDATE_FORM', payload: { exampleSQL: e.target.value } })}
                           rows={2}
                           className="form-textarea w-full font-mono text-sm"
                           placeholder="e.g., SELECT * FROM ih.procedures WHERE procedure_code = 'X'"
@@ -259,17 +317,14 @@ export default function SchemaInstructionsModal({ isOpen, onClose }: SchemaInstr
                       <div className="flex gap-2 justify-end">
                         <Button
                           variant="secondary"
-                          onClick={() => {
-                            setIsEditing(false);
-                            setIsCreating(false);
-                          }}
+                          onClick={() => dispatch({ type: 'CANCEL_FORM' })}
                         >
                           Cancel
                         </Button>
                         <Button
                           variant="violet"
                           onClick={handleSave}
-                          disabled={!formTitle.trim() || !formInstruction.trim()}
+                          disabled={!state.form.title.trim() || !state.form.instruction.trim()}
                         >
                           Save
                         </Button>
@@ -278,13 +333,13 @@ export default function SchemaInstructionsModal({ isOpen, onClose }: SchemaInstr
                   </div>
                 )}
 
-                {isLoading && (
+                {state.isLoading && (
                   <div className="text-center py-8">
                     <Spinner size="md" />
                   </div>
                 )}
 
-                {!isLoading && !isEditing && !isCreating && instructions.length === 0 && (
+                {!state.isLoading && state.mode === 'list' && state.instructions.length === 0 && (
                   <div className="text-center py-8">
                     <p className="text-gray-500 mb-4">No schema instructions defined</p>
                     <Button variant="violet" onClick={handleCreate}>
@@ -293,9 +348,9 @@ export default function SchemaInstructionsModal({ isOpen, onClose }: SchemaInstr
                   </div>
                 )}
 
-                {!isLoading && !isEditing && !isCreating && instructions.length > 0 && (
+                {!state.isLoading && state.mode === 'list' && state.instructions.length > 0 && (
                   <div className="space-y-4">
-                    {instructions.map((inst) => (
+                    {state.instructions.map((inst) => (
                       <div
                         key={inst.instruction_id}
                         className={`p-4 rounded-lg border ${
@@ -365,11 +420,11 @@ export default function SchemaInstructionsModal({ isOpen, onClose }: SchemaInstr
                 <div className="flex justify-between items-center">
                   <div>
                     <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {instructions.filter(i => i.is_active).length} active / {instructions.length} total
+                      {state.instructions.filter(i => i.is_active).length} active / {state.instructions.length} total
                     </p>
                   </div>
                   <div className="flex gap-2">
-                    {!isEditing && !isCreating && (
+                    {state.mode === 'list' && (
                       <Button variant="violet" onClick={handleCreate}>
                         Add Instruction
                       </Button>
@@ -382,22 +437,21 @@ export default function SchemaInstructionsModal({ isOpen, onClose }: SchemaInstr
               </div>
       </Modal>
 
-      <Toast type="success" open={showToast} setOpen={setShowToast}>
-        {toastMessage}
+      <Toast type="success" open={state.toast.show} setOpen={(show) => !show && dispatch({ type: 'HIDE_TOAST' })}>
+        {state.toast.message}
       </Toast>
 
       {/* Delete Confirmation Modal */}
-      {instructionToDelete && (
+      {state.deleteModal.instruction && (
         <DeleteConfirmationModal
-          isOpen={isDeleteModalOpen}
+          isOpen={state.deleteModal.isOpen}
           setIsOpen={(value) => {
-            setIsDeleteModalOpen(value);
             if (!value) {
-              setInstructionToDelete(null);
+              dispatch({ type: 'CLOSE_DELETE_MODAL' });
             }
           }}
           title="Delete Instruction"
-          itemName={instructionToDelete.title}
+          itemName={state.deleteModal.instruction.title}
           message="Are you sure you want to delete this instruction? This action cannot be undone."
           confirmButtonText="Delete Instruction"
           onConfirm={confirmDeleteInstruction}
