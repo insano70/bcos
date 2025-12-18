@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import DashboardPreviewModal from '@/components/dashboard-preview-modal';
 import { ErrorDisplay } from '@/components/error-display';
-import Toast from '@/components/toast';
 import { Spinner } from '@/components/ui/spinner';
 import type { ChartDefinition } from '@/lib/types/analytics';
 import DashboardActions from './components/dashboard-actions';
@@ -90,7 +89,7 @@ export default function RowBasedDashboardBuilder({
   const { filterConfig, setFilterConfig } = useFilterConfig(editingDashboard);
 
   // Save/update operations
-  const { saveDashboard, isSaving, toast, setToast } = useDashboardOperations({
+  const { saveDashboard, isSaving } = useDashboardOperations({
     dashboardConfig,
     filterConfig,
     editingDashboard,
@@ -193,15 +192,6 @@ export default function RowBasedDashboardBuilder({
         }}
         title={`Preview: ${dashboardConfig.dashboardName || 'Unnamed Dashboard'}`}
       />
-
-      {/* Toast Notifications */}
-      <Toast
-        type={toast.type}
-        open={toast.show}
-        setOpen={(open) => setToast({ ...toast, show: open })}
-      >
-        {toast.message}
-      </Toast>
     </div>
   );
 }

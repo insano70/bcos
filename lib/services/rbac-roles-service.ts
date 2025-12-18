@@ -4,7 +4,7 @@ import { NotFoundError } from '@/lib/api/responses/error';
 import { db } from '@/lib/db';
 import { permissions, role_permissions, roles } from '@/lib/db/rbac-schema';
 import { log, logTemplates, SLOW_THRESHOLDS } from '@/lib/logger';
-
+import { BaseRBACService } from '@/lib/rbac/base-service';
 import type { UserContext } from '@/lib/types/rbac';
 
 // ============================================================
@@ -52,6 +52,7 @@ export interface RoleWithPermissions {
  *
  * Manages role retrieval with automatic RBAC filtering.
  * Read-only service for querying roles and their associated permissions.
+ * Extends BaseRBACService for standardized permission checking.
  *
  * **RBAC Scopes:**
  * - `all` - Super admins or users with `roles:read:all` permission
@@ -83,27 +84,33 @@ export interface RoleWithPermissions {
  * const role = await rolesService.getRoleById('role-123');
  * ```
  */
-class RolesService implements RolesServiceInterface {
-  private readonly canManageAll: boolean;
-  private readonly canReadAll: boolean;
-  private readonly canReadOrganization: boolean;
-  private readonly canReadOwn: boolean;
+class RolesService extends BaseRBACService implements RolesServiceInterface {
+  /**
+   * Check if user can manage all roles
+   */
+  private canManageAll(): boolean {
+    return this.checker.hasPermission('roles:manage:all');
+  }
 
-  constructor(private readonly userContext: UserContext) {
-    // Cache all permission checks once
-    this.canManageAll =
-      userContext.all_permissions?.some((p) => p.name === 'roles:manage:all') || false;
+  /**
+   * Check if user can read all roles
+   */
+  private canReadAll(): boolean {
+    return this.isSuperAdmin() || this.checker.hasPermission('roles:read:all');
+  }
 
-    this.canReadAll =
-      userContext.is_super_admin ||
-      userContext.all_permissions?.some((p) => p.name === 'roles:read:all') ||
-      false;
+  /**
+   * Check if user can read organization roles
+   */
+  private canReadOrganization(): boolean {
+    return this.checker.hasPermission('roles:read:organization');
+  }
 
-    this.canReadOrganization =
-      userContext.all_permissions?.some((p) => p.name === 'roles:read:organization') || false;
-
-    this.canReadOwn =
-      userContext.all_permissions?.some((p) => p.name === 'roles:read:own') || false;
+  /**
+   * Check if user can read own roles
+   */
+  private canReadOwn(): boolean {
+    return this.checker.hasPermission('roles:read:own');
   }
 
   /**
@@ -120,12 +127,12 @@ class RolesService implements RolesServiceInterface {
   private buildRBACWhereConditions(): SQL[] {
     const conditions: SQL[] = [];
 
-    if (this.canManageAll || this.canReadAll) {
+    if (this.canManageAll() || this.canReadAll()) {
       // Can read all roles - no organization filter needed
       return conditions;
     }
 
-    if (this.canReadOrganization || this.canReadOwn) {
+    if (this.canReadOrganization() || this.canReadOwn()) {
       // Can read roles from their organization + system roles
       if (this.userContext.current_organization_id) {
         const orgCondition = or(
@@ -150,9 +157,9 @@ class RolesService implements RolesServiceInterface {
    * Determine RBAC scope for logging
    */
   private getRBACScope(): 'all' | 'organization' | 'own' | 'none' {
-    if (this.canReadAll) return 'all';
-    if (this.canReadOrganization) return 'organization';
-    if (this.canReadOwn) return 'own';
+    if (this.canReadAll()) return 'all';
+    if (this.canReadOrganization()) return 'organization';
+    if (this.canReadOwn()) return 'own';
     return 'none';
   }
 
@@ -164,15 +171,15 @@ class RolesService implements RolesServiceInterface {
     is_system_role: boolean;
   }): boolean {
     // Super admins and roles:read:all can access everything
-    if (this.canReadAll) return true;
+    if (this.canReadAll()) return true;
 
     // System roles are accessible to anyone with read permissions
     if (role.is_system_role) {
-      return this.canReadOrganization || this.canReadOwn;
+      return this.canReadOrganization() || this.canReadOwn();
     }
 
     // Organization roles require matching organization
-    if (this.canReadOrganization || this.canReadOwn) {
+    if (this.canReadOrganization() || this.canReadOwn()) {
       return role.organization_id === this.userContext.current_organization_id;
     }
 
@@ -240,9 +247,9 @@ class RolesService implements RolesServiceInterface {
       // Filter by specific organization if requested and user has permission
       if (organization_id) {
         if (
-          this.canManageAll ||
-          this.canReadAll ||
-          (this.canReadOrganization && organization_id === this.userContext.current_organization_id)
+          this.canManageAll() ||
+          this.canReadAll() ||
+          (this.canReadOrganization() && organization_id === this.userContext.current_organization_id)
         ) {
           whereConditions.push(eq(roles.organization_id, organization_id));
         }

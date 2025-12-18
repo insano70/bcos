@@ -1,6 +1,7 @@
-import { type NextRequest, NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { handleRouteError } from '@/lib/api/responses/error';
+import { createSuccessResponse } from '@/lib/api/responses/success';
 import { log } from '@/lib/logger';
 import { createAttachmentFieldService } from '@/lib/services/work-items/attachment-field-service';
 import type { UserContext } from '@/lib/types/rbac';
@@ -57,7 +58,7 @@ async function handlePost(request: NextRequest, userContext: UserContext) {
       duration: Date.now() - startTime,
     });
 
-    return NextResponse.json(result, { status: 201 });
+    return createSuccessResponse(result, undefined, undefined, 201);
   } catch (error) {
     log.error('Field attachment creation failed via API', error as Error, {
       duration: Date.now() - startTime,
@@ -104,7 +105,7 @@ async function handleGet(request: NextRequest, userContext: UserContext) {
       duration: Date.now() - startTime,
     });
 
-    return NextResponse.json({ attachments }, { status: 200 });
+    return createSuccessResponse({ attachments });
   } catch (error) {
     log.error('Field attachments list retrieval failed via API', error as Error, {
       duration: Date.now() - startTime,

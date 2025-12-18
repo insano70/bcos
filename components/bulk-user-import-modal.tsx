@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useReducer } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { apiClient } from '@/lib/api/client';
 import type { ResolvedCSVRow, UserCreationResult } from '@/lib/validations/bulk-import';
@@ -26,6 +26,79 @@ interface CommitResponseData {
   results: UserCreationResult[];
 }
 
+// ============================================================================
+// Import Modal State Reducer
+// ============================================================================
+
+interface ImportState {
+  step: Step;
+  file: File | null;
+  isUploading: boolean;
+  isImporting: boolean;
+  error: string | null;
+  validationResult: ValidationResponseData | null;
+  importResult: CommitResponseData | null;
+}
+
+type ImportAction =
+  | { type: 'SET_FILE'; file: File | null }
+  | { type: 'SET_ERROR'; error: string | null }
+  | { type: 'UPLOAD_START' }
+  | { type: 'UPLOAD_SUCCESS'; validationResult: ValidationResponseData }
+  | { type: 'UPLOAD_ERROR'; error: string }
+  | { type: 'IMPORT_START' }
+  | { type: 'IMPORT_SUCCESS'; importResult: CommitResponseData }
+  | { type: 'IMPORT_ERROR'; error: string }
+  | { type: 'GO_BACK' }
+  | { type: 'RESET' };
+
+const importInitialState: ImportState = {
+  step: 'upload',
+  file: null,
+  isUploading: false,
+  isImporting: false,
+  error: null,
+  validationResult: null,
+  importResult: null,
+};
+
+function importReducer(state: ImportState, action: ImportAction): ImportState {
+  switch (action.type) {
+    case 'SET_FILE':
+      return { ...state, file: action.file, error: null };
+    case 'SET_ERROR':
+      return { ...state, error: action.error };
+    case 'UPLOAD_START':
+      return { ...state, isUploading: true, error: null };
+    case 'UPLOAD_SUCCESS':
+      return {
+        ...state,
+        isUploading: false,
+        validationResult: action.validationResult,
+        step: 'preview',
+      };
+    case 'UPLOAD_ERROR':
+      return { ...state, isUploading: false, error: action.error };
+    case 'IMPORT_START':
+      return { ...state, isImporting: true, error: null };
+    case 'IMPORT_SUCCESS':
+      return {
+        ...state,
+        isImporting: false,
+        importResult: action.importResult,
+        step: 'results',
+      };
+    case 'IMPORT_ERROR':
+      return { ...state, isImporting: false, error: action.error };
+    case 'GO_BACK':
+      return { ...state, step: 'upload', validationResult: null };
+    case 'RESET':
+      return importInitialState;
+    default:
+      return state;
+  }
+}
+
 interface BulkUserImportModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -45,23 +118,12 @@ export default function BulkUserImportModal({
   onClose,
   onSuccess,
 }: BulkUserImportModalProps) {
-  const [step, setStep] = useState<Step>('upload');
-  const [file, setFile] = useState<File | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
-  const [isImporting, setIsImporting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [validationResult, setValidationResult] = useState<ValidationResponseData | null>(null);
-  const [importResult, setImportResult] = useState<CommitResponseData | null>(null);
+  const [state, dispatch] = useReducer(importReducer, importInitialState);
+  const { step, file, isUploading, isImporting, error, validationResult, importResult } = state;
 
   // Reset state when modal closes
   const handleClose = () => {
-    setStep('upload');
-    setFile(null);
-    setIsUploading(false);
-    setIsImporting(false);
-    setError(null);
-    setValidationResult(null);
-    setImportResult(null);
+    dispatch({ type: 'RESET' });
     onClose();
   };
 
@@ -86,16 +148,15 @@ export default function BulkUserImportModal({
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to download template');
+      dispatch({ type: 'SET_ERROR', error: err instanceof Error ? err.message : 'Failed to download template' });
     }
   };
 
   // File drop handler
   const onDrop = useCallback((acceptedFiles: File[]) => {
-    setError(null);
     const droppedFile = acceptedFiles[0];
     if (droppedFile) {
-      setFile(droppedFile);
+      dispatch({ type: 'SET_FILE', file: droppedFile });
     }
   }, []);
 
@@ -114,8 +175,7 @@ export default function BulkUserImportModal({
   const handleUpload = async () => {
     if (!file) return;
 
-    setIsUploading(true);
-    setError(null);
+    dispatch({ type: 'UPLOAD_START' });
 
     try {
       const formData = new FormData();
@@ -132,12 +192,9 @@ export default function BulkUserImportModal({
         throw new Error('Validation failed - invalid response');
       }
 
-      setValidationResult(data);
-      setStep('preview');
+      dispatch({ type: 'UPLOAD_SUCCESS', validationResult: data });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to validate CSV');
-    } finally {
-      setIsUploading(false);
+      dispatch({ type: 'UPLOAD_ERROR', error: err instanceof Error ? err.message : 'Failed to validate CSV' });
     }
   };
 
@@ -148,8 +205,7 @@ export default function BulkUserImportModal({
     const validRows = validationResult.rows.filter((r) => r.is_valid);
     if (validRows.length === 0) return;
 
-    setIsImporting(true);
-    setError(null);
+    dispatch({ type: 'IMPORT_START' });
 
     try {
       // Prepare commit data - we need to include passwords from the original CSV
@@ -207,17 +263,14 @@ export default function BulkUserImportModal({
         throw new Error('Import failed - invalid response');
       }
 
-      setImportResult(data);
-      setStep('results');
+      dispatch({ type: 'IMPORT_SUCCESS', importResult: data });
 
       // Call success callback if any users were created
       if (data.created_count > 0) {
         onSuccess?.();
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to import users');
-    } finally {
-      setIsImporting(false);
+      dispatch({ type: 'IMPORT_ERROR', error: err instanceof Error ? err.message : 'Failed to import users' });
     }
   };
 
@@ -363,7 +416,7 @@ export default function BulkUserImportModal({
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => setFile(null)}
+                  onClick={() => dispatch({ type: 'SET_FILE', file: null })}
                   aria-label="Remove file"
                   className="p-0"
                 >
@@ -413,10 +466,7 @@ export default function BulkUserImportModal({
             <div className="flex justify-between">
               <Button
                 variant="secondary"
-                onClick={() => {
-                  setStep('upload');
-                  setValidationResult(null);
-                }}
+                onClick={() => dispatch({ type: 'GO_BACK' })}
                 disabled={isImporting}
               >
                 Back

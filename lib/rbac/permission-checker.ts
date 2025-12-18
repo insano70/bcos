@@ -31,7 +31,7 @@ export class PermissionChecker {
    * @param resourceId - ID of the resource being accessed (optional)
    * @param organizationId - Organization context (optional)
    */
-  hasPermission(permissionName: string, resourceId?: string, organizationId?: string): boolean {
+  hasPermission(permissionName: PermissionName, resourceId?: string, organizationId?: string): boolean {
     try {
       const result = this.checkPermission(permissionName, { resourceId, organizationId });
       return result.granted;
@@ -49,7 +49,7 @@ export class PermissionChecker {
   /**
    * Check multiple permissions (OR logic)
    */
-  hasAnyPermission(permissions: string[], resourceId?: string, organizationId?: string): boolean {
+  hasAnyPermission(permissions: PermissionName[], resourceId?: string, organizationId?: string): boolean {
     return permissions.some((permission) =>
       this.hasPermission(permission, resourceId, organizationId)
     );
@@ -58,7 +58,7 @@ export class PermissionChecker {
   /**
    * Check multiple permissions (AND logic)
    */
-  hasAllPermissions(permissions: string[], resourceId?: string, organizationId?: string): boolean {
+  hasAllPermissions(permissions: PermissionName[], resourceId?: string, organizationId?: string): boolean {
     return permissions.every((permission) =>
       this.hasPermission(permission, resourceId, organizationId)
     );
@@ -68,7 +68,7 @@ export class PermissionChecker {
    * Get detailed permission check result with reasoning
    */
   checkPermission(
-    permissionName: string,
+    permissionName: PermissionName,
     options: PermissionCheckOptions = {}
   ): PermissionCheckResult {
     const { resourceId, organizationId } = options;
@@ -426,7 +426,7 @@ export function createPermissionChecker(userContext: UserContext): PermissionChe
  */
 export function checkUserPermission(
   userContext: UserContext,
-  permissionName: string,
+  permissionName: PermissionName,
   resourceId?: string,
   organizationId?: string
 ): boolean {

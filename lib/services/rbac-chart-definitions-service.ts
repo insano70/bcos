@@ -3,6 +3,7 @@ import { NotFoundError } from '@/lib/api/responses/error';
 import { db } from '@/lib/db';
 import { chart_definitions } from '@/lib/db/analytics-schema';
 import { log, logTemplates, SLOW_THRESHOLDS } from '@/lib/logger';
+import { BaseRBACService } from '@/lib/rbac/base-service';
 import type { UserContext } from '@/lib/types/rbac';
 
 /**
@@ -53,31 +54,36 @@ export interface ChartDefinitionsServiceInterface {
   }): Promise<ChartDefinition[]>;
 }
 
+// Permission constants for chart definitions (DRY)
+const READ_ALL_PERMISSIONS = ['analytics:read:all', 'charts:read:all'] as const;
+const READ_OWN_PERMISSIONS = [
+  'analytics:read:own',
+  'charts:read:own',
+  'analytics:read:organization',
+] as const;
+
 /**
  * Internal Chart Definitions Service Implementation
  *
- * Uses hybrid pattern: internal class with factory function.
+ * Extends BaseRBACService for standardized permission checking.
  * Provides read-only access to chart definitions with automatic RBAC enforcement.
  */
-class ChartDefinitionsService implements ChartDefinitionsServiceInterface {
-  private readonly canReadAll: boolean;
-  private readonly canReadOwn: boolean;
-
-  constructor(private readonly userContext: UserContext) {
-    // Check permissions at service creation (cached for performance)
-    // Note: chart_definitions table does not have organization_id column
-    // Only supports all/own scoping, not organization-level scoping
-    this.canReadAll =
-      userContext.all_permissions?.some(
-        (p) => p.name === 'analytics:read:all' || p.name === 'charts:read:all'
-      ) || userContext.is_super_admin;
-
-    this.canReadOwn = userContext.all_permissions?.some(
-      (p) =>
-        p.name === 'analytics:read:own' ||
-        p.name === 'charts:read:own' ||
-        p.name === 'analytics:read:organization'
+class ChartDefinitionsService extends BaseRBACService implements ChartDefinitionsServiceInterface {
+  /**
+   * Check if user can read all chart definitions
+   */
+  private canReadAll(): boolean {
+    return (
+      this.isSuperAdmin() ||
+      this.checker.hasAnyPermission([...READ_ALL_PERMISSIONS])
     );
+  }
+
+  /**
+   * Check if user can read own chart definitions
+   */
+  private canReadOwn(): boolean {
+    return this.checker.hasAnyPermission([...READ_OWN_PERMISSIONS]);
   }
 
   /**
@@ -87,8 +93,8 @@ class ChartDefinitionsService implements ChartDefinitionsServiceInterface {
   private buildRBACWhereConditions(): SQL[] {
     const conditions: SQL[] = [];
 
-    if (!this.canReadAll) {
-      if (this.canReadOwn) {
+    if (!this.canReadAll()) {
+      if (this.canReadOwn()) {
         // Filter to only charts created by this user
         conditions.push(eq(chart_definitions.created_by, this.userContext.user_id));
       } else {
@@ -136,8 +142,8 @@ class ChartDefinitionsService implements ChartDefinitionsServiceInterface {
 
       // Apply RBAC filtering
       // Chart definitions don't have organization_id, only created_by
-      if (!this.canReadAll) {
-        if (this.canReadOwn) {
+      if (!this.canReadAll()) {
+        if (this.canReadOwn()) {
           // Check if chart was created by user
           if (chartDefinition.created_by !== this.userContext.user_id) {
             throw NotFoundError('Chart definition');
@@ -200,7 +206,7 @@ class ChartDefinitionsService implements ChartDefinitionsServiceInterface {
       whereConditions.push(...rbacConditions);
 
       // If no permission, return empty array immediately
-      if (!this.canReadAll && !this.canReadOwn) {
+      if (!this.canReadAll() && !this.canReadOwn()) {
         const template = logTemplates.crud.list('chart_definitions', {
           userId: this.userContext.user_id,
           filters: filters || {},
@@ -241,7 +247,7 @@ class ChartDefinitionsService implements ChartDefinitionsServiceInterface {
         metadata: {
           queryDuration,
           slow: queryDuration > SLOW_THRESHOLDS.DB_QUERY,
-          rbacScope: this.canReadAll ? 'all' : 'own',
+          rbacScope: this.canReadAll() ? 'all' : 'own',
         },
       });
 

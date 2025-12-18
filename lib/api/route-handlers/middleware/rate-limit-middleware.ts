@@ -32,14 +32,14 @@
  */
 
 import type { NextRequest } from 'next/server';
-import { applyRateLimit } from '@/lib/api/middleware/rate-limit';
+import { applyRateLimit, type RateLimitType } from '@/lib/api/middleware/rate-limit';
 import { log } from '@/lib/logger';
 import type { Middleware, MiddlewareResult, RouteContext } from '../types';
 
 export class RateLimitMiddleware implements Middleware {
   name = 'rateLimit';
 
-  constructor(private limitType?: 'auth' | 'mfa' | 'api' | 'upload' | 'session_read' | 'admin_cli') {}
+  constructor(private limitType?: RateLimitType) {}
 
   async execute(request: NextRequest, context: RouteContext): Promise<MiddlewareResult> {
     // Skip if no rate limit configured

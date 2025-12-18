@@ -305,26 +305,33 @@ export async function createTokenPair(
     .setProtectedHeader({ alg: 'HS256', typ: 'REFRESH' })
     .sign(REFRESH_TOKEN_SECRET);
 
-  // Store refresh token in database (hashed for security)
-  await db.insert(refresh_tokens).values({
-    token_id: refreshTokenId,
-    user_id: userId,
-    token_hash: hashToken(refreshToken),
-    device_fingerprint: deviceInfo.fingerprint,
-    ip_address: deviceInfo.ipAddress,
-    user_agent: deviceInfo.userAgent,
-    remember_me: rememberMe,
-    expires_at: refreshExpiresAt,
-    rotation_count: 0,
-  });
+  // Store refresh token and session record atomically in a transaction
+  // This ensures both records are created together or neither is created
+  await db.transaction(async (tx) => {
+    // Store refresh token in database (hashed for security)
+    await tx.insert(refresh_tokens).values({
+      token_id: refreshTokenId,
+      user_id: userId,
+      token_hash: hashToken(refreshToken),
+      device_fingerprint: deviceInfo.fingerprint,
+      ip_address: deviceInfo.ipAddress,
+      user_agent: deviceInfo.userAgent,
+      remember_me: rememberMe,
+      expires_at: refreshExpiresAt,
+      rotation_count: 0,
+    });
 
-  // Create session record
-  await createSessionRecord({
-    sessionId,
-    userId,
-    refreshTokenId,
-    deviceInfo,
-    rememberMe,
+    // Create session record within same transaction
+    await createSessionRecord(
+      {
+        sessionId,
+        userId,
+        refreshTokenId,
+        deviceInfo,
+        rememberMe,
+      },
+      tx
+    );
   });
 
   // Log successful login attempt

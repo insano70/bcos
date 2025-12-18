@@ -14,7 +14,7 @@ import { Database } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Modal } from '@/components/ui/modal';
-import Toast from '@/components/toast';
+import { useToast } from '@/components/toast';
 import { apiClient } from '@/lib/api/client';
 import type { AnalyticsCacheStatsResponse } from '@/lib/monitoring/types';
 import { clientErrorLog } from '@/lib/utils/debug-client';
@@ -37,25 +37,14 @@ export default function AnalyticsCacheDashboard({
   const [error, setError] = useState<string | null>(null);
   const [refreshingDs, setRefreshingDs] = useState<Set<number>>(new Set());
 
-  // Toast notification state
-  const [toastOpen, setToastOpen] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
-  const [toastType, setToastType] = useState<'success' | 'error' | 'warning' | ''>('');
+  // Toast notifications via context
+  const { showToast } = useToast();
 
   // Confirmation modal state
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState<(() => void) | null>(null);
   const [confirmTitle, setConfirmTitle] = useState('');
   const [confirmMessage, setConfirmMessage] = useState('');
-
-  // Helper to show toast notifications
-  const showToast = (message: string, type: 'success' | 'error' | 'warning' | '' = '') => {
-    setToastMessage(message);
-    setToastType(type);
-    setToastOpen(true);
-    // Auto-hide after 5 seconds
-    setTimeout(() => setToastOpen(false), 5000);
-  };
 
   // Helper to show confirmation modal
   const showConfirm = (title: string, message: string, onConfirm: () => void) => {
@@ -97,13 +86,13 @@ export default function AnalyticsCacheDashboard({
     setRefreshingDs((prev) => new Set(prev).add(datasourceId));
     try {
       await apiClient.post('/api/admin/analytics/cache/warm', { datasourceId });
-      showToast('Cache warming started successfully', 'success');
+      showToast({ message: 'Cache warming started successfully', type: 'success' });
       // Poll for completion (or wait a reasonable time)
       await new Promise((resolve) => setTimeout(resolve, 2000));
       await fetchStats();
     } catch (err) {
       clientErrorLog('Failed to refresh datasource cache', err);
-      showToast('Failed to start cache warming. Please try again.', 'error');
+      showToast({ message: 'Failed to start cache warming. Please try again.', type: 'error' });
     } finally {
       setRefreshingDs((prev) => {
         const next = new Set(prev);
@@ -123,11 +112,11 @@ export default function AnalyticsCacheDashboard({
             datasourceId,
             reason: 'User-initiated invalidation from command center',
           });
-          showToast('Cache invalidated successfully', 'success');
+          showToast({ message: 'Cache invalidated successfully', type: 'success' });
           await fetchStats();
         } catch (err) {
           clientErrorLog('Failed to invalidate datasource cache', err);
-          showToast('Failed to invalidate cache. Please try again.', 'error');
+          showToast({ message: 'Failed to invalidate cache. Please try again.', type: 'error' });
         }
       }
     );
@@ -141,13 +130,13 @@ export default function AnalyticsCacheDashboard({
         try {
           setLoading(true);
           await apiClient.post('/api/admin/analytics/cache/warm', {});
-          showToast('Cache warming started for all datasources', 'success');
+          showToast({ message: 'Cache warming started for all datasources', type: 'success' });
           // Wait a bit, then refresh stats
           await new Promise((resolve) => setTimeout(resolve, 3000));
           await fetchStats();
         } catch (err) {
           clientErrorLog('Failed to warm all caches', err);
-          showToast('Failed to start bulk cache warming. Please try again.', 'error');
+          showToast({ message: 'Failed to start bulk cache warming. Please try again.', type: 'error' });
         } finally {
           setLoading(false);
         }
@@ -345,16 +334,6 @@ export default function AnalyticsCacheDashboard({
           </div>
         )}
       </div>
-
-      {/* Toast Notifications */}
-      <Toast
-        type={toastType}
-        open={toastOpen}
-        setOpen={setToastOpen}
-        className="fixed bottom-4 right-4 z-50"
-      >
-        {toastMessage}
-      </Toast>
 
       {/* Confirmation Modal */}
       <Modal isOpen={confirmModalOpen} onClose={() => setConfirmModalOpen(false)} size="sm">

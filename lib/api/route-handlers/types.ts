@@ -7,6 +7,7 @@
 
 import type { NextRequest } from 'next/server';
 import type { AuthResult } from '@/lib/api/middleware/global-auth';
+import type { RateLimitType } from '@/lib/api/middleware/rate-limit';
 import type { PermissionName, UserContext } from '@/lib/types/rbac';
 import type { TimingTracker } from './utils/timing-tracker';
 
@@ -92,8 +93,8 @@ export interface RouteContext {
  * Options for RBAC routes
  */
 export interface RBACRouteOptions {
-  /** Rate limit type */
-  rateLimit?: 'auth' | 'mfa' | 'api' | 'upload' | 'session_read' | 'admin_cli';
+  /** Rate limit type (derived from RATE_LIMIT_CONFIGS keys) */
+  rateLimit?: RateLimitType;
 
   /** Whether authentication is required (default: true) */
   requireAuth?: boolean;
@@ -114,23 +115,23 @@ export interface RBACRouteOptions {
   extractOrganizationId?: ((request: NextRequest) => string | undefined) | undefined;
 
   /** Custom handler for permission denied */
-  onPermissionDenied?: (userContext: UserContext, deniedPermissions: string[]) => Response;
+  onPermissionDenied?: (userContext: UserContext, deniedPermissions: PermissionName[]) => Response;
 }
 
 /**
  * Options for public routes (no auth required)
  */
 export interface PublicRouteOptions {
-  /** Rate limit type */
-  rateLimit?: 'auth' | 'mfa' | 'api' | 'upload' | 'session_read' | 'admin_cli';
+  /** Rate limit type (derived from RATE_LIMIT_CONFIGS keys) */
+  rateLimit?: RateLimitType;
 }
 
 /**
  * Options for auth routes (auth without RBAC)
  */
 export interface AuthRouteOptions {
-  /** Rate limit type */
-  rateLimit?: 'auth' | 'mfa' | 'api' | 'upload' | 'session_read' | 'admin_cli';
+  /** Rate limit type (derived from RATE_LIMIT_CONFIGS keys) */
+  rateLimit?: RateLimitType;
 
   /** Whether authentication is required (default: true) */
   requireAuth?: boolean;

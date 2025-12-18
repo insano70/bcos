@@ -1,9 +1,10 @@
-import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { AuthValidator } from '@/lib/api/middleware/auth-validation';
 import { createErrorResponse, handleRouteError } from '@/lib/api/responses/error';
 import { publicRoute } from '@/lib/api/route-handlers';
 import { AuditLogger } from '@/lib/api/services/audit';
 import { refreshTokenPair } from '@/lib/auth/tokens';
+import { AUTH_TTL } from '@/lib/constants/auth-ttl';
 import { correlation, log } from '@/lib/logger';
 import { setCSRFToken } from '@/lib/security/csrf-unified';
 
@@ -26,11 +27,10 @@ const refreshHandler = async (request: NextRequest) => {
     // This allows token refresh without needing a valid access token
     // Rate limiting is applied by publicRoute wrapper
 
-    // Get refresh token from httpOnly cookie
-    const cookieStore = await cookies();
-    const refreshToken = cookieStore.get('refresh-token')?.value;
+    // Get refresh token from httpOnly cookie using AuthValidator
+    const refreshTokenResult = await AuthValidator.validateRefreshToken(request);
 
-    if (!refreshToken) {
+    if (!refreshTokenResult.success) {
       // Enriched auth log - no refresh token
       log.warn('Token refresh failed: no_refresh_token', {
         operation: 'token_refresh',
@@ -45,8 +45,10 @@ const refreshHandler = async (request: NextRequest) => {
         component: 'auth',
         severity: 'low',
       });
-      return createErrorResponse('Refresh token not found', 401, request);
+      return refreshTokenResult.response;
     }
+
+    const refreshToken = refreshTokenResult.data;
 
     // Store refresh token for error handling
     refreshTokenForError = refreshToken;
@@ -91,35 +93,29 @@ const refreshHandler = async (request: NextRequest) => {
       return createErrorResponse('Invalid refresh token', 401, request);
     }
 
-    // Get user details from database
-    const db = (await import('@/lib/db')).db;
-    const users = (await import('@/lib/db')).users;
-    const [user] = await db
-      .select()
-      .from(users)
-      .where((await import('drizzle-orm')).eq(users.user_id, userId))
-      .limit(1);
-
-    if (!user || !user.is_active) {
-      log.auth('token_refresh', false, {
-        userId,
-        reason: user ? 'user_inactive' : 'user_not_found',
-      });
-      return createErrorResponse('User account is inactive', 401, request);
-    }
-
-    // Get user's RBAC context for complete user data
+    // Get user's RBAC context - includes all user data (avoids duplicate DB query)
     // Use try-catch to allow token refresh even if context load fails
     const { getUserContextOrThrow, UserContextAuthError } = await import('@/lib/rbac/user-context');
-    let userContext: Awaited<ReturnType<typeof getUserContextOrThrow>> | null = null;
+    type UserContextType = Awaited<ReturnType<typeof getUserContextOrThrow>>;
+    let userContext: UserContextType | null = null;
+    let user: { user_id: string; email: string; first_name: string; last_name: string; is_active: boolean; email_verified: boolean } | null = null;
+
     try {
-      userContext = await getUserContextOrThrow(user.user_id);
+      userContext = await getUserContextOrThrow(userId);
+      // UserContext includes all user data - use it directly
+      user = {
+        user_id: userContext.user_id,
+        email: userContext.email,
+        first_name: userContext.first_name,
+        last_name: userContext.last_name,
+        is_active: userContext.is_active,
+        email_verified: userContext.email_verified,
+      };
     } catch (error) {
-      // Auth errors during refresh are acceptable - user can still refresh tokens
-      // but will have degraded response (no roles/permissions)
+      // Auth errors during refresh require user lookup fallback
       if (error instanceof UserContextAuthError) {
         log.warn('User context load failed during token refresh', {
-          userId: user.user_id,
+          userId,
           reason: error.reason,
           operation: 'token_refresh',
           component: 'auth',
@@ -127,11 +123,39 @@ const refreshHandler = async (request: NextRequest) => {
       } else {
         // Server errors should be logged but not block refresh
         log.error('Server error loading user context during refresh', error, {
-          userId: user.user_id,
+          userId,
           operation: 'token_refresh',
           component: 'auth',
         });
       }
+
+      // Fallback: query user directly for basic validation (only when context fails)
+      const db = (await import('@/lib/db')).db;
+      const users = (await import('@/lib/db')).users;
+      const [dbUser] = await db
+        .select()
+        .from(users)
+        .where((await import('drizzle-orm')).eq(users.user_id, userId))
+        .limit(1);
+
+      if (dbUser) {
+        user = {
+          user_id: dbUser.user_id,
+          email: dbUser.email,
+          first_name: dbUser.first_name,
+          last_name: dbUser.last_name,
+          is_active: dbUser.is_active ?? true,
+          email_verified: dbUser.email_verified ?? false,
+        };
+      }
+    }
+
+    if (!user || !user.is_active) {
+      log.auth('token_refresh', false, {
+        userId,
+        reason: user ? 'user_inactive' : 'user_not_found',
+      });
+      return createErrorResponse('User account is inactive', 401, request);
     }
 
     // Extract device info
@@ -220,7 +244,7 @@ const refreshHandler = async (request: NextRequest) => {
       secure: isSecureEnvironment,
       sameSite: 'strict',
       path: '/',
-      maxAge: 30 * 24 * 60 * 60, // 30 days (will be shorter for standard mode)
+      maxAge: AUTH_TTL.REFRESH_TOKEN_EXTENDED, // 30 days (will be shorter for standard mode)
     });
 
     // Set secure access token cookie (server-only, secure)
@@ -229,7 +253,7 @@ const refreshHandler = async (request: NextRequest) => {
       secure: isSecureEnvironment,
       sameSite: 'strict',
       path: '/',
-      maxAge: 15 * 60, // 15 minutes
+      maxAge: AUTH_TTL.ACCESS_TOKEN,
     });
 
     // Enriched auth log - successful refresh

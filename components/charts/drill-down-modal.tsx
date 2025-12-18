@@ -17,7 +17,7 @@
  * @module components/charts/drill-down-modal
  */
 
-import { useCallback, useEffect, useId, useState, useRef } from 'react';
+import { useCallback, useEffect, useId, useReducer, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X, ChevronRight, Filter } from 'lucide-react';
 import type { DrillDownModalProps } from '@/lib/types/drill-down';
@@ -50,6 +50,76 @@ import type { OrchestrationResult } from '@/lib/services/chart-data-orchestrator
 
 type UniversalChartDataResponse = OrchestrationResult;
 
+// ============================================================================
+// Drill-Down Modal State Reducer
+// ============================================================================
+
+interface ModalState {
+  mounted: boolean;
+  targetChartName: string;
+  targetChartType: string;
+  targetChartConfig: Record<string, unknown>;
+  chartLoading: boolean;
+  chartError: string | null;
+  chartData: BatchChartData | null;
+}
+
+type ModalAction =
+  | { type: 'SET_MOUNTED'; mounted: boolean }
+  | { type: 'FETCH_START' }
+  | { type: 'FETCH_DEF_SUCCESS'; name: string; chartType: string; config: Record<string, unknown> }
+  | { type: 'FETCH_DATA_SUCCESS'; data: BatchChartData }
+  | { type: 'FETCH_ERROR'; error: string }
+  | { type: 'RESET' };
+
+const modalInitialState: ModalState = {
+  mounted: false,
+  targetChartName: 'Loading...',
+  targetChartType: '',
+  targetChartConfig: {},
+  chartLoading: true,
+  chartError: null,
+  chartData: null,
+};
+
+function modalReducer(state: ModalState, action: ModalAction): ModalState {
+  switch (action.type) {
+    case 'SET_MOUNTED':
+      return { ...state, mounted: action.mounted };
+    case 'FETCH_START':
+      return {
+        ...state,
+        chartLoading: true,
+        chartError: null,
+        chartData: null,
+      };
+    case 'FETCH_DEF_SUCCESS':
+      return {
+        ...state,
+        targetChartName: action.name,
+        targetChartType: action.chartType,
+        targetChartConfig: action.config,
+      };
+    case 'FETCH_DATA_SUCCESS':
+      return {
+        ...state,
+        chartData: action.data,
+        chartLoading: false,
+      };
+    case 'FETCH_ERROR':
+      return {
+        ...state,
+        chartError: action.error,
+        targetChartName: 'Unknown Chart',
+        chartLoading: false,
+      };
+    case 'RESET':
+      return modalInitialState;
+    default:
+      return state;
+  }
+}
+
 /**
  * DrillDownModal Component
  */
@@ -62,18 +132,13 @@ export function DrillDownModal({
 }: DrillDownModalProps) {
   const modalTitleId = useId();
   const closeButtonRef = useRef<HTMLButtonElement>(null);
-  const [mounted, setMounted] = useState(false);
-  const [targetChartName, setTargetChartName] = useState<string>('Loading...');
-  const [targetChartType, setTargetChartType] = useState<string>('');
-  const [targetChartConfig, setTargetChartConfig] = useState<Record<string, unknown>>({});
-  const [chartLoading, setChartLoading] = useState(true);
-  const [chartError, setChartError] = useState<string | null>(null);
-  const [chartData, setChartData] = useState<BatchChartData | null>(null);
+  const [state, dispatch] = useReducer(modalReducer, modalInitialState);
+  const { mounted, targetChartName, targetChartType, targetChartConfig, chartLoading, chartError, chartData } = state;
 
   // Mount handling for portal
   useEffect(() => {
-    setMounted(true);
-    return () => setMounted(false);
+    dispatch({ type: 'SET_MOUNTED', mounted: true });
+    return () => dispatch({ type: 'SET_MOUNTED', mounted: false });
   }, []);
 
   // Fetch target chart definition and data
@@ -81,9 +146,7 @@ export function DrillDownModal({
     if (!isOpen || !targetChartId) return;
 
     const fetchChartAndData = async () => {
-      setChartLoading(true);
-      setChartError(null);
-      setChartData(null);
+      dispatch({ type: 'FETCH_START' });
 
       try {
         // Step 1: Fetch chart definition
@@ -91,15 +154,18 @@ export function DrillDownModal({
           `/api/admin/analytics/charts/${targetChartId}`
         );
         const chartDef = defResponse.chart;
-        setTargetChartName(chartDef.chart_name);
-        setTargetChartType(chartDef.chart_type);
-        setTargetChartConfig(chartDef.chart_config ?? {});
+        dispatch({
+          type: 'FETCH_DEF_SUCCESS',
+          name: chartDef.chart_name,
+          chartType: chartDef.chart_type,
+          config: chartDef.chart_config ?? {},
+        });
 
         // Step 2: Fetch chart data with applied filters (supports multi-series)
         // Extract measure/frequency from target chart config (required for measure-based data sources)
         const measure = chartDef.chart_config?.measure;
         const frequency = chartDef.chart_config?.frequency;
-        
+
         const runtimeFilters: Record<string, unknown> = {};
         if (appliedFilters && appliedFilters.length > 0) {
           // Apply the drill-down filters as advanced filters
@@ -128,7 +194,7 @@ export function DrillDownModal({
         // Convert to BatchChartData format
         // Build config object with only defined properties (exactOptionalPropertyTypes compliance)
         const groupBy = chartDef.chart_config?.groupBy;
-        
+
         const chartConfigData: {
           measure?: string;
           frequency?: string;
@@ -136,13 +202,13 @@ export function DrillDownModal({
           finalChartConfig?: Record<string, unknown>;
           runtimeFilters?: Record<string, unknown>;
         } = {};
-        
+
         if (typeof measure === 'string') chartConfigData.measure = measure;
         if (typeof frequency === 'string') chartConfigData.frequency = frequency;
         if (typeof groupBy === 'string') chartConfigData.groupBy = groupBy;
         if (chartDef.chart_config) chartConfigData.finalChartConfig = chartDef.chart_config;
         if (Object.keys(runtimeFilters).length > 0) chartConfigData.runtimeFilters = runtimeFilters;
-        
+
         const batchData = orchestrationResultToBatchChartData(
           {
             chartData: dataResponse.chartData,
@@ -155,13 +221,10 @@ export function DrillDownModal({
           chartConfigData
         );
 
-        setChartData(batchData);
+        dispatch({ type: 'FETCH_DATA_SUCCESS', data: batchData });
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to load chart';
-        setChartError(message);
-        setTargetChartName('Unknown Chart');
-      } finally {
-        setChartLoading(false);
+        dispatch({ type: 'FETCH_ERROR', error: message });
       }
     };
 

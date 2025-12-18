@@ -1,6 +1,7 @@
-import { type NextRequest, NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { handleRouteError } from '@/lib/api/responses/error';
+import { createSuccessResponse } from '@/lib/api/responses/success';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
 import { log, sanitizeFilters, SLOW_THRESHOLDS } from '@/lib/logger';
 import { createRBACWorkItemWatchersService } from '@/lib/services/rbac-work-item-watchers-service';
@@ -50,7 +51,7 @@ const getWatchersHandler = async (
       component: 'work-items',
     });
 
-    return NextResponse.json(watchers);
+    return createSuccessResponse(watchers);
   } catch (error) {
     log.error('work item watchers list failed', error, {
       operation: 'list_work_item_watchers',

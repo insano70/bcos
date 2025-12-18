@@ -14,7 +14,7 @@ import { Spinner } from '@/components/ui/spinner';
 import EducationInput from './education-input';
 import ImageUpload from './image-upload';
 import SpecialtiesInput from './specialties-input';
-import Toast from './toast';
+import { useToast } from './toast';
 
 // Form validation schema
 const staffFormSchema = z.object({
@@ -58,9 +58,7 @@ interface StaffMemberFormProps {
 
 export default function StaffMemberForm({ practiceId, staffMember, mode }: StaffMemberFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [toastOpen, setToastOpen] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
-  const [toastType, setToastType] = useState<'success' | 'error'>('success');
+  const { showToast } = useToast();
   const queryClient = useQueryClient();
   const router = useRouter();
   const uid = useId();
@@ -93,12 +91,6 @@ export default function StaffMemberForm({ practiceId, staffMember, mode }: Staff
   const photoUrl = watch('photo_url');
   const specialties = watch('specialties') || [];
   const education = watch('education') || [];
-
-  const showToast = (message: string, type: 'success' | 'error') => {
-    setToastMessage(message);
-    setToastType(type);
-    setToastOpen(true);
-  };
 
   // Reset form when staff member changes
   useEffect(() => {
@@ -148,7 +140,7 @@ export default function StaffMemberForm({ practiceId, staffMember, mode }: Staff
           staffId: staffMember.staff_id,
           data: updateData,
         });
-        showToast('Staff member updated successfully', 'success');
+        showToast({ message: 'Staff member updated successfully', type: 'success' });
       } else {
         await createStaff.mutateAsync({
           practice_id: practiceId,
@@ -162,7 +154,7 @@ export default function StaffMemberForm({ practiceId, staffMember, mode }: Staff
           // display_order will be automatically assigned by the API
           is_active: data.is_active ?? true,
         });
-        showToast('Staff member created successfully', 'success');
+        showToast({ message: 'Staff member created successfully', type: 'success' });
       }
 
       // Refresh staff data
@@ -181,7 +173,7 @@ export default function StaffMemberForm({ practiceId, staffMember, mode }: Staff
         errorMessage = error;
       }
 
-      showToast(`Error saving staff member: ${errorMessage}`, 'error');
+      showToast({ message: `Error saving staff member: ${errorMessage}`, type: 'error' });
     } finally {
       setIsSubmitting(false);
     }
@@ -201,9 +193,8 @@ export default function StaffMemberForm({ practiceId, staffMember, mode }: Staff
   };
 
   return (
-    <>
-      <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl">
-        <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-6">
+    <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl">
+      <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-6">
           {/* Basic Information */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
@@ -336,19 +327,8 @@ export default function StaffMemberForm({ practiceId, staffMember, mode }: Staff
                 'Add Staff Member'
               )}
             </button>
-          </div>
-        </form>
-      </div>
-
-      {/* Toast Notifications */}
-      <Toast
-        type={toastType}
-        open={toastOpen}
-        setOpen={setToastOpen}
-        className="fixed bottom-4 right-4 z-50"
-      >
-        {toastMessage}
-      </Toast>
-    </>
+        </div>
+      </form>
+    </div>
   );
 }

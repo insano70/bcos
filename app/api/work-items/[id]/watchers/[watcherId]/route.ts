@@ -1,6 +1,7 @@
-import { type NextRequest, NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { handleRouteError } from '@/lib/api/responses/error';
+import { createSuccessResponse } from '@/lib/api/responses/success';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
 import { log } from '@/lib/logger';
 import { createRBACWorkItemWatchersService } from '@/lib/services/rbac-work-item-watchers-service';
@@ -49,7 +50,7 @@ const patchWatcherHandler = async (
       duration,
     });
 
-    return NextResponse.json(watcher);
+    return createSuccessResponse(watcher);
   } catch (error) {
     const duration = Date.now() - startTime;
 

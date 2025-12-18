@@ -32,12 +32,7 @@ import { redisAdminService } from '@/lib/monitoring/redis-admin';
 import type { RedisTTLUpdateResult } from '@/lib/monitoring/types';
 import { isRedisAvailable } from '@/lib/redis';
 import type { UserContext } from '@/lib/types/rbac';
-
-interface TTLUpdateRequest {
-  pattern: string;
-  ttl: number; // seconds, -1 to remove expiration
-  preview?: boolean;
-}
+import { redisTTLUpdateSchema } from '@/lib/validations/admin-cache';
 
 const redisTTLHandler = async (request: NextRequest, userContext: UserContext) => {
   const startTime = Date.now();
@@ -48,18 +43,9 @@ const redisTTLHandler = async (request: NextRequest, userContext: UserContext) =
       return createErrorResponse('Redis is not available', 503, request);
     }
 
-    // Parse request body
-    const body = (await request.json()) as TTLUpdateRequest;
-
-    if (!body.pattern || body.pattern.trim().length === 0) {
-      return createErrorResponse('pattern field is required', 400, request);
-    }
-
-    if (typeof body.ttl !== 'number') {
-      return createErrorResponse('ttl field must be a number', 400, request);
-    }
-
-    const { pattern, ttl, preview = false } = body;
+    // Parse and validate request body
+    const body = await request.json();
+    const { pattern, ttl, preview } = redisTTLUpdateSchema.parse(body);
 
     log.info('Redis TTL update initiated', {
       operation: 'redis_update_ttl',

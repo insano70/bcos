@@ -1,10 +1,9 @@
-import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
-import { createErrorResponse, handleRouteError } from '@/lib/api/responses/error';
+import { handleRouteError } from '@/lib/api/responses/error';
+import { AuthValidator } from '@/lib/api/middleware/auth-validation';
 import { authRoute, type AuthSession } from '@/lib/api/route-handlers';
 import { AuditLogger } from '@/lib/api/services/audit';
 import { correlation, log } from '@/lib/logger';
-import { verifyCSRFToken } from '@/lib/security/csrf';
 import {
   getCurrentSessionId,
   revokeAllSessions,
@@ -58,43 +57,27 @@ const logoutHandler = async (request: NextRequest, session?: AuthSession) => {
   const startTime = Date.now();
 
   try {
-    // CSRF PROTECTION: Verify CSRF token before authentication check
-    const isValidCSRF = await verifyCSRFToken(request);
-    if (!isValidCSRF) {
-      return createErrorResponse('CSRF token validation failed', 403, request);
-    }
-
-    // Verify session exists (authRoute ensures authentication)
-    if (!session) {
-      return createErrorResponse('Authentication required', 401, request);
-    }
-
-    // Get refresh token from httpOnly cookie
-    const cookieStore = await cookies();
-    const refreshToken = cookieStore.get('refresh-token')?.value;
-
-    if (!refreshToken) {
-      return createErrorResponse('No active session found', 400, request);
-    }
+    // Validate CSRF, session, and refresh token in one call
+    const { session: validatedSession, refreshToken } = await AuthValidator.requireFullAuth(
+      session,
+      request
+    );
 
     // Extract device info for audit logging
     const { extractRequestMetadata } = await import('@/lib/api/utils/request');
     const metadata = extractRequestMetadata(request);
 
-    // Get current session ID to revoke
-    const sessionId = await getCurrentSessionId(refreshToken, session.user.id);
-
-    if (!sessionId) {
-      return createErrorResponse('Invalid session', 401, request);
-    }
+    // Get current session ID to revoke and validate it exists
+    const rawSessionId = await getCurrentSessionId(refreshToken, validatedSession.user.id);
+    const sessionId = AuthValidator.requireSessionId(rawSessionId, request);
 
     // Revoke the current session using service layer
-    const result = await revokeSession(session.user.id, sessionId, refreshToken);
+    const result = await revokeSession(validatedSession.user.id, sessionId, refreshToken);
 
     // AUDIT LOGGING: Log the logout action
     await AuditLogger.logUserAction({
       action: 'logout',
-      userId: session.user.id,
+      userId: validatedSession.user.id,
       resourceType: 'session',
       resourceId: result.sessionId,
       ipAddress: metadata.ipAddress,
@@ -109,7 +92,7 @@ const logoutHandler = async (request: NextRequest, session?: AuthSession) => {
     log.info('Logout successful - session terminated', {
       operation: 'logout',
       success: true,
-      userId: session.user.id,
+      userId: validatedSession.user.id,
       ipAddress: metadata.ipAddress,
       userAgent: metadata.userAgent,
       deviceName: metadata.deviceName,
@@ -161,36 +144,20 @@ const revokeAllSessionsHandler = async (request: NextRequest, session?: AuthSess
       threat: 'potential_compromise',
     });
 
-    // CSRF PROTECTION: Verify CSRF token before authentication check
-    const isValidCSRF = await verifyCSRFToken(request);
-    if (!isValidCSRF) {
-      return createErrorResponse('CSRF token validation failed', 403, request);
-    }
-
-    // Verify session exists (authRoute ensures authentication)
-    if (!session) {
-      return createErrorResponse('Authentication required', 401, request);
-    }
-
-    // Get refresh token from httpOnly cookie (not strictly needed for revokeAllSessions but validates session)
-    const cookieStore = await cookies();
-    const refreshToken = cookieStore.get('refresh-token')?.value;
-
-    if (!refreshToken) {
-      return createErrorResponse('No active session found', 400, request);
-    }
+    // Validate CSRF, session, and refresh token in one call
+    const { session: validatedSession } = await AuthValidator.requireFullAuth(session, request);
 
     // Extract device info for audit logging
     const { extractRequestMetadata } = await import('@/lib/api/utils/request');
     const metadata = extractRequestMetadata(request);
 
     // Revoke all user sessions using service layer
-    const result = await revokeAllSessions(session.user.id, 'security');
+    const result = await revokeAllSessions(validatedSession.user.id, 'security');
 
     // AUDIT LOGGING: Log the revoke all sessions action
     await AuditLogger.logSecurity({
       action: 'revoke_all_sessions',
-      userId: session.user.id,
+      userId: validatedSession.user.id,
       ipAddress: metadata.ipAddress,
       userAgent: metadata.userAgent,
       metadata: {
@@ -204,7 +171,7 @@ const revokeAllSessionsHandler = async (request: NextRequest, session?: AuthSess
     log.info('Revoke all sessions successful - all devices logged out', {
       operation: 'revoke_all_sessions',
       success: true,
-      userId: session.user.id,
+      userId: validatedSession.user.id,
       ipAddress: metadata.ipAddress,
       userAgent: metadata.userAgent,
       deviceName: metadata.deviceName,

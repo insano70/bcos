@@ -30,7 +30,7 @@ export class ServerPermissionService {
    * Performs the same checks as PermissionChecker but with database lookups for ownership
    */
   async checkPermission(
-    permissionName: string,
+    permissionName: PermissionName,
     resourceId?: string,
     organizationId?: string
   ): Promise<PermissionCheckResult> {
@@ -67,7 +67,7 @@ export class ServerPermissionService {
    * Check if user has permission with database validation
    */
   async hasPermission(
-    permissionName: string,
+    permissionName: PermissionName,
     resourceId?: string,
     organizationId?: string
   ): Promise<boolean> {
@@ -154,7 +154,7 @@ export function createServerPermissionService(
  */
 export async function checkServerPermission(
   userContext: UserContext,
-  permissionName: string,
+  permissionName: PermissionName,
   resourceId?: string,
   organizationId?: string,
   dbInstance: typeof db = db

@@ -7,6 +7,15 @@ import { validateAccessToken } from './tokens';
  * Replaces NextAuth session management with token-based approach
  */
 
+/**
+ * Retrieves the current user from a valid access token
+ *
+ * Validates the access token, extracts the user ID from the payload,
+ * and fetches the full user record from the database.
+ *
+ * @param accessToken - The JWT access token to validate and extract user from
+ * @returns User object with profile data, or null if token is invalid or user not found/inactive
+ */
 export async function getCurrentUserFromToken(accessToken: string) {
   try {
     const payload = await validateAccessToken(accessToken);

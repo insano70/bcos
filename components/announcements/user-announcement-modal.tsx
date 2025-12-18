@@ -1,7 +1,7 @@
 'use client';
 
 import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
-import { useCallback, useEffect, useId, useState } from 'react';
+import { useCallback, useEffect, useId, useReducer } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/spinner';
 
@@ -22,6 +22,115 @@ interface ReadAnnouncement extends Announcement {
 }
 
 type TabType = 'unread' | 'history';
+
+// ============================================================================
+// Modal State Reducer
+// ============================================================================
+
+interface ModalState {
+  activeTab: TabType;
+  announcements: Announcement[];
+  historyAnnouncements: ReadAnnouncement[];
+  loading: boolean;
+  historyLoading: boolean;
+  historyLoaded: boolean;
+  markingRead: string | null;
+  markingAllRead: boolean;
+  error: string | null;
+  historyError: string | null;
+}
+
+type ModalAction =
+  | { type: 'SET_TAB'; tab: TabType }
+  | { type: 'FETCH_START' }
+  | { type: 'FETCH_SUCCESS'; announcements: Announcement[] }
+  | { type: 'FETCH_ERROR'; error: string }
+  | { type: 'HISTORY_FETCH_START' }
+  | { type: 'HISTORY_FETCH_SUCCESS'; announcements: ReadAnnouncement[] }
+  | { type: 'HISTORY_FETCH_ERROR'; error: string }
+  | { type: 'MARK_READ_START'; announcementId: string }
+  | { type: 'MARK_READ_SUCCESS'; announcementId: string }
+  | { type: 'MARK_READ_ERROR'; error: string }
+  | { type: 'MARK_ALL_READ_START' }
+  | { type: 'MARK_ALL_READ_SUCCESS' }
+  | { type: 'MARK_ALL_READ_ERROR'; error: string }
+  | { type: 'RESET_HISTORY' }
+  | { type: 'RESET_ALL' };
+
+const initialState: ModalState = {
+  activeTab: 'unread',
+  announcements: [],
+  historyAnnouncements: [],
+  loading: true,
+  historyLoading: false,
+  historyLoaded: false,
+  markingRead: null,
+  markingAllRead: false,
+  error: null,
+  historyError: null,
+};
+
+function modalReducer(state: ModalState, action: ModalAction): ModalState {
+  switch (action.type) {
+    case 'SET_TAB':
+      return { ...state, activeTab: action.tab };
+    case 'FETCH_START':
+      return { ...state, loading: true, error: null };
+    case 'FETCH_SUCCESS':
+      return { ...state, loading: false, announcements: action.announcements };
+    case 'FETCH_ERROR':
+      return { ...state, loading: false, error: action.error };
+    case 'HISTORY_FETCH_START':
+      return { ...state, historyLoading: true, historyError: null };
+    case 'HISTORY_FETCH_SUCCESS':
+      return {
+        ...state,
+        historyLoading: false,
+        historyLoaded: true,
+        historyAnnouncements: action.announcements,
+      };
+    case 'HISTORY_FETCH_ERROR':
+      return { ...state, historyLoading: false, historyError: action.error };
+    case 'MARK_READ_START':
+      return { ...state, markingRead: action.announcementId, error: null };
+    case 'MARK_READ_SUCCESS':
+      return {
+        ...state,
+        markingRead: null,
+        announcements: state.announcements.filter(
+          (a) => a.announcement_id !== action.announcementId
+        ),
+        historyLoaded: false, // Invalidate history cache
+      };
+    case 'MARK_READ_ERROR':
+      return { ...state, markingRead: null, error: action.error };
+    case 'MARK_ALL_READ_START':
+      return { ...state, markingAllRead: true, error: null };
+    case 'MARK_ALL_READ_SUCCESS':
+      return {
+        ...state,
+        markingAllRead: false,
+        announcements: [],
+        historyLoaded: false, // Invalidate history cache
+      };
+    case 'MARK_ALL_READ_ERROR':
+      return { ...state, markingAllRead: false, error: action.error };
+    case 'RESET_HISTORY':
+      return {
+        ...state,
+        historyLoaded: false,
+        historyAnnouncements: [],
+        historyError: null,
+      };
+    case 'RESET_ALL':
+      return {
+        ...initialState,
+        loading: true,
+      };
+    default:
+      return state;
+  }
+}
 
 interface UserAnnouncementModalProps {
   isOpen: boolean;
@@ -82,35 +191,36 @@ export default function UserAnnouncementModal({
   onClose,
   onCountChange,
 }: UserAnnouncementModalProps) {
-  const [activeTab, setActiveTab] = useState<TabType>('unread');
-  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
-  const [historyAnnouncements, setHistoryAnnouncements] = useState<ReadAnnouncement[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [historyLoading, setHistoryLoading] = useState(false);
-  const [historyLoaded, setHistoryLoaded] = useState(false);
-  const [markingRead, setMarkingRead] = useState<string | null>(null);
-  const [markingAllRead, setMarkingAllRead] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [state, dispatch] = useReducer(modalReducer, initialState);
+  const {
+    activeTab,
+    announcements,
+    historyAnnouncements,
+    loading,
+    historyLoading,
+    historyLoaded,
+    markingRead,
+    markingAllRead,
+    error,
+    historyError,
+  } = state;
+
   const panelIdPrefix = useId();
   const unreadPanelId = `${panelIdPrefix}-unread`;
   const historyPanelId = `${panelIdPrefix}-history`;
 
   const fetchAnnouncements = useCallback(async () => {
     try {
-      setLoading(true);
-      setError(null);
+      dispatch({ type: 'FETCH_START' });
       const response = await apiClient.get<{
         announcements: Announcement[];
         count: number;
       }>('/api/user/announcements');
 
-      setAnnouncements(response.announcements);
+      dispatch({ type: 'FETCH_SUCCESS', announcements: response.announcements });
       onCountChange?.(response.count);
     } catch {
-      setError('Failed to load announcements. Please try again.');
-    } finally {
-      setLoading(false);
+      dispatch({ type: 'FETCH_ERROR', error: 'Failed to load announcements. Please try again.' });
     }
   }, [onCountChange]);
 
@@ -118,19 +228,15 @@ export default function UserAnnouncementModal({
     if (historyLoaded) return; // Only fetch once per modal open
 
     try {
-      setHistoryLoading(true);
-      setHistoryError(null);
+      dispatch({ type: 'HISTORY_FETCH_START' });
       const response = await apiClient.get<{
         announcements: ReadAnnouncement[];
         count: number;
       }>('/api/user/announcements/history');
 
-      setHistoryAnnouncements(response.announcements);
-      setHistoryLoaded(true);
+      dispatch({ type: 'HISTORY_FETCH_SUCCESS', announcements: response.announcements });
     } catch {
-      setHistoryError('Failed to load history. Please try again.');
-    } finally {
-      setHistoryLoading(false);
+      dispatch({ type: 'HISTORY_FETCH_ERROR', error: 'Failed to load history. Please try again.' });
     }
   }, [historyLoaded]);
 
@@ -138,16 +244,14 @@ export default function UserAnnouncementModal({
     if (isOpen) {
       fetchAnnouncements();
       // Reset history state when modal opens
-      setHistoryLoaded(false);
-      setHistoryAnnouncements([]);
-      setHistoryError(null);
-      setActiveTab('unread');
+      dispatch({ type: 'RESET_HISTORY' });
+      dispatch({ type: 'SET_TAB', tab: 'unread' });
     }
   }, [isOpen, fetchAnnouncements]);
 
   // Lazy load history when tab is clicked
   const handleTabChange = (tab: TabType) => {
-    setActiveTab(tab);
+    dispatch({ type: 'SET_TAB', tab });
     if (tab === 'history' && !historyLoaded) {
       fetchHistory();
     }
@@ -155,41 +259,26 @@ export default function UserAnnouncementModal({
 
   const handleMarkAsRead = async (announcementId: string) => {
     try {
-      setMarkingRead(announcementId);
-      setError(null);
+      dispatch({ type: 'MARK_READ_START', announcementId });
       await apiClient.post(`/api/user/announcements/${announcementId}/read`, {});
 
-      // Remove from unread list
-      setAnnouncements((prev) => prev.filter((a) => a.announcement_id !== announcementId));
+      dispatch({ type: 'MARK_READ_SUCCESS', announcementId });
       onCountChange?.(announcements.length - 1);
-
-      // Invalidate history cache so it refreshes on next view
-      setHistoryLoaded(false);
     } catch {
-      setError('Failed to mark announcement as read. Please try again.');
-    } finally {
-      setMarkingRead(null);
+      dispatch({ type: 'MARK_READ_ERROR', error: 'Failed to mark announcement as read. Please try again.' });
     }
   };
 
   const handleMarkAllAsRead = async () => {
     try {
-      setMarkingAllRead(true);
-      setError(null);
+      dispatch({ type: 'MARK_ALL_READ_START' });
       await apiClient.post('/api/user/announcements/read-all', {});
 
-      // Clear unread list
-      setAnnouncements([]);
+      dispatch({ type: 'MARK_ALL_READ_SUCCESS' });
       onCountChange?.(0);
-
-      // Invalidate history cache
-      setHistoryLoaded(false);
-
       onClose();
     } catch {
-      setError('Failed to mark all as read. Please try again.');
-    } finally {
-      setMarkingAllRead(false);
+      dispatch({ type: 'MARK_ALL_READ_ERROR', error: 'Failed to mark all as read. Please try again.' });
     }
   };
 
@@ -419,8 +508,7 @@ export default function UserAnnouncementModal({
                     <button
                       type="button"
                       onClick={() => {
-                        setHistoryLoaded(false);
-                        setHistoryError(null);
+                        dispatch({ type: 'RESET_HISTORY' });
                         fetchHistory();
                       }}
                       className="mt-4 px-4 py-2 text-sm font-medium text-violet-600 hover:text-violet-700 bg-violet-100 hover:bg-violet-200 dark:bg-violet-900/30 dark:hover:bg-violet-900/50 rounded-lg transition-colors"

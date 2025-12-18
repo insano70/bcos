@@ -1,7 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useReducer, useEffect, useMemo, useCallback } from 'react';
 import EditableTableRow from './editable-table-row';
 import DeleteConfirmationModal from './delete-confirmation-modal';
 import { usePagination } from '@/lib/hooks/use-pagination';
@@ -13,6 +13,136 @@ import { DataTableToolbar } from './data-table/data-table-toolbar';
 import type { DataTableBulkAction, DataTableColumn } from './data-table/types';
 import { DEFAULT_EDITABLE_ITEMS_PER_PAGE } from './data-table/utils';
 import { useBulkActionModal } from './data-table/use-bulk-action-modal';
+
+// ============================================================================
+// Table State Reducer
+// ============================================================================
+
+interface TableState<T> {
+  editingRows: Set<string>;
+  savingRows: Set<string>;
+  unsavedChanges: Map<string, Partial<T>>;
+  validationErrors: Map<string, Record<string, string>>;
+  expandedRows: Set<string>;
+  selectedRows: Set<string>;
+  isQuickAdding: boolean;
+  deleteModal: {
+    isOpen: boolean;
+    item: T | null;
+  };
+}
+
+type TableAction<T> =
+  | { type: 'ENTER_EDIT_MODE'; rowId: string; autoExpand: boolean; singleEdit: boolean }
+  | { type: 'EXIT_EDIT_MODE'; rowId: string }
+  | { type: 'START_SAVING'; rowId: string }
+  | { type: 'STOP_SAVING'; rowId: string }
+  | { type: 'UPDATE_FIELD'; rowId: string; key: string; value: unknown }
+  | { type: 'SET_VALIDATION_ERRORS'; rowId: string; errors: Record<string, string> }
+  | { type: 'TOGGLE_EXPANSION'; rowId: string }
+  | { type: 'SELECT_ROW'; rowId: string }
+  | { type: 'DESELECT_ROW'; rowId: string }
+  | { type: 'SELECT_ALL'; rowIds: string[] }
+  | { type: 'DESELECT_ALL' }
+  | { type: 'SET_QUICK_ADDING'; isQuickAdding: boolean }
+  | { type: 'OPEN_DELETE_MODAL'; item: T }
+  | { type: 'CLOSE_DELETE_MODAL' };
+
+function createInitialState<T>(): TableState<T> {
+  return {
+    editingRows: new Set(),
+    savingRows: new Set(),
+    unsavedChanges: new Map(),
+    validationErrors: new Map(),
+    expandedRows: new Set(),
+    selectedRows: new Set(),
+    isQuickAdding: false,
+    deleteModal: { isOpen: false, item: null },
+  };
+}
+
+function tableReducer<T>(state: TableState<T>, action: TableAction<T>): TableState<T> {
+  switch (action.type) {
+    case 'ENTER_EDIT_MODE': {
+      const newEditingRows = action.singleEdit
+        ? new Set([action.rowId])
+        : new Set(state.editingRows).add(action.rowId);
+      const newExpandedRows = action.autoExpand
+        ? new Set(state.expandedRows).add(action.rowId)
+        : state.expandedRows;
+      return { ...state, editingRows: newEditingRows, expandedRows: newExpandedRows };
+    }
+    case 'EXIT_EDIT_MODE': {
+      const newEditingRows = new Set(state.editingRows);
+      newEditingRows.delete(action.rowId);
+      const newUnsavedChanges = new Map(state.unsavedChanges);
+      newUnsavedChanges.delete(action.rowId);
+      const newValidationErrors = new Map(state.validationErrors);
+      newValidationErrors.delete(action.rowId);
+      return {
+        ...state,
+        editingRows: newEditingRows,
+        unsavedChanges: newUnsavedChanges,
+        validationErrors: newValidationErrors,
+      };
+    }
+    case 'START_SAVING': {
+      const newSavingRows = new Set(state.savingRows).add(action.rowId);
+      return { ...state, savingRows: newSavingRows };
+    }
+    case 'STOP_SAVING': {
+      const newSavingRows = new Set(state.savingRows);
+      newSavingRows.delete(action.rowId);
+      return { ...state, savingRows: newSavingRows };
+    }
+    case 'UPDATE_FIELD': {
+      const newUnsavedChanges = new Map(state.unsavedChanges);
+      const rowChanges = newUnsavedChanges.get(action.rowId) || {};
+      newUnsavedChanges.set(action.rowId, { ...rowChanges, [action.key]: action.value });
+      return { ...state, unsavedChanges: newUnsavedChanges };
+    }
+    case 'SET_VALIDATION_ERRORS': {
+      const newValidationErrors = new Map(state.validationErrors);
+      newValidationErrors.set(action.rowId, action.errors);
+      return { ...state, validationErrors: newValidationErrors };
+    }
+    case 'TOGGLE_EXPANSION': {
+      const newExpandedRows = new Set(state.expandedRows);
+      if (newExpandedRows.has(action.rowId)) {
+        newExpandedRows.delete(action.rowId);
+      } else {
+        newExpandedRows.add(action.rowId);
+      }
+      return { ...state, expandedRows: newExpandedRows };
+    }
+    case 'SELECT_ROW': {
+      const newSelectedRows = new Set(state.selectedRows).add(action.rowId);
+      return { ...state, selectedRows: newSelectedRows };
+    }
+    case 'DESELECT_ROW': {
+      const newSelectedRows = new Set(state.selectedRows);
+      newSelectedRows.delete(action.rowId);
+      return { ...state, selectedRows: newSelectedRows };
+    }
+    case 'SELECT_ALL': {
+      return { ...state, selectedRows: new Set(action.rowIds) };
+    }
+    case 'DESELECT_ALL': {
+      return { ...state, selectedRows: new Set() };
+    }
+    case 'SET_QUICK_ADDING': {
+      return { ...state, isQuickAdding: action.isQuickAdding };
+    }
+    case 'OPEN_DELETE_MODAL': {
+      return { ...state, deleteModal: { isOpen: true, item: action.item } };
+    }
+    case 'CLOSE_DELETE_MODAL': {
+      return { ...state, deleteModal: { isOpen: false, item: null } };
+    }
+    default:
+      return state;
+  }
+}
 
 /**
  * Delay in milliseconds before entering edit mode after quick-add.
@@ -121,9 +251,12 @@ export default function EditableDataTable<T extends { id: string }>({
   savingRows: externalSavingRows,
   errorRows: _externalErrorRows,
 }: EditableDataTableProps<T>) {
-  // Internal state for edit mode tracking
-  const [internalEditingRows, setInternalEditingRows] = useState<Set<string>>(new Set());
-  const [internalSavingRows, setInternalSavingRows] = useState<Set<string>>(new Set());
+  // Consolidated table state management
+  const [state, dispatch] = useReducer(
+    tableReducer<T>,
+    undefined,
+    createInitialState<T>
+  );
 
   // Sorting (applied before pagination)
   const { sortedData, handleSort, getSortIcon, sortConfig } = useTableSort(data);
@@ -146,22 +279,9 @@ export default function EditableDataTable<T extends { id: string }>({
     : (sortable ? sortedData : data);
 
   // Use external state if provided, otherwise use internal state
-  const editingRows = externalEditingRows ?? internalEditingRows;
-  const savingRows = externalSavingRows ?? internalSavingRows;
-
-  // Unsaved changes tracking
-  const [unsavedChanges, setUnsavedChanges] = useState<Map<string, Partial<T>>>(new Map());
-
-  // Validation errors tracking
-  const [validationErrors, setValidationErrors] = useState<Map<string, Record<string, string>>>(
-    new Map()
-  );
-
-  // Expanded rows tracking
-  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
-
-  // Selected rows for bulk actions
-  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
+  const editingRows = externalEditingRows ?? state.editingRows;
+  const savingRows = externalSavingRows ?? state.savingRows;
+  const { unsavedChanges, validationErrors, expandedRows, selectedRows } = state;
 
   // Warn user about unsaved changes before navigating away
   useEffect(() => {
@@ -197,36 +317,20 @@ export default function EditableDataTable<T extends { id: string }>({
   // Handler: Select all toggle
   const handleSelectAllChange = useCallback((checked: boolean) => {
     if (checked) {
-      setSelectedRows(new Set(data.map((item) => item.id)));
+      dispatch({ type: 'SELECT_ALL', rowIds: data.map((item) => item.id) });
     } else {
-      setSelectedRows(new Set());
+      dispatch({ type: 'DESELECT_ALL' });
     }
   }, [data]);
 
   // Handler: Individual row selection
   const handleRowSelect = useCallback((rowId: string, checked: boolean) => {
-    setSelectedRows((prev) => {
-      const next = new Set(prev);
-      if (checked) {
-        next.add(rowId);
-      } else {
-        next.delete(rowId);
-      }
-      return next;
-    });
+    dispatch({ type: checked ? 'SELECT_ROW' : 'DESELECT_ROW', rowId });
   }, []);
 
   // Handler: Toggle row expansion
   const toggleRowExpansion = useCallback((rowId: string) => {
-    setExpandedRows((prev) => {
-      const next = new Set(prev);
-      if (next.has(rowId)) {
-        next.delete(rowId);
-      } else {
-        next.add(rowId);
-      }
-      return next;
-    });
+    dispatch({ type: 'TOGGLE_EXPANSION', rowId });
   }, []);
 
   // Get selected items for bulk actions (memoized to prevent recalculation on every render)
@@ -235,12 +339,8 @@ export default function EditableDataTable<T extends { id: string }>({
     [data, selectedRows]
   );
 
-  // Quick-add state
-  const [isQuickAdding, setIsQuickAdding] = useState(false);
-
-  // Delete confirmation modal state
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [pendingDeleteItem, setPendingDeleteItem] = useState<T | null>(null);
+  // State from reducer for quick-add and delete modal
+  const { isQuickAdding, deleteModal } = state;
 
   // Bulk action confirmation modal hook
   const { handleBulkAction, BulkActionModal } = useBulkActionModal({
@@ -252,7 +352,7 @@ export default function EditableDataTable<T extends { id: string }>({
   const handleQuickAdd = async () => {
     if (!onQuickAdd) return;
 
-    setIsQuickAdding(true);
+    dispatch({ type: 'SET_QUICK_ADDING', isQuickAdding: true });
     try {
       const newItemId = await onQuickAdd();
 
@@ -265,7 +365,7 @@ export default function EditableDataTable<T extends { id: string }>({
     } catch (error) {
       clientErrorLog('Quick add failed', error);
     } finally {
-      setIsQuickAdding(false);
+      dispatch({ type: 'SET_QUICK_ADDING', isQuickAdding: false });
     }
   };
 
@@ -276,24 +376,11 @@ export default function EditableDataTable<T extends { id: string }>({
    */
   const enterEditMode = useCallback((rowId: string) => {
     if (!externalEditingRows) {
-      setInternalEditingRows((prev) => {
-        // If allowMultiEdit is false, clear other editing rows
-        if (!allowMultiEdit) {
-          // Auto-save other rows if needed (future enhancement)
-          return new Set([rowId]);
-        }
-        const next = new Set(prev);
-        next.add(rowId);
-        return next;
-      });
-    }
-
-    // Auto-expand row when entering edit mode (if expandable content exists)
-    if (expandable) {
-      setExpandedRows((prev) => {
-        const next = new Set(prev);
-        next.add(rowId);
-        return next;
+      dispatch({
+        type: 'ENTER_EDIT_MODE',
+        rowId,
+        autoExpand: !!expandable,
+        singleEdit: !allowMultiEdit,
       });
     }
   }, [externalEditingRows, allowMultiEdit, expandable]);
@@ -304,24 +391,8 @@ export default function EditableDataTable<T extends { id: string }>({
    */
   const exitEditMode = useCallback((rowId: string) => {
     if (!externalEditingRows) {
-      setInternalEditingRows((prev) => {
-        const next = new Set(prev);
-        next.delete(rowId);
-        return next;
-      });
+      dispatch({ type: 'EXIT_EDIT_MODE', rowId });
     }
-    // Clear unsaved changes for this row
-    setUnsavedChanges((prev) => {
-      const next = new Map(prev);
-      next.delete(rowId);
-      return next;
-    });
-    // Clear validation errors for this row
-    setValidationErrors((prev) => {
-      const next = new Map(prev);
-      next.delete(rowId);
-      return next;
-    });
   }, [externalEditingRows]);
 
   /**
@@ -331,12 +402,7 @@ export default function EditableDataTable<T extends { id: string }>({
    * @param value - The new value for the field
    */
   const handleFieldChange = useCallback((rowId: string, fieldKey: keyof T, value: unknown) => {
-    setUnsavedChanges((prev) => {
-      const next = new Map(prev);
-      const rowChanges = next.get(rowId) || {};
-      next.set(rowId, { ...rowChanges, [fieldKey]: value });
-      return next;
-    });
+    dispatch({ type: 'UPDATE_FIELD', rowId, key: String(fieldKey), value });
   }, []);
 
   /**
@@ -393,24 +459,13 @@ export default function EditableDataTable<T extends { id: string }>({
     // Validate
     const errors = validateRow(item, changes);
     if (Object.keys(errors).length > 0) {
-      setValidationErrors((prev) => new Map(prev).set(rowId, errors));
+      dispatch({ type: 'SET_VALIDATION_ERRORS', rowId, errors });
       return;
     }
 
-    // Clear validation errors
-    setValidationErrors((prev) => {
-      const next = new Map(prev);
-      next.delete(rowId);
-      return next;
-    });
-
     // Set saving state
     if (!externalSavingRows) {
-      setInternalSavingRows((prev) => {
-        const next = new Set(prev);
-        next.add(rowId);
-        return next;
-      });
+      dispatch({ type: 'START_SAVING', rowId });
     }
 
     try {
@@ -429,7 +484,7 @@ export default function EditableDataTable<T extends { id: string }>({
         for (const [fieldId, errorMsg] of Object.entries(validationError.validationErrors)) {
           customFieldErrors[`custom_fields.${fieldId}`] = errorMsg;
         }
-        setValidationErrors((prev) => new Map(prev).set(rowId, customFieldErrors));
+        dispatch({ type: 'SET_VALIDATION_ERRORS', rowId, errors: customFieldErrors });
       } else {
         // System error - log to client error handler
         clientErrorLog('Save failed', error);
@@ -438,11 +493,7 @@ export default function EditableDataTable<T extends { id: string }>({
     } finally {
       // Clear saving state
       if (!externalSavingRows) {
-        setInternalSavingRows((prev) => {
-          const next = new Set(prev);
-          next.delete(rowId);
-          return next;
-        });
+        dispatch({ type: 'STOP_SAVING', rowId });
       }
     }
   }, [data, unsavedChanges, validateRow, externalSavingRows, onSave, exitEditMode]);
@@ -468,24 +519,23 @@ export default function EditableDataTable<T extends { id: string }>({
     const item = data.find((d) => d.id === rowId);
     if (!item) return;
 
-    setPendingDeleteItem(item);
-    setDeleteModalOpen(true);
+    dispatch({ type: 'OPEN_DELETE_MODAL', item });
   }, [data]);
 
   /**
    * Confirms and executes the pending delete action.
    */
   const confirmDelete = useCallback(async () => {
-    if (!pendingDeleteItem) return;
+    if (!deleteModal.item) return;
 
     try {
-      await onDelete?.(pendingDeleteItem);
+      await onDelete?.(deleteModal.item);
     } catch (error) {
       clientErrorLog('Delete failed', error);
     } finally {
-      setPendingDeleteItem(null);
+      dispatch({ type: 'CLOSE_DELETE_MODAL' });
     }
-  }, [pendingDeleteItem, onDelete]);
+  }, [deleteModal.item, onDelete]);
 
   return (
     <>
@@ -568,22 +618,21 @@ export default function EditableDataTable<T extends { id: string }>({
       {BulkActionModal}
 
       {/* Delete confirmation modal */}
-      {pendingDeleteItem && (
+      {deleteModal.item && (
         <DeleteConfirmationModal
-          isOpen={deleteModalOpen}
+          isOpen={deleteModal.isOpen}
           setIsOpen={(open) => {
-            setDeleteModalOpen(open);
             if (!open) {
-              setPendingDeleteItem(null);
+              dispatch({ type: 'CLOSE_DELETE_MODAL' });
             }
           }}
           title="Delete Item"
           itemName={
-            'subject' in pendingDeleteItem
-              ? String(pendingDeleteItem.subject)
-              : 'name' in pendingDeleteItem
-                ? String(pendingDeleteItem.name)
-                : pendingDeleteItem.id
+            'subject' in deleteModal.item
+              ? String(deleteModal.item.subject)
+              : 'name' in deleteModal.item
+                ? String(deleteModal.item.name)
+                : deleteModal.item.id
           }
           message="This action cannot be undone. The item and all associated data will be permanently removed."
           confirmButtonText="Delete"

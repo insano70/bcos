@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { rbacRoute } from '@/lib/api/route-handlers';
+import { createSuccessResponse } from '@/lib/api/responses/success';
 import { log } from '@/lib/logger';
 import { createBulkUserImportService } from '@/lib/services/bulk-user-import-service';
 import type { UserContext } from '@/lib/types/rbac';
@@ -89,14 +90,11 @@ const validateHandler = async (request: NextRequest, userContext: UserContext) =
       },
     });
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        valid_count: validCount,
-        invalid_count: invalidCount,
-        total_count: validatedRows.length,
-        rows: validatedRows,
-      },
+    return createSuccessResponse({
+      valid_count: validCount,
+      invalid_count: invalidCount,
+      total_count: validatedRows.length,
+      rows: validatedRows,
     });
   } catch (error) {
     log.error('bulk import validation failed', error, {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState, useEffect } from 'react';
+import { useCallback, useReducer, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { FormLabel } from '@/components/ui/form-label';
 import { Spinner } from '@/components/ui/spinner';
@@ -21,6 +21,99 @@ interface AttachmentFieldRendererProps {
   value: { attachment_ids?: string[] } | undefined;
   onChange: (value: { attachment_ids: string[] }) => void;
   error?: string | undefined;
+}
+
+// ============================================================================
+// Attachment State Reducer
+// ============================================================================
+
+interface AttachmentState {
+  uploadProgress: boolean;
+  uploadPercentage: number;
+  uploadingFileName: string | null;
+  uploadError: string | null;
+  deleteModalOpen: boolean;
+  attachmentToDelete: string | null;
+  isDragging: boolean;
+  thumbnailUrls: Record<string, string>;
+}
+
+type AttachmentAction =
+  | { type: 'UPLOAD_START'; fileName: string }
+  | { type: 'UPLOAD_PROGRESS'; percentage: number }
+  | { type: 'UPLOAD_SUCCESS' }
+  | { type: 'UPLOAD_ERROR'; error: string }
+  | { type: 'UPLOAD_RESET' }
+  | { type: 'OPEN_DELETE_MODAL'; attachmentId: string }
+  | { type: 'CLOSE_DELETE_MODAL' }
+  | { type: 'SET_DRAGGING'; isDragging: boolean }
+  | { type: 'SET_THUMBNAIL_URL'; attachmentId: string; url: string };
+
+const initialState: AttachmentState = {
+  uploadProgress: false,
+  uploadPercentage: 0,
+  uploadingFileName: null,
+  uploadError: null,
+  deleteModalOpen: false,
+  attachmentToDelete: null,
+  isDragging: false,
+  thumbnailUrls: {},
+};
+
+function attachmentReducer(state: AttachmentState, action: AttachmentAction): AttachmentState {
+  switch (action.type) {
+    case 'UPLOAD_START':
+      return {
+        ...state,
+        uploadProgress: true,
+        uploadPercentage: 0,
+        uploadingFileName: action.fileName,
+        uploadError: null,
+      };
+    case 'UPLOAD_PROGRESS':
+      return { ...state, uploadPercentage: action.percentage };
+    case 'UPLOAD_SUCCESS':
+      return { ...state, uploadPercentage: 100 };
+    case 'UPLOAD_ERROR':
+      return {
+        ...state,
+        uploadProgress: false,
+        uploadPercentage: 0,
+        uploadingFileName: null,
+        uploadError: action.error,
+      };
+    case 'UPLOAD_RESET':
+      return {
+        ...state,
+        uploadProgress: false,
+        uploadPercentage: 0,
+        uploadingFileName: null,
+      };
+    case 'OPEN_DELETE_MODAL':
+      return {
+        ...state,
+        deleteModalOpen: true,
+        attachmentToDelete: action.attachmentId,
+      };
+    case 'CLOSE_DELETE_MODAL':
+      return {
+        ...state,
+        deleteModalOpen: false,
+        attachmentToDelete: null,
+      };
+    case 'SET_DRAGGING':
+      return { ...state, isDragging: action.isDragging };
+    case 'SET_THUMBNAIL_URL':
+      return {
+        ...state,
+        thumbnailUrls: {
+          ...state.thumbnailUrls,
+          [action.attachmentId]: action.url,
+        },
+      };
+    default:
+      return state;
+  }
 }
 
 /**
@@ -135,15 +228,18 @@ export default function AttachmentFieldRenderer({
   const downloadMutation = useFieldAttachmentDownloadUrl();
   const thumbnailMutation = useFieldAttachmentThumbnailUrl();
 
-  // State
-  const [uploadProgress, setUploadProgress] = useState(false);
-  const [uploadPercentage, setUploadPercentage] = useState(0);
-  const [uploadingFileName, setUploadingFileName] = useState<string | null>(null);
-  const [uploadError, setUploadError] = useState<string | null>(null);
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [attachmentToDelete, setAttachmentToDelete] = useState<string | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const [thumbnailUrls, setThumbnailUrls] = useState<Record<string, string>>({});
+  // Consolidated state management
+  const [state, dispatch] = useReducer(attachmentReducer, initialState);
+  const {
+    uploadProgress,
+    uploadPercentage,
+    uploadingFileName,
+    uploadError,
+    deleteModalOpen,
+    attachmentToDelete,
+    isDragging,
+    thumbnailUrls,
+  } = state;
 
   // Max files configuration
   const maxFiles = field.field_config?.attachment_config?.max_files ?? 1;
@@ -162,10 +258,11 @@ export default function AttachmentFieldRenderer({
               attachmentId: attachment.work_item_attachment_id,
             });
             if (url) {
-              setThumbnailUrls((prev) => ({
-                ...prev,
-                [attachment.work_item_attachment_id]: url,
-              }));
+              dispatch({
+                type: 'SET_THUMBNAIL_URL',
+                attachmentId: attachment.work_item_attachment_id,
+                url,
+              });
             }
           } catch {
             // Silently fail - thumbnails are optional
@@ -182,10 +279,10 @@ export default function AttachmentFieldRenderer({
   // File upload handler
   const handleFileSelect = useCallback(
     async (file: File) => {
-      setUploadError(null);
-      setUploadProgress(true);
-      setUploadPercentage(0);
-      setUploadingFileName(file.name);
+      dispatch({ type: 'UPLOAD_START', fileName: file.name });
+
+      // Track current progress for the interval
+      let currentProgress = 0;
 
       try {
         // Validate file size (100MB)
@@ -196,13 +293,12 @@ export default function AttachmentFieldRenderer({
 
         // Simulate progress (since we don't have real upload progress tracking yet)
         const progressInterval = setInterval(() => {
-          setUploadPercentage((prev) => {
-            if (prev >= 90) {
-              clearInterval(progressInterval);
-              return 90;
-            }
-            return prev + 10;
-          });
+          if (currentProgress >= 90) {
+            clearInterval(progressInterval);
+            return;
+          }
+          currentProgress += 10;
+          dispatch({ type: 'UPLOAD_PROGRESS', percentage: currentProgress });
         }, 200);
 
         // Upload file
@@ -213,7 +309,7 @@ export default function AttachmentFieldRenderer({
         });
 
         clearInterval(progressInterval);
-        setUploadPercentage(100);
+        dispatch({ type: 'UPLOAD_SUCCESS' });
 
         // Update field value with new attachment ID
         const updatedIds = [...attachmentIds, newAttachment.work_item_attachment_id];
@@ -221,15 +317,13 @@ export default function AttachmentFieldRenderer({
 
         // Brief delay to show 100% before clearing
         setTimeout(() => {
-          setUploadProgress(false);
-          setUploadPercentage(0);
-          setUploadingFileName(null);
+          dispatch({ type: 'UPLOAD_RESET' });
         }, 500);
       } catch (err) {
-        setUploadError(err instanceof Error ? err.message : 'Upload failed');
-        setUploadProgress(false);
-        setUploadPercentage(0);
-        setUploadingFileName(null);
+        dispatch({
+          type: 'UPLOAD_ERROR',
+          error: err instanceof Error ? err.message : 'Upload failed',
+        });
       }
     },
     [workItemId, fieldId, attachmentIds, onChange, uploadMutation]
@@ -248,17 +342,17 @@ export default function AttachmentFieldRenderer({
   // Drag and drop handlers
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
-    setIsDragging(true);
+    dispatch({ type: 'SET_DRAGGING', isDragging: true });
   };
 
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
-    setIsDragging(false);
+    dispatch({ type: 'SET_DRAGGING', isDragging: false });
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
-    setIsDragging(false);
+    dispatch({ type: 'SET_DRAGGING', isDragging: false });
 
     const file = e.dataTransfer.files[0];
     if (file) {
@@ -297,8 +391,7 @@ export default function AttachmentFieldRenderer({
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Delete failed');
     } finally {
-      setDeleteModalOpen(false);
-      setAttachmentToDelete(null);
+      dispatch({ type: 'CLOSE_DELETE_MODAL' });
     }
   };
 
@@ -490,8 +583,10 @@ export default function AttachmentFieldRenderer({
                 <button
                   type="button"
                   onClick={() => {
-                    setAttachmentToDelete(attachment.work_item_attachment_id);
-                    setDeleteModalOpen(true);
+                    dispatch({
+                      type: 'OPEN_DELETE_MODAL',
+                      attachmentId: attachment.work_item_attachment_id,
+                    });
                   }}
                   className="px-3 py-1 text-sm text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 font-medium hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
                   disabled={deleteMutation.isPending}
@@ -527,7 +622,11 @@ export default function AttachmentFieldRenderer({
       {attachmentToDelete && (
         <DeleteConfirmationModal
           isOpen={deleteModalOpen}
-          setIsOpen={setDeleteModalOpen}
+          setIsOpen={(open) => {
+            if (!open) {
+              dispatch({ type: 'CLOSE_DELETE_MODAL' });
+            }
+          }}
           title="Delete Attachment"
           itemName={
             attachments.find((a) => a.work_item_attachment_id === attachmentToDelete)?.file_name || 'this attachment'

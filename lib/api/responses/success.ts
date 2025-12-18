@@ -16,7 +16,8 @@ export interface SuccessResponse<T = unknown> {
 export function createSuccessResponse<T>(
   data: T,
   message?: string,
-  meta?: Partial<SuccessResponse<T>['meta']>
+  meta?: Partial<SuccessResponse<T>['meta']>,
+  status = 200
 ): Response {
   const response: SuccessResponse<T> = {
     success: true,
@@ -28,7 +29,7 @@ export function createSuccessResponse<T>(
     },
   };
 
-  return Response.json(response);
+  return Response.json(response, { status });
 }
 
 export function createPaginatedResponse<T>(

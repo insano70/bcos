@@ -1,8 +1,7 @@
-import { eq } from 'drizzle-orm';
 import { type JWTPayload, jwtVerify } from 'jose';
-import { db, token_blacklist } from '@/lib/db';
 import { ACCESS_TOKEN_SECRET, REFRESH_TOKEN_SECRET } from '@/lib/auth/jwt-secrets';
 import { log } from '@/lib/logger';
+import { isTokenBlacklisted } from './tokens/internal/blacklist-manager';
 
 /**
  * Token Verification Service
@@ -35,13 +34,9 @@ export async function verifyAccessToken(token: string): Promise<TokenPayload | n
   try {
     const { payload } = await jwtVerify(token, ACCESS_TOKEN_SECRET);
 
-    // Check if token is blacklisted
+    // Check if token is blacklisted (cache-first for performance)
     const jti = payload.jti as string;
-    const [blacklisted] = await db
-      .select()
-      .from(token_blacklist)
-      .where(eq(token_blacklist.jti, jti))
-      .limit(1);
+    const blacklisted = await isTokenBlacklisted(jti);
 
     if (blacklisted) {
       log.security('blacklisted_access_token_used', 'high', { jti });
@@ -76,13 +71,9 @@ export async function verifyRefreshToken(token: string): Promise<TokenPayload | 
   try {
     const { payload } = await jwtVerify(token, REFRESH_TOKEN_SECRET);
 
-    // Check if token is blacklisted
+    // Check if token is blacklisted (cache-first for performance)
     const jti = payload.jti as string;
-    const [blacklisted] = await db
-      .select()
-      .from(token_blacklist)
-      .where(eq(token_blacklist.jti, jti))
-      .limit(1);
+    const blacklisted = await isTokenBlacklisted(jti);
 
     if (blacklisted) {
       log.security('blacklisted_refresh_token_used', 'high', { jti });

@@ -73,15 +73,81 @@ export interface ErrorResponsePayload {
 // =============================================================================
 
 /**
- * Standard API error codes
+ * Standard API error codes used across all error responses.
+ *
+ * Error codes are categorized by HTTP status code range:
+ *
+ * ## Authentication Errors (401)
+ * These errors indicate the user needs to authenticate or re-authenticate.
+ *
+ * | Code | Description | When to Use |
+ * |------|-------------|-------------|
+ * | `AUTHENTICATION_REQUIRED` | No valid credentials provided | Missing or malformed auth token/header |
+ * | `INVALID_CREDENTIALS` | Credentials failed validation | Wrong email/password, failed login |
+ * | `TOKEN_EXPIRED` | Auth token has expired | Access/refresh token past expiration |
+ * | `TOKEN_INVALID` | Token is malformed or revoked | Invalid signature, tampered token, revoked session |
+ *
+ * ## Authorization Errors (403)
+ * User is authenticated but not authorized for the requested action.
+ *
+ * | Code | Description | When to Use |
+ * |------|-------------|-------------|
+ * | `INSUFFICIENT_PERMISSIONS` | Missing required permission | User lacks specific RBAC permission |
+ * | `FORBIDDEN` | Access denied regardless of permissions | Resource-level restriction, org boundary |
+ *
+ * ## Client Errors (400, 404, 409, 413, 415, 429)
+ * Errors caused by invalid client requests.
+ *
+ * | Code | HTTP | Description | When to Use |
+ * |------|------|-------------|-------------|
+ * | `VALIDATION_ERROR` | 400 | Request data failed validation | Zod schema failure, invalid format |
+ * | `RESOURCE_NOT_FOUND` | 404 | Requested resource doesn't exist | User/org/item not found |
+ * | `RESOURCE_CONFLICT` | 409 | Conflict with existing data | Duplicate email, optimistic lock failure |
+ * | `RESOURCE_LOCKED` | 409 | Resource is temporarily locked | Concurrent edit, processing in progress |
+ * | `RATE_LIMIT_EXCEEDED` | 429 | Too many requests | Rate limit threshold exceeded |
+ * | `PAYLOAD_TOO_LARGE` | 413 | Request body exceeds limit | File upload too large |
+ * | `UNSUPPORTED_MEDIA_TYPE` | 415 | Invalid content type | Wrong file type, unsupported format |
+ *
+ * ## Server Errors (500, 502, 503)
+ * Internal errors that are not the client's fault.
+ *
+ * | Code | HTTP | Description | When to Use |
+ * |------|------|-------------|-------------|
+ * | `INTERNAL_ERROR` | 500 | Unexpected server error | Unhandled exception, programming error |
+ * | `DATABASE_ERROR` | 500 | Database operation failed | Query failure, connection error |
+ * | `EXTERNAL_SERVICE_ERROR` | 502 | Third-party service failed | AWS, SAML provider, external API error |
+ * | `SERVICE_UNAVAILABLE` | 503 | Service temporarily unavailable | Maintenance mode, overloaded |
+ *
+ * ## Usage Examples
+ *
+ * ```typescript
+ * // Throwing domain errors (lib/errors/domain-errors.ts)
+ * throw new AuthenticationRequiredError('Please log in');
+ * throw new PermissionDeniedError('Cannot access admin panel', 'admin:access');
+ * throw new NotFoundError('User', userId);
+ *
+ * // Factory functions for responses (lib/api/responses/error.ts)
+ * return createErrorResponse(AuthenticationError('Session expired'), 401, request);
+ * return createErrorResponse(NotFoundError('Practice'), 404, request);
+ *
+ * // Using handleRouteError for automatic status detection
+ * return handleRouteError(error, 'Failed to fetch user', request);
+ * ```
+ *
+ * @see {@link lib/errors/domain-errors.ts} - Rich domain error classes with these codes
+ * @see {@link lib/errors/api-errors.ts} - Simple error classes for throwing
+ * @see {@link lib/api/responses/error.ts} - Factory functions for HTTP responses
  */
 export type ErrorCode =
+  // Authentication (401)
   | 'AUTHENTICATION_REQUIRED'
   | 'INVALID_CREDENTIALS'
   | 'TOKEN_EXPIRED'
   | 'TOKEN_INVALID'
+  // Authorization (403)
   | 'INSUFFICIENT_PERMISSIONS'
   | 'FORBIDDEN'
+  // Client Errors (400, 404, 409, 413, 415, 429)
   | 'VALIDATION_ERROR'
   | 'RESOURCE_NOT_FOUND'
   | 'RESOURCE_CONFLICT'
@@ -89,10 +155,11 @@ export type ErrorCode =
   | 'RATE_LIMIT_EXCEEDED'
   | 'PAYLOAD_TOO_LARGE'
   | 'UNSUPPORTED_MEDIA_TYPE'
+  // Server Errors (500, 502, 503)
   | 'INTERNAL_ERROR'
-  | 'SERVICE_UNAVAILABLE'
   | 'DATABASE_ERROR'
-  | 'EXTERNAL_SERVICE_ERROR';
+  | 'EXTERNAL_SERVICE_ERROR'
+  | 'SERVICE_UNAVAILABLE';
 
 // =============================================================================
 // Discriminated Union Response Types

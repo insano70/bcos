@@ -10,8 +10,13 @@ import type { Organization } from '@/lib/types/rbac';
  */
 
 /**
- * Get organization with all its descendants (children, grandchildren, etc.)
- * Useful for determining which organizations a user can access
+ * Gets an organization with all its descendants (children, grandchildren, etc.)
+ *
+ * Useful for determining which organizations a user can access based on
+ * their membership in a parent organization.
+ *
+ * @param organizationId - The ID of the root organization to start from
+ * @returns Array of organizations including the root and all descendants
  */
 export async function getOrganizationHierarchy(organizationId: string): Promise<Organization[]> {
   const visited = new Set<string>();
@@ -101,7 +106,13 @@ async function traverseOrganizationTree(
 }
 
 /**
- * Get all parent organizations up to the root
+ * Gets all parent organizations up to the root
+ *
+ * Returns the chain of parent organizations from the given organization
+ * up to the root (an organization with no parent).
+ *
+ * @param organizationId - The ID of the organization to find ancestors for
+ * @returns Array of ancestor organizations, starting with the given organization
  */
 export async function getOrganizationAncestors(organizationId: string): Promise<Organization[]> {
   const ancestors: Organization[] = [];
@@ -151,7 +162,12 @@ export async function getOrganizationAncestors(organizationId: string): Promise<
 }
 
 /**
- * Get direct children of an organization
+ * Gets direct children of an organization
+ *
+ * Returns only immediate children, not grandchildren or further descendants.
+ *
+ * @param organizationId - The ID of the parent organization
+ * @returns Array of direct child organizations
  */
 export async function getOrganizationChildren(organizationId: string): Promise<Organization[]> {
   const children = await db
@@ -187,7 +203,14 @@ export async function getOrganizationChildren(organizationId: string): Promise<O
 }
 
 /**
- * Check if organization A is a descendant of organization B
+ * Checks if one organization is a descendant of another
+ *
+ * Returns true if the child is a descendant of the ancestor (at any depth),
+ * or if they are the same organization.
+ *
+ * @param childId - The ID of the potential descendant organization
+ * @param ancestorId - The ID of the potential ancestor organization
+ * @returns True if childId is a descendant of ancestorId or they are the same
  */
 export async function isOrganizationDescendant(
   childId: string,
@@ -202,7 +225,12 @@ export async function isOrganizationDescendant(
 }
 
 /**
- * Get root organizations (no parent)
+ * Gets all root organizations (organizations with no parent)
+ *
+ * Root organizations are at the top of the hierarchy and typically
+ * represent top-level healthcare practice groups.
+ *
+ * @returns Array of root organizations
  */
 export async function getRootOrganizations(): Promise<Organization[]> {
   const rootOrgs = await db
@@ -238,8 +266,14 @@ export async function getRootOrganizations(): Promise<Organization[]> {
 }
 
 /**
- * Validate organization hierarchy integrity
- * Prevents circular references and ensures valid parent-child relationships
+ * Validates organization hierarchy integrity
+ *
+ * Prevents circular references and ensures valid parent-child relationships.
+ * Should be called before changing an organization's parent.
+ *
+ * @param organizationId - The ID of the organization being modified
+ * @param newParentId - The proposed new parent organization ID (optional)
+ * @returns Object with valid flag and optional error message
  */
 export async function validateOrganizationHierarchy(
   organizationId: string,
@@ -289,7 +323,12 @@ export async function validateOrganizationHierarchy(
 }
 
 /**
- * Get organization depth in hierarchy (root = 0)
+ * Gets the depth of an organization in the hierarchy
+ *
+ * Root organizations have depth 0, their children have depth 1, etc.
+ *
+ * @param organizationId - The ID of the organization
+ * @returns The depth level (0 for root organizations)
  */
 export async function getOrganizationDepth(organizationId: string): Promise<number> {
   const ancestors = await getOrganizationAncestors(organizationId);
@@ -297,13 +336,22 @@ export async function getOrganizationDepth(organizationId: string): Promise<numb
 }
 
 /**
- * Get organization tree structure for UI display
+ * Organization tree node structure for hierarchical UI display
  */
 export interface OrganizationTreeNode extends Organization {
   children: OrganizationTreeNode[];
   depth: number;
 }
 
+/**
+ * Builds a complete organization tree structure for UI display
+ *
+ * Creates a hierarchical tree of organizations with depth information,
+ * useful for rendering organization hierarchies in dropdown menus or tree views.
+ *
+ * @param rootOrganizationId - Optional ID to start from (defaults to all root organizations)
+ * @returns Array of tree nodes with nested children and depth levels
+ */
 export async function getOrganizationTree(
   rootOrganizationId?: string
 ): Promise<OrganizationTreeNode[]> {

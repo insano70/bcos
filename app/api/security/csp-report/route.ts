@@ -3,6 +3,7 @@ import { createErrorResponse, handleRouteError } from '@/lib/api/responses/error
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { publicRoute } from '@/lib/api/route-handlers';
 import { log } from '@/lib/logger';
+import { cspViolationReportSchema } from '@/lib/validations/admin-cache';
 
 /**
  * CSP Violation Report Endpoint
@@ -25,29 +26,17 @@ import { log } from '@/lib/logger';
  * See: lib/security/headers.ts for full CSP configuration
  */
 
-interface CSPViolationReport {
-  'csp-report': {
-    'document-uri': string;
-    'violated-directive': string;
-    'blocked-uri': string;
-    'source-file': string;
-    'line-number': number;
-    'column-number': number;
-    'status-code': number;
-    referrer: string;
-    'script-sample': string;
-  };
-}
-
 const postHandler = async (request: NextRequest) => {
   try {
-    // Parse the CSP violation report
-    const report: CSPViolationReport = await request.json();
+    // Parse and validate the CSP violation report
+    const body = await request.json();
+    const report = cspViolationReportSchema.parse(body);
 
     // Handle both standard and non-standard CSP report formats
-    const violation = report['csp-report'] || report;
+    // The csp-report field may be missing if browser sends non-standard format
+    const violation = report['csp-report'] ?? (report as typeof report['csp-report']);
 
-    if (!violation || !violation['violated-directive']) {
+    if (!violation || !violation?.['violated-directive']) {
       log.info('Invalid CSP report format received', {
         report: report,
         hasStandardFormat: !!report['csp-report'],
@@ -57,9 +46,9 @@ const postHandler = async (request: NextRequest) => {
     }
 
     // Log the violation with appropriate severity
-    const violationType = violation['violated-directive'];
-    const isScriptViolation = violationType?.includes('script-src');
-    const isStyleViolation = violationType?.includes('style-src');
+    const violationType = violation['violated-directive'] ?? '';
+    const isScriptViolation = violationType.includes('script-src');
+    const isStyleViolation = violationType.includes('style-src');
 
     // High severity for script violations (potential XSS)
     if (isScriptViolation) {
@@ -95,7 +84,8 @@ const postHandler = async (request: NextRequest) => {
     }
 
     // Check if this is a practice page violation (critical for business)
-    const isPracticePage = violation['document-uri']?.includes('/practice/');
+    const documentUri = violation['document-uri'] ?? '';
+    const isPracticePage = documentUri.includes('/practice/');
     if (isPracticePage) {
       log.security('csp_practice_page_violation', 'critical', {
         documentUri: violation['document-uri'],

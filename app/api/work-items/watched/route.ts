@@ -1,6 +1,7 @@
-import { type NextRequest, NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { handleRouteError } from '@/lib/api/responses/error';
+import { createSuccessResponse } from '@/lib/api/responses/success';
 import { log } from '@/lib/logger';
 import { createRBACWorkItemsService } from '@/lib/services/work-items';
 import { createRBACWorkItemWatchersService } from '@/lib/services/rbac-work-item-watchers-service';
@@ -30,7 +31,7 @@ const getWatchedHandler = async (
         userId: userContext.user_id,
         duration,
       });
-      return NextResponse.json([]);
+      return createSuccessResponse([]);
     }
 
     // Fetch full details for all watched work items
@@ -52,7 +53,7 @@ const getWatchedHandler = async (
       component: 'work-items',
     });
 
-    return NextResponse.json(validWorkItems);
+    return createSuccessResponse(validWorkItems);
   } catch (error) {
     log.error('Failed to get watched work items', error, {
       operation: 'list_watched_work_items',

@@ -1,7 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useId, useState } from 'react';
+import { useId, useReducer } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { Badge } from '@/components/ui/badge';
@@ -42,6 +42,61 @@ interface ManageStatusesModalProps {
   workItemTypeName: string;
 }
 
+// ============================================================================
+// Modal State Reducer
+// ============================================================================
+
+interface ModalState {
+  editMode: 'none' | 'add' | 'edit';
+  editingStatusId: string | null;
+  showToast: boolean;
+  toastMessage: string;
+  deleteModalOpen: boolean;
+  statusToDelete: WorkItemStatus | null;
+}
+
+type ModalAction =
+  | { type: 'START_ADD' }
+  | { type: 'START_EDIT'; statusId: string }
+  | { type: 'CANCEL_EDIT' }
+  | { type: 'SHOW_TOAST'; message: string }
+  | { type: 'HIDE_TOAST' }
+  | { type: 'OPEN_DELETE_MODAL'; status: WorkItemStatus }
+  | { type: 'CLOSE_DELETE_MODAL' }
+  | { type: 'CLEAR_STATUS_TO_DELETE' };
+
+const modalInitialState: ModalState = {
+  editMode: 'none',
+  editingStatusId: null,
+  showToast: false,
+  toastMessage: '',
+  deleteModalOpen: false,
+  statusToDelete: null,
+};
+
+function modalReducer(state: ModalState, action: ModalAction): ModalState {
+  switch (action.type) {
+    case 'START_ADD':
+      return { ...state, editMode: 'add', editingStatusId: null };
+    case 'START_EDIT':
+      return { ...state, editMode: 'edit', editingStatusId: action.statusId };
+    case 'CANCEL_EDIT':
+      return { ...state, editMode: 'none', editingStatusId: null };
+    case 'SHOW_TOAST':
+      return { ...state, showToast: true, toastMessage: action.message };
+    case 'HIDE_TOAST':
+      return { ...state, showToast: false };
+    case 'OPEN_DELETE_MODAL':
+      return { ...state, deleteModalOpen: true, statusToDelete: action.status };
+    case 'CLOSE_DELETE_MODAL':
+      return { ...state, deleteModalOpen: false };
+    case 'CLEAR_STATUS_TO_DELETE':
+      return { ...state, statusToDelete: null };
+    default:
+      return state;
+  }
+}
+
 export default function ManageStatusesModal({
   isOpen,
   onClose,
@@ -53,10 +108,12 @@ export default function ManageStatusesModal({
   const updateStatus = useUpdateWorkItemStatus();
   const deleteStatus = useDeleteWorkItemStatus();
 
-  const [isAddingStatus, setIsAddingStatus] = useState(false);
-  const [editingStatusId, setEditingStatusId] = useState<string | null>(null);
-  const [showToast, setShowToast] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
+  // Consolidated state management
+  const [state, dispatch] = useReducer(modalReducer, modalInitialState);
+  const { editMode, editingStatusId, showToast, toastMessage, deleteModalOpen, statusToDelete } = state;
+
+  // Derived state for backward compatibility
+  const isAddingStatus = editMode === 'add';
 
   const statusNameId = useId();
   const statusCategoryId = useId();
@@ -81,8 +138,7 @@ export default function ManageStatusesModal({
   });
 
   const handleAddStatus = () => {
-    setIsAddingStatus(true);
-    setEditingStatusId(null);
+    dispatch({ type: 'START_ADD' });
     reset({
       status_name: '',
       status_category: 'in_progress',
@@ -94,8 +150,7 @@ export default function ManageStatusesModal({
   };
 
   const handleEditStatus = (status: WorkItemStatus) => {
-    setEditingStatusId(status.work_item_status_id);
-    setIsAddingStatus(false);
+    dispatch({ type: 'START_EDIT', statusId: status.work_item_status_id });
     setValue('status_name', status.status_name);
     setValue(
       'status_category',
@@ -108,8 +163,7 @@ export default function ManageStatusesModal({
   };
 
   const handleCancelEdit = () => {
-    setIsAddingStatus(false);
-    setEditingStatusId(null);
+    dispatch({ type: 'CANCEL_EDIT' });
     reset();
   };
 
@@ -120,7 +174,7 @@ export default function ManageStatusesModal({
           work_item_type_id: workItemTypeId,
           ...data,
         });
-        setToastMessage('Status created successfully');
+        dispatch({ type: 'SHOW_TOAST', message: 'Status created successfully' });
       } else if (editingStatusId) {
         await updateStatus.mutateAsync({
           id: editingStatusId,
@@ -134,9 +188,8 @@ export default function ManageStatusesModal({
             display_order: data.display_order,
           },
         });
-        setToastMessage('Status updated successfully');
+        dispatch({ type: 'SHOW_TOAST', message: 'Status updated successfully' });
       }
-      setShowToast(true);
       handleCancelEdit();
       refetch();
     } catch (error) {
@@ -144,25 +197,20 @@ export default function ManageStatusesModal({
     }
   };
 
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [statusToDelete, setStatusToDelete] = useState<WorkItemStatus | null>(null);
-
   const handleDeleteClick = (status: WorkItemStatus) => {
-    setStatusToDelete(status);
-    setDeleteModalOpen(true);
+    dispatch({ type: 'OPEN_DELETE_MODAL', status });
   };
 
   const handleConfirmDelete = async () => {
     if (!statusToDelete) return;
-    
+
     try {
       await deleteStatus.mutateAsync({
         id: statusToDelete.work_item_status_id,
         typeId: workItemTypeId,
       });
-      setToastMessage('Status deleted successfully');
-      setShowToast(true);
-      setStatusToDelete(null);
+      dispatch({ type: 'SHOW_TOAST', message: 'Status deleted successfully' });
+      dispatch({ type: 'CLEAR_STATUS_TO_DELETE' });
       refetch();
     } catch (error) {
       clientErrorLog('Failed to delete status:', error);
@@ -389,7 +437,7 @@ export default function ManageStatusesModal({
                 </div>
       </Modal>
 
-      <Toast type="success" open={showToast} setOpen={setShowToast}>
+      <Toast type="success" open={showToast} setOpen={(open) => !open && dispatch({ type: 'HIDE_TOAST' })}>
         {toastMessage}
       </Toast>
       
@@ -397,7 +445,7 @@ export default function ManageStatusesModal({
       {statusToDelete && (
         <DeleteConfirmationModal
           isOpen={deleteModalOpen}
-          setIsOpen={setDeleteModalOpen}
+          setIsOpen={(open) => !open && dispatch({ type: 'CLOSE_DELETE_MODAL' })}
           title="Delete Status"
           itemName={statusToDelete.status_name}
           message="This action cannot be undone. Work items using this status will need to be updated."

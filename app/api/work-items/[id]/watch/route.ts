@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { handleRouteError } from '@/lib/api/responses/error';
+import { createSuccessResponse } from '@/lib/api/responses/success';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
 import { log, logTemplates } from '@/lib/logger';
 import { createRBACWorkItemWatchersService } from '@/lib/services/rbac-work-item-watchers-service';
@@ -49,7 +50,7 @@ const postWatchHandler = async (
 
     log.info(template.message, template.context);
 
-    return NextResponse.json(watcher, { status: 201 });
+    return createSuccessResponse(watcher, undefined, undefined, 201);
   } catch (error) {
     log.error('work item watcher creation failed', error, {
       operation: 'create_work_item_watcher',

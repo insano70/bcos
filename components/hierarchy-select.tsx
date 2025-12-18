@@ -1,7 +1,7 @@
 'use client';
 
 import { motion, type PanInfo } from 'framer-motion';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useReducer, useRef } from 'react';
 import { FormLabel } from '@/components/ui/form-label';
 
 /**
@@ -75,6 +75,66 @@ export interface HierarchySelectProps<T extends HierarchyItemBase> {
   rootLabel?: string;
 }
 
+// ============================================================================
+// Hierarchy Select State Reducer
+// ============================================================================
+
+interface SelectState {
+  isOpen: boolean;
+  searchTerm: string;
+  isMobile: boolean;
+  keyboardOffset: number;
+  dragY: number;
+  isDragging: boolean;
+}
+
+type SelectAction =
+  | { type: 'OPEN' }
+  | { type: 'CLOSE' }
+  | { type: 'TOGGLE' }
+  | { type: 'SET_SEARCH'; term: string }
+  | { type: 'SET_MOBILE'; isMobile: boolean }
+  | { type: 'SET_KEYBOARD_OFFSET'; offset: number }
+  | { type: 'SET_DRAG_Y'; y: number }
+  | { type: 'SET_DRAGGING'; isDragging: boolean }
+  | { type: 'RESET_DRAG' };
+
+const selectInitialState: SelectState = {
+  isOpen: false,
+  searchTerm: '',
+  isMobile: false,
+  keyboardOffset: 0,
+  dragY: 0,
+  isDragging: false,
+};
+
+function selectReducer(state: SelectState, action: SelectAction): SelectState {
+  switch (action.type) {
+    case 'OPEN':
+      return { ...state, isOpen: true };
+    case 'CLOSE':
+      return { ...state, isOpen: false, searchTerm: '', dragY: 0, isDragging: false };
+    case 'TOGGLE':
+      return state.isOpen
+        ? { ...state, isOpen: false, searchTerm: '', dragY: 0, isDragging: false }
+        : { ...state, isOpen: true };
+    case 'SET_SEARCH':
+      return { ...state, searchTerm: action.term };
+    case 'SET_MOBILE':
+      return { ...state, isMobile: action.isMobile };
+    case 'SET_KEYBOARD_OFFSET':
+      return { ...state, keyboardOffset: action.offset };
+    case 'SET_DRAG_Y':
+      return { ...state, dragY: action.y };
+    case 'SET_DRAGGING':
+      return { ...state, isDragging: action.isDragging };
+    case 'RESET_DRAG':
+      return { ...state, dragY: 0, isDragging: false };
+    default:
+      return state;
+  }
+}
+
 export default function HierarchySelect<T extends HierarchyItemBase>({
   items,
   value,
@@ -98,21 +158,17 @@ export default function HierarchySelect<T extends HierarchyItemBase>({
   filter,
   rootLabel = 'None',
 }: HierarchySelectProps<T>) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
+  // Consolidated state management
+  const [state, dispatch] = useReducer(selectReducer, selectInitialState);
+  const { isOpen, searchTerm, isMobile, keyboardOffset, dragY, isDragging } = state;
+
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const [isMobile, setIsMobile] = useState(false);
-  const [keyboardOffset, setKeyboardOffset] = useState(0);
-  
-  // Drag-to-dismiss state for mobile bottom sheet
-  const [dragY, setDragY] = useState(0);
-  const [isDragging, setIsDragging] = useState(false);
 
   // Detect mobile viewport
   useEffect(() => {
     const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768); // Tailwind md breakpoint
+      dispatch({ type: 'SET_MOBILE', isMobile: window.innerWidth < 768 }); // Tailwind md breakpoint
     };
 
     checkMobile();
@@ -124,7 +180,7 @@ export default function HierarchySelect<T extends HierarchyItemBase>({
   // When keyboard appears, adjust bottom sheet position to stay above it
   useEffect(() => {
     if (!isMobile || !isOpen) {
-      setKeyboardOffset(0);
+      dispatch({ type: 'SET_KEYBOARD_OFFSET', offset: 0 });
       return;
     }
 
@@ -135,7 +191,7 @@ export default function HierarchySelect<T extends HierarchyItemBase>({
         const keyboardHeight = window.innerHeight - window.visualViewport.height;
         // Only set offset if keyboard is actually showing (height > 0)
         // Add a small threshold to avoid false positives from browser chrome changes
-        setKeyboardOffset(keyboardHeight > 50 ? keyboardHeight : 0);
+        dispatch({ type: 'SET_KEYBOARD_OFFSET', offset: keyboardHeight > 50 ? keyboardHeight : 0 });
       }
     };
 
@@ -228,8 +284,7 @@ export default function HierarchySelect<T extends HierarchyItemBase>({
   // Event handlers
   const handleSelect = (itemId: string | number | undefined) => {
     onChange(itemId);
-    setIsOpen(false);
-    setSearchTerm('');
+    dispatch({ type: 'CLOSE' });
   };
 
   const handleClear = (e: React.MouseEvent) => {
@@ -239,8 +294,7 @@ export default function HierarchySelect<T extends HierarchyItemBase>({
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Escape') {
-      setIsOpen(false);
-      setSearchTerm('');
+      dispatch({ type: 'CLOSE' });
     }
   };
 
@@ -248,8 +302,7 @@ export default function HierarchySelect<T extends HierarchyItemBase>({
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-        setSearchTerm('');
+        dispatch({ type: 'CLOSE' });
       }
     };
 
@@ -276,41 +329,30 @@ export default function HierarchySelect<T extends HierarchyItemBase>({
     }
   }, [isOpen, isMobile]);
 
-  // Reset drag state when sheet closes
-  useEffect(() => {
-    if (!isOpen) {
-      setDragY(0);
-      setIsDragging(false);
-    }
-  }, [isOpen]);
-
   // Drag handlers for swipe-to-dismiss on mobile
   const handleDragStart = () => {
-    setIsDragging(true);
+    dispatch({ type: 'SET_DRAGGING', isDragging: true });
   };
 
   const handleDrag = (_event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     // Only allow downward dragging (positive Y)
     if (info.offset.y > 0) {
-      setDragY(info.offset.y);
+      dispatch({ type: 'SET_DRAG_Y', y: info.offset.y });
     }
   };
 
   const handleDragEnd = (_event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
-    setIsDragging(false);
-    
     // Dismiss thresholds:
     // - Distance: dragged more than 100px down
     // - Velocity: flicked down faster than 500px/s
     const shouldDismiss = info.offset.y > 100 || info.velocity.y > 500;
-    
+
     if (shouldDismiss) {
-      setIsOpen(false);
-      setSearchTerm('');
+      dispatch({ type: 'CLOSE' });
+    } else {
+      // Reset drag position (springs back if not dismissed)
+      dispatch({ type: 'RESET_DRAG' });
     }
-    
-    // Reset drag position (springs back if not dismissed)
-    setDragY(0);
   };
 
   // Render tree lines helper
@@ -344,7 +386,7 @@ export default function HierarchySelect<T extends HierarchyItemBase>({
       {/* Trigger Button - Touch-friendly on mobile (min 44px height) */}
       <button
         type="button"
-        onClick={() => !disabled && setIsOpen(!isOpen)}
+        onClick={() => !disabled && dispatch({ type: 'TOGGLE' })}
         disabled={disabled}
         onKeyDown={handleKeyDown}
         className={`
@@ -417,7 +459,7 @@ export default function HierarchySelect<T extends HierarchyItemBase>({
           {isMobile && (
             <div
               className="fixed inset-0 bg-black/50 z-40 md:hidden transition-opacity"
-              onClick={() => setIsOpen(false)}
+              onClick={() => dispatch({ type: 'CLOSE' })}
               aria-hidden="true"
             />
           )}
@@ -506,7 +548,7 @@ export default function HierarchySelect<T extends HierarchyItemBase>({
                     ref={searchInputRef}
                     type="text"
                     value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onChange={(e) => dispatch({ type: 'SET_SEARCH', term: e.target.value })}
                     onKeyDown={handleKeyDown}
                     placeholder="Search..."
                     className={`

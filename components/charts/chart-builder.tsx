@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useReducer } from 'react';
 import { useToast } from '@/components/toast';
 import { FormSkeleton, Skeleton } from '@/components/ui/loading-skeleton';
 import { apiClient } from '@/lib/api/client';
@@ -43,6 +43,121 @@ interface SchemaInfo {
   availableMeasures: Array<{ measure: string }>;
   availableFrequencies: Array<{ frequency: string }>;
   availableGroupByFields: Array<{ columnName: string; displayName: string }>;
+}
+
+// ============================================================================
+// Chart Builder State Reducer
+// ============================================================================
+
+type CurrentStep = 'configure' | 'preview';
+
+interface BuilderState {
+  chartConfig: ChartConfig;
+  schemaInfo: SchemaInfo | null;
+  isLoadingSchema: boolean;
+  currentStep: CurrentStep;
+  isSaving: boolean;
+  previewKey: number;
+  drillDownConfig: DrillDownConfig;
+}
+
+type BuilderAction =
+  | { type: 'SET_CHART_CONFIG'; config: ChartConfig }
+  | { type: 'UPDATE_CHART_CONFIG'; updates: Partial<ChartConfig> }
+  | { type: 'SET_SCHEMA_INFO'; schemaInfo: SchemaInfo }
+  | { type: 'SET_LOADING_SCHEMA'; isLoading: boolean }
+  | { type: 'SET_CURRENT_STEP'; step: CurrentStep }
+  | { type: 'SET_SAVING'; isSaving: boolean }
+  | { type: 'INCREMENT_PREVIEW_KEY' }
+  | { type: 'SET_DRILL_DOWN_CONFIG'; config: DrillDownConfig }
+  | { type: 'UPDATE_DRILL_DOWN_CONFIG'; updates: Partial<DrillDownConfig> }
+  | { type: 'ADD_SERIES'; series: MultipleSeriesConfig }
+  | { type: 'UPDATE_SERIES'; seriesId: string; updates: Partial<MultipleSeriesConfig> }
+  | { type: 'REMOVE_SERIES'; seriesId: string };
+
+const defaultChartConfig: ChartConfig = {
+  chartName: '',
+  chartType: 'bar',
+  measure: '',
+  frequency: '',
+  startDate: '2024-01-01',
+  endDate: '2025-12-31',
+  groupBy: 'provider_name',
+  calculatedField: undefined,
+  advancedFilters: [],
+  useAdvancedFiltering: false,
+  useMultipleSeries: false,
+  seriesConfigs: [],
+  selectedDataSource: null,
+  colorPalette: 'default',
+};
+
+const defaultDrillDownConfig: DrillDownConfig = {
+  drill_down_enabled: false,
+  drill_down_type: null,
+  drill_down_target_chart_id: null,
+  drill_down_button_label: 'Drill Down',
+};
+
+const builderInitialState: BuilderState = {
+  chartConfig: defaultChartConfig,
+  schemaInfo: null,
+  isLoadingSchema: false,
+  currentStep: 'configure',
+  isSaving: false,
+  previewKey: 0,
+  drillDownConfig: defaultDrillDownConfig,
+};
+
+function builderReducer(state: BuilderState, action: BuilderAction): BuilderState {
+  switch (action.type) {
+    case 'SET_CHART_CONFIG':
+      return { ...state, chartConfig: action.config };
+    case 'UPDATE_CHART_CONFIG':
+      return { ...state, chartConfig: { ...state.chartConfig, ...action.updates } };
+    case 'SET_SCHEMA_INFO':
+      return { ...state, schemaInfo: action.schemaInfo, isLoadingSchema: false };
+    case 'SET_LOADING_SCHEMA':
+      return { ...state, isLoadingSchema: action.isLoading };
+    case 'SET_CURRENT_STEP':
+      return { ...state, currentStep: action.step };
+    case 'SET_SAVING':
+      return { ...state, isSaving: action.isSaving };
+    case 'INCREMENT_PREVIEW_KEY':
+      return { ...state, previewKey: state.previewKey + 1, currentStep: 'preview' };
+    case 'SET_DRILL_DOWN_CONFIG':
+      return { ...state, drillDownConfig: action.config };
+    case 'UPDATE_DRILL_DOWN_CONFIG':
+      return { ...state, drillDownConfig: { ...state.drillDownConfig, ...action.updates } };
+    case 'ADD_SERIES':
+      return {
+        ...state,
+        chartConfig: {
+          ...state.chartConfig,
+          seriesConfigs: [...state.chartConfig.seriesConfigs, action.series],
+        },
+      };
+    case 'UPDATE_SERIES':
+      return {
+        ...state,
+        chartConfig: {
+          ...state.chartConfig,
+          seriesConfigs: state.chartConfig.seriesConfigs.map((series) =>
+            series.id === action.seriesId ? { ...series, ...action.updates } : series
+          ),
+        },
+      };
+    case 'REMOVE_SERIES':
+      return {
+        ...state,
+        chartConfig: {
+          ...state.chartConfig,
+          seriesConfigs: state.chartConfig.seriesConfigs.filter((series) => series.id !== action.seriesId),
+        },
+      };
+    default:
+      return state;
+  }
 }
 
 // Chart Builder Loading Skeleton
@@ -91,36 +206,9 @@ export default function FunctionalChartBuilder({
   onCancel,
   onSaveSuccess,
 }: ChartBuilderProps = {}) {
-  // Core state
-  const [chartConfig, setChartConfig] = useState<ChartConfig>({
-    chartName: '',
-    chartType: 'bar',
-    measure: '',
-    frequency: '',
-    startDate: '2024-01-01',
-    endDate: '2025-12-31',
-    groupBy: 'provider_name',
-    calculatedField: undefined,
-    advancedFilters: [],
-    useAdvancedFiltering: false,
-    useMultipleSeries: false,
-    seriesConfigs: [],
-    selectedDataSource: null,
-    colorPalette: 'default',
-  });
-  const [schemaInfo, setSchemaInfo] = useState<SchemaInfo | null>(null);
-  const [isLoadingSchema, setIsLoadingSchema] = useState(false);
-  const [currentStep, setCurrentStep] = useState<'configure' | 'preview'>('configure');
-  const [isSaving, setIsSaving] = useState(false);
-  const [previewKey, setPreviewKey] = useState(0);
-
-  // Drill-down configuration state
-  const [drillDownConfig, setDrillDownConfig] = useState<DrillDownConfig>({
-    drill_down_enabled: false,
-    drill_down_type: null,
-    drill_down_target_chart_id: null,
-    drill_down_button_label: 'Drill Down',
-  });
+  // Consolidated state with reducer
+  const [state, dispatch] = useReducer(builderReducer, builderInitialState);
+  const { chartConfig, schemaInfo, isLoadingSchema, currentStep, isSaving, previewKey, drillDownConfig } = state;
 
   // Toast notifications
   const { showToast } = useToast();
@@ -132,7 +220,7 @@ export default function FunctionalChartBuilder({
   // Load schema information when data source is selected
   useEffect(() => {
     if (chartConfig.selectedDataSource) {
-      setIsLoadingSchema(true);
+      dispatch({ type: 'SET_LOADING_SCHEMA', isLoading: true });
       loadSchemaInfo(chartConfig.selectedDataSource);
     }
   }, [chartConfig.selectedDataSource?.id]); // Track by ID to avoid object reference issues
@@ -148,11 +236,14 @@ export default function FunctionalChartBuilder({
 
       const savedDataSource = await findDataSource(chartConfigData.dataSourceId, dataSource.table);
 
-      setChartConfig((prev) => ({
-        ...prev,
-        ...parsedConfig,
-        selectedDataSource: savedDataSource,
-      }));
+      dispatch({
+        type: 'SET_CHART_CONFIG',
+        config: {
+          ...chartConfig,
+          ...parsedConfig,
+          selectedDataSource: savedDataSource,
+        },
+      });
 
       // Populate drill-down config if editing
       const editChart = editingChart as {
@@ -161,11 +252,14 @@ export default function FunctionalChartBuilder({
         drill_down_target_chart_id?: string | null;
         drill_down_button_label?: string;
       };
-      setDrillDownConfig({
-        drill_down_enabled: editChart.drill_down_enabled ?? false,
-        drill_down_type: (editChart.drill_down_type as 'filter' | 'navigate' | 'swap' | null) ?? null,
-        drill_down_target_chart_id: editChart.drill_down_target_chart_id ?? null,
-        drill_down_button_label: editChart.drill_down_button_label ?? 'Drill Down',
+      dispatch({
+        type: 'SET_DRILL_DOWN_CONFIG',
+        config: {
+          drill_down_enabled: editChart.drill_down_enabled ?? false,
+          drill_down_type: (editChart.drill_down_type as 'filter' | 'navigate' | 'swap' | null) ?? null,
+          drill_down_target_chart_id: editChart.drill_down_target_chart_id ?? null,
+          drill_down_button_label: editChart.drill_down_button_label ?? 'Drill Down',
+        },
       });
     };
 
@@ -193,23 +287,24 @@ export default function FunctionalChartBuilder({
       }
 
       const result = await apiClient.get<SchemaInfo>(apiUrl);
-      setSchemaInfo(result);
+      dispatch({ type: 'SET_SCHEMA_INFO', schemaInfo: result });
 
       // Set default values based on schema (only if not in edit mode)
-      // Batch updates to prevent multiple re-renders
       if (
         !isEditMode &&
         (result.availableMeasures?.length > 0 || result.availableFrequencies?.length > 0)
       ) {
-        setChartConfig((prev) => ({
-          ...prev,
-          ...(result.availableMeasures?.[0] && {
-            measure: result.availableMeasures[0].measure as MeasureType,
-          }),
-          ...(result.availableFrequencies?.[0] && {
-            frequency: result.availableFrequencies[0].frequency as FrequencyType,
-          }),
-        }));
+        dispatch({
+          type: 'UPDATE_CHART_CONFIG',
+          updates: {
+            ...(result.availableMeasures?.[0] && {
+              measure: result.availableMeasures[0].measure as MeasureType,
+            }),
+            ...(result.availableFrequencies?.[0] && {
+              frequency: result.availableFrequencies[0].frequency as FrequencyType,
+            }),
+          },
+        });
       }
 
       clientDebugLog.api('Schema loaded', {
@@ -220,8 +315,7 @@ export default function FunctionalChartBuilder({
       });
     } catch (error) {
       clientErrorLog('Failed to load schema', error);
-    } finally {
-      setIsLoadingSchema(false);
+      dispatch({ type: 'SET_LOADING_SCHEMA', isLoading: false });
     }
   };
 
@@ -247,31 +341,33 @@ export default function FunctionalChartBuilder({
             advancedFilters: [],
             seriesConfigs: [],
           };
-      setChartConfig((prev) => ({ ...prev, selectedDataSource: value as DataSource, ...resetFields }));
+      dispatch({
+        type: 'UPDATE_CHART_CONFIG',
+        updates: { selectedDataSource: value as DataSource, ...resetFields },
+      });
     } else if (key === 'chartType') {
       // Apply smart defaults for chart type
       const defaults = applyChartTypeDefaults(value as string, chartConfig, schemaInfo);
-      setChartConfig((prev) => ({
-        ...prev,
-        chartType: value as ChartConfig['chartType'],
-        ...defaults,
-      }));
+      dispatch({
+        type: 'UPDATE_CHART_CONFIG',
+        updates: { chartType: value as ChartConfig['chartType'], ...defaults },
+      });
     } else {
       // Normal update
-      setChartConfig((prev) => ({ ...prev, [key]: value }));
+      dispatch({ type: 'UPDATE_CHART_CONFIG', updates: { [key]: value } });
     }
   };
 
   const handleAdvancedFiltersChange = (filters: ChartFilter[]) => {
-    setChartConfig((prev) => ({ ...prev, advancedFilters: filters }));
+    dispatch({ type: 'UPDATE_CHART_CONFIG', updates: { advancedFilters: filters } });
   };
 
   const _handleDateRangeChange = (startDate: string, endDate: string) => {
-    setChartConfig((prev) => ({ ...prev, startDate, endDate }));
+    dispatch({ type: 'UPDATE_CHART_CONFIG', updates: { startDate, endDate } });
   };
 
   const handleDatePresetChange = (presetId: string, startDate: string, endDate: string) => {
-    setChartConfig((prev) => ({ ...prev, startDate, endDate, dateRangePreset: presetId }));
+    dispatch({ type: 'UPDATE_CHART_CONFIG', updates: { startDate, endDate, dateRangePreset: presetId } });
   };
 
   const addSeries = () => {
@@ -281,26 +377,15 @@ export default function FunctionalChartBuilder({
       aggregation: 'sum',
       label: `Series ${chartConfig.seriesConfigs.length + 1}`,
     };
-    setChartConfig((prev) => ({
-      ...prev,
-      seriesConfigs: [...prev.seriesConfigs, newSeries],
-    }));
+    dispatch({ type: 'ADD_SERIES', series: newSeries });
   };
 
   const updateSeries = (seriesId: string, updates: Partial<MultipleSeriesConfig>) => {
-    setChartConfig((prev) => ({
-      ...prev,
-      seriesConfigs: prev.seriesConfigs.map((series) =>
-        series.id === seriesId ? { ...series, ...updates } : series
-      ),
-    }));
+    dispatch({ type: 'UPDATE_SERIES', seriesId, updates });
   };
 
   const removeSeries = (seriesId: string) => {
-    setChartConfig((prev) => ({
-      ...prev,
-      seriesConfigs: prev.seriesConfigs.filter((series) => series.id !== seriesId),
-    }));
+    dispatch({ type: 'REMOVE_SERIES', seriesId });
   };
 
   const handlePreview = () => {
@@ -334,9 +419,8 @@ export default function FunctionalChartBuilder({
       return;
     }
 
-    // Force re-render of preview chart by incrementing key
-    setPreviewKey((prev) => prev + 1);
-    setCurrentStep('preview');
+    // Force re-render of preview chart by incrementing key and switch to preview step
+    dispatch({ type: 'INCREMENT_PREVIEW_KEY' });
   };
 
   const handleSave = async () => {
@@ -345,7 +429,7 @@ export default function FunctionalChartBuilder({
       return;
     }
 
-    setIsSaving(true);
+    dispatch({ type: 'SET_SAVING', isSaving: true });
     try {
       const basePayload = buildChartPayload(
         chartConfig,
@@ -379,7 +463,7 @@ export default function FunctionalChartBuilder({
       } else if (onCancel) {
         onCancel();
       } else {
-        setCurrentStep('configure');
+        dispatch({ type: 'SET_CURRENT_STEP', step: 'configure' });
       }
     } catch (error) {
       showToast({
@@ -387,7 +471,7 @@ export default function FunctionalChartBuilder({
         message: `Failed to ${isEditMode ? 'update' : 'save'} chart: ${error instanceof Error ? error.message : 'Unknown error'}`,
       });
     } finally {
-      setIsSaving(false);
+      dispatch({ type: 'SET_SAVING', isSaving: false });
     }
   };
 
@@ -422,7 +506,7 @@ export default function FunctionalChartBuilder({
             { key: 'preview' as const, label: 'Preview' },
           ].map(({ key, label }) => (
             <button type="button" key={key}
-              onClick={() => setCurrentStep(key)}
+              onClick={() => dispatch({ type: 'SET_CURRENT_STEP', step: key })}
               className={`pb-2 border-b-2 font-medium text-sm ${
                 currentStep === key
                   ? 'border-violet-500 text-violet-600 dark:text-violet-400'
@@ -465,7 +549,7 @@ export default function FunctionalChartBuilder({
             <ChartBuilderDrillDown
               chartDefinitionId={editingChart?.chart_definition_id}
               config={drillDownConfig}
-              onChange={(updates) => setDrillDownConfig((prev) => ({ ...prev, ...updates }))}
+              onChange={(updates) => dispatch({ type: 'UPDATE_DRILL_DOWN_CONFIG', updates })}
               isSaved={isEditMode}
             />
 
@@ -486,7 +570,7 @@ export default function FunctionalChartBuilder({
             chartConfig={chartConfig}
             dateRangePreset={selectedDatePreset}
             previewKey={previewKey}
-            onBackToConfigure={() => setCurrentStep('configure')}
+            onBackToConfigure={() => dispatch({ type: 'SET_CURRENT_STEP', step: 'configure' })}
             onSave={handleSave}
             isSaving={isSaving}
           />

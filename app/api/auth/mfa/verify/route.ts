@@ -6,22 +6,18 @@
  * Returns: Full access + refresh tokens
  */
 
-import { cookies } from 'next/headers';
 import type { NextRequest } from 'next/server';
 import { AuthenticationError, handleRouteError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { publicRoute } from '@/lib/api/route-handlers';
-import { COOKIE_NAMES } from '@/lib/auth/cookie-names';
 import { requireMFATempToken } from '@/lib/auth/webauthn-temp-token';
 import { log, SLOW_THRESHOLDS } from '@/lib/logger';
-import { getCachedUserContextSafe } from '@/lib/rbac/cached-user-context';
-import { setCSRFToken } from '@/lib/security/csrf-unified';
 import type {
   AuthenticationCompleteRequest,
   AuthenticationCompleteResponse,
 } from '@/lib/types/webauthn';
 import { completePasskeyVerification } from '@/lib/services/auth/mfa-service';
-import { createAuthSession } from '@/lib/services/auth/session-manager-service';
+import { setupSessionWithCookies } from '@/lib/services/auth/session-manager-service';
 import { getUserById } from '@/lib/services/auth/user-lookup-service';
 
 export const dynamic = 'force-dynamic';
@@ -70,56 +66,18 @@ const handler = async (request: NextRequest) => {
       throw AuthenticationError('User account is inactive');
     }
 
-    // Build device info for session creation
-    const { generateDeviceFingerprint, generateDeviceName } = await import(
-      '@/lib/auth/tokens'
-    );
-    const deviceFingerprint = generateDeviceFingerprint(ipAddress, userAgent || 'unknown');
-    const deviceName = generateDeviceName(userAgent || 'unknown');
-
-    const deviceInfo = {
-      ipAddress,
-      userAgent: userAgent || 'unknown',
-      fingerprint: deviceFingerprint,
-      deviceName,
-    };
-
-    // Create full session using service layer
-    const tokenPair = await createAuthSession({
+    // Set up full session with cookies using consolidated utility
+    const sessionResult = await setupSessionWithCookies({
       userId: user.user_id,
-      deviceInfo,
-      rememberMe: false,
       email: user.email,
+      firstName: user.first_name,
+      lastName: user.last_name,
+      emailVerified: user.email_verified,
+      ipAddress,
+      userAgent,
+      rememberMe: false,
+      authMethod: 'temp_token',
     });
-
-    // Set secure httpOnly cookies
-    const cookieStore = await cookies();
-    const isSecureEnvironment = process.env.NODE_ENV === 'production';
-    const maxAge = 7 * 24 * 60 * 60; // 7 days
-
-    cookieStore.set(COOKIE_NAMES.REFRESH_TOKEN, tokenPair.refreshToken, {
-      httpOnly: true,
-      secure: isSecureEnvironment,
-      sameSite: 'strict',
-      path: '/',
-      maxAge,
-    });
-
-    cookieStore.set(COOKIE_NAMES.ACCESS_TOKEN, tokenPair.accessToken, {
-      httpOnly: true,
-      secure: isSecureEnvironment,
-      sameSite: 'strict',
-      path: '/',
-      maxAge: 15 * 60, // 15 minutes
-    });
-
-    // Get user context
-    const userContext = await getCachedUserContextSafe(user.user_id);
-    const userRoles = userContext?.roles?.map((r) => r.name) || [];
-    const primaryRole = userRoles.length > 0 ? userRoles[0] : 'user';
-
-    // Generate CSRF token
-    const csrfToken = await setCSRFToken(user.user_id);
 
     const duration = Date.now() - startTime;
 
@@ -127,22 +85,22 @@ const handler = async (request: NextRequest) => {
       operation: 'mfa_verify',
       userId: user.user_id,
       email: user.email,
-      sessionId: tokenPair.sessionId,
+      sessionId: sessionResult.tokenPair.sessionId,
       credentialId: verificationResult.credentialId?.substring(0, 16),
       authMethod: 'temp_token',
       rbac: {
-        roles: userRoles.length,
-        primaryRole,
-        permissions: userContext?.all_permissions?.length || 0,
+        roles: sessionResult.user.roles.length,
+        primaryRole: sessionResult.user.role,
+        permissions: sessionResult.user.permissions.length,
       },
       session: {
         rememberMe: false,
-        maxAge: maxAge,
-        sessionId: tokenPair.sessionId,
+        maxAge: sessionResult.maxAge,
+        sessionId: sessionResult.tokenPair.sessionId,
       },
       device: {
-        name: deviceName,
-        fingerprint: deviceFingerprint.substring(0, 8),
+        name: sessionResult.deviceName,
+        fingerprint: sessionResult.deviceFingerprint,
       },
       duration,
       slow: duration > SLOW_THRESHOLDS.AUTH_OPERATION,
@@ -152,27 +110,17 @@ const handler = async (request: NextRequest) => {
 
     const response: AuthenticationCompleteResponse = {
       success: true,
-      accessToken: tokenPair.accessToken,
-      refreshToken: tokenPair.refreshToken,
-      sessionId: tokenPair.sessionId,
-      expiresAt: tokenPair.expiresAt.toISOString(),
+      accessToken: sessionResult.tokenPair.accessToken,
+      refreshToken: sessionResult.tokenPair.refreshToken,
+      sessionId: sessionResult.tokenPair.sessionId,
+      expiresAt: sessionResult.tokenPair.expiresAt.toISOString(),
     };
 
     return createSuccessResponse(
       {
         ...response,
-        user: {
-          id: user.user_id,
-          email: user.email,
-          name: `${user.first_name} ${user.last_name}`,
-          firstName: user.first_name,
-          lastName: user.last_name,
-          role: primaryRole,
-          emailVerified: user.email_verified,
-          roles: userRoles,
-          permissions: userContext?.all_permissions?.map((p) => p.name) || [],
-        },
-        csrfToken,
+        user: sessionResult.user,
+        csrfToken: sessionResult.csrfToken,
       },
       'Passkey verification successful'
     );

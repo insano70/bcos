@@ -20,11 +20,7 @@ import { indexedAnalyticsCache } from '@/lib/cache/indexed-analytics-cache';
 import { log } from '@/lib/logger';
 import { cacheWarmingTracker } from '@/lib/monitoring/cache-warming-tracker';
 import { chartConfigService } from '@/lib/services/chart-config-service';
-
-interface InvalidateCacheRequest {
-  datasourceId?: number; // Omit to invalidate all datasources
-  reason?: string; // Optional reason for audit trail
-}
+import { cacheInvalidateSchema } from '@/lib/validations/admin-cache';
 
 interface InvalidateCacheResponse {
   datasourcesInvalidated: number[];
@@ -37,8 +33,9 @@ const invalidateCacheHandler = async (request: NextRequest, userContext: { user_
   const startTime = Date.now();
 
   try {
-    const body = (await request.json()) as InvalidateCacheRequest;
-    const { datasourceId, reason = 'Manual invalidation' } = body;
+    const body = await request.json();
+    const validated = cacheInvalidateSchema.parse(body);
+    const { datasourceId, reason = 'Manual invalidation' } = validated;
 
     log.info('Cache invalidation request initiated', {
       operation: 'cache_invalidate',

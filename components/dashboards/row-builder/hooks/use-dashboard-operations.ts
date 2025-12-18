@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import type { DashboardFilterConfig } from '@/lib/types/analytics';
 import type { RowBasedDashboardConfig } from '@/components/charts/dashboard-row-builder';
+import { useToast } from '@/components/toast';
 import { apiClient } from '@/lib/api/client';
 import { convertRowsToApiFormat } from '../utils/layout-converter';
 import { validateDashboard } from '../utils/validation';
@@ -30,17 +31,9 @@ interface UseDashboardOperationsProps {
   onSaveSuccess?: (() => void) | undefined;
 }
 
-interface ToastState {
-  show: boolean;
-  message: string;
-  type: 'success' | 'error';
-}
-
 export interface UseDashboardOperationsReturn {
   saveDashboard: () => Promise<void>;
   isSaving: boolean;
-  toast: ToastState;
-  setToast: (toast: ToastState) => void;
 }
 
 /**
@@ -62,23 +55,15 @@ export function useDashboardOperations({
   onSaveSuccess,
 }: UseDashboardOperationsProps): UseDashboardOperationsReturn {
   const [isSaving, setIsSaving] = useState(false);
-  const [toast, setToast] = useState<ToastState>({
-    show: false,
-    message: '',
-    type: 'success',
-  });
+  const { showToast } = useToast();
 
   const isEditMode = !!editingDashboard;
-
-  const showToast = useCallback((message: string, type: 'success' | 'error') => {
-    setToast({ show: true, message, type });
-  }, []);
 
   const saveDashboard = useCallback(async () => {
     // Validate dashboard configuration
     const validationError = validateDashboard(dashboardConfig);
     if (validationError) {
-      showToast(validationError, 'error');
+      showToast({ message: validationError, type: 'error' });
       return;
     }
 
@@ -103,22 +88,22 @@ export function useDashboardOperations({
         body: JSON.stringify(dashboardDefinition),
       });
 
-      showToast(
-        `Dashboard "${dashboardConfig.dashboardName}" ${isEditMode ? 'updated' : 'saved'} successfully!`,
-        'success'
-      );
+      showToast({
+        message: `Dashboard "${dashboardConfig.dashboardName}" ${isEditMode ? 'updated' : 'saved'} successfully!`,
+        type: 'success',
+      });
 
       // Only redirect after creating new dashboards, stay on editor when editing
       if (onSaveSuccess && !isEditMode) {
         onSaveSuccess();
       }
     } catch (error) {
-      showToast(
-        `Failed to ${isEditMode ? 'update' : 'save'} dashboard: ${
+      showToast({
+        message: `Failed to ${isEditMode ? 'update' : 'save'} dashboard: ${
           error instanceof Error ? error.message : 'Unknown error'
         }`,
-        'error'
-      );
+        type: 'error',
+      });
     } finally {
       setIsSaving(false);
     }
@@ -127,7 +112,5 @@ export function useDashboardOperations({
   return {
     saveDashboard,
     isSaving,
-    toast,
-    setToast,
   };
 }

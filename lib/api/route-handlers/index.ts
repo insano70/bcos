@@ -32,6 +32,7 @@
  */
 
 import type { NextRequest } from 'next/server';
+import type { RateLimitType } from '@/lib/api/middleware/rate-limit';
 import type { PermissionName, UserContext } from '@/lib/types/rbac';
 import { buildAuthRoute } from './builders/auth-route-builder';
 import { PublicRouteBuilder } from './builders/public-route-builder';
@@ -48,6 +49,9 @@ export type {
   RBACRouteOptions,
   RouteContext,
 } from './types';
+
+// Re-export RateLimitType for convenience
+export type { RateLimitType } from '@/lib/api/middleware/rate-limit';
 
 /**
  * RBAC Route Handler
@@ -81,7 +85,7 @@ export function rbacRoute(
   ) => Promise<Response>,
   options: {
     permission: PermissionName | PermissionName[];
-    rateLimit?: 'auth' | 'mfa' | 'api' | 'upload' | 'session_read' | 'admin_cli';
+    rateLimit?: RateLimitType;
     requireAuth?: boolean;
     publicReason?: string;
     requireAllPermissions?: boolean;
@@ -120,7 +124,7 @@ export function publicRoute(
   handler: (request: NextRequest, ...args: unknown[]) => Promise<Response>,
   reason: string,
   options: {
-    rateLimit?: 'auth' | 'mfa' | 'api' | 'upload' | 'session_read' | 'admin_cli';
+    rateLimit?: RateLimitType;
   } = {}
 ) {
   return PublicRouteBuilder.build(handler, reason, options);
@@ -152,7 +156,7 @@ export function publicRoute(
 export function authRoute(
   handler: (request: NextRequest, session?: AuthSession, ...args: unknown[]) => Promise<Response>,
   options: {
-    rateLimit?: 'auth' | 'mfa' | 'api' | 'upload' | 'session_read' | 'admin_cli';
+    rateLimit?: RateLimitType;
     requireAuth?: boolean;
     publicReason?: string;
   } = {}

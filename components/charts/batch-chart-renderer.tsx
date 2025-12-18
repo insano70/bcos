@@ -21,7 +21,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
 import { GlassCard } from '@/components/ui/glass-card';
 import { useChartDrillDown } from '@/hooks/useChartDrillDown';
 import { useIsMobile } from '@/hooks/useIsMobile';
@@ -38,6 +38,65 @@ import ChartRenderer from './chart-renderer';
 import ResponsiveChartContainer from './responsive-chart-container';
 import { DrillDownIcon } from './drill-down-icon';
 import { Spinner } from '@/components/ui/spinner';
+import type { BatchChartData } from '@/lib/services/dashboard-rendering/mappers';
+
+// ============================================================================
+// Chart State Reducer
+// ============================================================================
+
+interface ChartState {
+  // Fullscreen modal states (mutually exclusive)
+  fullscreenModal: 'none' | 'bar' | 'dual-axis' | 'progress-bar';
+  // Drill-down modal state
+  drillDownModalOpen: boolean;
+  drillDownFilters: DrillDownFilter[] | undefined;
+  // Local filter state
+  localFilters: DrillDownFilter[] | null;
+  filteredChartData: BatchChartData | null;
+  isLoadingFilter: boolean;
+}
+
+type ChartAction =
+  | { type: 'OPEN_FULLSCREEN'; modal: 'bar' | 'dual-axis' | 'progress-bar' }
+  | { type: 'CLOSE_FULLSCREEN' }
+  | { type: 'OPEN_DRILL_DOWN_MODAL'; filters: DrillDownFilter[] | undefined }
+  | { type: 'CLOSE_DRILL_DOWN_MODAL' }
+  | { type: 'SET_LOCAL_FILTERS'; filters: DrillDownFilter[] | null }
+  | { type: 'SET_FILTERED_DATA'; data: BatchChartData | null }
+  | { type: 'SET_LOADING_FILTER'; isLoading: boolean }
+  | { type: 'CLEAR_FILTERS' };
+
+const chartInitialState: ChartState = {
+  fullscreenModal: 'none',
+  drillDownModalOpen: false,
+  drillDownFilters: undefined,
+  localFilters: null,
+  filteredChartData: null,
+  isLoadingFilter: false,
+};
+
+function chartReducer(state: ChartState, action: ChartAction): ChartState {
+  switch (action.type) {
+    case 'OPEN_FULLSCREEN':
+      return { ...state, fullscreenModal: action.modal };
+    case 'CLOSE_FULLSCREEN':
+      return { ...state, fullscreenModal: 'none' };
+    case 'OPEN_DRILL_DOWN_MODAL':
+      return { ...state, drillDownModalOpen: true, drillDownFilters: action.filters };
+    case 'CLOSE_DRILL_DOWN_MODAL':
+      return { ...state, drillDownModalOpen: false };
+    case 'SET_LOCAL_FILTERS':
+      return { ...state, localFilters: action.filters };
+    case 'SET_FILTERED_DATA':
+      return { ...state, filteredChartData: action.data, isLoadingFilter: false };
+    case 'SET_LOADING_FILTER':
+      return { ...state, isLoadingFilter: action.isLoading };
+    case 'CLEAR_FILTERS':
+      return { ...state, localFilters: null, filteredChartData: null };
+    default:
+      return state;
+  }
+}
 
 // Lazy load fullscreen modals (like AnalyticsChart)
 const ChartFullscreenModal = dynamic(() => import('./chart-fullscreen-modal'), {
@@ -60,7 +119,6 @@ const DrillDownModal = dynamic(() => import('./drill-down-modal'), {
  * Chart render result from batch API
  * Re-exported from mappers for consistency across the codebase
  */
-import type { BatchChartData } from '@/lib/services/dashboard-rendering/mappers';
 export type { BatchChartData };
 
 // DrillDownFilter type is now imported from '@/lib/types/drill-down'
@@ -172,19 +230,16 @@ export default function BatchChartRenderer({
   // Chart ref for export functionality (like AnalyticsChart)
   const chartRef = useRef<HTMLCanvasElement | null>(null);
 
-  // Fullscreen state (like AnalyticsChart lines 382-383)
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [isDualAxisFullscreen, setIsDualAxisFullscreen] = useState(false);
-  const [isProgressBarFullscreen, setIsProgressBarFullscreen] = useState(false);
-
-  // Drill-down state
-  const [drillDownModalOpen, setDrillDownModalOpen] = useState(false);
-  const [drillDownFilters, setDrillDownFilters] = useState<DrillDownFilter[] | undefined>();
-  
-  // Local filter state for 'filter' drill-down type (supports multiple filters for multi-series)
-  const [localFilters, setLocalFilters] = useState<DrillDownFilter[] | null>(null);
-  const [filteredChartData, setFilteredChartData] = useState<BatchChartData | null>(null);
-  const [isLoadingFilter, setIsLoadingFilter] = useState(false);
+  // Consolidated chart state management
+  const [chartState, dispatch] = useReducer(chartReducer, chartInitialState);
+  const {
+    fullscreenModal,
+    drillDownModalOpen,
+    drillDownFilters,
+    localFilters,
+    filteredChartData,
+    isLoadingFilter,
+  } = chartState;
 
   // Build drill-down config from chart definition
   const drillDownConfig = buildDrillDownConfig({
@@ -198,10 +253,9 @@ export default function BatchChartRenderer({
   const handleDrillDownExecute = useCallback((result: DrillDownResult) => {
     if (result.type === 'filter' && result.filters && result.filters.length > 0) {
       // Apply local filter(s) to current chart (supports multi-series)
-      setLocalFilters(result.filters);
+      dispatch({ type: 'SET_LOCAL_FILTERS', filters: result.filters });
     } else if (result.type === 'navigate' && result.targetChartId) {
-      setDrillDownFilters(result.targetFilters);
-      setDrillDownModalOpen(true);
+      dispatch({ type: 'OPEN_DRILL_DOWN_MODAL', filters: result.targetFilters });
     } else if (result.type === 'swap' && result.targetChartId && onChartSwap) {
       // Swap current chart with target chart
       onChartSwap(chartDefinition.chart_definition_id, result.targetChartId);
@@ -221,8 +275,7 @@ export default function BatchChartRenderer({
 
   // Clear local filters and revert to original chart
   const clearLocalFilters = useCallback(() => {
-    setLocalFilters(null);
-    setFilteredChartData(null);
+    dispatch({ type: 'CLEAR_FILTERS' });
   }, []);
 
   // Handle refresh button - clears filters if filtered, otherwise calls onRetry
@@ -239,22 +292,21 @@ export default function BatchChartRenderer({
   // Falls back to server-side only when client-side can't handle the filter
   useEffect(() => {
     if (!localFilters || localFilters.length === 0) {
-      setFilteredChartData(null);
+      dispatch({ type: 'SET_FILTERED_DATA', data: null });
       return;
     }
 
     // Try client-side filtering first (instant, no network roundtrip)
     if (canFilterClientSide(chartData, localFilters)) {
       const filtered = filterChartDataClientSide(chartData, localFilters);
-      setFilteredChartData(filtered);
-      setIsLoadingFilter(false);
+      dispatch({ type: 'SET_FILTERED_DATA', data: filtered });
       return;
     }
 
     // Fallback to server-side filtering for complex cases
     // (e.g., date filters that need re-aggregation)
     const fetchFilteredData = async () => {
-      setIsLoadingFilter(true);
+      dispatch({ type: 'SET_LOADING_FILTER', isLoading: true });
       try {
         // Import dynamically to avoid circular dependencies
         const { apiClient } = await import('@/lib/api/client');
@@ -273,7 +325,7 @@ export default function BatchChartRenderer({
         const runtimeFilters: Record<string, unknown> = {
           advancedFilters,
         };
-        
+
         // Include measure and frequency if present (required for measure-based data sources)
         if (chartData.metadata.measure) {
           runtimeFilters.measure = chartData.metadata.measure;
@@ -320,13 +372,10 @@ export default function BatchChartRenderer({
           configForMapper
         );
 
-        setFilteredChartData(batchData);
+        dispatch({ type: 'SET_FILTERED_DATA', data: batchData });
       } catch {
         // On error, fall back to original data
-        setFilteredChartData(null);
-        setLocalFilters(null);
-      } finally {
-        setIsLoadingFilter(false);
+        dispatch({ type: 'CLEAR_FILTERS' });
       }
     };
 
@@ -470,13 +519,13 @@ export default function BatchChartRenderer({
           {...((chartDefinition.chart_type === 'bar' ||
             chartDefinition.chart_type === 'stacked-bar' ||
             chartDefinition.chart_type === 'horizontal-bar') && {
-            onFullscreen: () => setIsFullscreen(true),
+            onFullscreen: () => dispatch({ type: 'OPEN_FULLSCREEN', modal: 'bar' }),
           })}
           {...(chartDefinition.chart_type === 'dual-axis' && {
-            onFullscreen: () => setIsDualAxisFullscreen(true),
+            onFullscreen: () => dispatch({ type: 'OPEN_FULLSCREEN', modal: 'dual-axis' }),
           })}
           {...(chartDefinition.chart_type === 'progress-bar' && {
-            onFullscreen: () => setIsProgressBarFullscreen(true),
+            onFullscreen: () => dispatch({ type: 'OPEN_FULLSCREEN', modal: 'progress-bar' }),
           })}
         />
       )}
@@ -554,13 +603,13 @@ export default function BatchChartRenderer({
       </div>
 
       {/* Fullscreen Modal for Bar Charts */}
-      {isFullscreen &&
+      {fullscreenModal === 'bar' &&
         (chartDefinition.chart_type === 'bar' ||
           chartDefinition.chart_type === 'stacked-bar' ||
           chartDefinition.chart_type === 'horizontal-bar') && (
           <ChartFullscreenModal
-            isOpen={isFullscreen}
-            onClose={() => setIsFullscreen(false)}
+            isOpen={fullscreenModal === 'bar'}
+            onClose={() => dispatch({ type: 'CLOSE_FULLSCREEN' })}
             chartTitle={chartDefinition.chart_name}
             chartData={activeChartData.chartData}
             chartType={chartDefinition.chart_type as 'bar' | 'stacked-bar' | 'horizontal-bar'}
@@ -574,13 +623,13 @@ export default function BatchChartRenderer({
         )}
 
       {/* Dual-Axis Fullscreen Modal */}
-      {isDualAxisFullscreen &&
+      {fullscreenModal === 'dual-axis' &&
         chartDefinition.chart_type === 'dual-axis' &&
         activeChartData.chartData &&
         dualAxisConfig && (
           <DualAxisFullscreenModal
-            isOpen={isDualAxisFullscreen}
-            onClose={() => setIsDualAxisFullscreen(false)}
+            isOpen={fullscreenModal === 'dual-axis'}
+            onClose={() => dispatch({ type: 'CLOSE_FULLSCREEN' })}
             chartTitle={chartDefinition.chart_name}
             chartData={activeChartData.chartData}
             primaryAxisLabel={dualAxisConfig.primary.axisLabel}
@@ -592,10 +641,10 @@ export default function BatchChartRenderer({
         )}
 
       {/* Progress Bar Fullscreen Modal */}
-      {isProgressBarFullscreen && chartDefinition.chart_type === 'progress-bar' && (
+      {fullscreenModal === 'progress-bar' && chartDefinition.chart_type === 'progress-bar' && (
         <ProgressBarFullscreenModal
-          isOpen={isProgressBarFullscreen}
-          onClose={() => setIsProgressBarFullscreen(false)}
+          isOpen={fullscreenModal === 'progress-bar'}
+          onClose={() => dispatch({ type: 'CLOSE_FULLSCREEN' })}
           chartTitle={chartDefinition.chart_name}
           data={
             // Extract progress bar data from activeChartData
@@ -631,7 +680,7 @@ export default function BatchChartRenderer({
       {drillDownModalOpen && drillDownConfig.targetChartId && (
         <DrillDownModal
           isOpen={drillDownModalOpen}
-          onClose={() => setDrillDownModalOpen(false)}
+          onClose={() => dispatch({ type: 'CLOSE_DRILL_DOWN_MODAL' })}
           sourceChartName={chartDefinition.chart_name}
           targetChartId={drillDownConfig.targetChartId}
           {...(drillDownFilters && drillDownFilters.length > 0 ? { appliedFilters: drillDownFilters } : {})}

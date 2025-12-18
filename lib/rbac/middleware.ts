@@ -5,6 +5,7 @@ import type { PermissionName, UserContext } from '@/lib/types/rbac';
 import { RBACError } from '@/lib/errors/rbac-errors';
 import type { AuthResult } from '../api/middleware/global-auth';
 import { PermissionChecker } from './permission-checker';
+import { createPermissionDeniedResponse, PermissionErrorFormatter } from './permission-error-formatter';
 import { getUserContextOrThrow, UserContextAuthError } from './user-context';
 
 /**
@@ -23,7 +24,7 @@ export interface RBACMiddlewareOptions {
   requireAll?: boolean | undefined; // For multiple permissions (AND vs OR logic)
   extractResourceId?: ((request: NextRequest) => string | undefined) | undefined;
   extractOrganizationId?: ((request: NextRequest) => string | undefined) | undefined;
-  onPermissionDenied?: (userContext: UserContext, deniedPermissions: string[]) => NextResponse;
+  onPermissionDenied?: (userContext: UserContext, deniedPermissions: PermissionName[]) => NextResponse;
 }
 
 /**
@@ -67,7 +68,7 @@ export function createRBACMiddleware(
         : [requiredPermission];
 
       let hasAccess = false;
-      const deniedPermissions: string[] = [];
+      const deniedPermissions: PermissionName[] = [];
 
       if (options.requireAll) {
         // AND logic - user must have ALL permissions
@@ -102,27 +103,16 @@ export function createRBACMiddleware(
           return options.onPermissionDenied(resolvedUserContext, deniedPermissions);
         }
 
-        // Default permission denied response
-        return NextResponse.json(
-          {
-            success: false,
-            error: 'Forbidden',
-            message: `Missing required permissions: ${deniedPermissions.join(options.requireAll ? ' and ' : ' or ')}`,
-            code: 'INSUFFICIENT_PERMISSIONS',
-            details: {
-              required_permissions: permissions,
-              denied_permissions: deniedPermissions,
-              user_id: resolvedUserContext.user_id,
-              resource_id: resourceId,
-              organization_id: organizationId,
-            },
-            meta: {
-              timestamp: new Date().toISOString(),
-              path: request.url,
-            },
-          },
-          { status: 403 }
-        );
+        // Default permission denied response using centralized formatter
+        return createPermissionDeniedResponse({
+          requiredPermissions: permissions,
+          deniedPermissions,
+          userId: resolvedUserContext.user_id,
+          resourceId,
+          organizationId,
+          requireAll: options.requireAll,
+          request,
+        });
       }
 
       // Permission granted - return success with user context
@@ -134,19 +124,8 @@ export function createRBACMiddleware(
       });
 
       if (error instanceof RBACError) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: error.message,
-            code: error.code,
-            details: error.details,
-            meta: {
-              timestamp: new Date().toISOString(),
-              path: request.url,
-            },
-          },
-          { status: error.statusCode }
-        );
+        const body = PermissionErrorFormatter.formatFromError(error, request.url);
+        return NextResponse.json(body, { status: error.statusCode });
       }
 
       return NextResponse.json(

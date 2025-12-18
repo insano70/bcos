@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server';
-import { createErrorResponse, handleRouteError } from '@/lib/api/responses/error';
+import { handleRouteError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
+import { AuthValidator } from '@/lib/api/middleware/auth-validation';
 import { authRoute, type AuthSession } from '@/lib/api/route-handlers';
 import { log } from '@/lib/logger';
 
@@ -15,25 +16,9 @@ const handler = async (request: NextRequest, session?: AuthSession) => {
   const startTime = Date.now();
 
   try {
-    // Get authenticated user session with JWT-enhanced data (eliminates database queries!)
-    // authRoute middleware already handles authentication, so we can trust the session
-    if (!session) {
-      throw new Error('Session not found - authentication failed');
-    }
-
-    // User context is already available from JWT + cache - no additional database queries needed!
-    const userContext = session.userContext;
-
-    if (!userContext) {
-      log.warn('user context not found in session', {
-        operation: 'get_user_context',
-        userId: session.user?.id,
-        hasSession: !!session,
-        duration: Date.now() - startTime,
-        component: 'auth',
-      });
-      return createErrorResponse('User context not found', 404, request);
-    }
+    // Validate session and user context using AuthValidator
+    const validatedSession = AuthValidator.requireSession(session, request);
+    const userContext = AuthValidator.requireUserContext(validatedSession, request);
 
     // Note: Auth success already logged by auth middleware
     // No need for duplicate logging here
@@ -83,7 +68,7 @@ const handler = async (request: NextRequest, session?: AuthSession) => {
           isSuperAdmin: userContext.is_super_admin,
           organizationAdminFor: userContext.organization_admin_for,
         },
-        sessionId: session.sessionId,
+        sessionId: validatedSession.sessionId,
       },
       'User context retrieved successfully'
     );

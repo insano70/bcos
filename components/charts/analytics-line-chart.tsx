@@ -26,6 +26,7 @@ import {
 } from '@/lib/utils/chart-data/formatters/value-formatter';
 import { createPeriodComparisonTooltipCallbacks } from '@/lib/utils/period-comparison-tooltips';
 import { getTimeConfig } from '@/lib/utils/chart-fullscreen-config';
+import { isChartSafeToUpdate } from '@/lib/utils/chart-safety';
 
 Chart.register(
   LineController,
@@ -38,19 +39,6 @@ Chart.register(
   Tooltip,
   Legend
 );
-
-/**
- * Check if chart is safe to update (not destroyed, canvas context valid)
- */
-function isChartSafeToUpdate(chart: Chart<'line'> | null): chart is Chart<'line'> {
-  if (!chart) return false;
-  try {
-    // Check if canvas and context are still valid
-    return !!(chart.canvas && chart.ctx);
-  } catch {
-    return false;
-  }
-}
 
 interface AnalyticsLineChartProps {
   data: ChartData;

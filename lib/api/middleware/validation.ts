@@ -1,6 +1,18 @@
 import type { z } from 'zod';
 import { ValidationError } from '../responses/error';
 
+/**
+ * Validates the JSON body of a request against a Zod schema
+ *
+ * Parses the request body as JSON and validates it against the provided schema.
+ * Throws a ValidationError with sanitized error messages if validation fails.
+ *
+ * @template T - The type of the validated data
+ * @param request - The incoming HTTP request
+ * @param schema - Zod schema to validate the body against
+ * @returns The validated and typed request body
+ * @throws ValidationError if body is invalid JSON or fails schema validation
+ */
 export async function validateRequest<T>(request: Request, schema: z.ZodSchema<T>): Promise<T> {
   try {
     const body = await request.json();
@@ -26,6 +38,18 @@ export async function validateRequest<T>(request: Request, schema: z.ZodSchema<T
   }
 }
 
+/**
+ * Validates URL search parameters against a Zod schema
+ *
+ * Converts URLSearchParams to an object and validates against the provided schema.
+ * Throws a ValidationError with sanitized error messages if validation fails.
+ *
+ * @template T - The type of the validated data
+ * @param searchParams - URL search parameters to validate
+ * @param schema - Zod schema to validate the parameters against
+ * @returns The validated and typed query parameters
+ * @throws ValidationError if parameters fail schema validation
+ */
 export function validateQuery<T>(searchParams: URLSearchParams, schema: z.ZodSchema<T>): T {
   const queryObject = Object.fromEntries(searchParams.entries());
 
@@ -41,6 +65,18 @@ export function validateQuery<T>(searchParams: URLSearchParams, schema: z.ZodSch
   return result.data;
 }
 
+/**
+ * Validates route parameters against a Zod schema
+ *
+ * Validates a record of route parameters against the provided schema.
+ * Throws a ValidationError with sanitized error messages if validation fails.
+ *
+ * @template T - The type of the validated data
+ * @param params - Route parameters record to validate
+ * @param schema - Zod schema to validate the parameters against
+ * @returns The validated and typed route parameters
+ * @throws ValidationError if parameters fail schema validation
+ */
 export function validateParams<T>(params: Record<string, string>, schema: z.ZodSchema<T>): T {
   // ✅ BEST PRACTICE: Use safeParse for better error handling
   const result = schema.safeParse(params);

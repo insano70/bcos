@@ -18,8 +18,13 @@ interface RateLimitConfig {
  * - Fail-safe: Prevent abuse while allowing legitimate usage
  * - User-friendly: Limits high enough for normal workflows
  * - Security-first: Aggressive limits on authentication endpoints
+ *
+ * ADDING A NEW RATE LIMIT TYPE:
+ * 1. Add a new entry to RATE_LIMIT_CONFIGS below
+ * 2. The RateLimitType type is automatically derived - no manual updates needed
+ * 3. TypeScript will enforce the new type across all usages
  */
-const RATE_LIMIT_CONFIGS: Record<string, RateLimitConfig> = {
+const RATE_LIMIT_CONFIGS = {
   auth: {
     limit: 20, // 20 auth attempts per 15-minute window
     windowSeconds: 15 * 60, // 15 minutes
@@ -47,8 +52,9 @@ const RATE_LIMIT_CONFIGS: Record<string, RateLimitConfig> = {
   session_read: {
     limit: 500, // 500 session verification requests per minute
     windowSeconds: 60, // 1 minute
-    // Rationale: High limit for frequent auth checks (/api/auth/me called 3+ times per page)
-    // Must be higher than 'api' to avoid blocking legitimate session verification
+    // Rationale: Same as 'api' limit, used for session-related endpoints that don't
+    // need the stricter 'auth' limits but should be clearly categorized for monitoring.
+    // Endpoints: /api/auth/me, /api/auth/sessions, /api/auth/mfa/credentials
   },
   admin_cli: {
     limit: 1, // 1 request per minute
@@ -56,7 +62,13 @@ const RATE_LIMIT_CONFIGS: Record<string, RateLimitConfig> = {
     // Rationale: Resource-intensive admin operations (e.g., report card generation)
     // Should be heavily rate limited to prevent system overload
   },
-};
+} as const satisfies Record<string, RateLimitConfig>;
+
+/**
+ * Type-safe rate limit type - derived from config keys
+ * Adding a new entry to RATE_LIMIT_CONFIGS automatically updates this type
+ */
+export type RateLimitType = keyof typeof RATE_LIMIT_CONFIGS;
 
 /**
  * Redact IP address for privacy-compliant logging
@@ -115,13 +127,13 @@ export function getRateLimitKey(request: Request, prefix = ''): string {
  * Multi-instance safe - rate limits enforced globally across all instances
  *
  * @param request - HTTP request
- * @param type - Rate limit type (auth, api, upload, mfa, session_read, admin_cli)
+ * @param type - Rate limit type (uses RateLimitType from config keys)
  * @returns Rate limit result with remaining count and reset time
  * @throws RateLimitError if rate limit exceeded
  */
 export async function applyRateLimit(
   request: Request,
-  type: 'auth' | 'api' | 'upload' | 'mfa' | 'session_read' | 'admin_cli' = 'api'
+  type: RateLimitType = 'api'
 ): Promise<{
   success: boolean;
   remaining: number;

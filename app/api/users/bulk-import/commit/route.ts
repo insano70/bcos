@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { rbacRoute } from '@/lib/api/route-handlers';
+import { createSuccessResponse } from '@/lib/api/responses/success';
 import { log } from '@/lib/logger';
 import { createBulkUserImportService } from '@/lib/services/bulk-user-import-service';
 import type { UserContext } from '@/lib/types/rbac';
@@ -62,13 +63,10 @@ const commitHandler = async (request: NextRequest, userContext: UserContext) => 
       },
     });
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        created_count: createdCount,
-        failed_count: failedCount,
-        results,
-      },
+    return createSuccessResponse({
+      created_count: createdCount,
+      failed_count: failedCount,
+      results,
     });
   } catch (error) {
     log.error('bulk import commit failed', error, {

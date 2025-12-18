@@ -8,6 +8,7 @@ import {
 import { db, practice_attributes, practices, templates, users } from '@/lib/db';
 import { log, SLOW_THRESHOLDS } from '@/lib/logger';
 import { calculateChanges, logTemplates, sanitizeFilters } from '@/lib/logger/message-templates';
+import { BaseRBACService } from '@/lib/rbac/base-service';
 import { getPracticeQueryBuilder } from '@/lib/services/practices/query-builder';
 import type { UserContext } from '@/lib/types/rbac';
 
@@ -65,36 +66,49 @@ export interface PracticesServiceInterface {
 /**
  * Internal practices service class
  * Implements all CRUD operations with RBAC enforcement
+ * Extends BaseRBACService for standardized permission checking
  */
-class PracticesService implements PracticesServiceInterface {
-  private canReadAll: boolean;
-  private canReadOwn: boolean;
-  private canCreate: boolean;
-  private canUpdate: boolean;
-  private canDelete: boolean;
+class PracticesService extends BaseRBACService implements PracticesServiceInterface {
+  /**
+   * Check if user can read all practices
+   */
+  private canReadAll(): boolean {
+    return this.isSuperAdmin() || this.checker.hasPermission('practices:read:all');
+  }
 
-  constructor(private userContext: UserContext) {
-    // Check permissions once at service creation
-    this.canReadAll =
-      userContext.is_super_admin ||
-      userContext.all_permissions?.some((p) => p.name === 'practices:read:all');
+  /**
+   * Check if user can read own practices
+   */
+  private canReadOwn(): boolean {
+    return this.checker.hasPermission('practices:read:own');
+  }
 
-    this.canReadOwn = userContext.all_permissions?.some((p) => p.name === 'practices:read:own');
+  /**
+   * Check if user can create practices
+   */
+  private canCreate(): boolean {
+    return this.isSuperAdmin() || this.checker.hasPermission('practices:create:all');
+  }
 
-    this.canCreate =
-      userContext.is_super_admin ||
-      userContext.all_permissions?.some((p) => p.name === 'practices:create:all');
+  /**
+   * Check if user can update practices
+   */
+  private canUpdate(): boolean {
+    return (
+      this.isSuperAdmin() ||
+      this.checker.hasAnyPermission([
+        'practices:update:own',
+        'practices:manage:all',
+        'practices:create:all',
+      ])
+    );
+  }
 
-    this.canUpdate =
-      userContext.is_super_admin ||
-      userContext.all_permissions?.some(
-        (p) =>
-          p.name === 'practices:update:own' ||
-          p.name === 'practices:manage:all' ||
-          p.name === 'practices:create:all'
-      );
-
-    this.canDelete = userContext.is_super_admin;
+  /**
+   * Check if user can delete practices (super admin only)
+   */
+  private canDelete(): boolean {
+    return this.isSuperAdmin();
   }
 
   /**
@@ -108,8 +122,8 @@ class PracticesService implements PracticesServiceInterface {
       const whereConditions = [isNull(practices.deleted_at)];
 
       // Apply RBAC filtering
-      if (!this.canReadAll) {
-        if (this.canReadOwn) {
+      if (!this.canReadAll()) {
+        if (this.canReadOwn()) {
           // User can only see practices they own
           whereConditions.push(eq(practices.owner_user_id, this.userContext.user_id));
         } else {
@@ -197,7 +211,7 @@ class PracticesService implements PracticesServiceInterface {
             duration: countDuration,
             slow: countDuration > SLOW_THRESHOLDS.DB_QUERY,
           },
-          rbacScope: this.canReadAll ? 'all' : 'own',
+          rbacScope: this.canReadAll() ? 'all' : 'own',
           component: 'business-logic',
         },
       });
@@ -244,7 +258,7 @@ class PracticesService implements PracticesServiceInterface {
       }
 
       // Check access permissions
-      if (!this.canReadAll && practice.owner_user_id !== this.userContext.user_id) {
+      if (!this.canReadAll() && practice.owner_user_id !== this.userContext.user_id) {
         log.error('access denied to practice', new Error('Authorization failed'), {
           operation: 'read_practice',
           resourceId: id,
@@ -265,7 +279,7 @@ class PracticesService implements PracticesServiceInterface {
         metadata: {
           domain: practice.domain,
           status: practice.status,
-          rbacScope: this.canReadAll ? 'all' : 'own',
+          rbacScope: this.canReadAll() ? 'all' : 'own',
           component: 'business-logic',
         },
       });
@@ -298,8 +312,8 @@ class PracticesService implements PracticesServiceInterface {
       const whereConditions = [isNull(practices.deleted_at)];
 
       // Apply RBAC filtering
-      if (!this.canReadAll) {
-        if (this.canReadOwn) {
+      if (!this.canReadAll()) {
+        if (this.canReadOwn()) {
           whereConditions.push(eq(practices.owner_user_id, this.userContext.user_id));
         } else {
           log.info('practice count query - no permissions', {
@@ -338,7 +352,7 @@ class PracticesService implements PracticesServiceInterface {
         duration,
         slow: duration > SLOW_THRESHOLDS.DB_QUERY,
         filters: sanitizeFilters((filters || {}) as Record<string, unknown>),
-        rbacScope: this.canReadAll ? 'all' : 'own',
+        rbacScope: this.canReadAll() ? 'all' : 'own',
         component: 'business-logic',
       });
 
@@ -362,7 +376,7 @@ class PracticesService implements PracticesServiceInterface {
 
     try {
       // Check permission
-      if (!this.canCreate) {
+      if (!this.canCreate()) {
         throw AuthorizationError('Access denied: You do not have permission to create practices');
       }
 
@@ -487,7 +501,7 @@ class PracticesService implements PracticesServiceInterface {
 
     try {
       // Check permission
-      if (!this.canUpdate) {
+      if (!this.canUpdate()) {
         throw AuthorizationError('Access denied: You do not have permission to update practices');
       }
 
@@ -510,12 +524,12 @@ class PracticesService implements PracticesServiceInterface {
       }
 
       // Check RBAC access - only super admin or owner can update
-      if (!this.canReadAll && existing.owner_user_id !== this.userContext.user_id) {
+      if (!this.canReadAll() && existing.owner_user_id !== this.userContext.user_id) {
         throw AuthorizationError('Access denied: You do not have permission to view this practice');
       }
 
       // Check ownership for non-super-admins
-      if (!this.userContext.is_super_admin && existing.owner_user_id !== this.userContext.user_id) {
+      if (!this.isSuperAdmin() && existing.owner_user_id !== this.userContext.user_id) {
         throw AuthorizationError(
           'Access denied: You do not have permission to update this practice'
         );
@@ -609,7 +623,7 @@ class PracticesService implements PracticesServiceInterface {
 
     try {
       // Check permission (only super admins)
-      if (!this.canDelete) {
+      if (!this.canDelete()) {
         throw AuthorizationError('Access denied: Only super administrators can delete practices');
       }
 

@@ -20,7 +20,7 @@
 
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
-import { account_security, db, refresh_tokens, user_sessions } from '@/lib/db';
+import { account_security, db, type DbContext, refresh_tokens, user_sessions } from '@/lib/db';
 import { log } from '@/lib/logger';
 import type { DeviceInfo } from '../types';
 
@@ -124,18 +124,19 @@ export async function enforceSessionLimit(userId: string): Promise<number> {
  * Links session to refresh token for lifecycle management.
  *
  * @param data - Session creation data
+ * @param ctx - Optional database context (transaction or db instance)
  *
  * @example
- * await createSessionRecord({
- *   sessionId: 'session-abc',
- *   userId: 'user-123',
- *   refreshTokenId: 'token-xyz',
- *   deviceInfo: { ... },
- *   rememberMe: false
+ * // Without transaction
+ * await createSessionRecord({ sessionId: 'session-abc', ... });
+ *
+ * // With transaction
+ * await db.transaction(async (tx) => {
+ *   await createSessionRecord({ sessionId: 'session-abc', ... }, tx);
  * });
  */
-export async function createSessionRecord(data: SessionData): Promise<void> {
-  await db.insert(user_sessions).values({
+export async function createSessionRecord(data: SessionData, ctx: DbContext = db): Promise<void> {
+  await ctx.insert(user_sessions).values({
     session_id: data.sessionId,
     user_id: data.userId,
     refresh_token_id: data.refreshTokenId,

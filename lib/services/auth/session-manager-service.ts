@@ -29,15 +29,22 @@
  * ```
  */
 
+import { cookies } from 'next/headers';
 import { and, desc, eq, isNull, or, sql } from 'drizzle-orm';
+import { COOKIE_NAMES } from '@/lib/auth/cookie-names';
 import type { DeviceInfo, TokenPair } from '@/lib/auth/tokens';
 import {
   createTokenPair,
+  generateDeviceFingerprint,
+  generateDeviceName,
   revokeAllUserTokens,
   revokeRefreshToken,
 } from '@/lib/auth/tokens';
+import { AUTH_TTL, getRefreshTokenTTL } from '@/lib/constants/auth-ttl';
 import { db, refresh_tokens, user_sessions } from '@/lib/db';
 import { log, SLOW_THRESHOLDS } from '@/lib/logger';
+import { getCachedUserContextSafe } from '@/lib/rbac/cached-user-context';
+import { setCSRFToken } from '@/lib/security/csrf-unified';
 
 // ============================================================================
 // Type Definitions
@@ -75,6 +82,63 @@ export interface RevokeSessionResult {
   success: boolean;
   sessionId: string;
   tokensRevoked: number;
+}
+
+/**
+ * User data for session setup response
+ */
+export interface SessionUserData {
+  id: string;
+  email: string;
+  name: string;
+  firstName: string | null;
+  lastName: string | null;
+  role: string;
+  emailVerified: boolean | null;
+  roles: string[];
+  permissions: string[];
+}
+
+/**
+ * Options for setting up a full session with cookies
+ */
+export interface SetupSessionOptions {
+  /** User ID */
+  userId: string;
+  /** User email */
+  email: string;
+  /** User's first name */
+  firstName: string | null;
+  /** User's last name */
+  lastName: string | null;
+  /** Whether email is verified */
+  emailVerified: boolean | null;
+  /** Client IP address */
+  ipAddress: string;
+  /** Client user agent */
+  userAgent: string | null;
+  /** Whether to extend session duration */
+  rememberMe?: boolean;
+  /** Authentication method for logging */
+  authMethod?: string;
+}
+
+/**
+ * Result from setting up a full session with cookies
+ */
+export interface SessionSetupResult {
+  /** Token pair (access + refresh tokens) */
+  tokenPair: TokenPair;
+  /** User data for response */
+  user: SessionUserData;
+  /** CSRF token for client */
+  csrfToken: string;
+  /** Device fingerprint (first 8 chars) */
+  deviceFingerprint: string;
+  /** Device name (parsed from user agent) */
+  deviceName: string;
+  /** Cookie max age in seconds */
+  maxAge: number;
 }
 
 // ============================================================================
@@ -417,4 +481,113 @@ export async function getCurrentSessionId(
   });
 
   return payload.sessionId || null;
+}
+
+// ============================================================================
+// Session Setup with Cookies (Consolidated MFA Flow)
+// ============================================================================
+
+/**
+ * Set up a full authentication session with cookies
+ *
+ * Consolidates the duplicated session setup logic from MFA routes:
+ * - Builds device info from request metadata
+ * - Creates the auth session
+ * - Sets httpOnly cookies (access + refresh tokens)
+ * - Gets user context for RBAC
+ * - Generates CSRF token
+ *
+ * REPLACES DUPLICATE CODE IN:
+ * - /api/auth/mfa/verify/route.ts (lines 73-122)
+ * - /api/auth/mfa/skip/route.ts (lines 57-109)
+ * - /api/auth/mfa/register/complete/route.ts (lines 104-155)
+ *
+ * @param options - Session setup options
+ * @returns Session setup result with token pair, user data, CSRF token
+ */
+export async function setupSessionWithCookies(
+  options: SetupSessionOptions
+): Promise<SessionSetupResult> {
+  const {
+    userId,
+    email,
+    firstName,
+    lastName,
+    emailVerified,
+    ipAddress,
+    userAgent,
+    rememberMe = false,
+    authMethod,
+  } = options;
+
+  // Build device info
+  const deviceFingerprint = generateDeviceFingerprint(ipAddress, userAgent || 'unknown');
+  const deviceName = generateDeviceName(userAgent || 'unknown');
+
+  const deviceInfo: DeviceInfo = {
+    ipAddress,
+    userAgent: userAgent || 'unknown',
+    fingerprint: deviceFingerprint,
+    deviceName,
+  };
+
+  // Create session
+  const tokenPair = await createAuthSession({
+    userId,
+    deviceInfo,
+    rememberMe,
+    email,
+    ...(authMethod && { authMethod }),
+  });
+
+  // Set secure httpOnly cookies
+  const cookieStore = await cookies();
+  const isSecureEnvironment = process.env.NODE_ENV === 'production';
+  const maxAge = getRefreshTokenTTL(rememberMe);
+
+  cookieStore.set(COOKIE_NAMES.REFRESH_TOKEN, tokenPair.refreshToken, {
+    httpOnly: true,
+    secure: isSecureEnvironment,
+    sameSite: 'strict',
+    path: '/',
+    maxAge,
+  });
+
+  cookieStore.set(COOKIE_NAMES.ACCESS_TOKEN, tokenPair.accessToken, {
+    httpOnly: true,
+    secure: isSecureEnvironment,
+    sameSite: 'strict',
+    path: '/',
+    maxAge: AUTH_TTL.ACCESS_TOKEN,
+  });
+
+  // Get user context for RBAC
+  const userContext = await getCachedUserContextSafe(userId);
+  const userRoles = userContext?.roles?.map((r) => r.name) || [];
+  const primaryRole = userRoles[0] ?? 'user';
+
+  // Generate CSRF token
+  const csrfToken = await setCSRFToken(userId);
+
+  // Build user data for response
+  const user: SessionUserData = {
+    id: userId,
+    email,
+    name: `${firstName || ''} ${lastName || ''}`.trim() || email,
+    firstName,
+    lastName,
+    role: primaryRole,
+    emailVerified,
+    roles: userRoles,
+    permissions: userContext?.all_permissions?.map((p) => p.name) || [],
+  };
+
+  return {
+    tokenPair,
+    user,
+    csrfToken,
+    deviceFingerprint: deviceFingerprint.substring(0, 8),
+    deviceName,
+    maxAge,
+  };
 }

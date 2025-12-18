@@ -24,7 +24,26 @@ import { log, logTemplates, SLOW_THRESHOLDS } from '@/lib/logger';
 import type { Organization, Permission, Role, UserContext, UserRole } from '@/lib/types/rbac';
 
 // Request-scoped cache to prevent multiple getUserContext calls per request
+// Automatically cleans up entries after a short delay to prevent memory buildup
 const requestCache = new Map<string, Promise<UserContext | null>>();
+
+/**
+ * Cache timeout for request-scoped cache cleanup
+ * After this time, the entry is removed from the map.
+ * Set to 5 seconds - enough to handle typical request lifecycles
+ * while preventing unbounded memory growth.
+ */
+const REQUEST_CACHE_CLEANUP_MS = 5000;
+
+/**
+ * Schedule cleanup of a request cache entry
+ * Removes the entry after REQUEST_CACHE_CLEANUP_MS to prevent memory leaks
+ */
+function scheduleRequestCacheCleanup(cacheKey: string): void {
+  setTimeout(() => {
+    requestCache.delete(cacheKey);
+  }, REQUEST_CACHE_CLEANUP_MS).unref(); // unref() prevents keeping process alive
+}
 
 /**
  * Get role permissions from Redis cache or database
@@ -512,9 +531,7 @@ export async function getCachedUserContextSafe(userId: string): Promise<UserCont
       return null;
     } finally {
       // Clean up cache entry after request completes (prevent memory leaks)
-      setTimeout(() => {
-        requestCache.delete(cacheKey);
-      }, 1000); // Clean up after 1 second
+      scheduleRequestCacheCleanup(cacheKey);
     }
   })();
 

@@ -1,6 +1,7 @@
-import { type NextRequest, NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { handleRouteError } from '@/lib/api/responses/error';
+import { createSuccessResponse } from '@/lib/api/responses/success';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
 import { log } from '@/lib/logger';
 import { createRBACWorkItemTypeRelationshipsService } from '@/lib/services/rbac-work-item-type-relationships-service';
@@ -56,7 +57,7 @@ const postRelationshipHandler = async (
       component: 'work-items',
     });
 
-    return NextResponse.json(relationship, { status: 201 });
+    return createSuccessResponse(relationship, undefined, undefined, 201);
   } catch (error) {
     const duration = Date.now() - startTime;
 
@@ -142,7 +143,7 @@ const getRelationshipsHandler = async (
       component: 'work-items',
     });
 
-    return NextResponse.json(relationships);
+    return createSuccessResponse(relationships);
   } catch (error) {
     const duration = Date.now() - startTime;
 

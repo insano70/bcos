@@ -1,9 +1,13 @@
-import { cookies } from 'next/headers';
 import type { NextRequest } from 'next/server';
+import { z } from 'zod';
+import { AuthValidator } from '@/lib/api/middleware/auth-validation';
 import { validateRequest } from '@/lib/api/middleware/validation';
-import { createErrorResponse, handleRouteError } from '@/lib/api/responses/error';
+import { handleRouteError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
+import { AuditLogger } from '@/lib/api/services/audit';
+import { extractRequestMetadata } from '@/lib/api/utils/request';
+import { log } from '@/lib/logger';
 import type { UserContext } from '@/lib/types/rbac';
 import {
   getCurrentSessionId,
@@ -13,9 +17,6 @@ import {
 
 // Force dynamic rendering for this API route
 export const dynamic = 'force-dynamic';
-
-import { z } from 'zod';
-import { log } from '@/lib/logger';
 
 /**
  * Session Management Endpoints
@@ -32,17 +33,31 @@ const revokeSessionSchema = z.object({
  */
 const getSessionsHandler = async (request: NextRequest, userContext: UserContext) => {
   try {
+    const metadata = extractRequestMetadata(request);
+
     // Get current session ID from refresh token to mark the current session
-    const cookieStore = await cookies();
-    const refreshToken = cookieStore.get('refresh-token')?.value;
+    const refreshTokenResult = await AuthValidator.validateRefreshToken(request);
     let currentSessionId: string | null = null;
 
-    if (refreshToken) {
-      currentSessionId = await getCurrentSessionId(refreshToken, userContext.user_id);
+    if (refreshTokenResult.success) {
+      currentSessionId = await getCurrentSessionId(refreshTokenResult.data, userContext.user_id);
     }
 
     // Use session-manager-service to get all active sessions
     const sessions = await listUserSessions(userContext.user_id, currentSessionId || undefined);
+
+    // Audit log session access (security-sensitive operation)
+    await AuditLogger.logUserAction({
+      action: 'view_sessions',
+      userId: userContext.user_id,
+      resourceType: 'session',
+      ipAddress: metadata.ipAddress,
+      userAgent: metadata.userAgent,
+      metadata: {
+        totalSessions: sessions.length,
+        currentSessionId,
+      },
+    });
 
     return createSuccessResponse(
       {
@@ -77,20 +92,34 @@ const getSessionsHandler = async (request: NextRequest, userContext: UserContext
  */
 const revokeSessionHandler = async (request: NextRequest, userContext: UserContext) => {
   try {
+    const metadata = extractRequestMetadata(request);
+
     // Validate request body
     const validatedData = await validateRequest(request, revokeSessionSchema);
     const { sessionId } = validatedData;
 
     // Get the current refresh token to use for revocation
-    const cookieStore = await cookies();
-    const refreshToken = cookieStore.get('refresh-token')?.value;
-
-    if (!refreshToken) {
-      return createErrorResponse('Refresh token not found', 401, request);
-    }
+    const refreshToken = await AuthValidator.requireRefreshToken(request, {
+      message: 'Refresh token not found',
+      statusCode: 401,
+    });
 
     // Use session-manager-service to revoke the session
     const result = await revokeSession(userContext.user_id, sessionId, refreshToken);
+
+    // Audit log session revocation (security-sensitive operation)
+    await AuditLogger.logUserAction({
+      action: 'revoke_session',
+      userId: userContext.user_id,
+      resourceType: 'session',
+      resourceId: result.sessionId,
+      ipAddress: metadata.ipAddress,
+      userAgent: metadata.userAgent,
+      metadata: {
+        tokensRevoked: result.tokensRevoked,
+        reason: 'user_requested',
+      },
+    });
 
     return createSuccessResponse(
       { sessionId: result.sessionId, tokensRevoked: result.tokensRevoked },

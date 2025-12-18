@@ -34,12 +34,7 @@ import { redisAdminService } from '@/lib/monitoring/redis-admin';
 import type { RedisPurgeResult } from '@/lib/monitoring/types';
 import { isRedisAvailable } from '@/lib/redis';
 import type { UserContext } from '@/lib/types/rbac';
-
-interface PurgeRequest {
-  pattern: string;
-  preview?: boolean;
-  confirm?: boolean;
-}
+import { redisPurgeSchema } from '@/lib/validations/admin-cache';
 
 const redisPurgeHandler = async (request: NextRequest, userContext: UserContext) => {
   const startTime = Date.now();
@@ -50,14 +45,9 @@ const redisPurgeHandler = async (request: NextRequest, userContext: UserContext)
       return createErrorResponse('Redis is not available', 503, request);
     }
 
-    // Parse request body
-    const body = (await request.json()) as PurgeRequest;
-
-    if (!body.pattern || body.pattern.trim().length === 0) {
-      return createErrorResponse('pattern field is required', 400, request);
-    }
-
-    const { pattern, preview = false, confirm = false } = body;
+    // Parse and validate request body
+    const body = await request.json();
+    const { pattern, preview, confirm } = redisPurgeSchema.parse(body);
 
     // Safety check: require confirmation for actual deletion
     if (!preview && !confirm) {

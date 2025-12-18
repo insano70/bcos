@@ -20,6 +20,7 @@ import { AuditLogger } from '@/lib/api/services/audit';
 import { log } from '@/lib/logger';
 import { getRedisClient, isRedisAvailable } from '@/lib/redis';
 import type { UserContext } from '@/lib/types/rbac';
+import { redisFlushAllSchema } from '@/lib/validations/admin-cache';
 
 interface FlushAllResponse {
   success: true;
@@ -32,26 +33,9 @@ const flushAllHandler = async (request: NextRequest, userContext: UserContext) =
   const startTime = Date.now();
 
   try {
-    // Parse request body
-    let body: { confirm?: boolean };
-    try {
-      body = await request.json();
-    } catch {
-      return createErrorResponse(
-        'Invalid JSON body. POST body must be valid JSON with {"confirm": true}',
-        400,
-        request
-      );
-    }
-
-    // Require explicit confirmation to prevent accidental FLUSHALL
-    if (body.confirm !== true) {
-      return createErrorResponse(
-        'Confirmation required: POST body must include {"confirm": true}',
-        400,
-        request
-      );
-    }
+    // Parse and validate request body
+    const body = await request.json();
+    redisFlushAllSchema.parse(body);
 
     // Check if Redis is available
     if (!isRedisAvailable()) {
