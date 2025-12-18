@@ -6,6 +6,7 @@
  */
 
 import { memo } from 'react';
+import { Card } from '@/components/ui/card';
 
 interface ActiveUsersKPIProps {
   activeUsers: {
@@ -34,7 +35,7 @@ function ActiveUsersKPIInner({ activeUsers }: ActiveUsersKPIProps) {
   }
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+    <Card>
       {/* Header */}
       <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">Active Users</div>
 
@@ -70,7 +71,7 @@ function ActiveUsersKPIInner({ activeUsers }: ActiveUsersKPIProps) {
           Peak: {peak} at {new Date(peakTime).toLocaleTimeString()}
         </div>
       )}
-    </div>
+    </Card>
   );
 }
 

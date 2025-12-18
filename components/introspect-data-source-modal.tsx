@@ -1,10 +1,10 @@
 'use client';
 
-import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
 import { useState } from 'react';
+import { Modal } from '@/components/ui/modal';
 import { type DataSource, useIntrospectDataSource } from '@/lib/hooks/use-data-sources';
 import Toast from './toast';
-import { Spinner } from '@/components/ui/spinner';
+import { Button } from '@/components/ui/button';
 import { clientErrorLog } from '@/lib/utils/debug-client';
 
 interface IntrospectDataSourceModalProps {
@@ -67,58 +67,15 @@ export default function IntrospectDataSourceModal({
 
   return (
     <>
-      <Transition appear show={isOpen}>
-        <Dialog as="div" className="relative z-50" onClose={handleClose}>
-          <TransitionChild
-            enter="ease-out duration-300"
-            enterFrom="opacity-0"
-            enterTo="opacity-100"
-            leave="ease-in duration-200"
-            leaveFrom="opacity-100"
-            leaveTo="opacity-0"
-          >
-            <div className="fixed inset-0 bg-black bg-opacity-25" />
-          </TransitionChild>
-
-          <div className="fixed inset-0 overflow-y-auto">
-            <div className="flex min-h-full items-center justify-center p-4">
-              <TransitionChild
-                enter="ease-out duration-300"
-                enterFrom="opacity-0 scale-95"
-                enterTo="opacity-100 scale-100"
-                leave="ease-in duration-200"
-                leaveFrom="opacity-100 scale-100"
-                leaveTo="opacity-0 scale-95"
-              >
-                <DialogPanel className="w-full max-w-md bg-white dark:bg-gray-800 rounded-xl shadow-xl">
-                  {/* Modal header */}
-                  <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0">
-                        <svg
-                          className="w-6 h-6 text-blue-600"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                          />
-                        </svg>
-                      </div>
-                      <div className="ml-3">
-                        <h3 className="text-lg font-medium text-gray-800 dark:text-gray-100">
-                          Introspect Data Source
-                        </h3>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Modal body */}
-                  <div className="px-6 py-4">
+      <Modal
+        isOpen={isOpen}
+        onClose={handleClose}
+        size="sm"
+        title="Introspect Data Source"
+        preventClose={isIntrospecting}
+      >
+        {/* Modal body */}
+        <div className="px-6 py-4">
                     <div className="text-sm text-gray-500 dark:text-gray-400">
                       This will automatically create column definitions by analyzing the table
                       structure in the analytics database.
@@ -181,41 +138,22 @@ export default function IntrospectDataSourceModal({
                     </div>
                   </div>
 
-                  {/* Modal footer */}
-                  <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700">
-                    <button
-                      type="button"
-                      onClick={handleClose}
-                      className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      disabled={isIntrospecting}
-                    >
-                      Cancel
-                    </button>
-                    <button type="button" onClick={handleIntrospect}
-                      disabled={isIntrospecting}
-                      className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {isIntrospecting ? (
-                        <>
-                          <Spinner
-                            size="sm"
-                            className="-ml-1 mr-3"
-                            trackClassName="border-current opacity-25"
-                            indicatorClassName="border-current opacity-75"
-                          />
-                          Introspecting...
-                        </>
-                      ) : (
-                        'Introspect Columns'
-                      )}
-                    </button>
-                  </div>
-                </DialogPanel>
-              </TransitionChild>
-            </div>
-          </div>
-        </Dialog>
-      </Transition>
+        {/* Modal footer */}
+        <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700">
+          <Button variant="secondary" onClick={handleClose} disabled={isIntrospecting}>
+            Cancel
+          </Button>
+          <Button
+            variant="blue"
+            onClick={handleIntrospect}
+            disabled={isIntrospecting}
+            loading={isIntrospecting}
+            loadingText="Introspecting..."
+          >
+            Introspect Columns
+          </Button>
+        </div>
+      </Modal>
 
       {/* Toast Notification */}
       <Toast

@@ -1,10 +1,12 @@
 'use client';
 
 import { useState, useId } from 'react';
-import { usePendingFeedback, useResolveFeedback } from '@/lib/hooks/use-data-explorer';
-import ProtectedComponent from '@/components/rbac/protected-component';
+import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/spinner';
+import ProtectedComponent from '@/components/rbac/protected-component';
+import { usePendingFeedback, useResolveFeedback } from '@/lib/hooks/use-data-explorer';
 import type { QueryFeedback, ResolveFeedbackParams } from '@/lib/types/data-explorer';
+import { getFeedbackSeverityColor, getFeedbackStatusColor } from '@/lib/utils/badge-colors';
 import { clientErrorLog } from '@/lib/utils/debug-client';
 
 export default function FeedbackDashboardPage() {
@@ -35,40 +37,6 @@ export default function FeedbackDashboardPage() {
       refetch();
     } catch (error) {
       clientErrorLog('Failed to resolve feedback:', error);
-    }
-  };
-
-  const getSeverityColor = (severity: QueryFeedback['severity']) => {
-    switch (severity) {
-      case 'critical':
-        return 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400';
-      case 'high':
-        return 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400';
-      case 'medium':
-        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400';
-      case 'low':
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400';
-      default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400';
-    }
-  };
-
-  const getStatusColor = (status: QueryFeedback['resolution_status']) => {
-    switch (status) {
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400';
-      case 'resolved':
-        return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400';
-      case 'metadata_updated':
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400';
-      case 'instruction_created':
-        return 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400';
-      case 'relationship_added':
-        return 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/20 dark:text-indigo-400';
-      case 'wont_fix':
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400';
-      default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400';
     }
   };
 
@@ -157,12 +125,12 @@ export default function FeedbackDashboardPage() {
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getSeverityColor(item.severity)}`}>
+                        <Badge color={getFeedbackSeverityColor(item.severity)}>
                           {item.severity.toUpperCase()}
-                        </span>
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(item.resolution_status)}`}>
+                        </Badge>
+                        <Badge color={getFeedbackStatusColor(item.resolution_status)}>
                           {item.resolution_status.replace('_', ' ').toUpperCase()}
-                        </span>
+                        </Badge>
                         <span className="text-xs text-gray-500 dark:text-gray-400">
                           {new Date(item.created_at).toLocaleDateString()}
                         </span>
@@ -260,12 +228,9 @@ export default function FeedbackDashboardPage() {
                               </h4>
                               <div className="flex flex-wrap gap-1">
                                 {item.affected_tables.map((table) => (
-                                  <span
-                                    key={table}
-                                    className="inline-flex items-center px-2 py-1 rounded text-xs bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400"
-                                  >
+                                  <Badge key={table} color="purple" size="sm" shape="rounded">
                                     {table}
-                                  </span>
+                                  </Badge>
                                 ))}
                               </div>
                             </div>
@@ -278,12 +243,9 @@ export default function FeedbackDashboardPage() {
                               </h4>
                               <div className="flex flex-wrap gap-1">
                                 {item.affected_columns.map((column) => (
-                                  <span
-                                    key={column}
-                                    className="inline-flex items-center px-2 py-1 rounded text-xs bg-indigo-100 text-indigo-800 dark:bg-indigo-900/20 dark:text-indigo-400"
-                                  >
+                                  <Badge key={column} color="indigo" size="sm" shape="rounded">
                                     {column}
-                                  </span>
+                                  </Badge>
                                 ))}
                               </div>
                             </div>

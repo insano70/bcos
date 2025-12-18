@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useId } from 'react';
+import { FormLabel } from '@/components/ui/form-label';
 import { useSubmitFeedback } from '@/lib/hooks/use-data-explorer';
 import type { SubmitFeedbackParams } from '@/lib/types/data-explorer';
 import { clientErrorLog } from '@/lib/utils/debug-client';
@@ -94,9 +95,9 @@ export default function FeedbackModal({
 
                     {/* Feedback Type */}
                     <div>
-                      <label htmlFor={feedbackTypeId} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        What went wrong? <span className="text-red-500">*</span>
-                      </label>
+                      <FormLabel htmlFor={feedbackTypeId} required className="mb-1">
+                        What went wrong?
+                      </FormLabel>
                       <select
                         id={feedbackTypeId}
                         value={feedbackType}
@@ -117,9 +118,9 @@ export default function FeedbackModal({
 
                     {/* Feedback Category */}
                     <div>
-                      <label htmlFor={feedbackCategoryId} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Root cause <span className="text-red-500">*</span>
-                      </label>
+                      <FormLabel htmlFor={feedbackCategoryId} required className="mb-1">
+                        Root cause
+                      </FormLabel>
                       <select
                         id={feedbackCategoryId}
                         value={feedbackCategory}
@@ -137,9 +138,9 @@ export default function FeedbackModal({
 
                     {/* Severity */}
                     <div>
-                      <label htmlFor={severityId} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Severity <span className="text-red-500">*</span>
-                      </label>
+                      <FormLabel htmlFor={severityId} required className="mb-1">
+                        Severity
+                      </FormLabel>
                       <select
                         id={severityId}
                         value={severity}

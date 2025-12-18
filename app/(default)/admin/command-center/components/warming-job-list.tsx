@@ -8,7 +8,9 @@
 
 import { formatDistanceToNow } from 'date-fns';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Badge } from '@/components/ui/badge';
 import { apiClient } from '@/lib/api/client';
+import { getWarmingStatusColor } from '@/lib/utils/badge-colors';
 import { clientErrorLog } from '@/lib/utils/debug-client';
 
 interface WarmingJob {
@@ -104,21 +106,6 @@ export default function WarmingJobList({
     return `${minutes}m ${remainingSeconds}s`;
   };
 
-  const getStatusColor = (status: WarmingJob['status']): string => {
-    switch (status) {
-      case 'queued':
-        return 'text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-700';
-      case 'warming':
-        return 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20';
-      case 'completed':
-        return 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20';
-      case 'failed':
-        return 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20';
-      default:
-        return 'text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-700';
-    }
-  };
-
   const getStatusIcon = (status: WarmingJob['status']): string => {
     switch (status) {
       case 'queued':
@@ -156,11 +143,9 @@ export default function WarmingJobList({
                       <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
                         {job.datasourceName}
                       </span>
-                      <span
-                        className={`text-xs px-2 py-0.5 rounded font-medium ${getStatusColor(job.status)}`}
-                      >
+                      <Badge color={getWarmingStatusColor(job.status)} size="sm">
                         {job.status}
-                      </span>
+                      </Badge>
                     </div>
                     <div className="text-xs text-gray-600 dark:text-gray-400">
                       DS #{job.datasourceId} • Started{' '}

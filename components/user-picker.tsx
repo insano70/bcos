@@ -138,7 +138,7 @@ export default function UserPicker({
           ) : (
             <span className="text-gray-500 dark:text-gray-400">
               {placeholder}
-              {required && <span className="text-red-500 ml-1">*</span>}
+              {required && <span className="text-red-600 dark:text-red-400 ml-1">*</span>}
             </span>
           )}
         </div>

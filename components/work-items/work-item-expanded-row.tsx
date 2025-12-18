@@ -7,6 +7,7 @@ import { useWorkItemAttachments } from '@/lib/hooks/use-work-item-attachments';
 import { useRouter } from 'next/navigation';
 import DateInput from '@/components/inputs/date-input';
 import DateTimeInput from '@/components/inputs/datetime-input';
+import { FormLabel } from '@/components/ui/form-label';
 
 export interface WorkItemExpandedRowProps {
   workItem: WorkItem;
@@ -64,10 +65,9 @@ export default function WorkItemExpandedRow({
 
               return (
                 <div key={field.work_item_field_id}>
-                  <label className="text-sm font-semibold text-gray-700 dark:text-gray-300 block mb-1">
+                  <FormLabel required={field.is_required_on_creation} className="font-semibold mb-1">
                     {field.field_label}
-                    {field.is_required_on_creation && <span className="text-red-500 ml-1">*</span>}
-                  </label>
+                  </FormLabel>
                     {isEditing && onChange ? (
                       <div>
                         {/* Text field */}

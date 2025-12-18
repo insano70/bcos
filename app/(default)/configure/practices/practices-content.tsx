@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { apiClient } from '@/lib/api/client';
 import AddPracticeModal from '@/components/add-practice-modal';
@@ -18,6 +19,7 @@ import { usePracticePermissions } from '@/lib/hooks/use-permissions';
 import { usePractices } from '@/lib/hooks/use-practices';
 import type { Practice } from '@/lib/types/practice';
 import { clientErrorLog } from '@/lib/utils/debug-client';
+import { getPracticeStatusColor } from '@/lib/utils/badge-colors';
 
 export default function PracticesContent() {
   const { data: practices, isLoading, error, refetch } = usePractices();
@@ -104,19 +106,6 @@ export default function PracticesContent() {
     });
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active':
-        return 'text-green-700 bg-green-100 dark:bg-green-900/30 dark:text-green-400';
-      case 'inactive':
-        return 'text-red-700 bg-red-100 dark:bg-red-900/30 dark:text-red-400';
-      case 'pending':
-        return 'text-yellow-700 bg-yellow-100 dark:bg-yellow-900/30 dark:text-yellow-400';
-      default:
-        return 'text-gray-700 bg-gray-100 dark:bg-gray-900/30 dark:text-gray-400';
-    }
-  };
-
   const handleEdit = (_practice: Practice) => {
     window.location.href = `/configure/practices/${_practice.id}`;
   };
@@ -198,13 +187,9 @@ export default function PracticesContent() {
       align: 'center',
       render: (practice) => (
         <div className="text-center">
-          <span
-            className={`inline-flex items-center justify-center px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(
-              practice.status
-            )}`}
-          >
+          <Badge color={getPracticeStatusColor(practice.status)} size="sm">
             {practice.status.charAt(0).toUpperCase() + practice.status.slice(1)}
-          </span>
+          </Badge>
         </div>
       ),
     },

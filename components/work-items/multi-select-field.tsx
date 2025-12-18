@@ -175,7 +175,7 @@ function MultiSelectFieldInner({
         </div>
       )}
 
-      {error && <p className="text-sm text-red-500">{error}</p>}
+      {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
       {value.length > 0 && (
         <p className="text-xs text-gray-500 dark:text-gray-400">
           {value.length} of {maxSelections} selected

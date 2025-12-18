@@ -1,6 +1,8 @@
 'use client';
 
 import type { FieldErrors, UseFormRegister } from 'react-hook-form';
+import { Card } from '@/components/ui/card';
+import { FormError } from '@/components/ui/form-error';
 import type { PracticeFormData } from '../types';
 
 interface ContentSectionProps {
@@ -11,7 +13,7 @@ interface ContentSectionProps {
 
 export function ContentSection({ register, errors, uid }: ContentSectionProps) {
   return (
-    <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl p-6">
+    <Card>
       <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
         Website Content
       </h2>
@@ -33,7 +35,7 @@ export function ContentSection({ register, errors, uid }: ContentSectionProps) {
             }`}
             placeholder="Welcome to our rheumatology practice"
           />
-          {errors.welcome_message && <p className="mt-1 text-sm text-red-600">{errors.welcome_message.message}</p>}
+          <FormError>{errors.welcome_message?.message}</FormError>
         </div>
 
         <div>
@@ -52,7 +54,7 @@ export function ContentSection({ register, errors, uid }: ContentSectionProps) {
             }`}
             placeholder="Describe your practice, experience, and approach to care..."
           />
-          {errors.about_text && <p className="mt-1 text-sm text-red-600">{errors.about_text.message}</p>}
+          <FormError>{errors.about_text?.message}</FormError>
         </div>
 
         <div>
@@ -71,9 +73,9 @@ export function ContentSection({ register, errors, uid }: ContentSectionProps) {
             }`}
             placeholder="Your practice's mission and values..."
           />
-          {errors.mission_statement && <p className="mt-1 text-sm text-red-600">{errors.mission_statement.message}</p>}
+          <FormError>{errors.mission_statement?.message}</FormError>
         </div>
       </div>
-    </div>
+    </Card>
   );
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useMemo, useState } from 'react';
+import { Badge, type BadgeColor } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import DataTable, {
   type DataTableColumn,
@@ -59,23 +60,21 @@ export default function WorkItemFieldConfig({
         sortable: true,
         align: 'center',
         render: (item) => {
-          const typeColors: Record<string, string> = {
-            text: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-            number: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-            date: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
-            datetime: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
-            dropdown: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
-            checkbox: 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400',
-            user_picker: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400',
-            attachment: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
+          const typeColors: Record<string, BadgeColor> = {
+            text: 'blue',
+            number: 'green',
+            date: 'violet',
+            datetime: 'violet',
+            dropdown: 'yellow',
+            checkbox: 'purple',
+            user_picker: 'indigo',
+            attachment: 'orange',
           };
           return (
             <div className="text-center">
-              <span
-                className={`inline-flex items-center justify-center px-2 py-1 text-xs font-medium rounded-full ${typeColors[item.field_type] || 'bg-gray-100 text-gray-700'}`}
-              >
+              <Badge color={typeColors[item.field_type] || 'gray'} size="sm">
                 {item.field_type.replace('_', ' ')}
-              </span>
+              </Badge>
             </div>
           );
         },
@@ -88,19 +87,13 @@ export default function WorkItemFieldConfig({
         render: (item) => (
           <div className="text-center space-x-1">
             {item.is_required_on_creation && (
-              <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
-                On Creation
-              </span>
+              <Badge color="red" size="sm">On Creation</Badge>
             )}
             {item.is_required_to_complete && (
-              <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-medium rounded-full bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">
-                To Complete
-              </span>
+              <Badge color="orange" size="sm">To Complete</Badge>
             )}
             {!item.is_required_on_creation && !item.is_required_to_complete && (
-              <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400">
-                Optional
-              </span>
+              <Badge color="gray" size="sm">Optional</Badge>
             )}
           </div>
         ),

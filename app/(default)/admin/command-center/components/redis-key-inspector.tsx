@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import ModalAction from '@/components/modal-action';
+import { Modal } from '@/components/ui/modal';
 import { apiClient } from '@/lib/api/client';
 import type { RedisKeyDetails } from '@/lib/monitoring/types';
 import { useToast } from './toast';
@@ -135,8 +135,8 @@ export default function RedisKeyInspector({
       </div>
 
       {/* Delete Confirmation Modal */}
-      <ModalAction isOpen={deleteModalOpen} setIsOpen={setDeleteModalOpen}>
-        <div className="space-y-4">
+      <Modal isOpen={deleteModalOpen} onClose={() => setDeleteModalOpen(false)} size="sm">
+        <div className="p-5 space-y-4">
           <div className="text-lg font-semibold text-gray-900 dark:text-gray-100">
             Delete Redis Key
           </div>
@@ -157,7 +157,7 @@ export default function RedisKeyInspector({
             </Button>
           </div>
         </div>
-      </ModalAction>
+      </Modal>
     </div>
   );
 }

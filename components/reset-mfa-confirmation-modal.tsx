@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import ModalBasic from './modal-basic';
+import { Modal } from '@/components/ui/modal';
 import { Button } from '@/components/ui/button';
 import { clientErrorLog } from '@/lib/utils/debug-client';
 
@@ -44,7 +44,7 @@ export default function ResetMFAConfirmationModal({
   };
 
   return (
-    <ModalBasic isOpen={isOpen} setIsOpen={setIsOpen} title="Reset MFA">
+    <Modal isOpen={isOpen} onClose={handleCancel} size="sm" title="Reset MFA" preventClose={isResetting}>
       <div className="px-5 py-4">
         {/* Icon */}
         <div className="flex items-center justify-center w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-900/20 mx-auto mb-4">
@@ -124,6 +124,6 @@ export default function ResetMFAConfirmationModal({
           </Button>
         </div>
       </div>
-    </ModalBasic>
+    </Modal>
   );
 }

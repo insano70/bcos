@@ -12,7 +12,7 @@ import { ProtectedComponent } from '@/components/rbac/protected-component';
 import { apiClient } from '@/lib/api/client';
 import { useTableMetadata, useAnalyzeTableColumns, useAnalyzeSchema } from '@/lib/hooks/use-data-explorer';
 import type { TableMetadata } from '@/lib/types/data-explorer';
-import ModalBlank from '@/components/modal-blank';
+import { Modal } from '@/components/ui/modal';
 import { Spinner } from '@/components/ui/spinner';
 import { Button } from '@/components/ui/button';
 
@@ -294,15 +294,15 @@ export default function MetadataManagementContent() {
       />
 
       {/* Statistics Analysis Modal */}
-      <ModalBlank
+      <Modal
         isOpen={isAnalysisModalOpen}
-        setIsOpen={(open) => {
-          if (!open) {
-            setIsAnalysisModalOpen(false);
-            setAnalysisResult(null);
-            setAnalysisError(null);
-          }
+        onClose={() => {
+          setIsAnalysisModalOpen(false);
+          setAnalysisResult(null);
+          setAnalysisError(null);
         }}
+        size="sm"
+        preventClose={analyzeTableColumns.isPending || analyzeSchema.isPending}
       >
         <div className="px-5 py-4">
           {analyzeTableColumns.isPending || analyzeSchema.isPending ? (
@@ -384,7 +384,7 @@ export default function MetadataManagementContent() {
             </Button>
           </div>
         </div>
-      </ModalBlank>
+      </Modal>
 
     </div>
   );

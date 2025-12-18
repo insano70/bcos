@@ -11,6 +11,7 @@
  */
 
 import { memo } from 'react';
+import { Card } from '@/components/ui/card';
 
 interface ErrorRateKPIProps {
   errorRate: number; // Percentage (0-100)
@@ -38,7 +39,7 @@ function ErrorRateKPIInner({ errorRate, total }: ErrorRateKPIProps) {
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+    <Card>
       {/* Header */}
       <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">Error Rate</div>
 
@@ -61,7 +62,7 @@ function ErrorRateKPIInner({ errorRate, total }: ErrorRateKPIProps) {
         {errorRate >= 1 && errorRate < 5 && 'Monitor closely'}
         {errorRate >= 5 && 'Immediate attention required'}
       </div>
-    </div>
+    </Card>
   );
 }
 

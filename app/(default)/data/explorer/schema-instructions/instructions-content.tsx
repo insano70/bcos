@@ -7,6 +7,7 @@ import DataTable, {
 } from '@/components/data-table-standard';
 import { ProtectedComponent } from '@/components/rbac/protected-component';
 import SchemaInstructionModal from '@/components/schema-instruction-modal';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { apiClient } from '@/lib/api/client';
 import { useSchemaInstructions } from '@/lib/hooks/use-data-explorer';
@@ -24,16 +25,14 @@ export default function SchemaInstructionsContent() {
   }));
 
   const getPriorityBadge = (priority: number) => {
-    if (priority === 1)
-      return <span className="px-2 py-1 text-xs font-semibold rounded bg-red-100 text-red-800">Critical</span>;
-    if (priority === 2)
-      return <span className="px-2 py-1 text-xs font-semibold rounded bg-blue-100 text-blue-800">Important</span>;
-    return <span className="px-2 py-1 text-xs font-semibold rounded bg-gray-100 text-gray-800">Helpful</span>;
+    if (priority === 1) return <Badge color="red" size="sm" shape="rounded">Critical</Badge>;
+    if (priority === 2) return <Badge color="blue" size="sm" shape="rounded">Important</Badge>;
+    return <Badge color="gray" size="sm" shape="rounded">Helpful</Badge>;
   };
 
   const getCategoryBadge = (category: string | null) => {
     if (!category) return <span className="text-gray-400">—</span>;
-    return <span className="px-2 py-1 text-xs rounded bg-violet-100 text-violet-800">{category}</span>;
+    return <Badge color="violet" size="sm" shape="rounded">{category}</Badge>;
   };
 
   const columns: DataTableColumn<SchemaInstruction & { id: string }>[] = [
@@ -67,13 +66,9 @@ export default function SchemaInstructionsContent() {
       sortable: true,
       width: 100,
       render: (item) => (
-        <span
-          className={`px-2 py-1 text-xs font-semibold rounded ${
-            item.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-          }`}
-        >
+        <Badge color={item.is_active ? 'green' : 'gray'} size="sm" shape="rounded">
           {item.is_active ? 'Active' : 'Disabled'}
-        </span>
+        </Badge>
       ),
     },
     { key: 'actions', header: 'Actions', width: 120 },

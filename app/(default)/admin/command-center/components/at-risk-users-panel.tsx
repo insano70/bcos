@@ -13,6 +13,8 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
 import { apiClient } from '@/lib/api/client';
 import {
   getRiskCategory,
@@ -161,8 +163,7 @@ export default function AtRiskUsersPanel({
   }, [autoRefresh, refreshInterval, fetchUsers]);
 
   return (
-    <div
-      className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6"
+    <Card
       role="region"
       aria-label="At-risk users"
     >
@@ -333,7 +334,7 @@ export default function AtRiskUsersPanel({
           </div>
         </>
       )}
-    </div>
+    </Card>
   );
 }
 
@@ -367,13 +368,13 @@ function AtRiskUserRow({ user, onView }: AtRiskUserRowProps) {
             </span>
             {/* Status Badge */}
             {isLocked ? (
-              <span className="px-2 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 text-xs font-medium rounded">
+              <Badge color="red" size="sm" shape="rounded">
                 🔒 Locked
-              </span>
+              </Badge>
             ) : user.suspiciousActivity ? (
-              <span className="px-2 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200 text-xs font-medium rounded">
+              <Badge color="amber" size="sm" shape="rounded">
                 ⚠️ Suspicious
-              </span>
+              </Badge>
             ) : null}
           </div>
           <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">{user.email}</div>

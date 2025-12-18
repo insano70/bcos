@@ -138,7 +138,19 @@ function DashboardSkeletonInner() {
 
 export const DashboardSkeleton = memo(DashboardSkeletonInner);
 
-// Loading spinner with text
+/**
+ * Loading spinner with optional text label.
+ * @deprecated Use `Spinner` from `@/components/ui/spinner` directly with a flex wrapper instead.
+ * @example
+ * // Instead of:
+ * <LoadingSpinner size="sm" text="Loading..." />
+ *
+ * // Use:
+ * <div className="flex items-center justify-center">
+ *   <Spinner size="sm" />
+ *   <span className="ml-3 text-gray-600 dark:text-gray-400">Loading...</span>
+ * </div>
+ */
 function LoadingSpinnerInner({
   text = 'Loading...',
   size = 'md',

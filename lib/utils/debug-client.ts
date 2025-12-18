@@ -60,6 +60,12 @@ export const clientDebugLog = {
     }
   },
 
+  filter: (message: string, data?: unknown) => {
+    if (isDevelopment) {
+      console.log(`🔍 FILTER: ${message}`, data);
+    }
+  },
+
   // Performance debugging for client-side
   performance: (message: string, startTime?: number, data?: unknown) => {
     if (isDevelopment && startTime) {

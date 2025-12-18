@@ -3,8 +3,10 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useAuth } from '@/components/auth/rbac-auth-provider';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import DeleteConfirmationModal from '@/components/delete-confirmation-modal';
+import { getPriorityBadgeColor, getStatusBadgeColor } from '@/lib/utils/badge-colors';
 import DeleteWorkItemModal from '@/components/delete-work-item-modal';
 import EditWorkItemModal from '@/components/edit-work-item-modal';
 import { ProtectedComponent } from '@/components/rbac/protected-component';
@@ -102,21 +104,6 @@ export default function WorkItemDetailContent({ workItemId }: WorkItemDetailCont
     );
   }
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'critical':
-        return 'text-red-700 bg-red-100 dark:bg-red-900/30 dark:text-red-400';
-      case 'high':
-        return 'text-orange-700 bg-orange-100 dark:bg-orange-900/30 dark:text-orange-400';
-      case 'medium':
-        return 'text-yellow-700 bg-yellow-100 dark:bg-yellow-900/30 dark:text-yellow-400';
-      case 'low':
-        return 'text-green-700 bg-green-100 dark:bg-green-900/30 dark:text-green-400';
-      default:
-        return 'text-gray-700 bg-gray-100 dark:bg-gray-900/30 dark:text-gray-400';
-    }
-  };
-
   const formatDate = (date: string | Date | null) => {
     if (!date) return 'Not set';
     const dateObj = typeof date === 'string' ? new Date(date) : date;
@@ -198,11 +185,9 @@ export default function WorkItemDetailContent({ workItemId }: WorkItemDetailCont
               <h1 className="text-2xl md:text-3xl text-gray-800 dark:text-gray-100 font-bold">
                 {workItem.subject}
               </h1>
-              <span
-                className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getPriorityColor(workItem.priority)}`}
-              >
+              <Badge color={getPriorityBadgeColor(workItem.priority)} size="lg">
                 {workItem.priority.charAt(0).toUpperCase() + workItem.priority.slice(1)}
-              </span>
+              </Badge>
             </div>
             <div className="flex flex-wrap gap-4 text-sm text-gray-600 dark:text-gray-400">
               <div className="flex items-center">
@@ -211,9 +196,9 @@ export default function WorkItemDetailContent({ workItemId }: WorkItemDetailCont
               </div>
               <div className="flex items-center">
                 <span className="font-medium mr-1">Status:</span>
-                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium text-blue-700 bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400">
+                <Badge color={getStatusBadgeColor(workItem.status_category)} size="sm" shape="rounded">
                   {workItem.status_name}
-                </span>
+                </Badge>
               </div>
               <div className="flex items-center">
                 <span className="font-medium mr-1">Assigned to:</span>

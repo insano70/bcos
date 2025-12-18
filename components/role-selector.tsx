@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-// Inline SVG icons
+import { Badge } from '@/components/ui/badge';
+import { FormLabel } from '@/components/ui/form-label';
 import { useRoles } from '@/lib/hooks/use-roles';
 
 interface RoleSelectorProps {
@@ -86,9 +87,9 @@ export default function RoleSelector({
   return (
     <div className="relative" ref={dropdownRef}>
       {/* Label */}
-      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-        Roles {required && <span className="text-red-500">*</span>}
-      </label>
+      <FormLabel required={required} className="mb-1">
+        Roles
+      </FormLabel>
 
       {/* Selected roles display */}
       <div
@@ -216,9 +217,9 @@ export default function RoleSelector({
                       {role.name}
                     </span>
                     {role.is_system_role && (
-                      <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200">
+                      <Badge color="gray" size="sm" shape="rounded" className="ml-2">
                         System
-                      </span>
+                      </Badge>
                     )}
                   </div>
                   {role.description && (

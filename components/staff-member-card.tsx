@@ -2,8 +2,10 @@
 
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { Badge } from '@/components/ui/badge';
 import { useDeleteStaff } from '@/lib/hooks/use-staff';
 import type { StaffMember } from '@/lib/types/practice';
+import { getActiveStatusColor } from '@/lib/utils/badge-colors';
 import { clientErrorLog } from '@/lib/utils/debug-client';
 
 interface StaffMemberCardProps {
@@ -95,15 +97,9 @@ export default function StaffMemberCard({
             </div>
 
             {/* Status badge */}
-            <span
-              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                staffMember.is_active
-                  ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                  : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
-              }`}
-            >
+            <Badge color={getActiveStatusColor(staffMember.is_active)}>
               {staffMember.is_active ? 'Active' : 'Inactive'}
-            </span>
+            </Badge>
           </div>
 
           {/* Specialties */}
@@ -111,17 +107,14 @@ export default function StaffMemberCard({
             <div className="mt-2">
               <div className="flex flex-wrap gap-1">
                 {staffMember.specialties.slice(0, 3).map((specialty) => (
-                  <span
-                    key={specialty}
-                    className="inline-flex items-center px-2 py-1 rounded text-xs bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300"
-                  >
+                  <Badge key={specialty} color="blue" size="sm" shape="rounded">
                     {specialty}
-                  </span>
+                  </Badge>
                 ))}
                 {staffMember.specialties.length > 3 && (
-                  <span className="inline-flex items-center px-2 py-1 rounded text-xs bg-gray-50 text-gray-600 dark:bg-gray-700 dark:text-gray-400">
+                  <Badge color="gray" size="sm" shape="rounded">
                     +{staffMember.specialties.length - 3} more
-                  </span>
+                  </Badge>
                 )}
               </div>
             </div>

@@ -13,11 +13,13 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
+import { Spinner } from '@/components/ui/spinner';
 import { apiClient } from '@/lib/api/client';
 import type { SecurityEvent, SecurityEventsResponse } from '@/lib/monitoring/types';
 import { exportToCSV, formatDateForCSV } from '@/lib/utils/csv-export';
 import { clientErrorLog } from '@/lib/utils/debug-client';
-import { Spinner } from '@/components/ui/spinner';
 
 interface SecurityEventsFeedProps {
   autoRefresh?: boolean;
@@ -101,8 +103,7 @@ export default function SecurityEventsFeed({
   }, [autoRefresh, refreshInterval, fetchEvents]);
 
   return (
-    <div
-      className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6"
+    <Card
       role="region"
       aria-label="Security events"
     >
@@ -203,14 +204,14 @@ export default function SecurityEventsFeed({
           {(data.summary.critical > 0 || data.summary.high > 0) && (
             <div className="flex gap-2 mb-4">
               {data.summary.critical > 0 && (
-                <span className="px-2 py-1 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 text-xs font-medium rounded">
+                <Badge color="red" shape="rounded">
                   {data.summary.critical} Critical
-                </span>
+                </Badge>
               )}
               {data.summary.high > 0 && (
-                <span className="px-2 py-1 bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200 text-xs font-medium rounded">
+                <Badge color="amber" shape="rounded">
                   {data.summary.high} High
-                </span>
+                </Badge>
               )}
             </div>
           )}
@@ -248,7 +249,7 @@ export default function SecurityEventsFeed({
           </div>
         </>
       )}
-    </div>
+    </Card>
   );
 }
 
@@ -282,9 +283,9 @@ function SecurityEventItem({ event }: SecurityEventItemProps) {
               {event.message}
             </span>
             {event.blocked && (
-              <span className="px-2 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 text-xs font-medium rounded">
+              <Badge color="red" size="sm" shape="rounded">
                 Blocked
-              </span>
+              </Badge>
             )}
           </div>
 

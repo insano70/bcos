@@ -5,6 +5,10 @@
  * Specialized input components for URL, email, phone, currency, and percentage fields
  */
 
+import { FormError } from '@/components/ui/form-error';
+import { FormHelp } from '@/components/ui/form-help';
+import { FormLabel } from '@/components/ui/form-label';
+
 interface FieldProps {
   value: string | number;
   onChange: (value: string | number) => void;
@@ -30,10 +34,9 @@ export function URLField({
   return (
     <div className="space-y-2">
       {label && (
-        <label className="block text-sm font-medium mb-1">
+        <FormLabel required={required}>
           {label}
-          {required && <span className="text-red-500 ml-1">*</span>}
-        </label>
+        </FormLabel>
       )}
       <input
         type="url"
@@ -44,7 +47,7 @@ export function URLField({
         required={required}
         className={`form-input w-full ${error ? 'border-red-500' : ''}`}
       />
-      {error && <p className="text-sm text-red-500">{error}</p>}
+      <FormError>{error}</FormError>
     </div>
   );
 }
@@ -64,10 +67,9 @@ export function EmailField({
   return (
     <div className="space-y-2">
       {label && (
-        <label className="block text-sm font-medium mb-1">
+        <FormLabel required={required}>
           {label}
-          {required && <span className="text-red-500 ml-1">*</span>}
-        </label>
+        </FormLabel>
       )}
       <input
         type="email"
@@ -78,7 +80,7 @@ export function EmailField({
         required={required}
         className={`form-input w-full ${error ? 'border-red-500' : ''}`}
       />
-      {error && <p className="text-sm text-red-500">{error}</p>}
+      <FormError>{error}</FormError>
     </div>
   );
 }
@@ -104,10 +106,9 @@ export function PhoneField({
   return (
     <div className="space-y-2">
       {label && (
-        <label className="block text-sm font-medium mb-1">
+        <FormLabel required={required}>
           {label}
-          {required && <span className="text-red-500 ml-1">*</span>}
-        </label>
+        </FormLabel>
       )}
       <input
         type="tel"
@@ -118,7 +119,7 @@ export function PhoneField({
         required={required}
         className={`form-input w-full ${error ? 'border-red-500' : ''}`}
       />
-      {error && <p className="text-sm text-red-500">{error}</p>}
+      <FormError>{error}</FormError>
     </div>
   );
 }
@@ -157,10 +158,9 @@ export function CurrencyField({
   return (
     <div className="space-y-2">
       {label && (
-        <label className="block text-sm font-medium mb-1">
+        <FormLabel required={required}>
           {label}
-          {required && <span className="text-red-500 ml-1">*</span>}
-        </label>
+        </FormLabel>
       )}
       <div className="relative">
         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400">
@@ -177,7 +177,7 @@ export function CurrencyField({
           className={`form-input w-full pl-7 ${error ? 'border-red-500' : ''}`}
         />
       </div>
-      {error && <p className="text-sm text-red-500">{error}</p>}
+      <FormError>{error}</FormError>
     </div>
   );
 }
@@ -221,10 +221,9 @@ export function PercentageField({
   return (
     <div className="space-y-2">
       {label && (
-        <label className="block text-sm font-medium mb-1">
+        <FormLabel required={required}>
           {label}
-          {required && <span className="text-red-500 ml-1">*</span>}
-        </label>
+        </FormLabel>
       )}
       <div className="relative">
         <input
@@ -241,9 +240,9 @@ export function PercentageField({
           %
         </span>
       </div>
-      {error && <p className="text-sm text-red-500">{error}</p>}
+      <FormError>{error}</FormError>
       {!error && value !== 0 && (
-        <p className="text-xs text-gray-500 dark:text-gray-400">Value: {value}% (0-100)</p>
+        <FormHelp>Value: {value}% (0-100)</FormHelp>
       )}
     </div>
   );

@@ -6,6 +6,8 @@ import { useEffect, useId, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { useCreateStaff, useUpdateStaff } from '@/lib/hooks/use-staff';
+import { FormError } from '@/components/ui/form-error';
+import { FormLabel } from '@/components/ui/form-label';
 import { Spinner } from '@/components/ui/spinner';
 import EducationInput from './education-input';
 import ImageUpload from './image-upload';
@@ -173,12 +175,9 @@ export default function StaffMemberFormModal({
           {/* Basic Information */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label
-                htmlFor={`${uid}-name`}
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-              >
-                Full Name *
-              </label>
+              <FormLabel htmlFor={`${uid}-name`} required className="mb-2">
+                Full Name
+              </FormLabel>
               <input
                 id={`${uid}-name`}
                 type="text"
@@ -186,16 +185,13 @@ export default function StaffMemberFormModal({
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="Dr. Jane Smith"
               />
-              {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name.message}</p>}
+              <FormError>{errors.name?.message}</FormError>
             </div>
 
             <div>
-              <label
-                htmlFor={`${uid}-title`}
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-              >
+              <FormLabel htmlFor={`${uid}-title`} className="mb-2">
                 Title/Position
-              </label>
+              </FormLabel>
               <input
                 id={`${uid}-title`}
                 type="text"
@@ -203,16 +199,13 @@ export default function StaffMemberFormModal({
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="Rheumatologist"
               />
-              {errors.title && <p className="mt-1 text-sm text-red-600">{errors.title.message}</p>}
+              <FormError>{errors.title?.message}</FormError>
             </div>
 
             <div>
-              <label
-                htmlFor={`${uid}-credentials`}
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-              >
+              <FormLabel htmlFor={`${uid}-credentials`} className="mb-2">
                 Credentials
-              </label>
+              </FormLabel>
               <input
                 id={`${uid}-credentials`}
                 type="text"
@@ -220,9 +213,7 @@ export default function StaffMemberFormModal({
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="MD, FACR"
               />
-              {errors.credentials && (
-                <p className="mt-1 text-sm text-red-600">{errors.credentials.message}</p>
-              )}
+              <FormError>{errors.credentials?.message}</FormError>
             </div>
 
             <div>
@@ -250,12 +241,9 @@ export default function StaffMemberFormModal({
 
           {/* Bio */}
           <div>
-            <label
-              htmlFor={`${uid}-bio`}
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-            >
+            <FormLabel htmlFor={`${uid}-bio`} className="mb-2">
               Biography
-            </label>
+            </FormLabel>
             <textarea
               id={`${uid}-bio`}
               {...register('bio')}
@@ -263,7 +251,7 @@ export default function StaffMemberFormModal({
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               placeholder="Brief professional biography, experience, and approach to patient care..."
             />
-            {errors.bio && <p className="mt-1 text-sm text-red-600">{errors.bio.message}</p>}
+            <FormError>{errors.bio?.message}</FormError>
           </div>
 
           {/* Specialties */}

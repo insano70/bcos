@@ -6,7 +6,7 @@ import { apiClient } from '@/lib/api/client';
 import type { ResolvedCSVRow, UserCreationResult } from '@/lib/validations/bulk-import';
 import { CSV_FILE_SIZE_LIMIT, parseCSVLine } from '@/lib/utils/csv-import';
 import CSVPreviewTable from './csv-preview-table';
-import ModalBlank from './modal-blank';
+import { Modal } from '@/components/ui/modal';
 import { Button } from './ui/button';
 
 type Step = 'upload' | 'preview' | 'results';
@@ -221,7 +221,7 @@ export default function BulkUserImportModal({
   };
 
   return (
-    <ModalBlank isOpen={isOpen} setIsOpen={handleClose}>
+    <Modal isOpen={isOpen} onClose={handleClose} size="lg" preventClose={isUploading || isImporting}>
       <div className="p-5">
         {/* Header */}
         <div className="mb-4">
@@ -490,6 +490,6 @@ export default function BulkUserImportModal({
           </div>
         )}
       </div>
-    </ModalBlank>
+    </Modal>
   );
 }

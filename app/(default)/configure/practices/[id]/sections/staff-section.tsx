@@ -1,5 +1,6 @@
 'use client';
 
+import { Card } from '@/components/ui/card';
 import StaffListEmbedded from '@/components/staff-list-embedded';
 
 interface StaffSectionProps {
@@ -8,8 +9,8 @@ interface StaffSectionProps {
 
 export function StaffSection({ practiceId }: StaffSectionProps) {
   return (
-    <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl p-6">
+    <Card>
       <StaffListEmbedded practiceId={practiceId} />
-    </div>
+    </Card>
   );
 }

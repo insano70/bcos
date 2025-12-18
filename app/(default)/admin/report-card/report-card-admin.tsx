@@ -14,6 +14,7 @@ import {
 import { Play } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
 import { Button } from '@/components/ui/button';
+import { FormLabel } from '@/components/ui/form-label';
 import type { MeasureConfig, FilterCriteria } from '@/lib/types/report-card';
 import { useQueryClient } from '@tanstack/react-query';
 import DeleteConfirmationModal from '@/components/delete-confirmation-modal';
@@ -675,9 +676,9 @@ function MeasureFormModal({ measure, onClose, onSave, filterableColumns }: Measu
 
           {/* Filter Criteria */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-              Filter Criteria <span className="text-red-500">*</span>
-            </label>
+            <FormLabel required className="mb-2">
+              Filter Criteria
+            </FormLabel>
             <div className="bg-slate-50 dark:bg-slate-700/50 rounded-lg p-4">
               {/* Warning if no filters */}
               {Object.entries(formData.filter_criteria).length === 0 && (

@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { LoadingSpinner, Skeleton } from '@/components/ui/loading-skeleton';
+import { Skeleton } from '@/components/ui/loading-skeleton';
+import { Spinner } from '@/components/ui/spinner';
 import { apiClient } from '@/lib/api/client';
 import {
   COMPARISON_PERIODS,
@@ -164,7 +165,7 @@ export default function HistoricalComparisonWidget({
           >
             {isLoading ? (
               <>
-                <LoadingSpinner size="sm" text="" />
+                <Spinner size="sm" />
                 <span className="ml-1">Analyzing...</span>
               </>
             ) : (

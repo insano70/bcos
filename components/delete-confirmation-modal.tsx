@@ -1,7 +1,7 @@
 'use client';
 
 import { type ReactNode, useState } from 'react';
-import ModalBasic from './modal-basic';
+import { Modal } from '@/components/ui/modal';
 import { Button } from '@/components/ui/button';
 import { clientErrorLog } from '@/lib/utils/debug-client';
 
@@ -97,7 +97,7 @@ export default function DeleteConfirmationModal({
   const defaultMessage = `Are you sure you want to delete this? This action cannot be undone.`;
 
   return (
-    <ModalBasic isOpen={isOpen} setIsOpen={setIsOpen} title={title}>
+    <Modal isOpen={isOpen} onClose={handleCancel} size="sm" title={title} preventClose={isDeleting}>
       <div className="px-5 py-4">
         {/* Icon */}
         <div className="flex items-center justify-center w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/20 mx-auto mb-4">
@@ -158,7 +158,7 @@ export default function DeleteConfirmationModal({
           </Button>
         </div>
       </div>
-    </ModalBasic>
+    </Modal>
   );
 }
 

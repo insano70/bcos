@@ -1,6 +1,9 @@
 'use client';
 
 import type { FieldErrors, UseFormRegister } from 'react-hook-form';
+import { Card } from '@/components/ui/card';
+import { FormError } from '@/components/ui/form-error';
+import { FormLabel } from '@/components/ui/form-label';
 import type { Template } from '@/lib/hooks/use-templates';
 import type { PracticeFormData } from '../types';
 
@@ -20,18 +23,15 @@ export function PracticeInfoSection({
   return (
     <>
       {/* Practice Name */}
-      <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl p-6">
+      <Card>
         <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
           Practice Information
         </h2>
 
         <div>
-          <label
-            htmlFor={`${uid}-name`}
-            className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-          >
-            Practice Name *
-          </label>
+          <FormLabel htmlFor={`${uid}-name`} required className="mb-2">
+            Practice Name
+          </FormLabel>
           <input
             id={`${uid}-name`}
             type="text"
@@ -43,24 +43,21 @@ export function PracticeInfoSection({
             }`}
             placeholder="Enter practice name"
           />
-          {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name.message}</p>}
+          <FormError>{errors.name?.message}</FormError>
         </div>
-      </div>
+      </Card>
 
       {/* Template Selection */}
-      <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl p-6">
+      <Card>
         <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
           Website Template
         </h2>
 
         <div className="space-y-4">
           <div>
-            <label
-              htmlFor={`${uid}-template_id`}
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-            >
+            <FormLabel htmlFor={`${uid}-template_id`} required className="mb-2">
               Choose Template Design
-            </label>
+            </FormLabel>
             <select
               id={`${uid}-template_id`}
               {...register('template_id')}
@@ -77,9 +74,7 @@ export function PracticeInfoSection({
                 </option>
               ))}
             </select>
-            {errors.template_id && (
-              <p className="mt-1 text-sm text-red-600">{errors.template_id.message}</p>
-            )}
+            <FormError>{errors.template_id?.message}</FormError>
           </div>
 
           <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
@@ -89,7 +84,7 @@ export function PracticeInfoSection({
             </p>
           </div>
         </div>
-      </div>
+      </Card>
     </>
   );
 }

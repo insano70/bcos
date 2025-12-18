@@ -10,7 +10,8 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import ModalAction from '@/components/modal-action';
+import { Card } from '@/components/ui/card';
+import { Modal } from '@/components/ui/modal';
 import Toast from '@/components/toast';
 import { apiClient } from '@/lib/api/client';
 import type { AnalyticsCacheStatsResponse } from '@/lib/monitoring/types';
@@ -154,22 +155,22 @@ export default function AnalyticsCacheDashboard({
 
   if (loading && !stats) {
     return (
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+      <Card>
         <div className="flex items-center justify-center py-12">
           <Spinner size="lg" />
         </div>
-      </div>
+      </Card>
     );
   }
 
   if (error) {
     return (
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+      <Card>
         <div className="text-center py-8">
           <div className="text-4xl mb-2">⚠️</div>
           <div className="text-sm text-red-600 dark:text-red-400">{error}</div>
         </div>
-      </div>
+      </Card>
     );
   }
 
@@ -227,15 +228,15 @@ export default function AnalyticsCacheDashboard({
 
       {/* Summary Statistics */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+        <Card radius="lg" shadow="none" padding="sm">
           <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Data Sources</div>
           <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
             {summary.warmDatasources}/{summary.totalDatasources}
           </div>
           <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">Warm</div>
-        </div>
+        </Card>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+        <Card radius="lg" shadow="none" padding="sm">
           <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Cache Entries</div>
           <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
             {summary.totalCacheEntries.toLocaleString()}
@@ -243,28 +244,28 @@ export default function AnalyticsCacheDashboard({
           <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
             {summary.totalIndexes.toLocaleString()} indexes
           </div>
-        </div>
+        </Card>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+        <Card radius="lg" shadow="none" padding="sm">
           <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Memory Usage</div>
           <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
             {summary.totalMemoryMB.toFixed(1)} MB
           </div>
           <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">Total allocated</div>
-        </div>
+        </Card>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+        <Card radius="lg" shadow="none" padding="sm">
           <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Hit Rate</div>
           <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
             {summary.overallCacheHitRate.toFixed(1)}%
           </div>
           <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">Overall</div>
-        </div>
+        </Card>
       </div>
 
       {/* Health Distribution */}
       {summary.totalDatasources > 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+        <Card radius="lg" shadow="none" padding="sm">
           <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
             Health Distribution
           </div>
@@ -310,7 +311,7 @@ export default function AnalyticsCacheDashboard({
               </div>
             )}
           </div>
-        </div>
+        </Card>
       )}
 
       {/* Warming Jobs */}
@@ -320,10 +321,10 @@ export default function AnalyticsCacheDashboard({
       <div>
         <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Data Sources</h4>
         {datasources.length === 0 ? (
-          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-8 text-center">
+          <Card radius="lg" shadow="none" className="text-center">
             <div className="text-4xl mb-2">📊</div>
             <div className="text-sm text-gray-600 dark:text-gray-400">No data sources found</div>
-          </div>
+          </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {datasources.map((ds) => (
@@ -350,8 +351,8 @@ export default function AnalyticsCacheDashboard({
       </Toast>
 
       {/* Confirmation Modal */}
-      <ModalAction isOpen={confirmModalOpen} setIsOpen={setConfirmModalOpen}>
-        <div className="space-y-4">
+      <Modal isOpen={confirmModalOpen} onClose={() => setConfirmModalOpen(false)} size="sm">
+        <div className="p-5 space-y-4">
           <div className="text-lg font-semibold text-gray-900 dark:text-gray-100">
             {confirmTitle}
           </div>
@@ -373,7 +374,7 @@ export default function AnalyticsCacheDashboard({
             </Button>
           </div>
         </div>
-      </ModalAction>
+      </Modal>
     </div>
   );
 }

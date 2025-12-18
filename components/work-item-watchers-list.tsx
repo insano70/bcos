@@ -8,6 +8,7 @@
 import { Settings, User } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import {
@@ -111,14 +112,10 @@ function WatcherItem({
         <div className="flex items-center gap-2 mb-1">
           <span className="font-medium text-gray-900 dark:text-gray-100">{watcher.user_name}</span>
           {isCurrentUser && (
-            <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
-              You
-            </span>
+            <Badge color="blue" size="sm">You</Badge>
           )}
           {isAutoWatcher && (
-            <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-900/30 text-gray-600 dark:text-gray-400">
-              Auto
-            </span>
+            <Badge color="gray" size="sm">Auto</Badge>
           )}
         </div>
 

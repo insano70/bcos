@@ -9,6 +9,7 @@
  */
 
 import { memo } from 'react';
+import { Card } from '@/components/ui/card';
 
 interface ResponseTimeKPIProps {
   p95: number; // milliseconds
@@ -41,7 +42,7 @@ function ResponseTimeKPIInner({ p95 }: ResponseTimeKPIProps) {
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+    <Card>
       {/* Header */}
       <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">Response Time (p95)</div>
 
@@ -60,7 +61,7 @@ function ResponseTimeKPIInner({ p95 }: ResponseTimeKPIProps) {
       <div className="mt-3 text-xs text-gray-500 dark:text-gray-400">
         Target: &lt; 300ms (excellent), &lt; 1s (good)
       </div>
-    </div>
+    </Card>
   );
 }
 

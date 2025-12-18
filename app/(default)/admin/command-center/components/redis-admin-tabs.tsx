@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { Card } from '@/components/ui/card';
 import AnalyticsCacheDashboard from './analytics-cache-dashboard';
 import RedisCacheStats from './redis-cache-stats';
 import RedisKeyBrowser from './redis-key-browser';
@@ -29,7 +30,7 @@ export default function RedisAdminTabs({
   ];
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+    <Card>
       <div className="flex items-center justify-between mb-6">
         <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
           Redis Cache Management
@@ -75,6 +76,6 @@ export default function RedisAdminTabs({
           }
         }}
       />
-    </div>
+    </Card>
   );
 }

@@ -5,6 +5,7 @@
  * It displays a table skeleton to indicate work items data is loading.
  */
 
+import { Card } from '@/components/ui/card';
 import { Skeleton, TableSkeleton } from '@/components/ui/loading-skeleton';
 
 export default function WorkLoading() {
@@ -23,7 +24,7 @@ export default function WorkLoading() {
       </div>
 
       {/* Table Skeleton */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+      <Card padding="none" className="overflow-hidden">
         {/* Table Header */}
         <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
@@ -34,7 +35,7 @@ export default function WorkLoading() {
 
         {/* Table Content */}
         <TableSkeleton rows={8} columns={7} />
-      </div>
+      </Card>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
+import { Modal } from '@/components/ui/modal';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 
@@ -25,34 +25,14 @@ export default function DiscoveryProgressModal({
   error,
 }: DiscoveryProgressModalProps) {
   return (
-    <Transition appear show={isOpen}>
-      <Dialog as="div" onClose={isDiscovering ? () => {} : onClose}>
-        <TransitionChild
-          as="div"
-          className="fixed inset-0 bg-gray-900/30 z-50 transition-opacity"
-          enter="transition ease-out duration-200"
-          enterFrom="opacity-0"
-          enterTo="opacity-100"
-          leave="transition ease-out duration-100"
-          leaveFrom="opacity-100"
-          leaveTo="opacity-0"
-          aria-hidden="true"
-        />
-        <TransitionChild
-          as="div"
-          className="fixed inset-0 z-50 overflow-hidden flex items-center my-4 justify-center px-4 sm:px-6"
-          enter="transition ease-in-out duration-200"
-          enterFrom="opacity-0 translate-y-4"
-          enterTo="opacity-100 translate-y-0"
-          leave="transition ease-in-out duration-200"
-          leaveFrom="opacity-100 translate-y-0"
-          leaveTo="opacity-0 translate-y-4"
-        >
-          <DialogPanel className="bg-white dark:bg-gray-800 rounded-lg shadow-xl overflow-hidden max-w-md w-full">
-            <div className="px-4 sm:px-6 py-4">
-              <Dialog.Title className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">
-                {isDiscovering ? 'Discovering Tables...' : result ? 'Discovery Complete' : 'Discovery Failed'}
-              </Dialog.Title>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      size="sm"
+      title={isDiscovering ? 'Discovering Tables...' : result ? 'Discovery Complete' : 'Discovery Failed'}
+      preventClose={isDiscovering}
+    >
+      <div className="px-4 sm:px-6 py-4">
 
               {isDiscovering && (
                 <div className="text-center py-8">
@@ -130,11 +110,8 @@ export default function DiscoveryProgressModal({
                   Close
                 </Button>
               </div>
-            </div>
-          </DialogPanel>
-        </TransitionChild>
-      </Dialog>
-    </Transition>
+      </div>
+    </Modal>
   );
 }
 

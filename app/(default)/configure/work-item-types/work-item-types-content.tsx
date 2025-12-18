@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useMemo, useState } from 'react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import WorkItemTypeModal from '@/components/work-item-type-modal';
 import DataTable, {
@@ -18,6 +19,7 @@ import { Spinner } from '@/components/ui/spinner';
 import WorkflowVisualizationModal from '@/components/workflow-visualization-modal';
 import { apiClient } from '@/lib/api/client';
 import { useWorkItemTypes, type WorkItemType } from '@/lib/hooks/use-work-item-types';
+import { getActiveStatusColor } from '@/lib/utils/badge-colors';
 
 export default function WorkItemTypesContent() {
   const { data: workItemTypes, isLoading, error, refetch } = useWorkItemTypes();
@@ -207,15 +209,9 @@ export default function WorkItemTypesContent() {
         align: 'center',
         render: (type) => (
           <div className="text-center">
-            {type.is_active ? (
-              <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-medium text-green-700 bg-green-100 dark:bg-green-900/30 dark:text-green-400 rounded-full">
-                Active
-              </span>
-            ) : (
-              <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-medium text-red-700 bg-red-100 dark:bg-red-900/30 dark:text-red-400 rounded-full">
-                Inactive
-              </span>
-            )}
+            <Badge color={getActiveStatusColor(type.is_active)} size="sm">
+              {type.is_active ? 'Active' : 'Inactive'}
+            </Badge>
           </div>
         ),
       },

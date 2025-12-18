@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import type { EditableColumn } from './editable-data-table';
 import EditableDataTable from './editable-data-table';
+import { Badge } from './ui/badge';
 import UserPicker from './user-picker';
 import Toast from './toast';
 import WorkItemExpandedRow from './work-items/work-item-expanded-row';
@@ -20,6 +21,7 @@ import { useWorkItemStatuses } from '@/lib/hooks/use-work-item-statuses';
 import { useTypeRelationshipsForParent } from '@/lib/hooks/use-work-item-type-relationships';
 import { useUsers } from '@/lib/hooks/use-users';
 import { apiClient } from '@/lib/api/client';
+import { getPriorityBadgeColor } from '@/lib/utils/badge-colors';
 import { clientErrorLog } from '@/lib/utils/debug-client';
 import type { WorkItemField } from '@/lib/types/work-item-fields';
 import {
@@ -233,9 +235,9 @@ export default function EditableWorkItemsTable({
         width: '150px',
         editable: true,
         render: (item) => (
-          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400">
+          <Badge color="blue" size="sm" shape="rounded">
             {item.status_name}
-          </span>
+          </Badge>
         ),
         renderEdit: (item, value, onChange, error) => (
           <select
@@ -257,19 +259,9 @@ export default function EditableWorkItemsTable({
         width: '120px',
         editable: true,
         render: (item) => (
-          <span
-            className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-              item.priority === 'critical'
-                ? 'text-red-700 bg-red-100 dark:bg-red-900/30 dark:text-red-400'
-                : item.priority === 'high'
-                  ? 'text-orange-700 bg-orange-100 dark:bg-orange-900/30 dark:text-orange-400'
-                  : item.priority === 'medium'
-                    ? 'text-yellow-700 bg-yellow-100 dark:bg-yellow-900/30 dark:text-yellow-400'
-                    : 'text-green-700 bg-green-100 dark:bg-green-900/30 dark:text-green-400'
-            }`}
-          >
+          <Badge color={getPriorityBadgeColor(item.priority)} size="sm" shape="rounded">
             {item.priority}
-          </span>
+          </Badge>
         ),
         renderEdit: (_item, value, onChange, error) => (
           <select

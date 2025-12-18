@@ -6,7 +6,7 @@ import {
   useWorkItemChildren,
   useWorkItemComments,
 } from '@/lib/hooks/use-work-items';
-import ModalBasic from './modal-basic';
+import { Modal } from '@/components/ui/modal';
 import { Button } from '@/components/ui/button';
 import { clientErrorLog } from '@/lib/utils/debug-client';
 
@@ -71,7 +71,7 @@ export default function DeleteWorkItemModal({
   };
 
   return (
-    <ModalBasic isOpen={isOpen} setIsOpen={setIsOpen} title="Delete Work Item">
+    <Modal isOpen={isOpen} onClose={handleCancel} size="sm" title="Delete Work Item" preventClose={isDeleting}>
       <div className="px-5 py-4">
         {/* Icon */}
         <div className="flex items-center justify-center w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/20 mx-auto mb-4">
@@ -197,6 +197,6 @@ export default function DeleteWorkItemModal({
           </Button>
         </div>
       </div>
-    </ModalBasic>
+    </Modal>
   );
 }

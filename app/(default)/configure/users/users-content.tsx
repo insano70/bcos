@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import BulkUserImportModal from '@/components/bulk-user-import-modal';
 import UserModal from '@/components/user-modal';
 import { useAuth } from '@/components/auth/rbac-auth-provider';
+import { Badge } from '@/components/ui/badge';
 import DataTable, {
   type DataTableColumn,
   type DataTableDropdownAction,
@@ -212,15 +213,9 @@ export default function UsersContent() {
       align: 'center',
       render: (user) => (
         <div className="text-center">
-          {user.email_verified === true ? (
-            <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-medium text-green-700 bg-green-100 dark:bg-green-900/30 dark:text-green-400 rounded-full">
-              Verified
-            </span>
-          ) : (
-            <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-medium text-yellow-700 bg-yellow-100 dark:bg-yellow-900/30 dark:text-yellow-400 rounded-full">
-              Pending
-            </span>
-          )}
+          <Badge color={user.email_verified ? 'green' : 'yellow'} size="sm">
+            {user.email_verified ? 'Verified' : 'Pending'}
+          </Badge>
         </div>
       ),
     },
@@ -231,15 +226,9 @@ export default function UsersContent() {
       align: 'center',
       render: (user) => (
         <div className="text-center">
-          {user.is_active === true ? (
-            <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-medium text-green-700 bg-green-100 dark:bg-green-900/30 dark:text-green-400 rounded-full">
-              Active
-            </span>
-          ) : (
-            <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-medium text-red-700 bg-red-100 dark:bg-red-900/30 dark:text-red-400 rounded-full">
-              Inactive
-            </span>
-          )}
+          <Badge color={user.is_active ? 'green' : 'red'} size="sm">
+            {user.is_active ? 'Active' : 'Inactive'}
+          </Badge>
         </div>
       ),
     },

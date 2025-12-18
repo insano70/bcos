@@ -1,5 +1,6 @@
 'use client';
 
+import { Card } from '@/components/ui/card';
 import type { MonitoringMetrics } from '@/lib/monitoring/types';
 
 interface EndpointPerformanceTableProps {
@@ -19,7 +20,7 @@ export default function EndpointPerformanceTable({ metrics }: EndpointPerformanc
     .slice(0, 10);
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+    <Card>
       <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">
         Top Endpoints (Standard API)
       </h3>
@@ -66,6 +67,6 @@ export default function EndpointPerformanceTable({ metrics }: EndpointPerformanc
           </tbody>
         </table>
       </div>
-    </div>
+    </Card>
   );
 }

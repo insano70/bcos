@@ -2,6 +2,7 @@
 
 import type { QueryClient } from '@tanstack/react-query';
 import type { UseFormWatch, UseFormSetValue, UseFormRegister } from 'react-hook-form';
+import { Card } from '@/components/ui/card';
 import ColorPicker from '@/components/color-picker';
 import ImageUpload from '@/components/image-upload';
 import GalleryManager from '@/components/gallery-manager';
@@ -40,7 +41,7 @@ export function BrandingSection({
   return (
     <>
       {/* Brand Colors */}
-      <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl p-6">
+      <Card>
         <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
           Brand Colors
         </h2>
@@ -194,10 +195,10 @@ export function BrandingSection({
             WCAG AA requires 4.5:1 contrast for normal text, 3:1 for large text. AAA is 7:1 / 4.5:1.
           </p>
         </div>
-      </div>
+      </Card>
 
       {/* Images */}
-      <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl p-6">
+      <Card>
         <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
           Images & Branding
         </h2>
@@ -280,7 +281,7 @@ export function BrandingSection({
             label="Practice Gallery"
           />
         </div>
-      </div>
+      </Card>
     </>
   );
 }

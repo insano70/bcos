@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { DashboardUniversalFilters } from '@/hooks/useDashboardData';
 import { apiClient } from '@/lib/api/client';
+import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/spinner';
 import type {
   ChartDefinition,
@@ -68,9 +69,7 @@ function ChartPreviewPlaceholder({ chartName, chartType, onLoad, isLoading }: Ch
         <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
           {chartName}
         </h3>
-        <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded">
-          {chartType}
-        </span>
+        <Badge color="gray" size="sm" shape="rounded">{chartType}</Badge>
       </div>
       
       {/* Placeholder content with load button */}

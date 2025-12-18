@@ -4,6 +4,9 @@ import { useMemo } from 'react';
 import AttachmentFieldRenderer from '@/components/attachment-field-renderer';
 import DateInput from '@/components/inputs/date-input';
 import DateTimeInput from '@/components/inputs/datetime-input';
+import { FormError } from '@/components/ui/form-error';
+import { FormHelp } from '@/components/ui/form-help';
+import { FormLabel } from '@/components/ui/form-label';
 import UserPicker from '@/components/user-picker';
 import { useUsers } from '@/lib/hooks/use-users';
 import type { WorkItemField } from '@/lib/types/work-item-fields';
@@ -42,12 +45,11 @@ export default function DynamicFieldRenderer({
       case 'text':
         return (
           <div key={field.work_item_field_id}>
-            <label className="block text-sm font-medium mb-1" htmlFor={fieldId}>
+            <FormLabel htmlFor={fieldId} required={field.is_required_on_creation}>
               {field.field_label}
-              {field.is_required_on_creation && <span className="text-red-500 ml-1">*</span>}
-            </label>
+            </FormLabel>
             {field.field_description && (
-              <p className="text-xs text-gray-500 mb-2">{field.field_description}</p>
+              <FormHelp className="mb-2 mt-0">{field.field_description}</FormHelp>
             )}
             <input
               id={fieldId}
@@ -57,19 +59,18 @@ export default function DynamicFieldRenderer({
               onChange={(e) => onChange(field.work_item_field_id, e.target.value)}
               required={field.is_required_on_creation}
             />
-            {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+            <FormError>{error}</FormError>
           </div>
         );
 
       case 'number':
         return (
           <div key={field.work_item_field_id}>
-            <label className="block text-sm font-medium mb-1" htmlFor={fieldId}>
+            <FormLabel htmlFor={fieldId} required={field.is_required_on_creation}>
               {field.field_label}
-              {field.is_required_on_creation && <span className="text-red-500 ml-1">*</span>}
-            </label>
+            </FormLabel>
             {field.field_description && (
-              <p className="text-xs text-gray-500 mb-2">{field.field_description}</p>
+              <FormHelp className="mb-2 mt-0">{field.field_description}</FormHelp>
             )}
             <input
               id={fieldId}
@@ -81,19 +82,18 @@ export default function DynamicFieldRenderer({
               min={field.validation_rules?.min}
               max={field.validation_rules?.max}
             />
-            {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+            <FormError>{error}</FormError>
           </div>
         );
 
       case 'date':
         return (
           <div key={field.work_item_field_id}>
-            <label className="block text-sm font-medium mb-1" htmlFor={fieldId}>
+            <FormLabel htmlFor={fieldId} required={field.is_required_on_creation}>
               {field.field_label}
-              {field.is_required_on_creation && <span className="text-red-500 ml-1">*</span>}
-            </label>
+            </FormLabel>
             {field.field_description && (
-              <p className="text-xs text-gray-500 mb-2">{field.field_description}</p>
+              <FormHelp className="mb-2 mt-0">{field.field_description}</FormHelp>
             )}
             <DateInput
               id={fieldId}
@@ -102,19 +102,18 @@ export default function DynamicFieldRenderer({
               required={field.is_required_on_creation}
               error={error}
             />
-            {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+            <FormError>{error}</FormError>
           </div>
         );
 
       case 'datetime':
         return (
           <div key={field.work_item_field_id}>
-            <label className="block text-sm font-medium mb-1" htmlFor={fieldId}>
+            <FormLabel htmlFor={fieldId} required={field.is_required_on_creation}>
               {field.field_label}
-              {field.is_required_on_creation && <span className="text-red-500 ml-1">*</span>}
-            </label>
+            </FormLabel>
             {field.field_description && (
-              <p className="text-xs text-gray-500 mb-2">{field.field_description}</p>
+              <FormHelp className="mb-2 mt-0">{field.field_description}</FormHelp>
             )}
             <DateTimeInput
               id={fieldId}
@@ -123,19 +122,18 @@ export default function DynamicFieldRenderer({
               required={field.is_required_on_creation}
               error={error}
             />
-            {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+            <FormError>{error}</FormError>
           </div>
         );
 
       case 'dropdown':
         return (
           <div key={field.work_item_field_id}>
-            <label className="block text-sm font-medium mb-1" htmlFor={fieldId}>
+            <FormLabel htmlFor={fieldId} required={field.is_required_on_creation}>
               {field.field_label}
-              {field.is_required_on_creation && <span className="text-red-500 ml-1">*</span>}
-            </label>
+            </FormLabel>
             {field.field_description && (
-              <p className="text-xs text-gray-500 mb-2">{field.field_description}</p>
+              <FormHelp className="mb-2 mt-0">{field.field_description}</FormHelp>
             )}
             <select
               id={fieldId}
@@ -151,7 +149,7 @@ export default function DynamicFieldRenderer({
                 </option>
               ))}
             </select>
-            {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+            <FormError>{error}</FormError>
           </div>
         );
 
@@ -168,14 +166,13 @@ export default function DynamicFieldRenderer({
               />
             </div>
             <div className="ml-3">
-              <label className="text-sm font-medium" htmlFor={fieldId}>
+              <FormLabel htmlFor={fieldId} required={field.is_required_on_creation} className="mb-0">
                 {field.field_label}
-                {field.is_required_on_creation && <span className="text-red-500 ml-1">*</span>}
-              </label>
+              </FormLabel>
               {field.field_description && (
-                <p className="text-xs text-gray-500 mt-1">{field.field_description}</p>
+                <FormHelp className="mt-1">{field.field_description}</FormHelp>
               )}
-              {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+              <FormError>{error}</FormError>
             </div>
           </div>
         );
@@ -183,12 +180,11 @@ export default function DynamicFieldRenderer({
       case 'user_picker':
         return (
           <div key={field.work_item_field_id}>
-            <label className="block text-sm font-medium mb-1" htmlFor={fieldId}>
+            <FormLabel htmlFor={fieldId} required={field.is_required_on_creation}>
               {field.field_label}
-              {field.is_required_on_creation && <span className="text-red-500 ml-1">*</span>}
-            </label>
+            </FormLabel>
             {field.field_description && (
-              <p className="text-xs text-gray-500 mb-2">{field.field_description}</p>
+              <FormHelp className="mb-2 mt-0">{field.field_description}</FormHelp>
             )}
             <UserPicker
               users={users}

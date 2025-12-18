@@ -1,14 +1,17 @@
 'use client';
 
 import { useState } from 'react';
+import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
+import { Spinner } from '@/components/ui/spinner';
+import ProtectedComponent from '@/components/rbac/protected-component';
 import {
   usePendingSuggestions,
   useApproveSuggestion,
   useRejectSuggestion,
   useSuggestionStatistics,
 } from '@/lib/hooks/use-data-explorer';
-import ProtectedComponent from '@/components/rbac/protected-component';
-import { Spinner } from '@/components/ui/spinner';
+import { getConfidenceColor } from '@/lib/utils/badge-colors';
 import { clientErrorLog } from '@/lib/utils/debug-client';
 
 export default function SuggestionsPage() {
@@ -37,16 +40,6 @@ export default function SuggestionsPage() {
     }
   };
 
-  const getConfidenceColor = (confidence: string | null) => {
-    if (!confidence) return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400';
-    const score = Number.parseFloat(confidence);
-    if (score >= 0.8) return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400';
-    if (score >= 0.6) return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400';
-    if (score >= 0.4)
-      return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400';
-    return 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400';
-  };
-
   const getSuggestionTypeLabel = (type: string) => {
     return type.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
   };
@@ -67,30 +60,30 @@ export default function SuggestionsPage() {
         {/* Statistics Cards */}
         {statistics && (
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
+            <Card radius="lg" padding="sm">
               <p className="text-sm text-gray-600 dark:text-gray-400">Pending</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">
                 {statistics.pendingSuggestions}
               </p>
-            </div>
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
+            </Card>
+            <Card radius="lg" padding="sm">
               <p className="text-sm text-gray-600 dark:text-gray-400">Approved</p>
               <p className="text-2xl font-bold text-green-600 dark:text-green-400 mt-1">
                 {statistics.approvedSuggestions}
               </p>
-            </div>
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
+            </Card>
+            <Card radius="lg" padding="sm">
               <p className="text-sm text-gray-600 dark:text-gray-400">Auto-Applied</p>
               <p className="text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1">
                 {statistics.autoAppliedSuggestions}
               </p>
-            </div>
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
+            </Card>
+            <Card radius="lg" padding="sm">
               <p className="text-sm text-gray-600 dark:text-gray-400">Avg Confidence</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">
                 {(statistics.averageConfidence * 100).toFixed(0)}%
               </p>
-            </div>
+            </Card>
           </div>
         )}
 
@@ -101,7 +94,7 @@ export default function SuggestionsPage() {
             <p className="text-gray-600 dark:text-gray-400 mt-4">Loading suggestions...</p>
           </div>
         ) : !suggestions || suggestions.length === 0 ? (
-          <div className="bg-white dark:bg-gray-800 shadow-sm rounded-lg p-8 text-center">
+          <Card radius="lg" padding="lg" className="text-center">
             <svg
               className="w-16 h-16 text-gray-400 dark:text-gray-600 mx-auto mb-4"
               fill="none"
@@ -121,28 +114,28 @@ export default function SuggestionsPage() {
             <p className="text-gray-600 dark:text-gray-400">
               All suggestions have been reviewed. Check back later for new AI-generated improvements.
             </p>
-          </div>
+          </Card>
         ) : (
           <div className="space-y-4">
             {suggestions.map((suggestion) => (
-              <div
+              <Card
                 key={suggestion.suggestion_id}
-                className="bg-white dark:bg-gray-800 shadow-sm rounded-lg overflow-hidden"
+                radius="lg"
+                padding="none"
+                className="overflow-hidden"
               >
                 <div className="p-4">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-violet-100 text-violet-800 dark:bg-violet-900/20 dark:text-violet-400">
+                        <Badge color="violet">
                           {getSuggestionTypeLabel(suggestion.suggestion_type)}
-                        </span>
-                        <span
-                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getConfidenceColor(suggestion.confidence_score)}`}
-                        >
+                        </Badge>
+                        <Badge color={getConfidenceColor(suggestion.confidence_score)}>
                           {suggestion.confidence_score
                             ? `${(Number.parseFloat(suggestion.confidence_score) * 100).toFixed(0)}% confidence`
                             : 'Unknown confidence'}
-                        </span>
+                        </Badge>
                         <span className="text-xs text-gray-500 dark:text-gray-400">
                           {new Date(suggestion.created_at).toLocaleDateString()}
                         </span>
@@ -215,7 +208,7 @@ export default function SuggestionsPage() {
                     </div>
                   )}
                 </div>
-              </div>
+              </Card>
             ))}
           </div>
         )}

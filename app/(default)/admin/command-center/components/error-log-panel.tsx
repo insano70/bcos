@@ -1,6 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
 import { apiClient } from '@/lib/api/client';
 import { generateCorrelationTraceURL } from '@/lib/monitoring/cloudwatch-client-utils';
 import type { ErrorLogEntry, ErrorsResponse } from '@/lib/monitoring/types';
@@ -72,18 +74,18 @@ export default function ErrorLogPanel({
 
   if (loading && !data) {
     return (
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+      <Card>
         <div className="flex items-center justify-center py-8">
           <Spinner size="md" />
         </div>
-      </div>
+      </Card>
     );
   }
 
   const groupedErrors = data ? groupErrors(data.errors) : [];
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+    <Card>
       <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">Recent Errors</h3>
 
       {groupedErrors.length > 0 ? (
@@ -105,9 +107,9 @@ export default function ErrorLogPanel({
                   </div>
                   <div className="flex items-center gap-3">
                     {group.count > 1 && (
-                      <span className="px-2 py-1 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 text-xs rounded">
+                      <Badge color="red" size="sm" shape="rounded">
                         {group.count}x
-                      </span>
+                      </Badge>
                     )}
                     <span className="text-xs text-gray-400">
                       {expandedErrors.has(idx) ? '▼' : '▶'}
@@ -155,6 +157,6 @@ export default function ErrorLogPanel({
           </div>
         </div>
       )}
-    </div>
+    </Card>
   );
 }

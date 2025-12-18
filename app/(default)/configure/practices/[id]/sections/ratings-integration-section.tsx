@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import type { UseFormRegister, UseFormWatch, UseFormSetValue, FieldErrors } from 'react-hook-form';
+import { Card } from '@/components/ui/card';
+import { FormLabel } from '@/components/ui/form-label';
 import type { PracticeFormData } from '../types';
 
 interface RatingsIntegrationSectionProps {
@@ -70,7 +72,7 @@ export function RatingsIntegrationSection({
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 shadow-sm rounded-lg p-6">
+    <Card radius="lg">
       <div className="mb-6">
         <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
           Ratings Integration
@@ -103,13 +105,9 @@ export function RatingsIntegrationSection({
       {ratingsEnabled && (
         <div className="space-y-4 border-t pt-6 dark:border-gray-700">
           <div>
-            <label
-              htmlFor={`practice-slug-${uid}`}
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-            >
+            <FormLabel htmlFor={`practice-slug-${uid}`} required className="mb-2">
               Practice Slug
-              <span className="text-red-500 ml-1">*</span>
-            </label>
+            </FormLabel>
             <input
               type="text"
               id={`practice-slug-${uid}`}
@@ -194,7 +192,7 @@ export function RatingsIntegrationSection({
           </div>
         </div>
       )}
-    </div>
+    </Card>
   );
 }
 

@@ -5,6 +5,8 @@ export const metadata = {
 
 import { and, count, eq, isNull } from 'drizzle-orm';
 import Link from 'next/link';
+import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
 import { requireServerAnyPermission } from '@/lib/auth/server-rbac';
 import { db, practices, staff_members, users } from '@/lib/db';
 import { log } from '@/lib/logger';
@@ -71,7 +73,7 @@ export default async function ConfigureDashboard() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl p-6">
+        <Card>
           <div className="flex items-center">
             <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
               <span className="text-blue-600 text-xl">🏥</span>
@@ -83,9 +85,9 @@ export default async function ConfigureDashboard() {
               <p className="text-gray-600 dark:text-gray-400 text-sm">Total Practices</p>
             </div>
           </div>
-        </div>
+        </Card>
 
-        <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl p-6">
+        <Card>
           <div className="flex items-center">
             <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
               <span className="text-green-600 text-xl">✅</span>
@@ -97,9 +99,9 @@ export default async function ConfigureDashboard() {
               <p className="text-gray-600 dark:text-gray-400 text-sm">Active Practices</p>
             </div>
           </div>
-        </div>
+        </Card>
 
-        <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl p-6">
+        <Card>
           <div className="flex items-center">
             <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
               <span className="text-purple-600 text-xl">👥</span>
@@ -111,9 +113,9 @@ export default async function ConfigureDashboard() {
               <p className="text-gray-600 dark:text-gray-400 text-sm">System Users</p>
             </div>
           </div>
-        </div>
+        </Card>
 
-        <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl p-6">
+        <Card>
           <div className="flex items-center">
             <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
               <span className="text-yellow-600 text-xl">👨‍⚕️</span>
@@ -125,12 +127,12 @@ export default async function ConfigureDashboard() {
               <p className="text-gray-600 dark:text-gray-400 text-sm">Staff Members</p>
             </div>
           </div>
-        </div>
+        </Card>
       </div>
 
       {/* Quick Actions */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl p-6">
+        <Card>
           <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">
             Quick Actions
           </h2>
@@ -165,39 +167,31 @@ export default async function ConfigureDashboard() {
               </div>
             </Link>
           </div>
-        </div>
+        </Card>
 
-        <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl p-6">
+        <Card>
           <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">
             System Overview
           </h2>
           <div className="space-y-4">
             <div className="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-700">
               <span className="text-gray-600 dark:text-gray-400">Database Status</span>
-              <span className="inline-flex items-center px-2 py-1 text-xs font-medium text-green-700 bg-green-100 dark:bg-green-900/30 dark:text-green-400 rounded-full">
-                Connected
-              </span>
+              <Badge color="green" size="sm">Connected</Badge>
             </div>
             <div className="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-700">
               <span className="text-gray-600 dark:text-gray-400">Template System</span>
-              <span className="inline-flex items-center px-2 py-1 text-xs font-medium text-green-700 bg-green-100 dark:bg-green-900/30 dark:text-green-400 rounded-full">
-                Active
-              </span>
+              <Badge color="green" size="sm">Active</Badge>
             </div>
             <div className="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-700">
               <span className="text-gray-600 dark:text-gray-400">File Uploads</span>
-              <span className="inline-flex items-center px-2 py-1 text-xs font-medium text-green-700 bg-green-100 dark:bg-green-900/30 dark:text-green-400 rounded-full">
-                Ready
-              </span>
+              <Badge color="green" size="sm">Ready</Badge>
             </div>
             <div className="flex justify-between items-center py-2">
               <span className="text-gray-600 dark:text-gray-400">Domain Routing</span>
-              <span className="inline-flex items-center px-2 py-1 text-xs font-medium text-green-700 bg-green-100 dark:bg-green-900/30 dark:text-green-400 rounded-full">
-                Configured
-              </span>
+              <Badge color="green" size="sm">Configured</Badge>
             </div>
           </div>
-        </div>
+        </Card>
       </div>
     </div>
   );

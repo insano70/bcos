@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { Card } from '@/components/ui/card';
 import { apiClient } from '@/lib/api/client';
 import type { SlowQueriesResponse } from '@/lib/monitoring/types';
 import { clientErrorLog } from '@/lib/utils/debug-client';
@@ -40,7 +41,7 @@ export default function SlowQueriesPanel({
   }, [autoRefresh, refreshInterval, fetchQueries]);
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+    <Card>
       <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">Slow Queries</h3>
 
       {loading && !data ? (
@@ -75,6 +76,6 @@ export default function SlowQueriesPanel({
           <div className="text-sm text-gray-500 dark:text-gray-400">No slow queries detected</div>
         </div>
       )}
-    </div>
+    </Card>
   );
 }

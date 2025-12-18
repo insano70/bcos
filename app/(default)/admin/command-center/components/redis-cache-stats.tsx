@@ -13,6 +13,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { Card } from '@/components/ui/card';
 import { apiClient } from '@/lib/api/client';
 import type { RedisStats } from '@/lib/monitoring/types';
 import { clientErrorLog } from '@/lib/utils/debug-client';
@@ -82,17 +83,17 @@ export default function RedisCacheStats({
 
   if (loading && !stats) {
     return (
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+      <Card>
         <div className="flex items-center justify-center py-8">
           <Spinner size="md" />
         </div>
-      </div>
+      </Card>
     );
   }
 
   if (error) {
     return (
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+      <Card>
         <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">
           Redis Cache Statistics
         </h3>
@@ -103,14 +104,14 @@ export default function RedisCacheStats({
             Redis may not be configured or unavailable
           </div>
         </div>
-      </div>
+      </Card>
     );
   }
 
   if (!stats) return null;
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+    <Card>
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
@@ -281,6 +282,6 @@ export default function RedisCacheStats({
           </div>
         </div>
       </details>
-    </div>
+    </Card>
   );
 }

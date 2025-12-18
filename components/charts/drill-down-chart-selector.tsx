@@ -241,7 +241,7 @@ export function DrillDownChartSelector({
       </div>
 
       {/* Error message */}
-      {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
+      {error && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{error}</p>}
 
       {/* Dropdown */}
       {isOpen && !disabled && (

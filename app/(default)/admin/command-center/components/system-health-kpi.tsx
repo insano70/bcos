@@ -9,6 +9,7 @@
  */
 
 import { memo } from 'react';
+import { Card } from '@/components/ui/card';
 import {
   getFactorColor,
   getFactorIndicator,
@@ -44,7 +45,7 @@ function SystemHealthKPIInner({ systemHealth }: SystemHealthKPIProps) {
   }[status];
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+    <Card>
       {/* Header */}
       <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">System Health</div>
 
@@ -76,7 +77,7 @@ function SystemHealthKPIInner({ systemHealth }: SystemHealthKPIProps) {
           <HealthFactor label="Security Events" status={factors.uptime} />
         </div>
       </details>
-    </div>
+    </Card>
   );
 }
 

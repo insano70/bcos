@@ -19,6 +19,7 @@
 
 import { useCallback, useMemo } from 'react';
 import type { DashboardUniversalFilters } from '@/hooks/useDashboardData';
+import { clientDebugLog } from '@/lib/utils/debug-client';
 
 const STORAGE_KEY_PREFIX = 'bcos_dashboard_filters';
 
@@ -98,14 +99,31 @@ export function useStickyFilters(options: UseStickyFiltersOptions = {}) {
       return {}; // SSR safety
     }
 
+    // DIAGNOSTIC: Log load attempt
+    clientDebugLog.filter('[STICKY] loadPreferences called', {
+      timestamp: new Date().toISOString(),
+      storageKey,
+      userId,
+      accessibleOrgCount: accessibleOrganizationIds?.length ?? 0,
+      accessibleOrganizationIds,
+    });
+
     try {
       const saved = localStorage.getItem(storageKey);
       if (!saved) {
+        // DIAGNOSTIC: Log no saved data
+        clientDebugLog.filter('[STICKY] No saved preferences found', {
+          storageKey,
+          checkedLegacyKey: !!userId,
+        });
+
         // Try legacy key migration (one-time)
         if (userId) {
           const legacySaved = localStorage.getItem(STORAGE_KEY_PREFIX);
           if (legacySaved) {
-            console.log('[useStickyFilters] Migrating legacy filters to user-scoped storage');
+            clientDebugLog.filter('[STICKY] Found legacy filters - clearing (not migrating)', {
+              legacyKey: STORAGE_KEY_PREFIX,
+            });
             // Don't auto-migrate - just clear legacy and start fresh
             // This prevents inheriting another user's filters
             try {
@@ -120,9 +138,17 @@ export function useStickyFilters(options: UseStickyFiltersOptions = {}) {
 
       const parsed = JSON.parse(saved) as StickyFilterPreferences;
 
+      // DIAGNOSTIC: Log parsed data
+      clientDebugLog.filter('[STICKY] Loaded raw preferences from localStorage', {
+        parsed,
+        storageKey,
+      });
+
       // Validate structure
       if (typeof parsed !== 'object' || parsed === null) {
-        console.warn('[useStickyFilters] Invalid preferences structure, clearing');
+        clientDebugLog.filter('[STICKY] Invalid preferences structure - clearing', {
+          parsed,
+        });
         localStorage.removeItem(storageKey);
         return {};
       }
@@ -130,8 +156,17 @@ export function useStickyFilters(options: UseStickyFiltersOptions = {}) {
       // Validate organization filter against accessible organizations
       if (parsed.organizationId && accessibleOrganizationIds && accessibleOrganizationIds.length > 0) {
         const hasAccess = accessibleOrganizationIds.includes(parsed.organizationId);
+
+        // DIAGNOSTIC: Log org validation
+        clientDebugLog.filter('[STICKY] Validating organization filter', {
+          savedOrgId: parsed.organizationId,
+          accessibleOrgCount: accessibleOrganizationIds.length,
+          accessibleOrganizationIds,
+          hasAccess,
+        });
+
         if (!hasAccess) {
-          console.warn('[useStickyFilters] Clearing invalid organization filter - user does not have access', {
+          clientDebugLog.filter('[STICKY] CLEARING invalid org filter - user lost access', {
             invalidOrgId: parsed.organizationId,
             accessibleOrgs: accessibleOrganizationIds,
           });
@@ -140,11 +175,28 @@ export function useStickyFilters(options: UseStickyFiltersOptions = {}) {
           parsed.lastUpdated = new Date().toISOString();
           localStorage.setItem(storageKey, JSON.stringify(parsed));
         }
+      } else if (parsed.organizationId && (!accessibleOrganizationIds || accessibleOrganizationIds.length === 0)) {
+        // DIAGNOSTIC: Log validation skipped
+        clientDebugLog.filter('[STICKY] Org validation SKIPPED - no accessible orgs list yet', {
+          savedOrgId: parsed.organizationId,
+          accessibleOrganizationIds,
+          reason: 'accessibleOrganizationIds is empty - auth context may not be loaded',
+        });
       }
+
+      // DIAGNOSTIC: Log final result
+      clientDebugLog.filter('[STICKY] Returning preferences', {
+        result: parsed,
+        hasOrgId: !!parsed.organizationId,
+        hasDateRange: !!parsed.dateRangePreset,
+      });
 
       return parsed;
     } catch (error) {
-      console.error('[useStickyFilters] Failed to load preferences:', error);
+      clientDebugLog.filter('[STICKY] ERROR loading preferences', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        storageKey,
+      });
       // Clear corrupted data
       try {
         localStorage.removeItem(storageKey);

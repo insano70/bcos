@@ -1,8 +1,8 @@
 'use client';
 
-import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
 import { useCallback, useEffect, useState } from 'react';
 
+import { Modal } from '@/components/ui/modal';
 import { apiClient } from '@/lib/api/client';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
@@ -82,57 +82,16 @@ export default function RecipientsModal({
   };
 
   return (
-    <Transition appear show={isOpen}>
-      <Dialog as="div" onClose={onClose}>
-        <TransitionChild
-          as="div"
-          className="fixed inset-0 bg-gray-900/30 z-50 transition-opacity"
-          enter="transition ease-out duration-200"
-          enterFrom="opacity-0"
-          enterTo="opacity-100"
-          leave="transition ease-out duration-100"
-          leaveFrom="opacity-100"
-          leaveTo="opacity-0"
-          aria-hidden="true"
-        />
-        <TransitionChild
-          as="div"
-          className="fixed inset-0 z-50 overflow-hidden flex items-center my-4 justify-center px-4 sm:px-6"
-          enter="transition ease-in-out duration-200"
-          enterFrom="opacity-0 translate-y-4"
-          enterTo="opacity-100 translate-y-0"
-          leave="transition ease-in-out duration-200"
-          leaveFrom="opacity-100 translate-y-0"
-          leaveTo="opacity-0 translate-y-4"
-        >
-          <DialogPanel className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden max-w-lg w-full max-h-[80vh] flex flex-col">
-            {/* Modal header */}
-            <div className="px-5 py-3 border-b border-gray-200 dark:border-gray-700/60">
-              <div className="flex justify-between items-center">
-                <div>
-                  <Dialog.Title className="font-semibold text-gray-800 dark:text-gray-100">
-                    Recipients
-                  </Dialog.Title>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5 truncate max-w-xs">
-                    {announcementSubject}
-                  </p>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={onClose}
-                  aria-label="Close"
-                  className="p-0"
-                >
-                  <svg className="fill-current" width="16" height="16" viewBox="0 0 16 16">
-                    <path d="M7.95 6.536l4.242-4.243a1 1 0 111.415 1.414L9.364 7.95l4.243 4.242a1 1 0 11-1.415 1.415L7.95 9.364l-4.243 4.243a1 1 0 01-1.414-1.415L6.536 7.95 2.293 3.707a1 1 0 011.414-1.414L7.95 6.536z" />
-                  </svg>
-                </Button>
-              </div>
-            </div>
-
-            {/* Modal content */}
-            <div className="flex-1 overflow-y-auto">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      size="md"
+      title="Recipients"
+      description={announcementSubject}
+      className="max-h-[80vh] flex flex-col"
+    >
+      {/* Modal content */}
+      <div className="flex-1 overflow-y-auto">
               {loading ? (
                 <div className="flex items-center justify-center py-12">
                   <Spinner size="md" />
@@ -196,9 +155,6 @@ export default function RecipientsModal({
                 Close
               </Button>
             </div>
-          </DialogPanel>
-        </TransitionChild>
-      </Dialog>
-    </Transition>
+    </Modal>
   );
 }

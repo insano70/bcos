@@ -1,10 +1,13 @@
 'use client';
 
-import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useId, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
+import { Badge } from '@/components/ui/badge';
+import { FormLabel } from '@/components/ui/form-label';
+import { FormError } from '@/components/ui/form-error';
+import { Modal } from '@/components/ui/modal';
 import ColorPicker from './color-picker';
 import DeleteConfirmationModal from './delete-confirmation-modal';
 import {
@@ -16,6 +19,7 @@ import {
 } from '@/lib/hooks/use-work-item-statuses';
 import { createSafeTextSchema } from '@/lib/validations/sanitization';
 import Toast from './toast';
+import { getStatusBadgeColor } from '@/lib/utils/badge-colors';
 import { clientErrorLog } from '@/lib/utils/debug-client';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
@@ -165,60 +169,16 @@ export default function ManageStatusesModal({
     }
   };
 
-  const categoryColors = {
-    backlog: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
-    in_progress: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
-    completed: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
-    cancelled: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
-  };
-
   return (
     <>
-      <Transition show={isOpen}>
-        <Dialog onClose={onClose}>
-          <TransitionChild
-            enter="ease-out duration-200"
-            enterFrom="opacity-0"
-            enterTo="opacity-100"
-            leave="ease-out duration-100"
-            leaveFrom="opacity-100"
-            leaveTo="opacity-0"
-          >
-            <div className="fixed inset-0 bg-gray-900 bg-opacity-30 z-50 transition-opacity" />
-          </TransitionChild>
-
-          <TransitionChild
-            enter="ease-out duration-200"
-            enterFrom="opacity-0 scale-95"
-            enterTo="opacity-100 scale-100"
-            leave="ease-out duration-200"
-            leaveFrom="opacity-100 scale-100"
-            leaveTo="opacity-0 scale-95"
-          >
-            <div className="fixed inset-0 z-50 overflow-hidden flex items-center my-4 justify-center px-4 sm:px-6">
-              <DialogPanel className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-auto max-w-4xl w-full max-h-full">
-                {/* Modal header */}
-                <div className="px-5 py-3 border-b border-gray-200 dark:border-gray-700/60">
-                  <div className="flex justify-between items-center">
-                    <h2 className="font-semibold text-gray-800 dark:text-gray-100">
-                      Manage Statuses - {workItemTypeName}
-                    </h2>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={onClose}
-                      aria-label="Close"
-                      className="p-0"
-                    >
-                      <svg className="w-4 h-4 fill-current">
-                        <path d="M7.95 6.536l4.242-4.243a1 1 0 111.415 1.414L9.364 7.95l4.243 4.242a1 1 0 11-1.415 1.415L7.95 9.364l-4.243 4.243a1 1 0 01-1.414-1.415L6.536 7.95 2.293 3.707a1 1 0 011.414-1.414L7.95 6.536z" />
-                      </svg>
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Modal content */}
-                <div className="px-5 py-4">
+      <Modal
+        isOpen={isOpen}
+        onClose={onClose}
+        size="xl"
+        title={`Manage Statuses - ${workItemTypeName}`}
+      >
+        {/* Modal content */}
+        <div className="px-5 py-4">
                   {/* Add Status Button */}
                   {!isAddingStatus && !editingStatusId && (
                     <div className="mb-4">
@@ -248,9 +208,9 @@ export default function ManageStatusesModal({
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {/* Status Name */}
                         <div>
-                          <label className="block text-sm font-medium mb-1" htmlFor={statusNameId}>
-                            Status Name <span className="text-red-500">*</span>
-                          </label>
+                          <FormLabel htmlFor={statusNameId} required className="mb-1">
+                            Status Name
+                          </FormLabel>
                           <input
                             id={statusNameId}
                             type="text"
@@ -258,21 +218,14 @@ export default function ManageStatusesModal({
                             {...register('status_name')}
                             placeholder="e.g., In Review"
                           />
-                          {errors.status_name && (
-                            <div className="text-xs mt-1 text-red-500">
-                              {errors.status_name.message}
-                            </div>
-                          )}
+                          <FormError>{errors.status_name?.message}</FormError>
                         </div>
 
                         {/* Category */}
                         <div>
-                          <label
-                            className="block text-sm font-medium mb-1"
-                            htmlFor={statusCategoryId}
-                          >
-                            Category <span className="text-red-500">*</span>
-                          </label>
+                          <FormLabel htmlFor={statusCategoryId} required className="mb-1">
+                            Category
+                          </FormLabel>
                           <select
                             id={statusCategoryId}
                             className={`form-select w-full ${errors.status_category ? 'border-red-300' : ''}`}
@@ -283,11 +236,7 @@ export default function ManageStatusesModal({
                             <option value="completed">Completed</option>
                             <option value="cancelled">Cancelled</option>
                           </select>
-                          {errors.status_category && (
-                            <div className="text-xs mt-1 text-red-500">
-                              {errors.status_category.message}
-                            </div>
-                          )}
+                          <FormError>{errors.status_category?.message}</FormError>
                         </div>
 
                         {/* Color */}
@@ -299,16 +248,14 @@ export default function ManageStatusesModal({
                             defaultColor="#3b82f6"
                             description="Pick from presets or enter a custom hex color"
                           />
-                          {errors.color && (
-                            <div className="text-xs mt-1 text-red-500">{errors.color.message}</div>
-                          )}
+                          <FormError>{errors.color?.message}</FormError>
                         </div>
 
                         {/* Display Order */}
                         <div>
-                          <label className="block text-sm font-medium mb-1" htmlFor={displayOrderId}>
-                            Display Order <span className="text-red-500">*</span>
-                          </label>
+                          <FormLabel htmlFor={displayOrderId} required className="mb-1">
+                            Display Order
+                          </FormLabel>
                           <input
                             id={displayOrderId}
                             type="number"
@@ -316,11 +263,7 @@ export default function ManageStatusesModal({
                             className={`form-input w-full ${errors.display_order ? 'border-red-300' : ''}`}
                             {...register('display_order', { valueAsNumber: true })}
                           />
-                          {errors.display_order && (
-                            <div className="text-xs mt-1 text-red-500">
-                              {errors.display_order.message}
-                            </div>
-                          )}
+                          <FormError>{errors.display_order?.message}</FormError>
                         </div>
 
                         {/* Flags */}
@@ -387,22 +330,16 @@ export default function ManageStatusesModal({
                               </div>
 
                               {/* Category badge */}
-                              <span
-                                className={`px-2 py-1 text-xs rounded-full ${categoryColors[status.status_category as keyof typeof categoryColors]}`}
-                              >
+                              <Badge color={getStatusBadgeColor(status.status_category)} size="sm">
                                 {status.status_category}
-                              </span>
+                              </Badge>
 
                               {/* Flags */}
                               {status.is_initial && (
-                                <span className="px-2 py-1 text-xs bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400 rounded-full">
-                                  Initial
-                                </span>
+                                <Badge color="purple" size="sm">Initial</Badge>
                               )}
                               {status.is_final && (
-                                <span className="px-2 py-1 text-xs bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400 rounded-full">
-                                  Final
-                                </span>
+                                <Badge color="orange" size="sm">Final</Badge>
                               )}
 
                               {/* Display order */}
@@ -450,11 +387,7 @@ export default function ManageStatusesModal({
                     </Button>
                   </div>
                 </div>
-              </DialogPanel>
-            </div>
-          </TransitionChild>
-        </Dialog>
-      </Transition>
+      </Modal>
 
       <Toast type="success" open={showToast} setOpen={setShowToast}>
         {toastMessage}

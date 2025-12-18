@@ -13,6 +13,7 @@
 'use client';
 
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { FormLabel } from '@/components/ui/form-label';
 
 interface ConfirmModalProps {
   isOpen: boolean;
@@ -128,12 +129,9 @@ export default function ConfirmModal({
             {/* Reason Field */}
             {requireReason && (
               <div className="mb-4">
-                <label
-                  htmlFor={reasonId}
-                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-                >
-                  Reason <span className="text-red-500">*</span>
-                </label>
+                <FormLabel htmlFor={reasonId} required className="mb-2">
+                  Reason
+                </FormLabel>
                 <textarea
                   ref={reasonInputRef}
                   id={reasonId}

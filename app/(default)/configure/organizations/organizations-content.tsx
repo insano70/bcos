@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useMemo, useState } from 'react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import OrganizationModal from '@/components/organization-modal';
 import DataTable, {
@@ -207,15 +208,9 @@ export default function OrganizationsContent() {
         align: 'center',
         render: (organization) => (
           <div className="text-center">
-            {organization.is_active ? (
-              <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-medium text-green-700 bg-green-100 dark:bg-green-900/30 dark:text-green-400 rounded-full">
-                Active
-              </span>
-            ) : (
-              <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-medium text-red-700 bg-red-100 dark:bg-red-900/30 dark:text-red-400 rounded-full">
-                Inactive
-              </span>
-            )}
+            <Badge color={organization.is_active ? 'green' : 'red'} size="sm">
+              {organization.is_active ? 'Active' : 'Inactive'}
+            </Badge>
           </div>
         ),
       },

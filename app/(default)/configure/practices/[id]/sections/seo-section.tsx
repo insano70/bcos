@@ -1,6 +1,8 @@
 'use client';
 
 import type { FieldErrors, UseFormRegister } from 'react-hook-form';
+import { Card } from '@/components/ui/card';
+import { FormError } from '@/components/ui/form-error';
 import type { PracticeFormData } from '../types';
 
 interface SEOSectionProps {
@@ -11,7 +13,7 @@ interface SEOSectionProps {
 
 export function SEOSection({ register, errors, uid }: SEOSectionProps) {
   return (
-    <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl p-6">
+    <Card>
       <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
         SEO Settings
       </h2>
@@ -33,7 +35,7 @@ export function SEOSection({ register, errors, uid }: SEOSectionProps) {
             }`}
             placeholder="Practice Name - Expert Rheumatology Care"
           />
-          {errors.meta_title && <p className="mt-1 text-sm text-red-600">{errors.meta_title.message}</p>}
+          <FormError>{errors.meta_title?.message}</FormError>
         </div>
 
         <div>
@@ -53,9 +55,9 @@ export function SEOSection({ register, errors, uid }: SEOSectionProps) {
             placeholder="Brief description for search engines (160 characters max)..."
             maxLength={160}
           />
-          {errors.meta_description && <p className="mt-1 text-sm text-red-600">{errors.meta_description.message}</p>}
+          <FormError>{errors.meta_description?.message}</FormError>
         </div>
       </div>
-    </div>
+    </Card>
   );
 }

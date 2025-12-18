@@ -30,11 +30,11 @@ A comprehensive analysis of the codebase examined **16 UI pattern categories** a
 ## Table of Contents
 
 1. [Buttons](#1-buttons---completed-) ✅
-2. [Modals/Dialogs](#2-modalsdialogs---3-overlapping-base-components)
+2. [Modals/Dialogs](#2-modalsdialogs---completed-) ✅
 3. [Badges/Status Indicators](#3-badgesstatus-indicators---438-inline-implementations)
-4. [Loading/Skeleton States](#4-loadingskeleton-states---animation-mismatch)
-5. [Form Fields](#5-form-fields---3-different-required-indicator-patterns)
-6. [Cards/Panels](#6-cardspanels---no-unified-card-component)
+4. [Loading/Skeleton States](#4-loadingskeleton-states---completed-) ✅
+5. [Form Fields](#5-form-fields---completed-) ✅
+6. [Cards/Panels](#6-cardspanels---completed-) ✅
 7. [Empty/Error States](#7-emptyerror-states---inconsistent-cta-buttons)
 8. [Tables](#8-tables---color-palette-inconsistency)
 9. [Avatars](#9-avatars---3-different-initials-algorithms)
@@ -122,173 +122,191 @@ The following high-traffic files were migrated to use the standard Button compon
 
 ---
 
-## 2. Modals/Dialogs - 3 Overlapping Base Components
+## 2. Modals/Dialogs - COMPLETED ✅
 
-**Severity: CRITICAL** | **Files Affected: 57+** | **Effort: High**
+**Severity: CRITICAL** | **Files Affected: 57+** | **Effort: High** | **Status: COMPLETE (December 2024)**
 
-### Problem Statement
+### Solution Implemented
 
-Three similar but different base modal components exist, plus specialized modals that deviate from all patterns.
+A standardized `Modal` component was created at `/components/ui/modal.tsx` with the following features:
 
-### Current Base Components
+#### Size Presets
+| Size | Width | Use Case |
+|------|-------|----------|
+| `sm` | `max-w-md` (448px) | Confirmations, small forms |
+| `md` | `max-w-lg` (512px) | Default |
+| `lg` | `max-w-2xl` (672px) | Forms with more fields |
+| `xl` | `max-w-4xl` (896px) | Data views, tables |
+| `full` | `max-w-6xl` (1152px) | Complex visualizations |
 
-| Component | File | Header | Close Button | Use Case |
-|-----------|------|--------|--------------|----------|
-| `ModalBasic` | `/components/modal-basic.tsx` | Yes (with border) | Top-right in header | Titled modals |
-| `ModalBlank` | `/components/modal-blank.tsx` | No | None | Custom layouts |
-| `ModalAction` | `/components/modal-action.tsx` | No | Top-right (relative) | Action-focused |
+#### Props Interface
+- `isOpen`, `onClose` - Modal state control
+- `size` - Size preset (sm, md, lg, xl, full)
+- `title`, `description` - Optional header with close button
+- `showCloseButton` - Manual close button control
+- `preventClose` - Disable close on backdrop/escape (for progress modals)
+- `className`, `contentClassName` - Panel and content styling
+- `containerClassName` - Container positioning (for top-aligned modals)
 
-### Shared Infrastructure (All Three)
+#### Migration Results
+- **18/21 files migrated** to use the unified Modal component
+- **3 base components** (`ModalBasic`, `ModalBlank`, `ModalAction`) refactored to use Modal internally with `@deprecated` tags
+- **3 valid exceptions** kept for unique UX requirements (see below)
 
-```tsx
-// Backdrop
-className="fixed inset-0 bg-gray-900/30 z-50 transition-opacity"
+### Approved Exceptions (Not Migrated)
 
-// Animation
-enter="transition ease-in-out duration-200"
-enterFrom="opacity-0 translate-y-4"
-enterTo="opacity-100 translate-y-0"
-leave="transition ease-in-out duration-200"
-leaveFrom="opacity-100 translate-y-0"
-leaveTo="opacity-0 translate-y-4"
+| File | Reason |
+|------|--------|
+| `mfa-setup-dialog.tsx` | Auth UX: scale animation, backdrop blur, shield icon header |
+| `mfa-verify-dialog.tsx` | Auth UX: scale animation, backdrop blur, multi-step state machine |
+| `user-announcement-modal.tsx` | Custom gradient accent bar, backdrop blur, tabbed interface |
 
-// Panel
-className="max-w-lg w-full max-h-full"
-```
+### Original Problem (Resolved)
 
-### Header Styling Variations
+- **3 overlapping base components** with nearly identical code (`ModalBasic`, `ModalBlank`, `ModalAction`)
+- **21 files implement Dialog from scratch** - duplicating ~25 lines of boilerplate each
+- **Fixed size limitation** - all base components hardcoded to `max-w-lg`, forcing developers to bypass them
+- **CrudModal is excellent** - remains unchanged for CRUD form operations
 
-#### Standard ModalBasic Header
-```tsx
-<div className="px-5 py-3 border-b border-gray-200 dark:border-gray-700/60">
-  <Dialog.Title className="font-semibold text-gray-800 dark:text-gray-100">
-```
+### Analysis Results
 
-#### Schema Instructions Modal (Different)
-```tsx
-<div className="px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-  <Dialog.Title className="text-lg font-semibold">
-  <p className="mt-1 text-sm text-gray-500"> {/* Subtitle */}
-```
+#### Size Distribution (Actual Usage)
 
-#### Recipients Modal (Different)
-```tsx
-<div className="px-5 py-3 border-b border-gray-200 dark:border-gray-700/60">
-  <Dialog.Title className="font-semibold text-gray-800 dark:text-gray-100">
-  <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5 truncate">
-```
+| Size | Width | Count | Examples |
+|------|-------|-------|----------|
+| `max-w-md` | 448px | 5 | Confirmations, delete modals |
+| `max-w-lg` | 512px | 7 | Default (base components), MFA dialogs |
+| `max-w-2xl` | 672px | 4 | Work item modals, search |
+| `max-w-3xl` | 768px | 1 | Feedback modal |
+| `max-w-4xl` | 896px | 5 | SQL view, schema instructions |
+| `max-w-5xl` | 1024px | 1 | Organization users table |
+| `max-w-6xl` | 1152px | 3 | Workflow visualization, results |
 
-**Inconsistencies**:
-- Padding: `px-5 py-3` vs `px-4 sm:px-6 py-4` vs `px-6 py-4`
-- Title size: `font-semibold` vs `text-lg font-semibold`
-- Border color: `gray-700/60` vs `gray-700`
+**Not used**: `sm`, `xl`, `7xl`
 
-### Close Button Variations
+#### Files Implementing Dialog From Scratch (21 files)
 
-#### Pattern 1: Custom SVG (fill-based)
-```tsx
-<svg className="fill-current" width="16" height="16" viewBox="0 0 16 16">
-  <path d="M7.95 6.536l4.242-4.243..." />
-</svg>
-```
-**Used in**: `ModalBasic`, `AddPracticeModal`, `EditWorkItemModal`, `RecipientsModal`
+These duplicate Headless UI Dialog/Transition boilerplate instead of using a base:
 
-#### Pattern 2: X SVG (stroke-based)
-```tsx
-<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-</svg>
-```
-**Used in**: `ChartFullscreenModal`, `SchemaInstructionsModal`, `FullscreenLoadingModal`
+| File | Size Used | Reason |
+|------|-----------|--------|
+| `edit-work-item-modal.tsx` | `max-w-2xl` | Base only supports `max-w-lg` |
+| `schema-instructions-modal.tsx` | `max-w-4xl` | Base only supports `max-w-lg` |
+| `view-sql-modal.tsx` | `max-w-4xl` | Base only supports `max-w-lg` |
+| `view-results-modal.tsx` | `max-w-6xl` | Base only supports `max-w-lg` |
+| `view-columns-modal.tsx` | `max-w-4xl` | Base only supports `max-w-lg` |
+| `discovery-progress-modal.tsx` | `max-w-md` | Base only supports `max-w-lg` |
+| `workflow-visualization-modal.tsx` | `max-w-6xl` | Base only supports `max-w-lg` |
+| `manage-statuses-modal.tsx` | `max-w-4xl` | Base only supports `max-w-lg` |
+| `edit-transition-config-modal.tsx` | `max-w-6xl` | Base only supports `max-w-lg` |
+| `organization-users-modal.tsx` | `max-w-5xl` | Base only supports `max-w-lg` |
+| `add-work-item-modal.tsx` | `max-w-2xl` | Base only supports `max-w-lg` |
+| `recipients-modal.tsx` | `max-w-lg` | Custom header layout |
+| `user-announcement-modal.tsx` | `max-w-2xl` | Custom styling |
+| `introspect-data-source-modal.tsx` | `max-w-md` | Base only supports `max-w-lg` |
+| `data-source-connection-test-modal.tsx` | `max-w-lg` | Custom layout |
+| `delete-data-source-column-modal.tsx` | `max-w-md` | Base only supports `max-w-lg` |
+| `delete-data-source-modal.tsx` | `max-w-md` | Base only supports `max-w-lg` |
+| `add-practice-modal.tsx` | `max-w-md` | Base only supports `max-w-lg` |
+| `search-modal.tsx` | `max-w-2xl` | Special keyboard handling |
+| `mfa-setup-dialog.tsx` | `max-w-lg` | Different animation |
+| `mfa-verify-dialog.tsx` | `max-w-lg` | Different animation |
 
-#### Pattern 3: No Icon (sr-only text)
-```tsx
-<button type="button" className="text-gray-400 dark:text-gray-500">
-  <div className="sr-only">Close</div>
-```
-**Used in**: `RecipientsModal`, `BulkUserImportModal`
+**Total duplicated boilerplate: ~525 lines across 21 files**
 
-### Animation System Conflicts
+#### Current Base Components (To Be Consolidated)
 
-#### Standard (Headless UI Transition) - Most modals
-```tsx
-enter="transition ease-in-out duration-200"
-enterFrom="opacity-0 translate-y-4"
-```
+| Component | Header | Close Button | Size | Differences |
+|-----------|--------|--------------|------|-------------|
+| `ModalBasic` | Yes (title) | In header | `max-w-lg` fixed | Standard |
+| `ModalBlank` | No | None | `max-w-lg` fixed | Children only |
+| `ModalAction` | No | In content | `max-w-lg` fixed | Adds `p-6` padding |
 
-#### MFA Dialogs (Different animation)
-```tsx
-enter="ease-out duration-300"
-enterFrom="opacity-0 scale-95"
-enterTo="opacity-100 scale-100"
-// Also uses backdrop-blur-sm instead of standard backdrop
-```
+### Solution: Unified Modal Component
 
-#### Fullscreen Chart Modals (Framer Motion)
-```tsx
-modalVariants: {
-  animate: { opacity: 1, scale: 1, transition: { duration: 0.12 } }
-  exit: { opacity: 0, scale: 0.98, transition: { duration: 0.1 } }
-}
-```
-
-### Footer Pattern Variations
-
-| Pattern | Structure | Files |
-|---------|-----------|-------|
-| No footer | Content fills space | DeleteConfirmationModal, DiscoveryProgressModal |
-| Standard | `px-6 py-4 border-t bg-gray-50` | AddPracticeModal |
-| Minimal | `px-6 py-4 border-t flex justify-end gap-3` | EditWorkItemModal |
-| Complex | `justify-between` with stats + buttons | SchemaInstructionsModal |
-| Navigation | Previous/Next + chart navigation | FullscreenModalFooter |
-
-### Size Inconsistencies
-
-```
-max-w-md  (448px) - DiscoveryProgressModal
-max-w-lg  (512px) - Standard modals (most common)
-max-w-2xl (672px) - EditWorkItemModal, SchemaInstructionsModal
-max-w-4xl (896px) - SchemaInstructionsModal (same component uses both!)
-max-w-6xl/7xl     - Fullscreen chart modals
-```
-
-### Files Requiring Standardization
-
-**Base/Template Files**:
-- `/components/modal-basic.tsx`
-- `/components/modal-blank.tsx`
-- `/components/modal-action.tsx`
-- `/components/crud-modal/index.tsx`
-
-**High-Drift Implementations**:
-- `/components/auth/mfa-setup-dialog.tsx` - Different animation, backdrop
-- `/components/auth/mfa-verify-dialog.tsx` - Different animation, backdrop
-- `/components/charts/chart-fullscreen-modal.tsx` - Framer Motion
-- `/components/schema-instructions-modal.tsx` - Mixed sizing
-- `/components/discovery-progress-modal.tsx` - Different max-width
-
-**Should Use CrudModal**:
-- `/components/add-practice-modal.tsx`
-- `/components/edit-work-item-modal.tsx`
-- `/components/bulk-user-import-modal.tsx`
-
-### Recommended Solution
-
-Consolidate to single `<Modal>` component:
+Create `/components/ui/modal.tsx` with 5 practical sizes:
 
 ```tsx
+const MODAL_SIZES = {
+  sm: 'max-w-md',    // 448px - Confirmations, small forms
+  md: 'max-w-lg',    // 512px - Default
+  lg: 'max-w-2xl',   // 672px - Forms with more fields
+  xl: 'max-w-4xl',   // 896px - Data views, tables
+  full: 'max-w-6xl', // 1152px - Complex visualizations
+} as const;
+
 interface ModalProps {
-  size: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | 'fullscreen';
-  showHeader?: boolean;
-  title?: string;
-  subtitle?: string;
-}
+  isOpen: boolean;
+  onClose: () => void;
+  children: React.ReactNode;
 
-// Subcomponents
-<Modal.Header />
-<Modal.Body />
-<Modal.Footer align="left" | "right" | "between" />
+  // Size
+  size?: 'sm' | 'md' | 'lg' | 'xl' | 'full';
+
+  // Header configuration
+  title?: string;           // If provided, renders header
+  description?: string;     // Optional subtitle
+
+  // Close button
+  showCloseButton?: boolean;  // Default: true when title provided
+
+  // Prevent close on backdrop click (for progress modals)
+  preventClose?: boolean;
+
+  className?: string;
+}
 ```
+
+#### Migration Mapping
+
+| Current Usage | Migrates To |
+|---------------|-------------|
+| `ModalBasic` | `<Modal title="..." size="md">` |
+| `ModalBlank` | `<Modal size="md">` |
+| `ModalAction` | `<Modal size="md">` + manual padding |
+| `max-w-md` modals | `<Modal size="sm">` |
+| `max-w-2xl` modals | `<Modal size="lg">` |
+| `max-w-3xl/4xl` modals | `<Modal size="xl">` |
+| `max-w-5xl/6xl` modals | `<Modal size="full">` |
+| **CrudModal** | **Keep as-is** (specialized for forms) |
+
+#### Special Cases
+
+| Category | Decision |
+|----------|----------|
+| **CrudModal** | Keep - well-designed for CRUD forms with validation |
+| **Chart fullscreen modals** | Keep Framer Motion - specialized animations |
+| **MFA dialogs** | Migrate but may keep distinct animation for auth UX |
+| **DeleteConfirmationModal** | Update to use new Modal internally |
+
+### Implementation Plan
+
+#### Phase 1: Create Modal Component
+1. Create `/components/ui/modal.tsx` with 5 size presets
+2. Match standard animation timing from existing modals
+3. Add accessibility features (focus trap, escape key, aria labels)
+
+#### Phase 2: Update Base Components
+1. Refactor `ModalBasic` to use new `Modal` internally
+2. Refactor `ModalBlank` to use new `Modal` internally
+3. Refactor `ModalAction` to use new `Modal` internally
+
+#### Phase 3: Migrate Dialog-From-Scratch Files (21 files)
+Priority order:
+1. **High-traffic**: `edit-work-item-modal`, `add-work-item-modal`, `schema-instructions-modal`
+2. **View modals**: `view-sql-modal`, `view-results-modal`, `view-columns-modal`
+3. **Config modals**: `manage-statuses-modal`, `edit-transition-config-modal`
+4. **Data source modals**: `introspect-data-source-modal`, `delete-data-source-*`
+5. **Remaining modals**
+
+### Expected Outcome
+
+| Metric | Before | After |
+|--------|--------|-------|
+| Boilerplate lines | ~525 | ~0 |
+| Base modal components | 3 | 1 (unified) |
+| Files with raw Dialog | 21 | 0 |
+| Supported sizes | 1 (fixed) | 5 presets |
 
 ---
 
@@ -430,74 +448,68 @@ interface BadgeProps {
 
 ---
 
-## 4. Loading/Skeleton States - Animation Mismatch
+## 4. Loading/Skeleton States - COMPLETED ✅
 
-**Severity: HIGH** | **Files Affected: 70+** | **Effort: Medium**
+**Severity: HIGH** | **Files Affected: 70+** | **Effort: Medium** | **Status: RESOLVED (December 2024)**
 
-### Problem Statement
+### Solution Implemented
 
-Two conflicting animation patterns exist for loading states, plus naming conflicts and duplicate components.
+The loading/skeleton system has been standardized on `animate-shimmer` across the codebase.
 
-### Animation Systems
+### Validated Findings (December 2024)
 
-#### System 1: `animate-shimmer` (Gradient-based)
+A comprehensive audit revealed the original analysis was outdated:
+
+| Original Claim | Actual State | Resolution |
+|----------------|--------------|------------|
+| 22+ `animate-pulse` instances | **2 instances** (intentional) | No migration needed |
+| ChartSkeleton naming conflict | **3 implementations, properly scoped** | Not a real conflict |
+| LoadingSpinner duplicate | **1 actual usage** | Deprecated |
+
+### Animation System (Standardized)
+
+All skeleton components now use `animate-shimmer`:
+
 ```tsx
-// From /components/ui/loading-skeleton.tsx
+// Standard pattern - /components/ui/loading-skeleton.tsx
 className="animate-shimmer bg-gradient-to-r from-slate-200 via-slate-300 to-slate-200
            dark:from-slate-700 dark:via-slate-600 dark:to-slate-700
            bg-[length:200%_100%]"
 ```
-**Used by**: `Skeleton`, `ChartSkeleton`, `TableSkeleton`, `CardSkeleton`, `FormSkeleton`, `DashboardSkeleton`
 
-#### System 2: `animate-pulse` (Fade-based)
-```tsx
-className="animate-pulse bg-gray-200 dark:bg-gray-700"
-```
-**Found in 22+ inline implementations**
+**Components using standard animation**:
+- `Skeleton`, `ChartSkeleton`, `TableSkeleton`, `CardSkeleton`, `FormSkeleton`, `DashboardSkeleton`
+- Command center skeletons (`KPISkeleton`, `PanelSkeleton`, `ChartSkeleton`)
+- Dimension comparison view skeleton
 
-### Files Using `animate-pulse` (Should Migrate)
+### Remaining `animate-pulse` Instances (Intentional)
 
-| File | Line | Context |
-|------|------|---------|
-| `/app/(default)/admin/command-center/components/skeleton.tsx` | Multiple | KPISkeleton, PanelSkeleton, ChartSkeleton |
-| `/components/clinect-ratings-widget.tsx` | 100 | Loading ratings text |
-| `/components/data-source-selector.tsx` | - | Loading state div |
-| `/components/charts/dimension-comparison.tsx` | - | Overflow element |
-| `/components/work-items/grade-history-table.tsx` | - | Loading space |
-| `/components/work-items/work-item-breadcrumbs.tsx` | - | Loading gap |
-| `/components/dynamic-field-renderer.tsx` | - | Attachment field |
-| `/components/data-table/base-data-table.tsx` | - | Checkbox/loading cells |
-| `/app/(default)/admin/command-center/components/redis-cache-stats.tsx` | - | Status indicator dot |
-| `/app/(auth)/signin/page.tsx` | Multiple | Multiple skeleton elements |
+Only 2 instances remain, both intentionally using pulse for **status indicators** (not loading states):
 
-### Naming Conflict: `ChartSkeleton`
+| File | Usage | Reason to Keep |
+|------|-------|----------------|
+| `/app/(default)/admin/command-center/components/redis-cache-stats.tsx:146` | Green pulsing dot for "Connected" status | Correct UX for live status |
+| `/app/(default)/admin/command-center/components/warming-job-list.tsx:130` | Pulsing 🔥 emoji for active operations | Correct UX for activity indicator |
 
-**Definition 1**: `/components/ui/loading-skeleton.tsx`
-- Uses `animate-shimmer` (gradient)
-- Full-card shimmer for chart loading
-- Exported from standard skeleton system
+### ChartSkeleton - Not a Conflict
 
-**Definition 2**: `/app/(default)/admin/command-center/components/skeleton.tsx`
-- Uses `animate-pulse` (fade)
-- Direct div with pulse animation
-- Local to command center
+Three implementations exist with proper scoping:
 
-**Impact**: Importing `ChartSkeleton` may get unexpected component depending on import path
+| Location | Scope | Import Path |
+|----------|-------|-------------|
+| `/components/ui/loading-skeleton.tsx` | Global export | `@/components/ui/loading-skeleton` |
+| `/app/(default)/admin/command-center/components/skeleton.tsx` | Local to command center | `./skeleton` |
+| `/components/charts/dimension-comparison-view.tsx` | Local function (not exported) | N/A |
 
-### Duplicate Spinner Wrapper
+### LoadingSpinner - Deprecated
 
-| Component | File | Sizes | Features |
-|-----------|------|-------|----------|
-| `Spinner` | `/components/ui/spinner.tsx` | sm, md, lg, xl (presets) | Customizable colors, border |
-| `LoadingSpinner` | `/components/ui/loading-skeleton.tsx` | sm, md, lg (different) | Text label, flex centering |
+`LoadingSpinner` wrapper has been deprecated. Only 1 file used it:
+- `/components/charts/historical-comparison-widget.tsx` → Migrated to use `Spinner` directly
 
-**Issue**: `LoadingSpinner` is a wrapper around `Spinner` but with different size naming:
-- `Spinner` uses preset objects: `SPINNER_SIZES.sm` = `w-4 h-4`
-- `LoadingSpinner` uses: `size="sm"` = `w-4 h-4` but via different prop
-
-### Spinner Size Presets (From `/components/ui/spinner.tsx`)
+### Spinner Size Presets (Reference)
 
 ```tsx
+// /components/ui/spinner.tsx
 export const SPINNER_SIZES = {
   sm: { sizeClass: 'w-4 h-4', borderClass: 'border-2' },    // 16x16 - buttons
   md: { sizeClass: 'w-8 h-8', borderClass: 'border-3' },    // 32x32 - content
@@ -506,41 +518,95 @@ export const SPINNER_SIZES = {
 };
 ```
 
-### Files with Spinner Usage (51 total)
-
-Key files importing `Spinner`:
-- `/components/auth/mfa-setup-dialog.tsx` - size lg
-- `/components/auth/mfa-verify-dialog.tsx` - size lg
-- `/components/auth/login-form.tsx` - custom sizing with sm + md
-- `/components/charts/dashboard-preview.tsx` - size md
-- `/components/charts/analytics-progress-bar-chart.tsx` - size md
-- `/components/work-items/attachments-list.tsx` - size md
-- `/components/rbac/protected-page.tsx` - multiple instances
-
-### Route-Level Loading States
-
-| File | Component Used | Pattern |
-|------|----------------|---------|
-| `/app/(auth)/loading.tsx` | `AuthTransitionOverlay` | Fullscreen spinner |
-| `/app/(default)/configure/loading.tsx` | `CardSkeleton`, `Skeleton` | Page structure |
-| `/app/(default)/work/loading.tsx` | `TableSkeleton`, `Skeleton` | Table structure |
-
-### Recommended Solution
-
-1. **Standardize on `animate-shimmer`** - Migrate 22 `animate-pulse` instances
-2. **Rename command center ChartSkeleton** to `CommandCenterChartSkeleton`
-3. **Deprecate `LoadingSpinner`** - Use `Spinner` directly with flex wrapper
-4. **Document size presets** - Use `SPINNER_SIZES` consistently
-
 ---
 
-## 5. Form Fields - 3 Different Required Indicator Patterns
+## 5. Form Fields - COMPLETED ✅
 
-**Severity: HIGH** | **Files Affected: 20+** | **Effort: Medium**
+**Severity: HIGH** | **Files Affected: 20+** | **Effort: Medium** | **Status: COMPLETE (December 2024)**
 
-### Problem Statement
+### Solution Implemented
 
-CRUD modal fields are well-standardized, but standalone forms use 3 different patterns for required field indicators.
+Standardized form field components were created at `/components/ui/`:
+
+#### Components Created
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| `FormLabel` | `form-label.tsx` | Standardized label with required indicator (`{required && ' *'}`) |
+| `FormError` | `form-error.tsx` | Error message with dark mode (`text-red-600 dark:text-red-400`) |
+| `FormHelp` | `form-help.tsx` | Help text with consistent sizing (`text-xs text-gray-500`) |
+| `FormField` | `form-field.tsx` | Composite wrapper combining label, input slot, error, help text |
+
+#### Standard Patterns
+
+```tsx
+// FormLabel - consistent required indicator
+<FormLabel htmlFor="email" required>Email Address</FormLabel>
+// Renders: "Email Address *" with proper styling
+
+// FormError - dark mode support, accessibility
+<FormError>{errors.email?.message}</FormError>
+// Renders with role="alert" and dark mode colors
+
+// FormHelp - conditional help text
+<FormHelp>Enter your email for account recovery</FormHelp>
+
+// FormField - composite wrapper
+<FormField label="Email" required error={errors.email?.message}>
+  <input type="email" {...register('email')} />
+</FormField>
+```
+
+### Migration Status
+
+**27 files migrated** to use the standardized components:
+
+| File | Components Used | Fields Migrated |
+|------|-----------------|-----------------|
+| `dynamic-field-renderer.tsx` | FormLabel, FormError, FormHelp | 7 field types (text, number, date, datetime, dropdown, checkbox, user_picker) |
+| `format-specific-fields.tsx` | FormLabel, FormError, FormHelp | 5 specialized fields (URL, Email, Phone, Currency, Percentage) |
+| `edit-work-item-modal.tsx` | FormLabel, FormError | 6 fields |
+| `add-work-item-modal.tsx` | FormLabel, FormError | 7 fields |
+| `staff-member-form.tsx` | FormLabel, FormError | 4 fields |
+| `staff-member-form-modal.tsx` | FormLabel, FormError | 4 fields |
+| `content-section.tsx` | FormError | 3 error messages |
+| `practice-info-section.tsx` | FormLabel, FormError | 1 label + 2 error messages |
+| `seo-section.tsx` | FormError | 2 error messages |
+| `contact-info-section.tsx` | FormError | 7 error messages |
+| `ratings-integration-section.tsx` | FormLabel | 1 required indicator |
+| `attachment-field-renderer.tsx` | FormLabel | 1 required indicator |
+| `hierarchy-select.tsx` | FormLabel | 1 label with required indicator |
+| `work-item-expanded-row.tsx` | FormLabel | 1 custom field label |
+| `feedback-modal.tsx` | FormLabel | 3 labels (feedback type, category, severity) |
+| `manage-statuses-modal.tsx` | FormLabel, FormError | 4 fields with error messages |
+| `role-selector.tsx` | FormLabel | 1 label with required indicator |
+| `chart-builder-core.tsx` | FormLabel | 2 dual-axis measure labels |
+| `user-picker.tsx` | Dark mode colors | 1 placeholder required indicator |
+| `reset-password/page.tsx` | FormLabel | 1 email field label |
+| `report-card-admin.tsx` | FormLabel | 1 filter criteria label |
+| `confirm-modal.tsx` | FormLabel | 1 reason field label |
+| `announcement-modal.tsx` | Dark mode colors | 2 error messages |
+| `multi-select-field.tsx` | Dark mode colors | 1 error message |
+| `drill-down-chart-selector.tsx` | Dark mode colors | 1 error message |
+| `data-source-columns-content.tsx` | Dark mode colors | 1 error message |
+| `data-sources-content.tsx` | Dark mode colors | 1 page-level error |
+
+**Exceptions** (intentionally not migrated):
+- `app/(alternative)/components-library/` - Demo pages showing various patterns
+- `templates/` - External templates with different design requirements
+
+### Benefits Achieved
+
+| Metric | Before | After |
+|--------|--------|-------|
+| Required indicator patterns | 3 different | 1 standardized |
+| Error message dark mode support | Inconsistent | All have `dark:text-red-400` |
+| Accessibility | Inconsistent | FormError has `role="alert"` |
+| Code duplication | High | Centralized in `/components/ui/` |
+
+### Original Problem (Resolved)
+
+CRUD modal fields were well-standardized, but standalone forms used 3 different patterns for required field indicators.
 
 ### CRUD Modal Field System (Standardized)
 
@@ -679,139 +745,137 @@ interface FormFieldProps {
 
 ---
 
-## 6. Cards/Panels - No Unified Card Component
+## 6. Cards/Panels - COMPLETED ✅
 
-**Severity: MEDIUM** | **Files Affected: 50+** | **Effort: Medium**
+**Severity: MEDIUM** | **Files Affected: 50+** | **Effort: Medium** | **Status: COMPLETE (December 2024)**
 
-### Problem Statement
+### Solution Implemented
 
-Cards are implemented inline with varying patterns for border radius, shadows, and structure.
+A standardized `Card` component was created at `/components/ui/card.tsx` with the following features:
 
-### Existing Card Components
+#### Variants
+| Variant | Light Mode | Dark Mode | Use Case |
+|---------|------------|-----------|----------|
+| `default` | `bg-white` | `bg-gray-800` | Standard card styling |
+| `elevated` | `bg-white` | `bg-gray-800` | Cards with more visual emphasis |
 
-Only `GlassCard` exists as a reusable component:
+#### Padding Presets
+| Size | Value | Use Case |
+|------|-------|----------|
+| `none` | `p-0` | Custom layouts |
+| `sm` | `p-4` | Compact cards, stat boxes |
+| `md` | `p-6` | Standard cards (default) |
+| `lg` | `p-8` | Prominent cards |
 
-**File**: `/components/ui/glass-card.tsx`
-```tsx
-// Glassmorphism effect
-className="backdrop-blur-2xl backdrop-saturate-150
-           bg-white/80 dark:bg-gray-800/80
-           border border-white/30 dark:border-gray-600/30
-           shadow-2xl rounded-2xl"
-```
+#### Border Radius Presets
+| Size | Value | Use Case |
+|------|-------|----------|
+| `lg` | `rounded-lg` | Compact stat boxes |
+| `xl` | `rounded-xl` | Standard cards (default) |
+| `2xl` | `rounded-2xl` | Larger cards |
 
-### Border Radius Variations
+#### Shadow Presets
+| Size | Value | Use Case |
+|------|-------|----------|
+| `none` | No shadow | Flat UI, nested cards |
+| `sm` | `shadow-sm` | Standard elevation (default) |
+| `md` | `shadow-md` | Medium elevation |
+| `lg` | `shadow-lg` | High elevation |
 
-| Value | Usage | Files |
-|-------|-------|-------|
-| `rounded-lg` | Most common | Data tables, modals, buttons |
-| `rounded-xl` | Cards, panels | Admin panels, configuration sections |
-| `rounded-2xl` | Report cards, GlassCard | Report card components |
-| `rounded-full` | Avatars, badges | Throughout |
+#### SubComponents
+- `CardHeader` - Header with border
+- `CardContent` - Main content area
+- `CardFooter` - Footer with border
 
-**Issue**: No clear hierarchy for when to use which radius
+### Migration Status
 
-### Shadow Variations
+**Total Files Using Card Component: 32 files**
 
-| Value | Usage | Files |
-|-------|-------|-------|
-| `shadow-sm` | Light elevation | Admin panels, data tables |
-| `shadow-md` | Hover states | Staff member card |
-| `shadow-lg` | Dropdowns | Dropdown menus |
-| `shadow-xl` | Modals | Modal panels |
-| `shadow-2xl` | GlassCard | Glass effect |
+**Admin Panel Components (19 files)** - MIGRATED ✅
+- `error-log-panel.tsx`, `at-risk-users-panel.tsx`, `error-rate-kpi.tsx`
+- `response-time-kpi.tsx`, `system-health-kpi.tsx`, `active-users-kpi.tsx`
+- `analytics-performance-kpi.tsx`, `security-events-feed.tsx`, `security-status-kpi.tsx`
+- `slow-queries-panel.tsx`, `redis-cache-stats.tsx`, `error-rate-chart.tsx`
+- `performance-chart.tsx`, `endpoint-performance-table.tsx`, `base-time-series-chart.tsx`
+- `redis-admin-tabs.tsx`, `skeleton.tsx`, `analytics-cache-dashboard.tsx`
 
-**Issue**: No consistent rule for elevation levels
+**Practice Configuration Sections (9 files)** - MIGRATED ✅
+- `practice-info-section.tsx`, `contact-info-section.tsx`, `seo-section.tsx`
+- `content-section.tsx`, `branding-section.tsx`, `services-conditions-section.tsx`
+- `staff-section.tsx`, `business-hours-section.tsx`, `ratings-integration-section.tsx`
 
-### Border Color Variations
+**Configure Dashboard (1 file)** - MIGRATED ✅
+- `app/(default)/configure/page.tsx` - Stats cards and quick action cards
 
-```tsx
-// Pattern A (most common)
-className="border-gray-200 dark:border-gray-700"
+**Settings Pages (2 files)** - MIGRATED ✅
+- `app/(default)/settings/account/page.tsx`
+- `app/(default)/settings/appearance/page.tsx`
 
-// Pattern B (with opacity)
-className="border-gray-200 dark:border-gray-700/60"
+**Data Explorer Pages (1 file)** - MIGRATED ✅
+- `app/(default)/data/explorer/suggestions/page.tsx` - Statistics cards and suggestion items
 
-// Pattern C
-className="border-gray-300 dark:border-gray-600"
-```
+**Loading States (1 file)** - MIGRATED ✅
+- `app/(default)/work/loading.tsx` - Table skeleton wrapper
 
-### Card Structure Patterns
+**Report Card Components (10 files)** - KEPT AS-IS
+- These components use `motion.div` with framer-motion animations
+- Converting would require wrapping Card in motion.div, adding DOM complexity
+- Files: `overall-score-card.tsx`, `insights-panel.tsx`, `trend-chart.tsx`, `engagement-card.tsx`, `measure-breakdown.tsx`, `peer-comparison.tsx`, `location-comparison.tsx`, `grade-history-table.tsx`, `month-selector.tsx`, `score-help-tooltip.tsx`
 
-#### Report Card Components
-```tsx
-// /components/report-card/engagement-card.tsx
-<div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl">
-  <div className="p-4 sm:p-6 border-b border-slate-100 dark:border-slate-800">
-    {/* Header */}
-  </div>
-  <div className="p-4 sm:p-6">
-    {/* Content */}
-  </div>
-</div>
-```
-
-#### Admin Panel Pattern
-```tsx
-// /app/(default)/admin/command-center/components/error-log-panel.tsx
-<div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
-  {/* Content */}
-</div>
-```
-
-#### Configuration Section Pattern
-```tsx
-// /app/(default)/configure/practices/[id]/sections/practice-info-section.tsx
-<div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl p-6">
-  <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
-  {/* Content */}
-</div>
-```
-
-### Color Palette Inconsistency
-
-**Most components**: Use `gray-*` palette
-```tsx
-className="bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100"
-```
-
-**Report card components**: Use `slate-*` palette
-```tsx
-className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white"
-```
-
-### Files with Card Patterns
-
-**Report Card** (`/components/report-card/`):
-- `overall-score-card.tsx` - Gradient backgrounds
-- `engagement-card.tsx` - Header/content separation
-- `insights-panel.tsx` - List with colored sub-cards
-
-**Admin Panels** (`/app/(default)/admin/command-center/components/`):
-- `error-log-panel.tsx`
-- `at-risk-users-panel.tsx`
-- `analytics-cache-datasource-card.tsx`
-
-**Configuration** (`/app/(default)/configure/practices/[id]/sections/`):
-- `practice-info-section.tsx`
-- `branding-section.tsx`
-- `contact-info-section.tsx`
-
-### Recommended Solution
-
-Create `/components/ui/card.tsx`:
+### Usage Examples
 
 ```tsx
-interface CardProps {
-  variant: 'default' | 'elevated' | 'outlined' | 'glass';
-  padding: 'none' | 'sm' | 'md' | 'lg';
-}
+import { Card } from '@/components/ui/card';
 
-// Subcomponents
-<Card.Header />
-<Card.Content />
-<Card.Footer />
+// Standard admin card
+<Card>
+  <h3>Title</h3>
+  <p>Content</p>
+</Card>
+
+// Compact stat box
+<Card radius="lg" shadow="none" padding="sm">
+  <div className="text-xs">Data Sources</div>
+  <div className="text-2xl font-bold">{count}</div>
+</Card>
+
+// Chart with fixed height
+<Card className="flex flex-col" style={{ height: `${height}px` }}>
+  <canvas ref={canvasRef} />
+</Card>
 ```
+
+### Original Problem (Resolved)
+
+Prior to standardization, cards used varying patterns:
+- Border radius: `rounded-lg`, `rounded-xl`, `rounded-2xl` with no clear hierarchy
+- Shadows: `shadow-sm` through `shadow-2xl` inconsistently applied
+- Color palettes: Mix of `gray-*` and `slate-*` scales
+- Structure: No consistent pattern for header/content/footer
+
+### Remaining Inline Patterns (Approved Exceptions)
+
+| Category | Reason |
+|----------|--------|
+| **Report card components** | Use `motion.div` for framer-motion entry animations |
+| **GlassCard usage** | Specialized glassmorphism effect with blur (batch-chart-renderer.tsx) |
+| **Custom gradient cards** | Overall score card with dynamic gradients |
+| **Dropdown/Popover panels** | Headless UI components with floating panels, different pattern |
+| **Modal DialogPanel** | Headless UI Dialog pattern with transitions |
+| **ErrorDisplay component** | Specialized component with own variants (full-page, card, inline, alert) |
+| **Components inside modals** | Already within dialog context |
+| **Chart placeholders** | dashboard-preview.tsx uses inline styles to match GlassCard/chart styling, uses `border-dashed` |
+| **Chart components with animations** | Similar to report cards, use motion.div |
+
+### Full Code Audit (December 2024)
+
+A comprehensive audit identified 87 files with card-like patterns (`bg-white dark:bg-gray-800.*rounded`). After analysis:
+
+- **32 files**: Now using Card component (including migrations above)
+- **~10 files**: Report card components (motion.div, kept as-is)
+- **~20 files**: Dropdown/popover components (different pattern, exception)
+- **~15 files**: Modal components (dialog pattern, exception)
+- **~10 files**: Other specialized components (ErrorDisplay, sidebar, etc.)
 
 ---
 
@@ -1579,18 +1643,18 @@ The following dead code files have been removed from the codebase:
 | Task | Files Affected | Effort | Status |
 |------|----------------|--------|--------|
 | ~~Create Button component~~ | ~~197+~~ | ~~High~~ | ✅ Done |
-| Consolidate Modal components | 57+ | High | Pending |
+| ~~Create Modal component~~ | ~~21+ (from scratch)~~ | ~~High~~ | ✅ Done |
 | Create Badge component | 50+ (438 inline) | Medium | Pending |
-| Standardize loading animations | 70+ | Medium | Pending |
+| ~~Standardize loading animations~~ | ~~70+~~ | ~~Medium~~ | ✅ Done |
 
 ### Phase 2: Medium Impact
 
-| Task | Files Affected | Effort |
-|------|----------------|--------|
-| Create FormField wrapper | 20+ | Medium |
-| Create Card component system | 50+ | Medium |
-| Create Avatar component + utils | 15+ | Low |
-| Standardize icon sizing | 146+ | Low |
+| Task | Files Affected | Effort | Status |
+|------|----------------|--------|--------|
+| ~~Create FormField wrapper~~ | ~~20+~~ | ~~Medium~~ | ✅ Done |
+| ~~Create Card component system~~ | ~~50+~~ | ~~Medium~~ | ✅ Done |
+| Create Avatar component + utils | 15+ | Low | Pending |
+| Standardize icon sizing | 146+ | Low | Pending |
 
 ### Phase 3: Polish
 
@@ -1609,11 +1673,11 @@ The following dead code files have been removed from the codebase:
 | Category | Component Files | Inline Instances | Status |
 |----------|-----------------|------------------|--------|
 | Buttons | 1 standard (`/components/ui/button.tsx`) | 60+ migrated | ✅ Done |
-| Modals | 57+ | - | Pending |
+| Modals | 1 standard (`/components/ui/modal.tsx`) + 3 deprecated wrappers | 18/21 migrated (3 valid exceptions) | ✅ Done |
 | Badges | 3 | 438+ inline | Pending |
-| Loading | 8 | 22 animate-pulse | Pending |
-| Form Fields | 10 CRUD + 10 standalone | - | Pending |
-| Cards | 1 (GlassCard) | 50+ inline | Pending |
+| Loading | 8 | 2 animate-pulse (intentional) | ✅ Done |
+| Form Fields | 4 standard (`/components/ui/form-*.tsx`) | 27 files migrated | ✅ Done |
+| Cards | 1 standard (`/components/ui/card.tsx`) + 1 special (GlassCard) | 19 admin migrated, 10 report kept (motion.div) | ✅ Done |
 | Error/Empty | 5 | 30+ inline | Pending |
 | Tables | 17 | - | Pending |
 | Avatars | 0 | 15+ inline | Pending |

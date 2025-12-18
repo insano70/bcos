@@ -151,7 +151,7 @@ export default function DataSourcesContent() {
   if (error) {
     return (
       <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-[96rem] mx-auto">
-        <div className="text-center text-red-500 py-24">
+        <div className="text-center text-red-600 dark:text-red-400 py-24">
           Failed to load data sources: {error.message}
         </div>
       </div>

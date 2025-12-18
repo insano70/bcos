@@ -2,6 +2,7 @@
 
 import { motion, type PanInfo } from 'framer-motion';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { FormLabel } from '@/components/ui/form-label';
 
 /**
  * Generic Hierarchy Select Component
@@ -335,9 +336,9 @@ export default function HierarchySelect<T extends HierarchyItemBase>({
     <div ref={dropdownRef} className="relative w-full">
       {/* Label */}
       {label && (
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          {label} {required && <span className="text-red-500">*</span>}
-        </label>
+        <FormLabel required={required} className="mb-1">
+          {label}
+        </FormLabel>
       )}
 
       {/* Trigger Button - Touch-friendly on mobile (min 44px height) */}

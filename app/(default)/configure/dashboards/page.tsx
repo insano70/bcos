@@ -2,8 +2,10 @@
 
 import { useRouter } from 'next/navigation';
 import React, { useCallback, useMemo, useState } from 'react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { SelectedItemsProvider } from '@/app/selected-items-context';
+import { getChartCountBadgeColor, getPublishedStatusColor } from '@/lib/utils/badge-colors';
 import DashboardPreviewModal from '@/components/dashboard-preview-modal';
 import DataTable, {
   type DataTableColumn,
@@ -127,13 +129,6 @@ export default function DashboardsPage() {
 
   const handleDateChange = (newDateRange: DateRange) => {
     setDateRange(newDateRange);
-  };
-
-  const getChartCountBadgeColor = (count: number) => {
-    if (count === 0) return 'bg-gray-100 dark:bg-gray-900/20 text-gray-800 dark:text-gray-200';
-    if (count <= 3) return 'bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200';
-    if (count <= 6) return 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-200';
-    return 'bg-purple-100 dark:bg-purple-900/20 text-purple-800 dark:text-purple-200';
   };
 
   const loadDashboards = useCallback(async () => {
@@ -385,11 +380,9 @@ export default function DashboardsPage() {
       sortable: true,
       align: 'center',
       render: (dashboard) => (
-        <span
-          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getChartCountBadgeColor(dashboard.chart_count)}`}
-        >
+        <Badge color={getChartCountBadgeColor(dashboard.chart_count)}>
           {dashboard.chart_count} {dashboard.chart_count === 1 ? 'chart' : 'charts'}
-        </span>
+        </Badge>
       ),
     },
     {
@@ -411,33 +404,32 @@ export default function DashboardsPage() {
       align: 'center',
       render: (dashboard) => (
         <div className="flex flex-col gap-1">
-          {dashboard.is_published ? (
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-200">
-              <svg className="w-1.5 h-1.5 mr-1.5" fill="currentColor" viewBox="0 0 8 8">
+          <Badge
+            color={getPublishedStatusColor(dashboard.is_published)}
+            icon={
+              <svg className="w-1.5 h-1.5" fill="currentColor" viewBox="0 0 8 8">
                 <circle cx={4} cy={4} r={3} />
               </svg>
-              Published
-            </span>
-          ) : (
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-200">
-              <svg className="w-1.5 h-1.5 mr-1.5" fill="currentColor" viewBox="0 0 8 8">
-                <circle cx={4} cy={4} r={3} />
-              </svg>
-              Under Development
-            </span>
-          )}
+            }
+          >
+            {dashboard.is_published ? 'Published' : 'Under Development'}
+          </Badge>
           {dashboard.is_default && (
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-violet-100 dark:bg-violet-900/20 text-violet-800 dark:text-violet-200">
-              <svg className="w-3 h-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
-                />
-              </svg>
+            <Badge
+              color="violet"
+              icon={
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
+                  />
+                </svg>
+              }
+            >
               Default Home
-            </span>
+            </Badge>
           )}
         </div>
       ),

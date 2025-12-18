@@ -10,6 +10,8 @@
  * - Red: > 5 threats
  */
 
+import { Card } from '@/components/ui/card';
+
 interface SecurityStatusKPIProps {
   security: {
     failedLogins: number;
@@ -54,7 +56,7 @@ export default function SecurityStatusKPI({ security }: SecurityStatusKPIProps) 
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+    <Card>
       {/* Header */}
       <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">Security Status</div>
 
@@ -119,6 +121,6 @@ export default function SecurityStatusKPI({ security }: SecurityStatusKPIProps) 
           </div>
         </details>
       )}
-    </div>
+    </Card>
   );
 }

@@ -3,6 +3,7 @@ export const metadata = {
   description: 'Page description',
 };
 
+import { Card } from '@/components/ui/card';
 import SettingsSidebar from '../settings-sidebar';
 import AccountPanel from './account-panel';
 
@@ -18,12 +19,12 @@ export default function AccountSettings() {
       </div>
 
       {/* Content */}
-      <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl mb-8">
+      <Card padding="none" className="mb-8">
         <div className="flex flex-col md:flex-row md:-mr-px">
           <SettingsSidebar />
           <AccountPanel />
         </div>
-      </div>
+      </Card>
     </div>
   );
 }

@@ -13,6 +13,7 @@ import { useChartSwapping } from '@/hooks/useChartSwapping';
 import { useDashboardConfig } from '@/hooks/useDashboardConfig';
 import { useMobileFullscreenNavigation } from '@/hooks/useMobileFullscreenNavigation';
 import { useDashboardUniversalFilters } from '@/hooks/useDashboardUniversalFilters';
+import { clientDebugLog } from '@/lib/utils/debug-client';
 
 // Lazy load fullscreen backdrop
 const FullscreenBackdrop = dynamic(() => import('./fullscreen-backdrop'), {
@@ -63,6 +64,22 @@ export default function DashboardView({
 
   // Dashboard configuration - only access when dashboard is available
   const filterConfig = dashboard?.layout_config?.filterConfig;
+
+  // DIAGNOSTIC: Log when critical values change for filter initialization debugging
+  useEffect(() => {
+    clientDebugLog.filter('[VIEW] DashboardView render state', {
+      timestamp: new Date().toISOString(),
+      isLoadingDashboard,
+      hasDashboard: !!dashboard,
+      dashboardId: dashboard?.dashboard_id,
+      hasFilterConfig: !!filterConfig,
+      filterConfigDefaults: filterConfig?.defaultFilters,
+      hasUserContext: !!userContext,
+      userId: user?.id,
+      accessibleOrgCount: accessibleOrganizationIds.length,
+      accessibleOrganizationIds,
+    });
+  }, [isLoadingDashboard, dashboard, filterConfig, userContext, user?.id, accessibleOrganizationIds]);
 
   // Use extracted hooks for chart definitions, filters, and mobile navigation
   const {

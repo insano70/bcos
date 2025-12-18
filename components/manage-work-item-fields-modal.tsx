@@ -3,7 +3,8 @@
 import { useCallback, useMemo, useState } from 'react';
 import DeleteConfirmationModal from '@/components/delete-confirmation-modal';
 import WorkItemFieldModal from '@/components/work-item-field-modal';
-import ModalBlank from '@/components/modal-blank';
+import { Badge } from '@/components/ui/badge';
+import { Modal } from '@/components/ui/modal';
 import { Spinner } from '@/components/ui/spinner';
 import { useDeleteWorkItemField, useUpdateWorkItemField, useWorkItemFields } from '@/lib/hooks/use-work-item-fields';
 import type { WorkItemField } from '@/lib/types/work-item-fields';
@@ -131,7 +132,7 @@ export default function ManageWorkItemFieldsModal({
 
   return (
     <>
-      <ModalBlank isOpen={isOpen} setIsOpen={onClose}>
+      <Modal isOpen={isOpen} onClose={onClose} size="lg">
         <div className="p-6">
           {/* Header */}
           <div className="mb-6">
@@ -219,18 +220,14 @@ export default function ManageWorkItemFieldsModal({
                         {field.field_label}
                       </h4>
                       {field.is_required_on_creation && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400">
-                          Required on Creation
-                        </span>
+                        <Badge color="red" size="sm" shape="rounded">Required on Creation</Badge>
                       )}
                       {field.is_required_to_complete && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-400">
-                          Required to Complete
-                        </span>
+                        <Badge color="orange" size="sm" shape="rounded">Required to Complete</Badge>
                       )}
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200">
+                      <Badge color="gray" size="sm" shape="rounded">
                         {getFieldTypeLabel(field.field_type)}
-                      </span>
+                      </Badge>
                     </div>
                     {field.field_description && (
                       <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
@@ -309,7 +306,7 @@ export default function ManageWorkItemFieldsModal({
             </Button>
           </div>
         </div>
-      </ModalBlank>
+      </Modal>
 
       {/* Add Field Modal */}
       <WorkItemFieldModal

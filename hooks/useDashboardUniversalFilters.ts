@@ -89,6 +89,24 @@ export function useDashboardUniversalFilters(
       const defaultFilters = filterConfig?.defaultFilters || {};
       const savedPreferences = loadPreferences();
 
+      // DIAGNOSTIC: Log initialization state
+      clientDebugLog.filter('[INIT] useState initializer running', {
+        timestamp: new Date().toISOString(),
+        hasFilterConfig: !!filterConfig,
+        filterConfigEnabled: filterConfig?.enabled,
+        defaultFilters,
+        savedPreferences,
+        urlParams: {
+          datePreset: searchParams.get('datePreset'),
+          org: searchParams.get('org'),
+          practice: searchParams.get('practice'),
+          provider: searchParams.get('provider'),
+        },
+        userId,
+        accessibleOrgCount: accessibleOrganizationIds.length,
+        accessibleOrganizationIds,
+      });
+
       // Parse practice UID safely with NaN validation
       let practiceUids: number[] | undefined;
       if (practice) {
@@ -104,7 +122,7 @@ export function useDashboardUniversalFilters(
         practiceUids = savedPreferences.practiceUids;
       }
 
-      return {
+      const resolvedFilters = {
         // Priority chain: URL params > localStorage > Dashboard defaults > undefined
         dateRangePreset:
           searchParams.get('datePreset') ||
@@ -124,10 +142,80 @@ export function useDashboardUniversalFilters(
           savedPreferences.providerName ||
           undefined,
       } as DashboardUniversalFilters;
+
+      // DIAGNOSTIC: Log resolved filters with sources
+      clientDebugLog.filter('[INIT] Resolved initial filters', {
+        resolvedFilters,
+        sources: {
+          dateRangePreset: searchParams.get('datePreset') ? 'URL' : savedPreferences.dateRangePreset ? 'localStorage' : defaultFilters.dateRangePreset ? 'dashboardDefault' : 'none',
+          organizationId: searchParams.get('org') ? 'URL' : savedPreferences.organizationId ? 'localStorage' : defaultFilters.organizationId ? 'dashboardDefault' : 'none',
+        },
+      });
+
+      return resolvedFilters;
     });
 
   // Track whether we've applied dashboard defaults (to avoid re-applying on every render)
   const hasAppliedDefaultsRef = useRef(false);
+
+  // Track whether we've re-initialized after userId became available
+  const hasReInitializedWithUserIdRef = useRef(false);
+
+  // Re-initialize filters when userId becomes available
+  // This fixes the race condition where initial render has userId=undefined,
+  // causing localStorage to read from wrong key (bcos_dashboard_filters instead of bcos_dashboard_filters_{userId})
+  useEffect(() => {
+    // Skip if we don't have userId yet or already re-initialized
+    if (!userId || hasReInitializedWithUserIdRef.current) {
+      return;
+    }
+
+    clientDebugLog.filter('[USERID_INIT] userId became available - re-initializing filters', {
+      timestamp: new Date().toISOString(),
+      userId,
+      accessibleOrgCount: accessibleOrganizationIds.length,
+    });
+
+    // Mark as done before loading to prevent any edge cases
+    hasReInitializedWithUserIdRef.current = true;
+
+    // Load preferences with correct user-scoped key
+    const savedPreferences = loadPreferences();
+
+    // Check if we have saved preferences that weren't loaded initially
+    if (savedPreferences.organizationId || savedPreferences.dateRangePreset ||
+        savedPreferences.providerName || (savedPreferences.practiceUids && savedPreferences.practiceUids.length > 0)) {
+
+      clientDebugLog.filter('[USERID_INIT] Found saved preferences - applying', {
+        savedPreferences,
+      });
+
+      // Merge saved preferences into current filters (saved prefs take priority over empty values)
+      // Use functional update to access current state without adding to dependency array
+      setUniversalFilters((currentFilters) => {
+        const mergedFilters: DashboardUniversalFilters = {
+          ...currentFilters,
+          // Only override if current value is empty and saved value exists
+          ...(savedPreferences.organizationId && !currentFilters.organizationId && { organizationId: savedPreferences.organizationId }),
+          ...(savedPreferences.dateRangePreset && !currentFilters.dateRangePreset && { dateRangePreset: savedPreferences.dateRangePreset }),
+          ...(savedPreferences.providerName && !currentFilters.providerName && { providerName: savedPreferences.providerName }),
+          ...(savedPreferences.practiceUids && savedPreferences.practiceUids.length > 0 && (!currentFilters.practiceUids || currentFilters.practiceUids.length === 0) && { practiceUids: savedPreferences.practiceUids }),
+        };
+
+        clientDebugLog.filter('[USERID_INIT] Merged filters result', {
+          mergedFilters,
+          previousFilters: currentFilters,
+        });
+
+        return mergedFilters;
+      });
+      // Don't update URL params here - let existing URL params remain if they exist
+    } else {
+      clientDebugLog.filter('[USERID_INIT] No saved preferences found for user', {
+        userId,
+      });
+    }
+  }, [userId, loadPreferences, accessibleOrganizationIds.length]);
 
   // Apply dashboard defaults when filterConfig becomes available
   // This handles the timing issue where filterConfig is undefined on initial render
@@ -135,8 +223,21 @@ export function useDashboardUniversalFilters(
   useEffect(() => {
     const defaultFilters = filterConfig?.defaultFilters;
 
+    // DIAGNOSTIC: Log useEffect entry
+    clientDebugLog.filter('[LATE_INIT] useEffect triggered', {
+      timestamp: new Date().toISOString(),
+      hasFilterConfig: !!filterConfig,
+      defaultFilters,
+      hasAppliedDefaultsRef: hasAppliedDefaultsRef.current,
+      currentFilters: universalFilters,
+    });
+
     // Skip if no default filters configured or already applied
     if (!defaultFilters || hasAppliedDefaultsRef.current) {
+      clientDebugLog.filter('[LATE_INIT] Skipping - no defaults or already applied', {
+        hasDefaultFilters: !!defaultFilters,
+        alreadyApplied: hasAppliedDefaultsRef.current,
+      });
       return;
     }
 
@@ -148,8 +249,26 @@ export function useDashboardUniversalFilters(
                           savedPreferences.providerName ||
                           (savedPreferences.practiceUids && savedPreferences.practiceUids.length > 0);
 
+    // DIAGNOSTIC: Log filter check state
+    clientDebugLog.filter('[LATE_INIT] Checking existing filters', {
+      hasUrlParams: !!hasUrlParams,
+      hasSavedPrefs: !!hasSavedPrefs,
+      savedPreferences,
+      urlParams: {
+        datePreset: searchParams.get('datePreset'),
+        org: searchParams.get('org'),
+        provider: searchParams.get('provider'),
+        practice: searchParams.get('practice'),
+      },
+    });
+
     // Only apply defaults if user hasn't set any filters
     if (hasUrlParams || hasSavedPrefs) {
+      clientDebugLog.filter('[LATE_INIT] Skipping defaults - user has existing filters', {
+        reason: hasUrlParams ? 'URL params present' : 'localStorage prefs present',
+        hasUrlParams,
+        hasSavedPrefs,
+      });
       hasAppliedDefaultsRef.current = true;
       return;
     }
@@ -161,8 +280,9 @@ export function useDashboardUniversalFilters(
                                 (!universalFilters.practiceUids || universalFilters.practiceUids.length === 0);
 
     if (currentFiltersEmpty && (defaultFilters.dateRangePreset || defaultFilters.organizationId)) {
-      clientDebugLog.component('Applying dashboard default filters (late initialization)', {
+      clientDebugLog.filter('[LATE_INIT] APPLYING dashboard default filters', {
         defaults: defaultFilters,
+        previousFilters: universalFilters,
       });
 
       // Apply defaults without saving to localStorage (they're just defaults)
@@ -171,6 +291,12 @@ export function useDashboardUniversalFilters(
         ...universalFilters,
         ...(defaultFilters.dateRangePreset && { dateRangePreset: defaultFilters.dateRangePreset }),
         ...(defaultFilters.organizationId && { organizationId: defaultFilters.organizationId }),
+      });
+    } else {
+      clientDebugLog.filter('[LATE_INIT] Not applying defaults - conditions not met', {
+        currentFiltersEmpty,
+        hasDateRangeDefault: !!defaultFilters.dateRangePreset,
+        hasOrgDefault: !!defaultFilters.organizationId,
       });
     }
 

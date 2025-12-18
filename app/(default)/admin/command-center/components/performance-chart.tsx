@@ -15,6 +15,7 @@ import { useTheme } from 'next-themes';
 import { useEffect, useRef, useState } from 'react';
 import 'chartjs-adapter-moment';
 import { chartColors } from '@/components/charts/chartjs-config';
+import { Card } from '@/components/ui/card';
 import { apiClient } from '@/lib/api/client';
 import type { PerformanceHistoryResponse } from '@/lib/monitoring/types';
 import { Spinner } from '@/components/ui/spinner';
@@ -302,8 +303,8 @@ export default function PerformanceChart({
   }, [chart, darkMode]);
 
   return (
-    <div
-      className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 flex flex-col"
+    <Card
+      className="flex flex-col"
       style={{ height: `${height}px` }}
     >
       <div className="flex items-center justify-between mb-4 shrink-0">
@@ -330,6 +331,6 @@ export default function PerformanceChart({
           <canvas ref={canvasRef} className="absolute inset-0" />
         </div>
       )}
-    </div>
+    </Card>
   );
 }

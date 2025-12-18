@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useCallback, useMemo, useState } from 'react';
 import AddWorkItemModal from '@/components/add-work-item-modal';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import DataTable, {
   type DataTableBulkAction,
@@ -16,6 +17,7 @@ import { ProtectedComponent } from '@/components/rbac/protected-component';
 import { Spinner } from '@/components/ui/spinner';
 import { apiClient } from '@/lib/api/client';
 import { useWorkItems, type WorkItem } from '@/lib/hooks/use-work-items';
+import { getPriorityBadgeColor, getStatusBadgeColor } from '@/lib/utils/badge-colors';
 
 export default function WorkItemsContent() {
   const router = useRouter();
@@ -129,33 +131,6 @@ export default function WorkItemsContent() {
     });
   }, []);
 
-  const getPriorityColor = useCallback((priority: string) => {
-    switch (priority) {
-      case 'critical':
-        return 'text-red-700 bg-red-100 dark:bg-red-900/30 dark:text-red-400';
-      case 'high':
-        return 'text-orange-700 bg-orange-100 dark:bg-orange-900/30 dark:text-orange-400';
-      case 'medium':
-        return 'text-yellow-700 bg-yellow-100 dark:bg-yellow-900/30 dark:text-yellow-400';
-      case 'low':
-        return 'text-green-700 bg-green-100 dark:bg-green-900/30 dark:text-green-400';
-      default:
-        return 'text-gray-700 bg-gray-100 dark:bg-gray-900/30 dark:text-gray-400';
-    }
-  }, []);
-
-  const getStatusColor = useCallback((category: string) => {
-    switch (category) {
-      case 'completed':
-        return 'text-green-700 bg-green-100 dark:bg-green-900/30 dark:text-green-400';
-      case 'in_progress':
-        return 'text-blue-700 bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400';
-      case 'cancelled':
-        return 'text-red-700 bg-red-100 dark:bg-red-900/30 dark:text-red-400';
-      default: // 'backlog' and any unknown categories
-        return 'text-gray-700 bg-gray-100 dark:bg-gray-900/30 dark:text-gray-400';
-    }
-  }, []);
 
   // Action handlers (memoized)
   const handleEditWorkItem = useCallback((workItem: WorkItem) => {
@@ -231,11 +206,9 @@ export default function WorkItemsContent() {
         align: 'center',
         render: (item) => (
           <div className="text-center">
-            <span
-              className={`inline-flex items-center justify-center px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(item.status_category)}`}
-            >
+            <Badge color={getStatusBadgeColor(item.status_category)} size="sm">
               {item.status_name}
-            </span>
+            </Badge>
           </div>
         ),
       },
@@ -246,11 +219,9 @@ export default function WorkItemsContent() {
         align: 'center',
         render: (item) => (
           <div className="text-center">
-            <span
-              className={`inline-flex items-center justify-center px-2 py-1 text-xs font-medium rounded-full ${getPriorityColor(item.priority)}`}
-            >
+            <Badge color={getPriorityBadgeColor(item.priority)} size="sm">
               {item.priority.charAt(0).toUpperCase() + item.priority.slice(1)}
-            </span>
+            </Badge>
           </div>
         ),
       },
@@ -284,7 +255,7 @@ export default function WorkItemsContent() {
       },
       { key: 'actions' },
     ],
-    [formatDate, getPriorityColor, getStatusColor, router]
+    [formatDate, router]
   );
 
   // Dropdown actions (memoized to prevent recreation on every render)

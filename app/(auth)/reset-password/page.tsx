@@ -2,6 +2,7 @@
 
 import { useId } from 'react';
 import { Button } from '@/components/ui/button';
+import { FormLabel } from '@/components/ui/form-label';
 import AuthHeader from '../auth-header';
 import AuthImage from '../auth-image';
 
@@ -24,9 +25,9 @@ export default function ResetPassword() {
               <form>
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium mb-1" htmlFor={emailId}>
-                      Email Address <span className="text-red-500">*</span>
-                    </label>
+                    <FormLabel htmlFor={emailId} required className="mb-1">
+                      Email Address
+                    </FormLabel>
                     <input id={emailId} className="form-input w-full" type="email" />
                   </div>
                 </div>

@@ -1,14 +1,14 @@
 'use client';
 
-import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
 import { useState } from 'react';
+import { Modal } from '@/components/ui/modal';
 import {
   type ConnectionTestResult,
   type DataSource,
   useTestConnection,
 } from '@/lib/hooks/use-data-sources';
 import Toast from './toast';
-import { Spinner } from '@/components/ui/spinner';
+import { Button } from '@/components/ui/button';
 
 interface ConnectionTestModalProps {
   isOpen: boolean;
@@ -80,59 +80,14 @@ export default function DataSourceConnectionTestModal({
 
   return (
     <>
-      <Transition appear show={isOpen}>
-        <Dialog as="div" className="relative z-50" onClose={handleClose}>
-          <TransitionChild
-            enter="ease-out duration-300"
-            enterFrom="opacity-0"
-            enterTo="opacity-100"
-            leave="ease-in duration-200"
-            leaveFrom="opacity-100"
-            leaveTo="opacity-0"
-          >
-            <div className="fixed inset-0 bg-black bg-opacity-25" />
-          </TransitionChild>
-
-          <div className="fixed inset-0 overflow-y-auto">
-            <div className="flex min-h-full items-center justify-center p-4">
-              <TransitionChild
-                enter="ease-out duration-300"
-                enterFrom="opacity-0 scale-95"
-                enterTo="opacity-100 scale-100"
-                leave="ease-in duration-200"
-                leaveFrom="opacity-100 scale-100"
-                leaveTo="opacity-0 scale-95"
-              >
-                <DialogPanel className="w-full max-w-lg bg-white dark:bg-gray-800 rounded-xl shadow-xl">
-                  {/* Modal header */}
-                  <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-                    <div className="flex items-center justify-between">
-                      <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
-                        Test Connection
-                      </h2>
-                      <button type="button" onClick={handleClose}
-                        className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                      >
-                        <span className="sr-only">Close</span>
-                        <svg
-                          className="w-6 h-6"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M6 18L18 6M6 6l12 12"
-                          />
-                        </svg>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Modal body */}
-                  <div className="px-6 py-4">
+      <Modal
+        isOpen={isOpen}
+        onClose={handleClose}
+        size="md"
+        title="Test Connection"
+      >
+        {/* Modal body */}
+        <div className="px-6 py-4">
                     {/* Data Source Info */}
                     {dataSource && (
                       <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
@@ -158,42 +113,34 @@ export default function DataSourceConnectionTestModal({
                       </div>
                     )}
 
-                    {/* Test Button */}
-                    <div className="mb-6">
-                      <button type="button" onClick={handleTestConnection}
-                        disabled={isTesting || !dataSource}
-                        className="w-full px-4 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-                      >
-                        {isTesting ? (
-                          <>
-                            <Spinner
-                              size="sm"
-                              className="-ml-1 mr-3"
-                              trackClassName="border-current opacity-25"
-                              indicatorClassName="border-current opacity-75"
-                            />
-                            Testing Connection...
-                          </>
-                        ) : (
-                          <>
-                            <svg
-                              className="w-5 h-5 mr-2"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M13 10V3L4 14h7v7l9-11h-7z"
-                              />
-                            </svg>
-                            Test Connection
-                          </>
-                        )}
-                      </button>
-                    </div>
+          {/* Test Button */}
+          <div className="mb-6">
+            <Button
+              variant="blue"
+              fullWidth
+              onClick={handleTestConnection}
+              disabled={isTesting || !dataSource}
+              loading={isTesting}
+              loadingText="Testing Connection..."
+              leftIcon={
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13 10V3L4 14h7v7l9-11h-7z"
+                  />
+                </svg>
+              }
+            >
+              Test Connection
+            </Button>
+          </div>
 
                     {/* Test Results */}
                     {testResult && (
@@ -332,30 +279,24 @@ export default function DataSourceConnectionTestModal({
                     )}
                   </div>
 
-                  {/* Modal footer */}
-                  <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700">
-                    <button
-                      type="button"
-                      onClick={handleClose}
-                      className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      Close
-                    </button>
-                    {testResult && !testResult.success && (
-                      <button type="button" onClick={handleTestConnection}
-                        disabled={isTesting}
-                        className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {isTesting ? 'Retesting...' : 'Retry Test'}
-                      </button>
-                    )}
-                  </div>
-                </DialogPanel>
-              </TransitionChild>
-            </div>
-          </div>
-        </Dialog>
-      </Transition>
+        {/* Modal footer */}
+        <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700">
+          <Button variant="secondary" onClick={handleClose}>
+            Close
+          </Button>
+          {testResult && !testResult.success && (
+            <Button
+              variant="blue"
+              onClick={handleTestConnection}
+              disabled={isTesting}
+              loading={isTesting}
+              loadingText="Retesting..."
+            >
+              Retry Test
+            </Button>
+          )}
+        </div>
+      </Modal>
 
       {/* Toast Notification */}
       <Toast

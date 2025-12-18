@@ -3,9 +3,10 @@
 import { useCallback, useMemo, useState } from 'react';
 import DeleteConfirmationModal from '@/components/delete-confirmation-modal';
 import RelationshipModal from '@/components/relationship-modal';
-import ModalBlank from '@/components/modal-blank';
-import { Spinner } from '@/components/ui/spinner';
+import { Modal } from '@/components/ui/modal';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Spinner } from '@/components/ui/spinner';
 import {
   useDeleteTypeRelationship,
   useTypeRelationshipsForParent,
@@ -73,7 +74,7 @@ export default function ManageRelationshipsModal({
 
   return (
     <>
-      <ModalBlank isOpen={isOpen} setIsOpen={onClose}>
+      <Modal isOpen={isOpen} onClose={onClose} size="lg">
         <div className="p-6">
           {/* Header */}
           <div className="mb-6">
@@ -163,14 +164,10 @@ export default function ManageRelationshipsModal({
                         {relationship.child_type_name}
                       </h4>
                       {relationship.is_required && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400">
-                          Required
-                        </span>
+                        <Badge color="red" size="sm" shape="rounded">Required</Badge>
                       )}
                       {relationship.auto_create && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400">
-                          Auto-create
-                        </span>
+                        <Badge color="green" size="sm" shape="rounded">Auto-create</Badge>
                       )}
                     </div>
 
@@ -242,7 +239,7 @@ export default function ManageRelationshipsModal({
             </Button>
           </div>
         </div>
-      </ModalBlank>
+      </Modal>
 
       {/* Add Relationship Modal */}
       <RelationshipModal

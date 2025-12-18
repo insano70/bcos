@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import React, { useCallback, useMemo, useState } from 'react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { SelectedItemsProvider } from '@/app/selected-items-context';
 import DataTable, {
@@ -17,6 +18,7 @@ import { apiClient } from '@/lib/api/client';
 import { clientDebugLog, clientErrorLog } from '@/lib/utils/debug-client';
 import type { ChartWithMetadata } from '@/lib/services/rbac-charts-service';
 import type { ChartDefinition, ChartDefinitionListItem } from '@/lib/types/analytics';
+import { getChartTypeBadgeColor, getActiveStatusColor } from '@/lib/utils/badge-colors';
 
 export default function ChartBuilderPage() {
   const router = useRouter();
@@ -119,24 +121,6 @@ export default function ChartBuilderPage() {
 
   const handleDateChange = (newDateRange: DateRange) => {
     setDateRange(newDateRange);
-  };
-
-  // Helper function for chart type badge colors
-  const getChartTypeBadgeColor = (type: string) => {
-    switch (type) {
-      case 'line':
-        return 'bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200';
-      case 'bar':
-        return 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-200';
-      case 'pie':
-        return 'bg-purple-100 dark:bg-purple-900/20 text-purple-800 dark:text-purple-200';
-      case 'doughnut':
-        return 'bg-orange-100 dark:bg-orange-900/20 text-orange-800 dark:text-orange-200';
-      case 'area':
-        return 'bg-teal-100 dark:bg-teal-900/20 text-teal-800 dark:text-teal-200';
-      default:
-        return 'bg-gray-100 dark:bg-gray-900/20 text-gray-800 dark:text-gray-200';
-    }
   };
 
   const _handleSaveChart = async (chartDefinition: Partial<ChartDefinition>) => {
@@ -274,11 +258,9 @@ export default function ChartBuilderPage() {
       header: 'Chart Type',
       sortable: true,
       render: (chart) => (
-        <span
-          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getChartTypeBadgeColor(chart.chart_type)}`}
-        >
+        <Badge color={getChartTypeBadgeColor(chart.chart_type)}>
           {chart.chart_type}
-        </span>
+        </Badge>
       ),
     },
     {
@@ -311,15 +293,9 @@ export default function ChartBuilderPage() {
       sortable: true,
       align: 'center',
       render: (chart) => (
-        <div
-          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-            chart.is_active
-              ? 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-200'
-              : 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-200'
-          }`}
-        >
+        <Badge color={getActiveStatusColor(chart.is_active)}>
           {chart.is_active ? 'Active' : 'Inactive'}
-        </div>
+        </Badge>
       ),
     },
     {

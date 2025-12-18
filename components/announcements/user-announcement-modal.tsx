@@ -2,6 +2,7 @@
 
 import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
 import { useCallback, useEffect, useId, useState } from 'react';
+import { Badge } from '@/components/ui/badge';
 import { Spinner } from '@/components/ui/spinner';
 
 import { apiClient } from '@/lib/api/client';
@@ -277,9 +278,9 @@ export default function UserAnnouncementModal({
                       </svg>
                       Unread
                       {announcements.length > 0 && (
-                        <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-violet-100 dark:bg-violet-900/50 text-violet-600 dark:text-violet-400" aria-label={`${announcements.length} unread`}>
+                        <Badge color="violet" size="sm" aria-label={`${announcements.length} unread`}>
                           {announcements.length}
-                        </span>
+                        </Badge>
                       )}
                     </span>
                   </button>

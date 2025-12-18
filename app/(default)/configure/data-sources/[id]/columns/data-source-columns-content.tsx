@@ -2,8 +2,10 @@
 
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/components/auth/rbac-auth-provider';
+import { getDataTypeBadgeColor, getActiveStatusColor } from '@/lib/utils/badge-colors';
 import DataTable, {
   type DataTableColumn,
   type DataTableDropdownAction,
@@ -166,7 +168,7 @@ export default function DataSourceColumnsContent({ dataSourceId }: DataSourceCol
             <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">
               Error Loading Columns
             </h3>
-            <p className="mt-1 text-sm text-red-500">Failed to load columns: {error.message}</p>
+            <p className="mt-1 text-sm text-red-600 dark:text-red-400">Failed to load columns: {error.message}</p>
             <div className="mt-6">
               <Button variant="blue" onClick={() => refetch()}>
                 Try Again
@@ -195,31 +197,20 @@ export default function DataSourceColumnsContent({ dataSourceId }: DataSourceCol
   };
 
   const getColumnTypeBadge = (_column: DataSourceColumn) => {
-    const types = [];
-    if (_column.is_measure) types.push('Measure');
-    if (_column.is_dimension) types.push('Dimension');
-    if (_column.is_date_field) types.push('Date');
-    if (_column.is_expansion_dimension) types.push('Expansion Dimension');
+    const types: Array<{ label: string; color: 'violet' | 'blue' | 'green' | 'purple' }> = [];
+    if (_column.is_measure) types.push({ label: 'Measure', color: 'blue' });
+    if (_column.is_dimension) types.push({ label: 'Dimension', color: 'green' });
+    if (_column.is_date_field) types.push({ label: 'Date', color: 'purple' });
+    if (_column.is_expansion_dimension) types.push({ label: 'Expansion Dimension', color: 'violet' });
 
     if (types.length === 0) return null;
 
     return (
       <div className="flex flex-wrap gap-1">
         {types.map((type) => (
-          <span
-            key={type}
-            className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-              type === 'Expansion Dimension'
-                ? 'bg-violet-100 text-violet-800 dark:bg-violet-900 dark:text-violet-200'
-                : type === 'Measure'
-                ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
-                : type === 'Dimension'
-                  ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                  : 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
-            }`}
-          >
-            {type}
-          </span>
+          <Badge key={type.label} color={type.color} size="sm">
+            {type.label}
+          </Badge>
         ))}
       </div>
     );
@@ -255,9 +246,9 @@ export default function DataSourceColumnsContent({ dataSourceId }: DataSourceCol
       header: 'Data Type',
       sortable: true,
       render: (column) => (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
+        <Badge color={getDataTypeBadgeColor(column.data_type)}>
           {column.data_type}
-        </span>
+        </Badge>
       ),
     },
     {
@@ -273,29 +264,19 @@ export default function DataSourceColumnsContent({ dataSourceId }: DataSourceCol
       render: (column) => (
         <div className="flex flex-wrap gap-1">
           {column.is_filterable && (
-            <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200">
-              Filterable
-            </span>
+            <Badge color="indigo" size="sm" shape="rounded">Filterable</Badge>
           )}
           {column.is_groupable && (
-            <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200">
-              Groupable
-            </span>
+            <Badge color="teal" size="sm" shape="rounded">Groupable</Badge>
           )}
           {column.is_measure_type && (
-            <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200">
-              Measure Type
-            </span>
+            <Badge color="amber" size="sm" shape="rounded">Measure Type</Badge>
           )}
           {column.is_time_period && (
-            <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200">
-              Time Period
-            </span>
+            <Badge color="indigo" size="sm" shape="rounded">Time Period</Badge>
           )}
           {column.is_sensitive && (
-            <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
-              Sensitive
-            </span>
+            <Badge color="red" size="sm" shape="rounded">Sensitive</Badge>
           )}
         </div>
       ),
@@ -306,15 +287,9 @@ export default function DataSourceColumnsContent({ dataSourceId }: DataSourceCol
       sortable: true,
       align: 'center',
       render: (column) => (
-        <span
-          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-            column.is_active
-              ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-              : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-          }`}
-        >
+        <Badge color={getActiveStatusColor(column.is_active)}>
           {column.is_active ? 'Active' : 'Inactive'}
-        </span>
+        </Badge>
       ),
     },
     { key: 'actions' },

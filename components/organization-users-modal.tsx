@@ -1,7 +1,8 @@
 'use client';
 
-import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Badge } from '@/components/ui/badge';
+import { Modal } from '@/components/ui/modal';
 import {
   type Organization,
   type OrganizationUser,
@@ -187,13 +188,9 @@ export default function OrganizationUsersModal({
           render: (user) => (
             <div className="text-center">
               {user.is_member ? (
-                <span className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-medium text-blue-700 bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400 rounded-full">
-                  Current Member
-                </span>
+                <Badge color="blue" size="sm">Current Member</Badge>
               ) : (
-                <span className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-medium text-gray-500 bg-gray-100 dark:bg-gray-900/30 dark:text-gray-400 rounded-full">
-                  Not a Member
-                </span>
+                <Badge color="gray" size="sm">Not a Member</Badge>
               )}
             </div>
           ),
@@ -203,59 +200,18 @@ export default function OrganizationUsersModal({
     );
 
   return (
-    <Transition appear show={isOpen}>
-      <Dialog as="div" onClose={handleClose} className="relative z-50">
-        <TransitionChild
-          as="div"
-          className="fixed inset-0 bg-gray-900/30"
-          enter="transition ease-out duration-200"
-          enterFrom="opacity-0"
-          enterTo="opacity-100"
-          leave="transition ease-out duration-100"
-          leaveFrom="opacity-100"
-          leaveTo="opacity-0"
-          aria-hidden="true"
-        />
-
-        <div className="fixed inset-0 flex items-center justify-center p-4">
-          <TransitionChild
-            as="div"
-            enter="transition ease-in-out duration-200"
-            enterFrom="opacity-0 scale-95"
-            enterTo="opacity-100 scale-100"
-            leave="transition ease-in-out duration-200"
-            leaveFrom="opacity-100 scale-100"
-            leaveTo="opacity-0 scale-95"
-          >
-            <DialogPanel className="bg-white dark:bg-gray-800 rounded-lg shadow-xl overflow-hidden w-full max-w-5xl max-h-[85vh] flex flex-col">
-              {/* Header */}
-              <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700/60">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <Dialog.Title className="text-lg font-semibold text-gray-800 dark:text-gray-100">
-                      Manage Users
-                    </Dialog.Title>
-                    <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                      {organization?.name}
-                    </p>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleClose}
-                    disabled={isSubmitting}
-                    aria-label="Close"
-                    className="p-0"
-                  >
-                    <svg className="fill-current" width="16" height="16" viewBox="0 0 16 16">
-                      <path d="M7.95 6.536l4.242-4.243a1 1 0 111.415 1.414L9.364 7.95l4.243 4.242a1 1 0 11-1.415 1.415L7.95 9.364l-4.243 4.243a1 1 0 01-1.414-1.415L6.536 7.95 2.293 3.707a1 1 0 011.414-1.414L7.95 6.536z" />
-                    </svg>
-                  </Button>
-                </div>
-              </div>
-
-              {/* Data Table */}
-              <div className="flex-1 overflow-hidden px-12">
+    <>
+      <Modal
+        isOpen={isOpen}
+        onClose={handleClose}
+        size="full"
+        title="Manage Users"
+        description={organization?.name}
+        preventClose={isSubmitting}
+        className="max-h-[85vh] flex flex-col"
+      >
+        {/* Data Table */}
+        <div className="flex-1 overflow-hidden px-12">
                 {error ? (
                   <div className="py-6">
                     <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
@@ -306,14 +262,11 @@ export default function OrganizationUsersModal({
                   </Button>
                 </div>
               </div>
-            </DialogPanel>
-          </TransitionChild>
-        </div>
-      </Dialog>
+      </Modal>
 
       <Toast type="success" open={showToast} setOpen={setShowToast}>
         {toastMessage}
       </Toast>
-    </Transition>
+    </>
   );
 }

@@ -1,6 +1,8 @@
 'use client';
 
 import type { FieldErrors, UseFormRegister } from 'react-hook-form';
+import { Card } from '@/components/ui/card';
+import { FormError } from '@/components/ui/form-error';
 import type { PracticeFormData } from '../types';
 
 interface ContactInfoSectionProps {
@@ -11,7 +13,7 @@ interface ContactInfoSectionProps {
 
 export function ContactInfoSection({ register, errors, uid }: ContactInfoSectionProps) {
   return (
-    <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl p-6">
+    <Card>
       <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
         Contact Information
       </h2>
@@ -33,7 +35,7 @@ export function ContactInfoSection({ register, errors, uid }: ContactInfoSection
             }`}
             placeholder="(555) 123-4567"
           />
-          {errors.phone && <p className="mt-1 text-sm text-red-600">{errors.phone.message}</p>}
+          <FormError>{errors.phone?.message}</FormError>
         </div>
 
         <div>
@@ -52,7 +54,7 @@ export function ContactInfoSection({ register, errors, uid }: ContactInfoSection
             }`}
             placeholder="info@practice.com"
           />
-          {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>}
+          <FormError>{errors.email?.message}</FormError>
         </div>
 
         <div>
@@ -71,7 +73,7 @@ export function ContactInfoSection({ register, errors, uid }: ContactInfoSection
             }`}
             placeholder="123 Medical Center Drive"
           />
-          {errors.address_line1 && <p className="mt-1 text-sm text-red-600">{errors.address_line1.message}</p>}
+          <FormError>{errors.address_line1?.message}</FormError>
         </div>
 
         <div>
@@ -90,7 +92,7 @@ export function ContactInfoSection({ register, errors, uid }: ContactInfoSection
             }`}
             placeholder="Suite 200"
           />
-          {errors.address_line2 && <p className="mt-1 text-sm text-red-600">{errors.address_line2.message}</p>}
+          <FormError>{errors.address_line2?.message}</FormError>
         </div>
 
         <div>
@@ -109,7 +111,7 @@ export function ContactInfoSection({ register, errors, uid }: ContactInfoSection
             }`}
             placeholder="Denver"
           />
-          {errors.city && <p className="mt-1 text-sm text-red-600">{errors.city.message}</p>}
+          <FormError>{errors.city?.message}</FormError>
         </div>
 
         <div>
@@ -128,7 +130,7 @@ export function ContactInfoSection({ register, errors, uid }: ContactInfoSection
             }`}
             placeholder="CO"
           />
-          {errors.state && <p className="mt-1 text-sm text-red-600">{errors.state.message}</p>}
+          <FormError>{errors.state?.message}</FormError>
         </div>
 
         <div>
@@ -147,9 +149,9 @@ export function ContactInfoSection({ register, errors, uid }: ContactInfoSection
             }`}
             placeholder="80202"
           />
-          {errors.zip_code && <p className="mt-1 text-sm text-red-600">{errors.zip_code.message}</p>}
+          <FormError>{errors.zip_code?.message}</FormError>
         </div>
       </div>
-    </div>
+    </Card>
   );
 }

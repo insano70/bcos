@@ -1,13 +1,15 @@
 'use client';
 
 import { useState } from 'react';
+import { Badge } from '@/components/ui/badge';
+import { Spinner } from '@/components/ui/spinner';
+import ProtectedComponent from '@/components/rbac/protected-component';
 import {
   useTestCases,
   useRunTestCase,
   useGenerateTestCases,
 } from '@/lib/hooks/use-data-explorer';
-import ProtectedComponent from '@/components/rbac/protected-component';
-import { Spinner } from '@/components/ui/spinner';
+import { getTestPriorityColor } from '@/lib/utils/badge-colors';
 import { clientErrorLog } from '@/lib/utils/debug-client';
 
 export default function TestCasesPage() {
@@ -40,19 +42,6 @@ export default function TestCasesPage() {
       refetch();
     } catch (error) {
       clientErrorLog('Failed to generate test cases:', error);
-    }
-  };
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'high':
-        return 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400';
-      case 'medium':
-        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400';
-      case 'low':
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400';
-      default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400';
     }
   };
 
@@ -129,29 +118,18 @@ export default function TestCasesPage() {
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-2">
-                          <span
-                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getPriorityColor(testCase.priority)}`}
-                          >
+                          <Badge color={getTestPriorityColor(testCase.priority)}>
                             {testCase.priority.toUpperCase()}
-                          </span>
+                          </Badge>
                           {testCase.tags.map((tag) => (
-                            <span
-                              key={tag}
-                              className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400"
-                            >
+                            <Badge key={tag} color="gray">
                               {tag}
-                            </span>
+                            </Badge>
                           ))}
                           {result && (
-                            <span
-                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                result.passed
-                                  ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
-                                  : 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400'
-                              }`}
-                            >
+                            <Badge color={result.passed ? 'green' : 'red'}>
                               {result.passed ? '✓ PASSED' : '✗ FAILED'}
-                            </span>
+                            </Badge>
                           )}
                         </div>
 

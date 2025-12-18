@@ -2,6 +2,7 @@
 
 import { memo, useState } from 'react';
 import Image, { type StaticImageData } from 'next/image';
+import { Badge } from '@/components/ui/badge';
 
 interface Item {
   id: number;
@@ -43,9 +44,7 @@ function AccordionTableItemInner({ item }: ItemProps) {
           <div className="text-left font-medium text-green-600">{item.total}</div>
         </td>
         <td className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
-          <div className="inline-flex font-medium bg-yellow-500/20 text-yellow-700 rounded-full text-center px-2.5 py-0.5">
-            {item.status}
-          </div>
+          <Badge color="yellow" size="sm">{item.status}</Badge>
         </td>
         <td className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
           <div className="text-center">{item.items}</div>

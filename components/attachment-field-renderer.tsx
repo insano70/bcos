@@ -1,6 +1,9 @@
 'use client';
 
 import { useCallback, useState, useEffect } from 'react';
+import { Badge } from '@/components/ui/badge';
+import { FormLabel } from '@/components/ui/form-label';
+import { Spinner } from '@/components/ui/spinner';
 import DeleteConfirmationModal from '@/components/delete-confirmation-modal';
 import {
   useDeleteFieldAttachment,
@@ -10,7 +13,6 @@ import {
   useFieldAttachmentThumbnailUrl,
 } from '@/lib/hooks/use-field-attachments';
 import type { WorkItemField } from '@/lib/types/work-item-fields';
-import { Spinner } from '@/components/ui/spinner';
 
 interface AttachmentFieldRendererProps {
   field: WorkItemField;
@@ -303,14 +305,13 @@ export default function AttachmentFieldRenderer({
     <div>
       {/* Label with attachment count badge */}
       <div className="flex items-center gap-2 mb-1">
-        <label className="block text-sm font-medium">
+        <FormLabel required={field.is_required_on_creation}>
           {field.field_label}
-          {field.is_required_on_creation && <span className="text-red-500 ml-1">*</span>}
-        </label>
+        </FormLabel>
         {attachmentIds.length > 0 && (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-400">
+          <Badge color="violet" size="sm">
             {attachmentIds.length} {attachmentIds.length === 1 ? 'file' : 'files'}
-          </span>
+          </Badge>
         )}
       </div>
 
@@ -519,7 +520,7 @@ export default function AttachmentFieldRenderer({
       )}
 
       {/* Validation error */}
-      {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+      {error && <p className="text-xs text-red-600 dark:text-red-400 mt-1">{error}</p>}
 
       {/* Delete confirmation modal */}
       {attachmentToDelete && (

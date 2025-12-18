@@ -1,9 +1,11 @@
 'use client';
 
 import React, { useCallback, useMemo, useState } from 'react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { SelectedItemsProvider } from '@/app/selected-items-context';
 import AnnouncementModal from '@/components/announcements/announcement-modal';
+import { getAnnouncementPriorityColor, getActiveStatusColor, getTargetTypeColor } from '@/lib/utils/badge-colors';
 import RecipientsModal from '@/components/announcements/recipients-modal';
 import DataTable, {
   type DataTableColumn,
@@ -217,16 +219,6 @@ export default function AnnouncementsPage() {
     loadAnnouncements();
   };
 
-  const getPriorityBadge = (priority: string) => {
-    const styles: Record<string, string> = {
-      urgent: 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-200',
-      high: 'bg-orange-100 dark:bg-orange-900/20 text-orange-800 dark:text-orange-200',
-      normal: 'bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200',
-      low: 'bg-gray-100 dark:bg-gray-900/20 text-gray-800 dark:text-gray-200',
-    };
-    return styles[priority] || styles.normal;
-  };
-
   const columns: DataTableColumn<Announcement>[] = [
     { key: 'checkbox' },
     {
@@ -250,11 +242,9 @@ export default function AnnouncementsPage() {
       sortable: true,
       align: 'center',
       render: (announcement) => (
-        <span
-          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${getPriorityBadge(announcement.priority)}`}
-        >
+        <Badge color={getAnnouncementPriorityColor(announcement.priority)} className="capitalize">
           {announcement.priority}
-        </span>
+        </Badge>
       ),
     },
     {
@@ -263,17 +253,9 @@ export default function AnnouncementsPage() {
       sortable: true,
       align: 'center',
       render: (announcement) => (
-        <div className="text-gray-800 dark:text-gray-100">
-          {announcement.target_type === 'all' ? (
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-200">
-              All Users
-            </span>
-          ) : (
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 dark:bg-purple-900/20 text-purple-800 dark:text-purple-200">
-              {announcement.recipient_count} Users
-            </span>
-          )}
-        </div>
+        <Badge color={getTargetTypeColor(announcement.target_type)}>
+          {announcement.target_type === 'all' ? 'All Users' : `${announcement.recipient_count} Users`}
+        </Badge>
       ),
     },
     {
@@ -293,18 +275,16 @@ export default function AnnouncementsPage() {
       sortable: true,
       align: 'center',
       render: (announcement) => (
-        <span
-          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-            announcement.is_active
-              ? 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-200'
-              : 'bg-gray-100 dark:bg-gray-900/20 text-gray-800 dark:text-gray-200'
-          }`}
+        <Badge
+          color={getActiveStatusColor(announcement.is_active)}
+          icon={
+            <svg className="w-1.5 h-1.5" fill="currentColor" viewBox="0 0 8 8">
+              <circle cx={4} cy={4} r={3} />
+            </svg>
+          }
         >
-          <svg className="w-1.5 h-1.5 mr-1.5" fill="currentColor" viewBox="0 0 8 8">
-            <circle cx={4} cy={4} r={3} />
-          </svg>
           {announcement.is_active ? 'Active' : 'Inactive'}
-        </span>
+        </Badge>
       ),
     },
     {

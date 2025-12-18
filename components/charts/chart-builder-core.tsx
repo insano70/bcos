@@ -9,6 +9,7 @@ import type {
   PeriodComparisonConfig,
 } from '@/lib/types/analytics';
 import { Spinner } from '@/components/ui/spinner';
+import { FormLabel } from '@/components/ui/form-label';
 import ColorPaletteSelector from './color-palette-selector';
 import DataSourceSelector from './data-source-selector';
 import DateRangePresets from './date-range-presets';
@@ -331,9 +332,9 @@ export default function ChartBuilderCore({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Primary Measure (Left Axis - Bar) */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Primary Measure (Left Axis - Bar) <span className="text-red-500">*</span>
-                    </label>
+                    <FormLabel required className="mb-2">
+                      Primary Measure (Left Axis - Bar)
+                    </FormLabel>
                     <select
                       value={chartConfig.dualAxisConfig?.primary.measure || ''}
                       onChange={(e) => {
@@ -393,9 +394,9 @@ export default function ChartBuilderCore({
 
                   {/* Secondary Measure (Right Axis) */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Secondary Measure (Right Axis) <span className="text-red-500">*</span>
-                    </label>
+                    <FormLabel required className="mb-2">
+                      Secondary Measure (Right Axis)
+                    </FormLabel>
                     <select
                       value={chartConfig.dualAxisConfig?.secondary.measure || ''}
                       onChange={(e) => {
