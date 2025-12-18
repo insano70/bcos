@@ -21,7 +21,7 @@ import {
 } from '@/lib/monitoring/risk-score';
 import type { AtRiskUser, LoginHistoryResponse } from '@/lib/monitoring/types';
 import ConfirmModal from './confirm-modal';
-import { useToast } from './toast';
+import { useToast } from '@/components/toast';
 import { Spinner } from '@/components/ui/spinner';
 
 interface UserDetailModalProps {

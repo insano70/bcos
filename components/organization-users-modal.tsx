@@ -1,7 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { ErrorDisplay } from '@/components/error-display';
 import { Modal } from '@/components/ui/modal';
 import {
   type Organization,
@@ -32,7 +34,7 @@ export default function OrganizationUsersModal({
   const [toastMessage, setToastMessage] = useState('');
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
 
-  const { data: users = [], isLoading, error } = useOrganizationUsers(organization?.id || '');
+  const { data: users = [], isLoading, error, refetch } = useOrganizationUsers(organization?.id || '');
   const updateOrganizationUsers = useUpdateOrganizationUsers();
 
   // Initialize selected users when data loads
@@ -160,11 +162,13 @@ export default function OrganizationUsersModal({
           sortable: true,
           render: (user) => (
             <div className="flex items-center">
-              <div className="w-8 h-8 shrink-0 mr-2">
-                <div className="w-8 h-8 rounded-full bg-violet-500 flex items-center justify-center text-white text-xs font-medium">
-                  {user.first_name.charAt(0)}
-                  {user.last_name.charAt(0)}
-                </div>
+              <div className="shrink-0 mr-2">
+                <Avatar
+                  size="md"
+                  firstName={user.first_name}
+                  lastName={user.last_name}
+                  userId={user.user_id}
+                />
               </div>
               <div className="font-medium text-gray-800 dark:text-gray-100 text-sm">
                 {user.first_name} {user.last_name}
@@ -214,11 +218,11 @@ export default function OrganizationUsersModal({
         <div className="flex-1 overflow-hidden px-12">
                 {error ? (
                   <div className="py-6">
-                    <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-                      <p className="text-red-600 dark:text-red-400">
-                        Error loading users: {error.message}
-                      </p>
-                    </div>
+                    <ErrorDisplay
+                      variant="alert"
+                      error={error.message}
+                      onRetry={() => refetch()}
+                    />
                   </div>
                 ) : (
                   <DataTable

@@ -26,7 +26,7 @@ export default function WorkItemHierarchyBreadcrumbs({
     >
       {/* Home icon */}
       <Link
-        href="/default/work"
+        href="/work"
         className="hover:text-gray-900 dark:hover:text-gray-200 transition-colors"
       >
         <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -56,7 +56,7 @@ export default function WorkItemHierarchyBreadcrumbs({
               </span>
             ) : (
               <Link
-                href={`/default/work/${item.id}`}
+                href={`/work/${item.id}`}
                 className="hover:text-gray-900 dark:hover:text-gray-200 transition-colors truncate max-w-xs"
               >
                 {item.subject}

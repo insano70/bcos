@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { apiClient } from '@/lib/api/client';
+import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { clientErrorLog } from '@/lib/utils/debug-client';
@@ -89,15 +90,6 @@ export default function WorkItemCommentsSection({ workItemId }: WorkItemComments
     });
   };
 
-  const getInitials = (name: string) => {
-    return name
-      .split(' ')
-      .map((part) => part[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
-  };
-
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
       <div className="p-6 border-b border-gray-200 dark:border-gray-700">
@@ -111,9 +103,7 @@ export default function WorkItemCommentsSection({ workItemId }: WorkItemComments
         <form onSubmit={handleSubmit} className="mb-6">
           <div className="flex gap-3">
             <div className="flex-shrink-0">
-              <div className="w-8 h-8 rounded-full bg-gray-900 dark:bg-gray-600 flex items-center justify-center text-white text-sm font-medium">
-                ME
-              </div>
+              <Avatar size="md" colorClass="bg-gray-900 dark:bg-gray-600" />
             </div>
             <div className="flex-1">
               <textarea
@@ -169,9 +159,11 @@ export default function WorkItemCommentsSection({ workItemId }: WorkItemComments
             {comments.map((comment) => (
               <div key={comment.work_item_comment_id} className="flex gap-3">
                 <div className="flex-shrink-0">
-                  <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-gray-700 dark:text-gray-300 text-sm font-medium">
-                    {getInitials(comment.created_by_name)}
-                  </div>
+                  <Avatar
+                    size="md"
+                    name={comment.created_by_name}
+                    userId={comment.created_by}
+                  />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">

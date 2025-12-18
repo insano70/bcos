@@ -5,9 +5,10 @@
  * Phase 7: Watchers and notifications
  */
 
-import { Settings, User } from 'lucide-react';
+import { Settings } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
@@ -103,9 +104,11 @@ function WatcherItem({
   return (
     <div className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700/60 bg-white dark:bg-gray-800">
       <div className="flex-shrink-0 mt-1">
-        <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
-          <User className="h-4 w-4 text-gray-600 dark:text-gray-400" />
-        </div>
+        <Avatar
+          size="md"
+          name={watcher.user_name}
+          userId={watcher.user_id}
+        />
       </div>
 
       <div className="flex-grow min-w-0">

@@ -1,12 +1,13 @@
 'use client';
 
 import { useLearningMetrics } from '@/lib/hooks/use-data-explorer';
+import { ErrorDisplay } from '@/components/error-display';
 import ProtectedComponent from '@/components/rbac/protected-component';
 import { Spinner } from '@/components/ui/spinner';
 // Note: Uses simple data displays; AnalyticsChart integration available for richer visualization
 
 export default function LearningMetricsPage() {
-  const { data: metrics, isLoading, error } = useLearningMetrics();
+  const { data: metrics, isLoading, error, refetch } = useLearningMetrics();
 
   // Data prepared for display (charts will be integrated later)
 
@@ -44,11 +45,12 @@ export default function LearningMetricsPage() {
             <p className="text-gray-600 dark:text-gray-400 mt-4">Loading metrics...</p>
           </div>
         ) : error ? (
-          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-            <p className="text-red-800 dark:text-red-400">
-              Failed to load learning metrics. Please try again.
-            </p>
-          </div>
+          <ErrorDisplay
+            variant="inline"
+            error="Failed to load learning metrics"
+            title="Learning Metrics"
+            onRetry={() => refetch()}
+          />
         ) : metrics ? (
           <div className="space-y-6">
             {/* Improvement Score - Hero Section */}

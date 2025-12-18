@@ -14,6 +14,7 @@ import FilterButton, { type ActiveFilter, type FilterGroup } from '@/components/
 import OrganizationUsersModal from '@/components/organization-users-modal';
 import { ProtectedComponent } from '@/components/rbac/protected-component';
 import { Spinner } from '@/components/ui/spinner';
+import { ErrorDisplay } from '@/components/error-display';
 import { apiClient } from '@/lib/api/client';
 import { type Organization, useOrganizations } from '@/lib/hooks/use-organizations';
 
@@ -333,11 +334,12 @@ export default function OrganizationsContent() {
   if (error) {
     return (
       <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-[96rem] mx-auto">
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-6">
-          <p className="text-red-600 dark:text-red-400">
-            Error loading organizations: {error.message}
-          </p>
-        </div>
+        <ErrorDisplay
+          variant="inline"
+          error={error}
+          title="Organizations"
+          onRetry={() => refetch()}
+        />
       </div>
     );
   }

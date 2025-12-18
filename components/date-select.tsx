@@ -124,7 +124,7 @@ export default function DateSelect({ onDateChange }: DateSelectProps) {
             leaveFrom="opacity-100"
             leaveTo="opacity-0"
           >
-            <MenuItems className="z-10 absolute top-full right-0 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700/60 py-1.5 rounded-lg shadow-lg overflow-hidden mt-1 font-medium text-sm text-gray-600 dark:text-gray-300 focus:outline-hidden">
+            <MenuItems className="z-50 absolute top-full right-0 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700/60 py-1.5 rounded-lg shadow-lg overflow-hidden mt-1 font-medium text-sm text-gray-600 dark:text-gray-300 focus:outline-hidden">
               {options.map((option) => (
                 <MenuItem key={option.id}>
                   {({ focus }) => (

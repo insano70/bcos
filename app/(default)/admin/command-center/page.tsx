@@ -31,8 +31,8 @@ import SecurityStatusKPI from './components/security-status-kpi';
 import { KPISkeleton, PanelSkeleton } from './components/skeleton';
 import SlowQueriesPanel from './components/slow-queries-panel';
 import SystemHealthKPI from './components/system-health-kpi';
-import { ToastProvider } from './components/toast';
 import UserDetailModal from './components/user-detail-modal';
+import { InlineAlert } from '@/components/ui/inline-alert';
 
 // Auto-refresh intervals
 const REFRESH_INTERVALS = [
@@ -105,8 +105,7 @@ export default function CommandCenterPage() {
   };
 
   return (
-    <ToastProvider>
-      <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-[96rem] mx-auto">
+    <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-[96rem] mx-auto">
         {/* Page Header */}
         <div className="sm:flex sm:justify-between sm:items-center mb-8">
           {/* Left: Title */}
@@ -196,23 +195,9 @@ export default function CommandCenterPage() {
 
         {/* Error Message */}
         {error && (
-          <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-            <div className="flex items-center gap-2 text-red-800 dark:text-red-200">
-              <svg
-                className="w-5 h-5"
-                fill="currentColor"
-                viewBox="0 0 20 20"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                  clipRule="evenodd"
-                />
-              </svg>
-              <span className="font-medium">Error loading metrics: {error}</span>
-            </div>
-          </div>
+          <InlineAlert type="error" className="mb-6">
+            Error loading metrics: {error}
+          </InlineAlert>
         )}
 
         {/* Loading State with Skeletons */}
@@ -333,6 +318,5 @@ export default function CommandCenterPage() {
           </div>
         )}
       </div>
-    </ToastProvider>
   );
 }

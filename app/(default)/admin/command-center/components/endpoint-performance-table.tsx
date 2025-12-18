@@ -26,8 +26,8 @@ export default function EndpointPerformanceTable({ metrics }: EndpointPerformanc
       </h3>
 
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-          <thead className="bg-gray-50 dark:bg-gray-900/50">
+        <table className="min-w-full divide-y divide-gray-100 dark:divide-gray-700/60">
+          <thead className="bg-gray-50 dark:bg-gray-900/20">
             <tr>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
                 Endpoint
@@ -43,7 +43,7 @@ export default function EndpointPerformanceTable({ metrics }: EndpointPerformanc
               </th>
             </tr>
           </thead>
-          <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+          <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-100 dark:divide-gray-700/60">
             {endpoints.map((ep) => (
               <tr key={ep.endpoint} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                 <td className="px-4 py-3 text-sm font-mono text-gray-900 dark:text-gray-100">

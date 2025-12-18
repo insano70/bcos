@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { Modal } from '@/components/ui/modal';
 import { apiClient } from '@/lib/api/client';
 import type { RedisKeyDetails } from '@/lib/monitoring/types';
-import { useToast } from './toast';
+import { useToast } from '@/components/toast';
 import { Spinner } from '@/components/ui/spinner';
 import { Button } from '@/components/ui/button';
 

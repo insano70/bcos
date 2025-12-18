@@ -544,7 +544,7 @@ export default function EditableWorkItemsTable({
         onSave={handleSave}
         onDelete={handleDelete}
         onQuickAdd={handleQuickAdd}
-        onNavigate={(item) => router.push(`/default/work/${item.id}`)}
+        onNavigate={(item) => router.push(`/work/${item.id}`)}
         {...(onUnsavedChangesChange ? { onUnsavedChangesChange } : {})}
         bulkActions={bulkActions}
         isLoading={isLoading}

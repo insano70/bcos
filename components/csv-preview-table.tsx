@@ -2,6 +2,7 @@
 
 import { Button } from '@/components/ui/button';
 import type { ResolvedCSVRow } from '@/lib/validations/bulk-import';
+import { InlineAlert } from '@/components/ui/inline-alert';
 
 interface CSVPreviewTableProps {
   rows: ResolvedCSVRow[];
@@ -54,8 +55,8 @@ export default function CSVPreviewTable({ rows, onImport, isImporting }: CSVPrev
 
       {/* Table */}
       <div className="overflow-x-auto border border-gray-200 dark:border-gray-700 rounded-lg">
-        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-          <thead className="bg-gray-50 dark:bg-gray-700">
+        <table className="min-w-full divide-y divide-gray-100 dark:divide-gray-700/60">
+          <thead className="bg-gray-50 dark:bg-gray-900/20">
             <tr>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                 Row
@@ -83,7 +84,7 @@ export default function CSVPreviewTable({ rows, onImport, isImporting }: CSVPrev
               </th>
             </tr>
           </thead>
-          <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+          <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-100 dark:divide-gray-700/60">
             {rows.map((row) => (
               <tr
                 key={row.row_number}
@@ -193,32 +194,13 @@ export default function CSVPreviewTable({ rows, onImport, isImporting }: CSVPrev
 
       {/* Validation errors summary */}
       {invalidCount > 0 && (
-        <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
-          <div className="flex items-start">
-            <svg
-              className="w-5 h-5 text-yellow-600 dark:text-yellow-400 mt-0.5 mr-3"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-              />
-            </svg>
-            <div>
-              <h4 className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
-                {invalidCount} row{invalidCount !== 1 ? 's' : ''} cannot be imported
-              </h4>
-              <p className="mt-1 text-sm text-yellow-700 dark:text-yellow-300">
-                Hover over the error icon in each row to see the specific validation errors.
-                Fix the issues in your CSV file and re-upload to import these rows.
-              </p>
-            </div>
-          </div>
-        </div>
+        <InlineAlert
+          type="warning"
+          title={`${invalidCount} row${invalidCount !== 1 ? 's' : ''} cannot be imported`}
+        >
+          Hover over the error icon in each row to see the specific validation errors. Fix the
+          issues in your CSV file and re-upload to import these rows.
+        </InlineAlert>
       )}
     </div>
   );

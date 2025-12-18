@@ -286,13 +286,13 @@ export default function DataSourceConnectionTestModal({
           </Button>
           {testResult && !testResult.success && (
             <Button
-              variant="blue"
+              variant="violet"
               onClick={handleTestConnection}
               disabled={isTesting}
               loading={isTesting}
               loadingText="Retesting..."
             >
-              Retry Test
+              Try Again
             </Button>
           )}
         </div>

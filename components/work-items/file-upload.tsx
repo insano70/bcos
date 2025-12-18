@@ -4,6 +4,7 @@ import { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { formatFileSize, useUploadAttachment } from '@/lib/hooks/use-work-item-attachments';
 import { ALLOWED_FILE_TYPES, MAX_FILE_SIZE } from '@/lib/validations/work-item-attachments';
+import { InlineAlert } from '@/components/ui/inline-alert';
 
 interface FileUploadProps {
   workItemId: string;
@@ -147,15 +148,15 @@ export default function FileUpload({ workItemId, onUploadComplete }: FileUploadP
       )}
 
       {error && (
-        <div className="mt-4 p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-lg">
-          <p className="text-sm text-red-800 dark:text-red-200">{error}</p>
-        </div>
+        <InlineAlert type="error" className="mt-4">
+          {error}
+        </InlineAlert>
       )}
 
       {uploadMutation.isSuccess && !error && (
-        <div className="mt-4 p-3 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg">
-          <p className="text-sm text-green-800 dark:text-green-200">File uploaded successfully!</p>
-        </div>
+        <InlineAlert type="success" className="mt-4">
+          File uploaded successfully!
+        </InlineAlert>
       )}
     </div>
   );

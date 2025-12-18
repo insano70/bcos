@@ -5,10 +5,12 @@ import { useState } from 'react';
 import { useAuth } from '@/components/auth/rbac-auth-provider';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Tabs } from '@/components/ui/tabs';
 import DeleteConfirmationModal from '@/components/delete-confirmation-modal';
 import { getPriorityBadgeColor, getStatusBadgeColor } from '@/lib/utils/badge-colors';
 import DeleteWorkItemModal from '@/components/delete-work-item-modal';
 import EditWorkItemModal from '@/components/edit-work-item-modal';
+import { ErrorDisplay } from '@/components/error-display';
 import { ProtectedComponent } from '@/components/rbac/protected-component';
 import { Spinner } from '@/components/ui/spinner';
 import { WorkItemWatchButton } from '@/components/work-item-watch-button';
@@ -88,18 +90,14 @@ export default function WorkItemDetailContent({ workItemId }: WorkItemDetailCont
   if (error || !workItem) {
     return (
       <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-[96rem] mx-auto">
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-6">
-          <p className="text-red-600 dark:text-red-400">
-            {error ? `Error loading work item: ${error.message}` : 'Work item not found'}
-          </p>
-          <button
-            type="button"
-            onClick={() => router.push('/work')}
-            className="mt-4 text-sm text-red-700 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 underline"
-          >
-            Back to work items
-          </button>
-        </div>
+        <ErrorDisplay
+          variant="inline"
+          error={error ? error.message : 'Work item not found'}
+          title="Work Item"
+          onRetry={() => refetch()}
+          backLink="/work"
+          backLinkLabel="Back to Work Items"
+        />
       </div>
     );
   }
@@ -214,65 +212,19 @@ export default function WorkItemDetailContent({ workItemId }: WorkItemDetailCont
       </div>
 
       {/* Tabs */}
-      <div className="mb-6 border-b border-gray-200 dark:border-gray-700">
-        <nav className="flex gap-6">
-          <button
-            type="button"
-            onClick={() => handleTabChange('subItems')}
-            className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === 'subItems'
-                ? 'border-gray-900 dark:border-gray-100 text-gray-900 dark:text-gray-100'
-                : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-            }`}
-          >
-            Sub-items
-          </button>
-          <button
-            type="button"
-            onClick={() => handleTabChange('comments')}
-            className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === 'comments'
-                ? 'border-gray-900 dark:border-gray-100 text-gray-900 dark:text-gray-100'
-                : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-            }`}
-          >
-            Comments
-          </button>
-          <button
-            type="button"
-            onClick={() => handleTabChange('activity')}
-            className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === 'activity'
-                ? 'border-gray-900 dark:border-gray-100 text-gray-900 dark:text-gray-100'
-                : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-            }`}
-          >
-            Activity
-          </button>
-          <button
-            type="button"
-            onClick={() => handleTabChange('watchers')}
-            className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === 'watchers'
-                ? 'border-gray-900 dark:border-gray-100 text-gray-900 dark:text-gray-100'
-                : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-            }`}
-          >
-            Watchers
-          </button>
-          <button
-            type="button"
-            onClick={() => handleTabChange('details')}
-            className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === 'details'
-                ? 'border-gray-900 dark:border-gray-100 text-gray-900 dark:text-gray-100'
-                : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-            }`}
-          >
-            Details
-          </button>
-        </nav>
-      </div>
+      <Tabs
+        tabs={[
+          { id: 'subItems', label: 'Sub-items' },
+          { id: 'comments', label: 'Comments' },
+          { id: 'activity', label: 'Activity' },
+          { id: 'watchers', label: 'Watchers' },
+          { id: 'details', label: 'Details' },
+        ]}
+        activeTab={activeTab}
+        onChange={(tabId) => handleTabChange(tabId as typeof activeTab)}
+        className="mb-6"
+        ariaLabel="Work item sections"
+      />
 
       {/* Tab Content */}
       <div

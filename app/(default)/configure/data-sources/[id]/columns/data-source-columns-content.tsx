@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { ErrorDisplay } from '@/components/error-display';
 import { useAuth } from '@/components/auth/rbac-auth-provider';
 import { getDataTypeBadgeColor, getActiveStatusColor } from '@/lib/utils/badge-colors';
 import DataTable, {
@@ -150,32 +151,12 @@ export default function DataSourceColumnsContent({ dataSourceId }: DataSourceCol
   if (error) {
     return (
       <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-[96rem] mx-auto">
-        <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl p-8">
-          <div className="text-center">
-            <svg
-              className="mx-auto h-12 w-12 text-red-400"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
-              />
-            </svg>
-            <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">
-              Error Loading Columns
-            </h3>
-            <p className="mt-1 text-sm text-red-600 dark:text-red-400">Failed to load columns: {error.message}</p>
-            <div className="mt-6">
-              <Button variant="blue" onClick={() => refetch()}>
-                Try Again
-              </Button>
-            </div>
-          </div>
-        </div>
+        <ErrorDisplay
+          variant="card"
+          error={error}
+          title="Columns"
+          onRetry={() => refetch()}
+        />
       </div>
     );
   }

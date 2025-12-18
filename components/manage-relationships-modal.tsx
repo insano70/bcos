@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useState } from 'react';
 import DeleteConfirmationModal from '@/components/delete-confirmation-modal';
+import { ErrorDisplay } from '@/components/error-display';
 import RelationshipModal from '@/components/relationship-modal';
 import { Modal } from '@/components/ui/modal';
 import { Badge } from '@/components/ui/badge';
@@ -118,11 +119,11 @@ export default function ManageRelationshipsModal({
 
           {/* Error State */}
           {error && (
-            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4">
-              <p className="text-red-600 dark:text-red-400">
-                Error loading relationships: {error.message}
-              </p>
-            </div>
+            <ErrorDisplay
+              variant="alert"
+              error={error.message}
+              onRetry={() => refetch()}
+            />
           )}
 
           {/* Empty State */}

@@ -1,5 +1,6 @@
 'use client';
 
+import { BarChart3, LayoutGrid } from 'lucide-react';
 import { memo, useCallback, useState } from 'react';
 import type {
   ChartDefinition,
@@ -8,6 +9,7 @@ import type {
   MeasureType,
 } from '@/lib/types/analytics';
 import AnalyticsChart from './analytics-chart';
+import { EmptyState } from '@/components/ui/empty-state';
 import { Spinner } from '@/components/ui/spinner';
 
 // New row-based data structures
@@ -74,7 +76,7 @@ const ChartSlotPlaceholder = memo(function ChartSlotPlaceholder({ chartName, cha
       
       {/* Placeholder content */}
       <div className="flex-1 flex flex-col items-center justify-center p-2 text-center">
-        <div className="text-2xl mb-2 opacity-30">📊</div>
+        <BarChart3 className="w-6 h-6 text-gray-400 dark:text-gray-500 opacity-50 mb-2" />
         <p className="text-[10px] text-gray-500 dark:text-gray-400 mb-2">
           Preview not loaded
         </p>
@@ -410,10 +412,13 @@ function DashboardRowBuilderInner({
       {isExpanded && (
         <div className="p-4">
           {row.charts.length === 0 ? (
-            <div className="text-center py-8 text-gray-500 dark:text-gray-400 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg">
-              <div className="text-4xl mb-2">📊</div>
-              <p>Empty Row</p>
-              <p className="text-sm">Click the + button above to add charts</p>
+            <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg py-6">
+              <EmptyState
+                icon={LayoutGrid}
+                iconSize="md"
+                title="Empty Row"
+                description="Click the + button above to add charts"
+              />
             </div>
           ) : (
             <div
@@ -588,11 +593,12 @@ function DashboardRowBuilderInner({
                         )}
                       </div>
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center text-gray-400 dark:text-gray-500 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded overflow-hidden">
-                        <div className="text-center">
-                          <div className="text-2xl mb-1">📊</div>
-                          <p className="text-xs">No Chart Selected</p>
-                        </div>
+                      <div className="w-full h-full flex items-center justify-center border-2 border-dashed border-gray-300 dark:border-gray-600 rounded overflow-hidden">
+                        <EmptyState
+                          icon={BarChart3}
+                          iconSize="sm"
+                          title="No Chart Selected"
+                        />
                       </div>
                     )}
                   </div>

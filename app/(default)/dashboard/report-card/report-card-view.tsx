@@ -23,6 +23,7 @@ import {
 } from '@/components/report-card';
 import Link from 'next/link';
 import { FileText, RefreshCcw, Calendar } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 
 /**
@@ -211,19 +212,19 @@ export default function ReportCardView() {
 
         {renderFilters()}
 
-        <div className="bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 p-6 rounded-2xl">
+        <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-6 rounded-2xl">
           <h3 className="font-semibold mb-2">Failed to load report card</h3>
           <p className="text-sm mb-4">
             There was an error loading your report card. This may be because no report card has
             been generated for this organization yet.
           </p>
-          <button
+          <Button
+            variant="violet"
             onClick={() => refetchReportCard()}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-rose-100 dark:bg-rose-900/30 rounded-lg hover:bg-rose-200 dark:hover:bg-rose-900/50 transition-colors"
+            leftIcon={<RefreshCcw className="w-4 h-4" />}
           >
-            <RefreshCcw className="w-4 h-4" />
             Try Again
-          </button>
+          </Button>
         </div>
       </div>
     );

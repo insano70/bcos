@@ -10,6 +10,7 @@ import { clientDebugLog, clientErrorLog } from '@/lib/utils/debug-client';
 import { storePreferredAuthMethod } from '@/lib/utils/login-hint-storage';
 import { loginSchema } from '@/lib/validations/auth';
 import { Button } from '@/components/ui/button';
+import { ErrorDisplay } from '@/components/error-display';
 import { Spinner } from '@/components/ui/spinner';
 import { useSilentAuth } from './hooks/use-silent-auth';
 import MFASetupDialog from './mfa-setup-dialog';
@@ -292,18 +293,7 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
 
         {/* OIDC Error message (from callback) */}
         {oidcError && oidcErrorMessages[oidcError] && (
-          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg">
-            <div className="flex items-center">
-              <svg className="w-4 h-4 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                <path
-                  fillRule="evenodd"
-                  d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
-                  clipRule="evenodd"
-                />
-              </svg>
-              <span className="text-sm">{oidcErrorMessages[oidcError]}</span>
-            </div>
-          </div>
+          <ErrorDisplay variant="alert" error={oidcErrorMessages[oidcError]} />
         )}
 
         {/* Microsoft SSO Button */}
@@ -356,20 +346,7 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
         {/* Traditional Email/Password Form */}
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           {/* Password login error message */}
-          {error && (
-            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg">
-              <div className="flex items-center">
-                <svg className="w-4 h-4 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                  <path
-                    fillRule="evenodd"
-                    d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-                <span className="text-sm">{error}</span>
-              </div>
-            </div>
-          )}
+          {error && <ErrorDisplay variant="alert" error={error} />}
 
           {/* Email field */}
           <div>

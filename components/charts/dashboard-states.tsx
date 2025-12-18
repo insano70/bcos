@@ -10,7 +10,9 @@
  */
 
 import dynamic from 'next/dynamic';
+import { AlertCircle, BarChart3, RefreshCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
 import { DASHBOARD_MESSAGES } from '@/lib/constants/dashboard-messages';
 import { Spinner } from '@/components/ui/spinner';
 
@@ -102,25 +104,19 @@ export function DashboardErrorState({
   return (
     <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-6">
       <div className="flex items-center">
-        <svg
-          className="w-6 h-6 text-red-600 dark:text-red-400 mr-3"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
-          />
-        </svg>
+        <AlertCircle className="w-6 h-6 text-red-600 dark:text-red-400 mr-3 flex-shrink-0" />
         <div>
           <h3 className="text-red-800 dark:text-red-200 font-medium">{title}</h3>
           <p className="text-red-600 dark:text-red-400 text-sm mt-1">{message}</p>
           {onRetry && (
-            <Button variant="danger" size="sm" onClick={onRetry} className="mt-3">
-              {DASHBOARD_MESSAGES.ACTIONS.RETRY}
+            <Button
+              variant="violet"
+              size="sm"
+              onClick={onRetry}
+              leftIcon={<RefreshCcw className="w-4 h-4" />}
+              className="mt-3"
+            >
+              Try Again
             </Button>
           )}
         </div>
@@ -136,14 +132,11 @@ export function DashboardErrorState({
  */
 export function DashboardEmptyState() {
   return (
-    <div className="text-center py-12">
-      <div className="text-6xl mb-4">📊</div>
-      <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
-        {DASHBOARD_MESSAGES.EMPTY.TITLE}
-      </h3>
-      <p className="text-gray-600 dark:text-gray-400 mt-2">
-        {DASHBOARD_MESSAGES.EMPTY.DESCRIPTION}
-      </p>
-    </div>
+    <EmptyState
+      icon={BarChart3}
+      iconSize="lg"
+      title={DASHBOARD_MESSAGES.EMPTY.TITLE}
+      description={DASHBOARD_MESSAGES.EMPTY.DESCRIPTION}
+    />
   );
 }

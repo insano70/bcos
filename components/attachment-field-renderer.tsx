@@ -13,6 +13,7 @@ import {
   useFieldAttachmentThumbnailUrl,
 } from '@/lib/hooks/use-field-attachments';
 import type { WorkItemField } from '@/lib/types/work-item-fields';
+import { InlineAlert } from '@/components/ui/inline-alert';
 
 interface AttachmentFieldRendererProps {
   field: WorkItemField;
@@ -405,9 +406,9 @@ export default function AttachmentFieldRenderer({
 
       {/* Upload error */}
       {uploadError && (
-        <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-          <p className="text-sm text-red-700 dark:text-red-300">{uploadError}</p>
-        </div>
+        <InlineAlert type="error" className="mb-4">
+          {uploadError}
+        </InlineAlert>
       )}
 
       {/* Attachments list */}

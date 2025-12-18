@@ -1,9 +1,11 @@
 'use client';
 
+import { BarChart3, LayoutGrid } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import type { DashboardUniversalFilters } from '@/hooks/useDashboardData';
 import { apiClient } from '@/lib/api/client';
 import { Badge } from '@/components/ui/badge';
+import { EmptyState } from '@/components/ui/empty-state';
 import { Spinner } from '@/components/ui/spinner';
 import type {
   ChartDefinition,
@@ -17,6 +19,7 @@ import type {
 import AnalyticsChart from './analytics-chart';
 import { clientErrorLog } from '@/lib/utils/debug-client';
 import DashboardFilterDropdown from './dashboard-filter-dropdown';
+import { InlineAlert } from '@/components/ui/inline-alert';
 
 interface DashboardConfig {
   dashboardName: string;
@@ -74,7 +77,7 @@ function ChartPreviewPlaceholder({ chartName, chartType, onLoad, isLoading }: Ch
       
       {/* Placeholder content with load button */}
       <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-        <div className="text-4xl mb-3 opacity-30">📊</div>
+        <BarChart3 className="w-10 h-10 text-gray-400 dark:text-gray-500 opacity-50 mb-3" />
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
           Chart preview not loaded
         </p>
@@ -217,39 +220,21 @@ export default function DashboardPreview({
 
   if (error) {
     return (
-      <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-6">
-        <div className="flex items-center">
-          <svg
-            className="w-6 h-6 text-red-600 dark:text-red-400 mr-3"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
-            />
-          </svg>
-          <div>
-            <h3 className="text-red-800 dark:text-red-200 font-medium">Preview Error</h3>
-            <p className="text-red-600 dark:text-red-400 text-sm mt-1">{error}</p>
-          </div>
-        </div>
-      </div>
+      <InlineAlert type="error" title="Preview Error">
+        {error}
+      </InlineAlert>
     );
   }
 
   if (previewConfig.charts.length === 0) {
     return (
-      <div className="text-center py-12">
-        <div className="text-6xl mb-4">📊</div>
-        <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Empty Dashboard</h3>
-        <p className="text-gray-600 dark:text-gray-400 mt-2">
-          This dashboard doesn't have any charts yet.
-        </p>
-      </div>
+      <EmptyState
+        icon={LayoutGrid}
+        iconSize="lg"
+        title="Empty Dashboard"
+        description="This dashboard doesn't have any charts yet."
+        className="py-12"
+      />
     );
   }
 

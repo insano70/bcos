@@ -25,6 +25,7 @@ import {
 import type { AtRiskUser, AtRiskUsersResponse } from '@/lib/monitoring/types';
 import { exportToCSV, formatDateForCSV } from '@/lib/utils/csv-export';
 import { Spinner } from '@/components/ui/spinner';
+import { InlineAlert } from '@/components/ui/inline-alert';
 
 interface AtRiskUsersPanelProps {
   autoRefresh?: boolean;
@@ -246,9 +247,9 @@ export default function AtRiskUsersPanel({
 
       {/* Error Message */}
       {error && (
-        <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded text-sm text-red-800 dark:text-red-200">
+        <InlineAlert type="error" className="mb-4">
           {error}
-        </div>
+        </InlineAlert>
       )}
 
       {/* Loading State */}

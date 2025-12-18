@@ -29,7 +29,7 @@ function DataTableRowComponent<T extends { id: string | number }>({
 
   return (
     <Fragment>
-      <tr>
+      <tr className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
         {expandable && (
           <td
             className={`px-2 first:pl-5 last:pr-5 ${paddingClass} whitespace-nowrap w-px`}

@@ -1,6 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { BarChart3, RefreshCcw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/loading-skeleton';
 import { Spinner } from '@/components/ui/spinner';
 import { apiClient } from '@/lib/api/client';
@@ -233,12 +236,14 @@ export default function HistoricalComparisonWidget({
               </div>
             </div>
 
-            <button type="button" onClick={performComparison}
+            <Button
+              variant="violet"
+              onClick={performComparison}
               disabled={!measure || !frequency}
-              className="px-4 py-2 bg-violet-500 text-white rounded-md hover:bg-violet-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              leftIcon={<RefreshCcw className="w-4 h-4" />}
             >
-              Retry Comparison
-            </button>
+              Try Again
+            </Button>
           </div>
         ) : comparisonResult ? (
           <div className="space-y-6">
@@ -388,13 +393,12 @@ export default function HistoricalComparisonWidget({
             </div>
           </div>
         ) : (
-          <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-            <div className="text-4xl mb-4">📊</div>
-            <p className="text-lg font-medium mb-2">Ready for Comparison</p>
-            <p className="text-sm">
-              Configure your chart settings and select a comparison type to begin analysis
-            </p>
-          </div>
+          <EmptyState
+            icon={BarChart3}
+            iconSize="lg"
+            title="Ready for Comparison"
+            description="Configure your chart settings and select a comparison type to begin analysis"
+          />
         )}
       </div>
     </div>

@@ -36,14 +36,14 @@ A comprehensive analysis of the codebase examined **16 UI pattern categories** a
 5. [Form Fields](#5-form-fields---completed-) ✅
 6. [Cards/Panels](#6-cardspanels---completed-) ✅
 7. [Empty/Error States](#7-emptyerror-states---inconsistent-cta-buttons)
-8. [Tables](#8-tables---color-palette-inconsistency)
-9. [Avatars](#9-avatars---3-different-initials-algorithms)
-10. [Tooltips/Popovers](#10-tooltipspopovers---3-animation-systems)
-11. [Navigation/Tabs](#11-navigationtabs---inconsistent-active-states)
-12. [Icons](#12-icons---no-global-sizecolor-system)
+8. [Tables](#8-tables---completed-) ✅
+9. [Avatars](#9-avatars---completed-) ✅
+10. [Tooltips/Popovers](#10-tooltipspopovers---completed-partial) (Partial)
+11. [Navigation/Tabs](#11-navigationtabs---completed-) ✅
+12. [Icons](#12-icons---deferred-) ⏸️ Deferred
 13. [Alerts/Toasts](#13-alertstoasts---legacy-hook-conflict)
 14. [Typography](#14-typography---heading-weight-hierarchy)
-15. [Pagination](#15-pagination---unused-component)
+15. [Pagination](#15-pagination---completed-) ✅
 16. [List Items](#16-list-items---spacing-inconsistency)
 17. [Dead Code to Remove](#17-dead-code-to-remove)
 18. [Recommended Priority](#18-recommended-standardization-priority)
@@ -943,13 +943,24 @@ The ErrorDisplay system is well-designed, but retry/action buttons use inconsist
 
 ---
 
-## 8. Tables - Color Palette Inconsistency
+## 8. Tables - COMPLETED ✅
 
-**Severity: MEDIUM** | **Files Affected: 17+** | **Effort: Low**
+**Severity: MEDIUM** | **Files Affected: 17+** | **Effort: Low** | **Status: COMPLETE (December 2024)**
 
-### Problem Statement
+### Solution Implemented
 
-The main DataTable system is consistent, but `GradeHistoryTable` uses a different color palette.
+The table color palette has been standardized across all components:
+
+1. **GradeHistoryTable**: Migrated from `slate-*` to `gray-*` color palette (~40 class changes)
+2. **DataTable rows**: Added hover states (`hover:bg-gray-50 dark:hover:bg-gray-700/30`)
+3. **Header backgrounds**: Standardized to `bg-gray-50 dark:bg-gray-900/20` across all tables
+4. **Divider colors**: Standardized to `divide-gray-100 dark:divide-gray-700/60`
+
+See [table-color-standardization-plan.md](table-color-standardization-plan.md) for full implementation details.
+
+### Original Problem (Resolved)
+
+The main DataTable system was consistent, but `GradeHistoryTable` used a different color palette.
 
 ### DataTable System (Consistent)
 
@@ -1008,213 +1019,196 @@ className="bg-slate-50/50 dark:bg-slate-700/20"  // First row highlight
 className="bg-gray-50 dark:bg-gray-700/50"  // vs dark:bg-gray-900/20
 ```
 
-### Recommended Solution
+### Recommended Solution (IMPLEMENTED ✅)
 
-1. Migrate `GradeHistoryTable` from `slate-*` to `gray-*`
-2. Add optional row hover to `BaseDataTable`
-3. Standardize header dark background to `dark:bg-gray-900/20`
+1. ~~Migrate `GradeHistoryTable` from `slate-*` to `gray-*`~~ ✅ Done
+2. ~~Add optional row hover to `BaseDataTable`~~ ✅ Done
+3. ~~Standardize header dark background to `dark:bg-gray-900/20`~~ ✅ Done
 
 ---
 
-## 9. Avatars - 3 Different Initials Algorithms
+## 9. Avatars - COMPLETED ✅
 
-**Severity: MEDIUM** | **Files Affected: 15+** | **Effort: Low**
+**Severity: MEDIUM** | **Files Affected: 9** | **Effort: Low** | **Status: COMPLETE (December 2024)**
 
-### Problem Statement
+### Solution Implemented
 
-No shared avatar utility exists. Initials generation and color assignment are implemented differently across components.
+A standardized Avatar system was created with utility functions and a reusable component.
 
-### Initials Generation Patterns
+#### Utility Functions Created
 
-#### Pattern A: First/Last Name (Most Common)
-```tsx
-// /components/user-picker.tsx, /components/announcements/multi-user-picker.tsx
-const getInitials = (user: User): string => {
-  return `${user.first_name.charAt(0)}${user.last_name.charAt(0)}`.toUpperCase();
-};
-```
+**File**: `/lib/utils/avatar.ts`
 
-#### Pattern B: String Splitting
-```tsx
-// /components/work-items/work-item-activity-section.tsx
-// /components/work-items/work-item-comments-section.tsx
-const getInitials = (name: string) => {
-  return name
-    .split(' ')
-    .map((part) => part[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
-};
-```
+| Function | Description |
+|----------|-------------|
+| `getInitials(firstName, lastName)` | Generate initials from separate first/last name |
+| `getInitials(fullName)` | Generate initials from a full name string |
+| `getAvatarColor(userId)` | Generate consistent color from user ID (8-color palette) |
+| `AVATAR_SIZES` | Size presets (xs, sm, md, lg, xl, 2xl) |
 
-#### Pattern C: Safety Check
-```tsx
-// /components/announcements/recipients-modal.tsx
-const getInitials = (name: string): string => {
-  const parts = name.split(' ');
-  if (parts.length >= 2) {
-    return `${parts[0]?.charAt(0) ?? ''}${parts[1]?.charAt(0) ?? ''}`.toUpperCase();
-  }
-  return name.charAt(0).toUpperCase();
-};
-```
+#### Component Created
 
-### Color Assignment Patterns
+**File**: `/components/ui/avatar.tsx`
 
-#### Pattern A: Dynamic 8-Color Palette
-```tsx
-// /components/user-picker.tsx, /components/announcements/multi-user-picker.tsx
-const colors = [
-  'bg-blue-500', 'bg-green-500', 'bg-yellow-500', 'bg-red-500',
-  'bg-purple-500', 'bg-pink-500', 'bg-indigo-500', 'bg-teal-500',
-];
-const index = userId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % colors.length;
-return colors[index];
-```
-
-#### Pattern B: Hardcoded Single Color
-```tsx
-// /components/organization-users-modal.tsx
-className="w-8 h-8 rounded-full bg-violet-500"  // All users same color
-
-// /components/work-item-comments-section.tsx
-className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600"  // All gray
-```
-
-### Size Variations
-
-| Size | Files Using |
-|------|-------------|
-| `w-4 h-4` | multi-user-picker (tags) |
-| `w-6 h-6` | user-picker (dropdown) |
-| `w-8 h-8` | organization-users-modal, recipients-modal, comments, activity |
-| `w-12 h-12` | delete-confirmation modals |
-| `w-16 h-16` | staff-member-card |
-
-### Text Size in Avatars
-
-| Size | Files |
-|------|-------|
-| `text-[10px]` | multi-user-picker (tags) |
-| `text-xs` | user-picker, organization-users-modal |
-| `text-sm` | recipients-modal, comments |
-
-### Files with Avatar Implementations
-
-- `/components/user-picker.tsx`
-- `/components/announcements/multi-user-picker.tsx`
-- `/components/announcements/recipients-modal.tsx`
-- `/components/organization-users-modal.tsx`
-- `/components/work-items/work-item-comments-section.tsx`
-- `/components/work-items/work-item-activity-section.tsx`
-- `/components/work-item-watchers-list.tsx`
-- `/components/staff-member-card.tsx`
-- `/components/channel-menu.tsx`
-- `/components/dropdown-switch.tsx`
-
-### Recommended Solution
-
-Create `/lib/utils/avatar-utils.ts`:
-```tsx
-export function getInitials(firstName: string, lastName?: string): string
-export function getInitials(fullName: string): string
-export function getAvatarColor(userId: string): string
-```
-
-Create `/components/ui/avatar.tsx`:
 ```tsx
 interface AvatarProps {
-  size: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
-  src?: string;
-  name: string;
-  userId?: string;  // For consistent color
+  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl';
+  src?: string | null;        // Image URL (optional)
+  name?: string;              // Full name for initials
+  firstName?: string;         // Alternative: first name
+  lastName?: string;          // Alternative: last name
+  userId?: string;            // For consistent color
+  colorClass?: string;        // Override color
+  className?: string;         // Additional classes
 }
 ```
 
+**Features**:
+- Size presets matching existing patterns (xs=16px to 2xl=64px)
+- Image support with Next.js `<Image />` component
+- Initials fallback with dynamic color
+- Icon fallback when no name provided
+- Error handling for broken images
+
+### Migration Status
+
+**8 files migrated** to use the standardized Avatar component:
+
+| File | Components Migrated |
+|------|---------------------|
+| `user-picker.tsx` | 2 avatar renders → Avatar component |
+| `multi-user-picker.tsx` | 2 avatar renders → Avatar component |
+| `recipients-modal.tsx` | 1 avatar render → Avatar component |
+| `organization-users-modal.tsx` | 1 avatar render → Avatar component |
+| `users-content.tsx` | 1 avatar render → Avatar component |
+| `work-item-comments-section.tsx` | 2 avatar renders → Avatar component |
+| `work-item-watchers-list.tsx` | 1 avatar render → Avatar component |
+| `work-item-activity-section.tsx` | Removed unused `_getInitials` function |
+
+### Benefits Achieved
+
+| Metric | Before | After |
+|--------|--------|-------|
+| `getInitials` implementations | 4 (3 active + 1 unused) | 1 centralized |
+| `getAvatarColor` implementations | 3 | 1 centralized |
+| Components with hardcoded colors | 4 | 0 (all use dynamic colors) |
+| Avatar utility files | 0 | 2 |
+| Lines of duplicated code | ~100 | ~0 |
+
+### Approved Exceptions
+
+| File | Reason |
+|------|--------|
+| `work-item-activity-section.tsx` | Uses activity-type icons, not user avatars |
+| `staff-member-card.tsx` | Photo-based with explicit photo_url |
+| `channel-menu.tsx`, `dropdown-switch.tsx` | Use channel/organization images, not user avatars |
+
+### Original Problem (Resolved)
+
+Prior to standardization:
+- 3 different initials algorithms
+- 2 different color assignment patterns (dynamic vs hardcoded)
+- 5 different size variations with no consistency
+- No centralized utility or component
+
 ---
 
-## 10. Tooltips/Popovers - 3 Animation Systems
+## 10. Tooltips/Popovers - COMPLETED (Partial)
 
-**Severity: MEDIUM** | **Files Affected: 27+** | **Effort: Medium**
+**Severity: MEDIUM** | **Files Affected: 27+** | **Effort: Medium** | **Status: z-index & animation DONE (December 2024)**
 
-### Problem Statement
+### Solution Implemented
 
-Three different animation systems are used for tooltips and popovers, with inconsistent z-index values.
+#### Phase 1: z-index Standardization - DONE
 
-### Animation Systems
+All floating UI elements now use `z-50` for consistent layering. Updated 13 files:
 
-#### System 1: Headless UI Transition (Most Common)
+| File | Change |
+|------|--------|
+| `tooltip.tsx` | `z-10` -> `z-50` |
+| `dropdown-profile.tsx` | `z-10` -> `z-50` |
+| `dropdown-help.tsx` | `z-10` -> `z-50` |
+| `dropdown-notifications.tsx` | `z-10` -> `z-50` |
+| `dropdown-switch.tsx` | `z-10` -> `z-50` |
+| `channel-menu.tsx` | `z-10` -> `z-50` |
+| `edit-menu.tsx` | `z-10` -> `z-50` |
+| `edit-menu-card.tsx` | `z-10` -> `z-50` |
+| `dropdown-full.tsx` | `z-10` -> `z-50` |
+| `date-select.tsx` | `z-10` -> `z-50` |
+| `charts/data-source-selector.tsx` | `z-10` -> `z-50` |
+| `role-selector.tsx` | `z-10` -> `z-50` |
+| `charts/drill-down-chart-selector.tsx` | `z-10` -> `z-50` |
+
+#### Phase 2: Animation Standardization - DONE
+
+`data-table-dropdown.tsx` now uses Headless UI Transition (was the only dropdown without animation).
+
+#### Phase 3: Animation Duration Standardization - DONE
+
+All dropdown/tooltip components now use `duration-100` for snappy animations. Updated 11 files:
+
+| File | Change |
+|------|--------|
+| `tooltip.tsx` | `duration-200` -> `duration-100` |
+| `dropdown-profile.tsx` | `duration-200` -> `duration-100` |
+| `dropdown-help.tsx` | `duration-200` -> `duration-100` |
+| `dropdown-notifications.tsx` | `duration-200` -> `duration-100` |
+| `dropdown-switch.tsx` | `duration-200` -> `duration-100` |
+| `channel-menu.tsx` | `duration-200` -> `duration-100` |
+| `edit-menu.tsx` | `duration-200` -> `duration-100` |
+| `edit-menu-card.tsx` | `duration-200` -> `duration-100` |
+| `dropdown-filter.tsx` | `duration-200` -> `duration-100` |
+| `charts/dashboard-filter-dropdown.tsx` | `duration-200` -> `duration-100` |
+| `data-table-dropdown.tsx` | `duration-200` -> `duration-100` |
+
+**Note**: Modal components (`modal.tsx`, `crud-modal/index.tsx`) retain `duration-200` as longer animations are appropriate for modals.
+
+### Standard Animation Pattern (Headless UI Transition)
+
+All dropdown components now use:
 ```tsx
-// Used by most dropdowns
 <Transition
-  enter="transition ease-out duration-200 transform"
+  show={isOpen}
+  as="div"
+  className="z-50 ..."
+  enter="transition ease-out duration-100 transform"
   enterFrom="opacity-0 -translate-y-2"
   enterTo="opacity-100 translate-y-0"
-  leave="transition ease-out duration-200"
+  leave="transition ease-out duration-100"
   leaveFrom="opacity-100"
   leaveTo="opacity-0"
-/>
-```
-**Files**: All dropdown-*.tsx files, tooltip.tsx
-
-#### System 2: Radix UI Data Attributes
-```tsx
-// /components/ui/popover.tsx
-className="data-[state=open]:animate-in data-[state=closed]:animate-out
-           data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0
-           data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95
-           data-[side=bottom]:slide-in-from-top-2"
+>
 ```
 
-#### System 3: Framer Motion
-```tsx
-// /components/report-card/score-help-tooltip.tsx
-<motion.div
-  initial={{ opacity: 0, scale: 0.95, y: 20 }}
-  animate={{ opacity: 1, scale: 1, y: 0 }}
-  exit={{ opacity: 0, scale: 0.95, y: 20 }}
-  transition={{ duration: 0.2 }}
-/>
-```
+### Approved Exceptions (Not Migrated)
 
-### z-index Inconsistency
+| Component | Reason |
+|-----------|--------|
+| `score-help-tooltip.tsx` | Full modal with backdrop - not a dropdown |
+| `hierarchy-select.tsx` | Mobile bottom sheet with swipe gestures |
+| `popover.tsx` + `datepicker.tsx` | Radix Calendar integration - specialized UX |
 
-| Component | z-index |
-|-----------|---------|
-| Tooltip | `z-10` |
-| Dropdown menus | `z-10` |
-| Radix Popover | `z-50` |
-| DataTableDropdown | `z-50` |
-| Modals | `z-50` |
+### Original Problem (Resolved)
 
-**Issue**: Mix of `z-10` and `z-50` can cause layering problems
+Three animation systems caused inconsistency:
+1. **Headless UI Transition** - 10+ files (now standard)
+2. **Radix UI data attributes** - 1 file (exception: calendar picker)
+3. **Framer Motion** - 2 files (exceptions: modal tooltip, mobile sheet)
 
-### Width/Size Variations
+z-index mix of `z-10` and `z-50` could cause dropdowns to appear behind other UI elements. Now standardized to `z-50`.
 
-| Component | Width |
-|-----------|-------|
-| Tooltip (sm) | `min-w-[11rem]` |
-| Tooltip (md) | `min-w-[14rem]` |
-| Tooltip (lg) | `min-w-[18rem]` |
-| Dropdown menus | `min-w-[11rem]` to `min-w-[20rem]` |
-| Radix Popover | `w-72` (fixed 288px) |
+### Width/Size Variations (Not Changed)
 
-### Trigger Mechanism Variations
-
-| Component | Trigger | Open | Close |
-|-----------|---------|------|-------|
-| Custom Tooltip | Click | Click button | Click/blur |
-| Dropdown menus | Click | Click MenuButton | Click item/blur |
-| Radix Popover | Click | Click trigger | Click outside/ESC |
-| Chart tooltips | Hover | Auto | Auto |
-| Title attribute | Hover | Native | Auto delay |
+Width tokens remain as-is (7 variations). Future work could consolidate to 4 standard sizes:
+- `sm`: `min-w-[9rem]` (144px) - Compact menus
+- `md`: `min-w-[14rem]` (224px) - Standard dropdowns
+- `lg`: `min-w-[20rem]` (320px) - Rich content
+- `auto`: No min-width - Content-sized
 
 ### Files with Tooltip/Popover Patterns
 
-**Core Components**:
+**Using Standard Pattern (z-50 + Headless UI Transition)**:
 - `/components/tooltip.tsx`
-- `/components/ui/popover.tsx`
 - `/components/dropdown-full.tsx`
 - `/components/dropdown-filter.tsx`
 - `/components/dropdown-help.tsx`
@@ -1222,107 +1216,115 @@ className="data-[state=open]:animate-in data-[state=closed]:animate-out
 - `/components/dropdown-switch.tsx`
 - `/components/dropdown-notifications.tsx`
 - `/components/data-table-dropdown.tsx`
-- `/components/datepicker.tsx`
+- `/components/channel-menu.tsx`
+- `/components/edit-menu.tsx`
+- `/components/edit-menu-card.tsx`
+- `/components/date-select.tsx`
+- `/components/charts/data-source-selector.tsx`
 
-**Specialized**:
-- `/components/report-card/score-help-tooltip.tsx` (Modal-based)
-- `/components/charts/chartjs-config.tsx` (Chart.js tooltips)
-
-### Recommended Solution
-
-1. Choose single animation system (recommend Headless UI Transition)
-2. Standardize z-index to `z-50` for all floating elements
-3. Create unified `<Tooltip>` component with hover trigger option
-
----
-
-## 11. Navigation/Tabs - Inconsistent Active States
-
-**Severity: MEDIUM** | **Files Affected: 20+** | **Effort: Low**
-
-### Problem Statement
-
-Tab active states use different colors, and active detection methods vary.
-
-### Tab Active State Colors
-
-#### Work Item Detail Tabs
-```tsx
-// /app/(default)/work/[id]/work-item-detail-content.tsx
-activeTab === tab
-  ? 'border-gray-900 dark:border-gray-100 text-gray-900 dark:text-gray-100'  // Gray!
-  : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700'
-```
-
-#### Redis Admin Tabs
-```tsx
-// /app/(default)/admin/command-center/components/redis-admin-tabs.tsx
-activeTab === tab
-  ? 'border-violet-500 text-violet-600 dark:text-violet-400 font-medium'  // Violet
-  : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900'
-```
-
-**Issue**: Work item tabs use gray, Redis tabs use violet
-
-### Sidebar Active States (Consistent)
-
-```tsx
-// /components/ui/sidebar-link.tsx
-pathname === href
-  ? 'group-[.is-link-group]:text-violet-500'
-  : 'hover:text-gray-900 dark:hover:text-white'
-
-// /components/ui/sidebar-link-group.tsx
-// Gradient background when open
-className={`${open && 'from-violet-500/[0.12] dark:from-violet-500/[0.24] to-violet-500/[0.04]'}`}
-```
-
-### Active Detection Methods
-
-| Component | Method |
-|-----------|--------|
-| SidebarLink | `pathname === href` |
-| DashboardMenuSection | `segments.includes('dashboard')` |
-| WorkMenuSection | `pathname.includes('work')` |
-| AdminMenuSection | `segments.includes('configure')` or `segments.includes('admin')` |
-| DataExplorerMenuSection | `pathname.includes('data/explorer')` |
-
-**Issue**: Mix of exact match, includes, and segment checking
-
-### Breadcrumb Implementations
-
-#### Work Item Breadcrumbs
-**File**: `/components/work-items/work-item-breadcrumbs.tsx`
-```tsx
-// Clickable ancestors
-className="text-gray-600 dark:text-gray-400 hover:text-gray-900"
-
-// Current item (last)
-className="font-medium truncate max-w-[200px]"  // Not clickable
-```
-
-#### Work Item Hierarchy Breadcrumbs
-**File**: `/components/work-items/work-item-hierarchy-breadcrumbs.tsx`
-```tsx
-// Uses Link components
-className="hover:text-gray-900 dark:hover:text-gray-200 transition-colors"
-
-// Current item as span
-```
-
-### Recommended Solution
-
-1. Standardize tab active color to `border-violet-500` (brand color)
-2. Create `<Tabs>` component with consistent styling
-3. Document active detection pattern preference
+**Exceptions (Different Animation System)**:
+- `/components/ui/popover.tsx` - Radix UI (calendar integration)
+- `/components/report-card/score-help-tooltip.tsx` - Framer Motion (modal)
+- `/components/hierarchy-select.tsx` - Framer Motion (mobile sheet)
 
 ---
 
-## 12. Icons - No Global Size/Color System
+## 11. Navigation/Tabs - COMPLETED ✅
 
-**Severity: MEDIUM** | **Files Affected: 146+** | **Effort: Low**
+**Severity: MEDIUM** | **Files Affected: 20+** | **Effort: Low** | **Status: COMPLETE (December 2024)**
 
-### Problem Statement
+### Solution Implemented
+
+A standardized `Tabs` component was created at `/components/ui/tabs.tsx` with the following features:
+
+#### Variants
+| Variant | Use Case |
+|---------|----------|
+| `underline` | Standard tabs with bottom border (default) |
+| `pill` | Pill-style tabs with background highlight |
+
+#### Features
+- Standardized violet active state (`border-violet-500 text-violet-600`)
+- Icon support via `icon` prop on tabs
+- ARIA accessibility attributes (`role="tablist"`, `role="tab"`, `aria-selected`)
+- Dark mode support
+
+### Migration Status
+
+**3 files migrated** to use the standardized Tabs component:
+
+| File | Previous Color | Status |
+|------|----------------|--------|
+| `work-item-detail-content.tsx` | Gray | ✅ Migrated to violet |
+| `redis-admin-tabs.tsx` | Violet (inline) | ✅ Migrated to component |
+| `edit-transition-config-modal.tsx` | Blue | ✅ Migrated to violet |
+
+### Approved Exceptions
+
+| File | Reason |
+|------|--------|
+| `user-announcement-modal.tsx` | Complex tab content with dynamic badge counter; already uses violet |
+
+### Path Bug Fixes
+
+**Files fixed** (6 total occurrences of `/default/work` → `/work`):
+- `work-item-hierarchy-breadcrumbs.tsx` - 2 occurrences
+- `editable-work-items-table.tsx` - 1 occurrence
+- `work-item-expanded-row.tsx` - 3 occurrences
+
+### Active Detection Patterns (Documented)
+
+| Pattern | Use Case | Example |
+|---------|----------|---------|
+| Exact match (`===`) | Leaf-level navigation items | `/settings/account` |
+| Segment check (`segments.includes()`) | Section dropdowns that expand on child routes | Dashboard, Configure |
+| Path prefix (`pathname.includes()`) | Items with nested child pages | Work Items (`/work`, `/work/123`) |
+
+### Usage Example
+
+```tsx
+import { Tabs } from '@/components/ui/tabs';
+
+<Tabs
+  tabs={[
+    { id: 'details', label: 'Details' },
+    { id: 'comments', label: 'Comments' },
+  ]}
+  activeTab={activeTab}
+  onChange={setActiveTab}
+  ariaLabel="Work item sections"
+/>
+```
+
+### Original Problem (Resolved)
+
+Prior to standardization:
+- 4 tab implementations with 3 different active colors (gray, violet, blue)
+- No reusable Tabs component (all inline ~25 lines each)
+- Path bug (`/default/work` instead of `/work`) in 3 files (6 occurrences)
+
+**Implementation Plan**: See [navigation-tabs-standardization-plan.md](plans/navigation-tabs-standardization-plan.md) for full details.
+
+---
+
+## 12. Icons - DEFERRED ⏸️
+
+**Severity: MEDIUM** | **Files Affected: 195+** | **Effort: Low** | **Status: DEFERRED (December 2024)**
+
+### Decision
+
+After analysis, this item was **deferred** as low-value:
+
+1. **Tailwind classes ARE constants** - `w-4 h-4` is already standardized
+2. **Zero functional bugs** - icons render correctly everywhere
+3. **Class order doesn't matter** - `h-4 w-4` vs `w-4 h-4` is functionally identical
+4. **No dark mode gaps** - colors already have dark variants where needed
+
+Unlike Button/Modal/FormField standardization which eliminated **behavioral inconsistencies**, icon "standardization" would only add an abstraction layer over already-working Tailwind classes.
+
+**Analysis document**: See [icon-system-standardization-plan.md](plans/icon-system-standardization-plan.md) for full findings.
+
+### Original Problem Statement
 
 Icons (primarily Lucide React) lack standardized size and color constants.
 
@@ -1543,27 +1545,43 @@ Only `truncate` (single-line) is used. No `line-clamp-*` utilities found.
 
 ---
 
-## 15. Pagination - Unused Component
+## 15. Pagination - COMPLETED ✅
 
-**Severity: LOW** | **Files Affected: 5+** | **Effort: Minimal**
+**Severity: LOW** | **Files Affected: 5+** | **Effort: Minimal** | **Status: COMPLETE (December 2024)**
 
-### Problem Statement
+### Solution Implemented
 
-`pagination-numeric.tsx` exists but is a hardcoded placeholder, not used in the application.
+The unused `pagination-numeric.tsx` was deleted in commit `19f71c6e`. The pagination system is now clean and consistent.
 
 ### Current Pagination System
 
-**Working Components**:
-- `/lib/hooks/use-pagination.ts` - Pagination logic
-- `/components/pagination-classic.tsx` - Active UI (Previous/Next)
-- `/components/data-table/data-table-pagination.tsx` - Wrapper
+**Active Components**:
+- `/lib/hooks/use-pagination.ts` - Client-side pagination logic hook
+- `/components/pagination-classic.tsx` - Previous/Next UI component
+- `/components/data-table/data-table-pagination.tsx` - DataTable wrapper
 
-**Unused**:
-- `/components/pagination-numeric.tsx` - Hardcoded pages 1,2,3...9 (not connected to hook)
+### Usage Pattern
 
-### Recommended Solution
+17 files correctly use the standard pattern via `DataTableStandard` or `EditableDataTable`:
 
-Delete `/components/pagination-numeric.tsx` or implement properly
+```tsx
+<DataTableStandard
+  data={items}
+  columns={columns}
+  pagination={{ itemsPerPage: 10 }}
+/>
+```
+
+### Approved Exceptions
+
+| File | Reason |
+|------|--------|
+| `at-risk-users-panel.tsx` | Admin component with custom filtering/sorting |
+| `redis-key-browser.tsx` | Server-side pagination (page sent to API) |
+
+### Original Problem (Resolved)
+
+`pagination-numeric.tsx` was a hardcoded placeholder with pages 1,2,3...9 that was not connected to the `usePagination` hook. File was deleted as dead code.
 
 ---
 
@@ -1653,15 +1671,15 @@ The following dead code files have been removed from the codebase:
 |------|----------------|--------|--------|
 | ~~Create FormField wrapper~~ | ~~20+~~ | ~~Medium~~ | ✅ Done |
 | ~~Create Card component system~~ | ~~50+~~ | ~~Medium~~ | ✅ Done |
-| Create Avatar component + utils | 15+ | Low | Pending |
-| Standardize icon sizing | 146+ | Low | Pending |
+| ~~Create Avatar component + utils~~ | ~~9~~ | ~~Low~~ | ✅ Done |
+| ~~Standardize icon sizing~~ | ~~146+~~ | ~~Low~~ | ⏸️ Deferred |
 
 ### Phase 3: Polish
 
 | Task | Files Affected | Effort | Status |
 |------|----------------|--------|--------|
 | Unify tooltip/popover animations | 27+ | Medium | Pending |
-| Standardize tab active states | 20+ | Low | Pending |
+| ~~Standardize tab active states~~ | ~~20+~~ | ~~Low~~ | ✅ Done |
 | Create InlineAlert component | 70+ | Low | Pending |
 | Fix typography hierarchy | 15+ | Low | Pending |
 | ~~Remove dead code~~ | ~~3 files~~ | ~~Minimal~~ | ✅ Done |
@@ -1680,10 +1698,10 @@ The following dead code files have been removed from the codebase:
 | Cards | 1 standard (`/components/ui/card.tsx`) + 1 special (GlassCard) | 19 admin migrated, 10 report kept (motion.div) | ✅ Done |
 | Error/Empty | 5 | 30+ inline | Pending |
 | Tables | 17 | - | Pending |
-| Avatars | 0 | 15+ inline | Pending |
+| Avatars | 2 (`/lib/utils/avatar.ts`, `/components/ui/avatar.tsx`) | 8 files migrated | ✅ Done |
 | Tooltips | 12 | - | Pending |
-| Navigation | 20+ | - | Pending |
-| Icons | 0 constants | 146+ usages | Pending |
+| Navigation | 1 standard (`/components/ui/tabs.tsx`) | 3 files migrated, 6 path bugs fixed | ✅ Done |
+| Icons | 0 constants | 195+ usages | ⏸️ Deferred |
 | Alerts | 4 | 202 inline | Pending |
 | Typography | 0 | - | Pending |
-| Pagination | 2 | - | Pending |
+| Pagination | 3 (`usePagination`, `PaginationClassic`, `DataTablePagination`) | 17 files using standard pattern | ✅ Done |

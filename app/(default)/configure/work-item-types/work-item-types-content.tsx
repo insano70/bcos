@@ -14,6 +14,7 @@ import FilterButton, { type ActiveFilter, type FilterGroup } from '@/components/
 import ManageRelationshipsModal from '@/components/manage-relationships-modal';
 import ManageStatusesModal from '@/components/manage-statuses-modal';
 import ManageWorkItemFieldsModal from '@/components/manage-work-item-fields-modal';
+import { ErrorDisplay } from '@/components/error-display';
 import { ProtectedComponent } from '@/components/rbac/protected-component';
 import { Spinner } from '@/components/ui/spinner';
 import WorkflowVisualizationModal from '@/components/workflow-visualization-modal';
@@ -414,11 +415,12 @@ export default function WorkItemTypesContent() {
   if (error) {
     return (
       <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-[96rem] mx-auto">
-        <div className="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 p-4">
-          <p className="text-red-800 dark:text-red-200">
-            Error loading work item types. Please try again.
-          </p>
-        </div>
+        <ErrorDisplay
+          variant="inline"
+          error="Failed to load work item types"
+          title="Work Item Types"
+          onRetry={() => refetch()}
+        />
       </div>
     );
   }

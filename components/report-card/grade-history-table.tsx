@@ -22,7 +22,7 @@ function ChangeIndicator({
   gradeChange: 'up' | 'down' | 'same' | null;
 }) {
   if (scoreChange === null || gradeChange === null) {
-    return <span className="text-slate-400 text-xs">—</span>;
+    return <span className="text-gray-400 text-xs">—</span>;
   }
 
   const IconComponent = 
@@ -33,12 +33,12 @@ function ChangeIndicator({
   const colorClass = 
     gradeChange === 'up' ? 'text-emerald-500' : 
     gradeChange === 'down' ? 'text-rose-500' : 
-    'text-slate-400';
+    'text-gray-400';
 
   const bgClass = 
     gradeChange === 'up' ? 'bg-emerald-500/10' : 
     gradeChange === 'down' ? 'bg-rose-500/10' : 
-    'bg-slate-400/10';
+    'bg-gray-400/10';
 
   return (
     <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full ${bgClass}`}>
@@ -83,10 +83,10 @@ export default function GradeHistoryTable({
 }: GradeHistoryTableProps) {
   if (isLoading) {
     return (
-      <div className={`bg-white dark:bg-slate-800 rounded-xl p-6 shadow-sm border border-slate-200 dark:border-slate-700 ${className}`}>
+      <div className={`bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700 ${className}`}>
         <div className="flex items-center gap-2 mb-4">
-          <History className="w-5 h-5 text-slate-500" />
-          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
+          <History className="w-5 h-5 text-gray-500" />
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
             Grade History
           </h3>
         </div>
@@ -97,14 +97,14 @@ export default function GradeHistoryTable({
 
   if (!history || history.length === 0) {
     return (
-      <div className={`bg-white dark:bg-slate-800 rounded-xl p-6 shadow-sm border border-slate-200 dark:border-slate-700 ${className}`}>
+      <div className={`bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700 ${className}`}>
         <div className="flex items-center gap-2 mb-4">
-          <History className="w-5 h-5 text-slate-500" />
-          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
+          <History className="w-5 h-5 text-gray-500" />
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
             Grade History
           </h3>
         </div>
-        <p className="text-slate-500 dark:text-slate-400 text-sm">
+        <p className="text-gray-500 dark:text-gray-400 text-sm">
           No historical grades available yet. Report cards are generated monthly.
         </p>
       </div>
@@ -116,15 +116,15 @@ export default function GradeHistoryTable({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
-      className={`bg-white dark:bg-slate-800 rounded-xl p-6 shadow-sm border border-slate-200 dark:border-slate-700 ${className}`}
+      className={`bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700 ${className}`}
     >
       {/* Header */}
       <div className="flex items-center gap-2 mb-4">
-        <History className="w-5 h-5 text-slate-500" />
-        <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
+        <History className="w-5 h-5 text-gray-500" />
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
           Grade History
         </h3>
-        <span className="text-sm text-slate-500 dark:text-slate-400">
+        <span className="text-sm text-gray-500 dark:text-gray-400">
           (Last {history.length} months)
         </span>
       </div>
@@ -133,20 +133,20 @@ export default function GradeHistoryTable({
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
-            <tr className="border-b border-slate-200 dark:border-slate-700">
-              <th className="text-left py-2 px-2 text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+            <tr className="border-b border-gray-200 dark:border-gray-700">
+              <th className="text-left py-2 px-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                 Month
               </th>
-              <th className="text-center py-2 px-2 text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+              <th className="text-center py-2 px-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                 Grade
               </th>
-              <th className="text-right py-2 px-2 text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+              <th className="text-right py-2 px-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                 Score
               </th>
-              <th className="text-right py-2 px-2 text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+              <th className="text-right py-2 px-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                 Percentile
               </th>
-              <th className="text-right py-2 px-2 text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+              <th className="text-right py-2 px-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                 Change
               </th>
             </tr>
@@ -158,16 +158,16 @@ export default function GradeHistoryTable({
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.2, delay: index * 0.03 }}
-                className={`border-b border-slate-100 dark:border-slate-700/50 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors ${
-                  index === 0 ? 'bg-slate-50/50 dark:bg-slate-700/20' : ''
+                className={`border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors ${
+                  index === 0 ? 'bg-gray-50/50 dark:bg-gray-700/20' : ''
                 }`}
               >
                 {/* Month */}
                 <td className="py-3 px-2">
                   <span className={`text-sm font-medium ${
                     index === 0 
-                      ? 'text-slate-900 dark:text-white' 
-                      : 'text-slate-600 dark:text-slate-300'
+                      ? 'text-gray-900 dark:text-white' 
+                      : 'text-gray-600 dark:text-gray-300'
                   }`}>
                     {entry.monthLabel}
                   </span>
@@ -185,14 +185,14 @@ export default function GradeHistoryTable({
 
                 {/* Score */}
                 <td className="py-3 px-2 text-right">
-                  <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
                     {applyGradeFloor(entry.score).toFixed(1)}
                   </span>
                 </td>
 
                 {/* Percentile */}
                 <td className="py-3 px-2 text-right">
-                  <span className="text-sm text-slate-600 dark:text-slate-300">
+                  <span className="text-sm text-gray-600 dark:text-gray-300">
                     {entry.percentileRank.toFixed(0)}%
                   </span>
                 </td>
@@ -214,7 +214,7 @@ export default function GradeHistoryTable({
 
       {/* Summary Stats */}
       {history.length >= 3 && (
-        <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
+        <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
           <div className="flex flex-wrap gap-4 text-sm">
             <GradeSummary history={history} />
           </div>
@@ -240,26 +240,26 @@ function GradeSummary({ history }: { history: GradeHistoryEntry[] }) {
   return (
     <>
       <div className="flex items-center gap-1.5">
-        <span className="text-slate-500 dark:text-slate-400">Avg:</span>
-        <span className="font-medium text-slate-700 dark:text-slate-200">
+        <span className="text-gray-500 dark:text-gray-400">Avg:</span>
+        <span className="font-medium text-gray-700 dark:text-gray-200">
           {avgScore.toFixed(1)}
         </span>
       </div>
       <div className="flex items-center gap-1.5">
-        <span className="text-slate-500 dark:text-slate-400">High:</span>
+        <span className="text-gray-500 dark:text-gray-400">High:</span>
         <span className="font-medium text-emerald-600 dark:text-emerald-400">
           {maxScore.toFixed(1)}
         </span>
       </div>
       <div className="flex items-center gap-1.5">
-        <span className="text-slate-500 dark:text-slate-400">Low:</span>
+        <span className="text-gray-500 dark:text-gray-400">Low:</span>
         <span className="font-medium text-amber-600 dark:text-amber-400">
           {minScore.toFixed(1)}
         </span>
       </div>
       {(improvements > 0 || declines > 0) && (
         <div className="flex items-center gap-1.5">
-          <span className="text-slate-500 dark:text-slate-400">Trend:</span>
+          <span className="text-gray-500 dark:text-gray-400">Trend:</span>
           <span className="flex items-center gap-1">
             <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />
             <span className="text-emerald-600 dark:text-emerald-400 font-medium">{improvements}</span>

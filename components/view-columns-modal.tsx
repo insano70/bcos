@@ -71,7 +71,7 @@ export default function ViewColumnsModal({
                 <div className="text-center py-8">
                   <p className="text-red-600 dark:text-red-400">{error}</p>
                   <Button variant="violet" onClick={fetchColumns} className="mt-4">
-                    Retry
+                    Try Again
                   </Button>
                 </div>
               )}

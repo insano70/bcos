@@ -20,6 +20,7 @@ import { apiClient } from '@/lib/api/client';
 import type { SecurityEvent, SecurityEventsResponse } from '@/lib/monitoring/types';
 import { exportToCSV, formatDateForCSV } from '@/lib/utils/csv-export';
 import { clientErrorLog } from '@/lib/utils/debug-client';
+import { InlineAlert } from '@/components/ui/inline-alert';
 
 interface SecurityEventsFeedProps {
   autoRefresh?: boolean;
@@ -185,9 +186,9 @@ export default function SecurityEventsFeed({
 
       {/* Error Message */}
       {error && (
-        <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded text-sm text-red-800 dark:text-red-200">
+        <InlineAlert type="error" className="mb-4">
           {error}
-        </div>
+        </InlineAlert>
       )}
 
       {/* Loading State */}

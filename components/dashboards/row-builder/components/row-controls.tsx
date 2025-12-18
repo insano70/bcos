@@ -1,7 +1,9 @@
 'use client';
 
+import { LayoutGrid } from 'lucide-react';
 import type { DashboardRow } from '@/components/charts/dashboard-row-builder';
 import DashboardRowBuilder from '@/components/charts/dashboard-row-builder';
+import { EmptyState } from '@/components/ui/empty-state';
 import type { ChartDefinition } from '@/lib/types/analytics';
 
 interface RowControlsProps {
@@ -52,19 +54,22 @@ export default function RowControls({
 
       {/* Rows List */}
       {rows.length === 0 ? (
-        <div className="text-center py-12 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg">
-          <div className="text-6xl mb-4">📊</div>
-          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Empty Dashboard</h3>
-          <p className="text-gray-600 dark:text-gray-400 mt-2 mb-4">
-            Start building your dashboard by adding rows
-          </p>
-          <button
-            type="button"
-            onClick={onAddRow}
-            className="px-4 py-2 bg-violet-500 text-white rounded-md hover:bg-violet-600 transition-colors"
-          >
-            Add Your First Row
-          </button>
+        <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg py-8">
+          <EmptyState
+            icon={LayoutGrid}
+            iconSize="lg"
+            title="Empty Dashboard"
+            description="Start building your dashboard by adding rows"
+            action={
+              <button
+                type="button"
+                onClick={onAddRow}
+                className="px-4 py-2 bg-violet-500 text-white rounded-md hover:bg-violet-600 transition-colors"
+              >
+                Add Your First Row
+              </button>
+            }
+          />
         </div>
       ) : (
         <div className="space-y-4">

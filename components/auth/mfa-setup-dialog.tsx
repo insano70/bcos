@@ -8,6 +8,7 @@ import {
   isWebAuthnSupported,
   registerPasskey,
 } from '@/lib/utils/webauthn-client';
+import { ErrorDisplay } from '@/components/error-display';
 import { Spinner } from '@/components/ui/spinner';
 import { getBaseUrl } from './utils/get-base-url';
 
@@ -332,11 +333,7 @@ export default function MFASetupDialog({
                     </div>
                   </div>
 
-                  {error && (
-                    <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md p-3">
-                      <p className="text-sm text-red-800 dark:text-red-200">{error}</p>
-                    </div>
-                  )}
+                  {error && <ErrorDisplay variant="alert" error={error} />}
 
                   <div className="flex items-center justify-between pt-4">
                     {/* Skip button - left side, non-prominent */}
@@ -427,11 +424,7 @@ export default function MFASetupDialog({
                     </div>
                   </div>
 
-                  {error && (
-                    <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md p-3">
-                      <p className="text-sm text-red-800 dark:text-red-200">{error}</p>
-                    </div>
-                  )}
+                  {error && <ErrorDisplay variant="alert" error={error} />}
 
                   <div className="flex items-center justify-between gap-3 pt-4">
                     {/* Cancel button */}

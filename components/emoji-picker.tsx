@@ -1,5 +1,6 @@
 'use client';
 
+import { Popover, PopoverButton, PopoverPanel, Transition } from '@headlessui/react';
 import { useMemo, useState } from 'react';
 
 interface EmojiPickerProps {
@@ -116,7 +117,6 @@ export default function EmojiPicker({
   onChange,
   description,
 }: EmojiPickerProps) {
-  const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
   // Filter emojis based on search query
@@ -138,16 +138,16 @@ export default function EmojiPicker({
       .filter((category) => category.emojis.length > 0);
   }, [searchQuery]);
 
-  const handleSelect = (emoji: string) => {
+  const handleSelect = (emoji: string, close: () => void) => {
     onChange(emoji);
-    setIsOpen(false);
     setSearchQuery('');
+    close();
   };
 
-  const handleClear = () => {
+  const handleClear = (close: () => void) => {
     onChange('');
-    setIsOpen(false);
     setSearchQuery('');
+    close();
   };
 
   return (
@@ -159,117 +159,129 @@ export default function EmojiPicker({
         <p className="text-xs text-gray-500 dark:text-gray-400">{description}</p>
       )}
 
-      <div className="relative">
-        <button
-          type="button"
-          onClick={() => setIsOpen(!isOpen)}
-          className="w-full flex items-center space-x-3 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:ring-2 focus:ring-blue-500"
-        >
-          {value ? (
-            <span className="text-xl">{value}</span>
-          ) : (
-            <span className="text-gray-400 dark:text-gray-500 text-sm">No icon</span>
-          )}
-          <span className="text-gray-600 dark:text-gray-300 text-sm flex-1 text-left">
-            {value ? 'Change icon' : 'Select an icon'}
-          </span>
-          <svg
-            className="w-4 h-4 text-gray-400 ml-auto"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M19 9l-7 7-7-7"
-            />
-          </svg>
-        </button>
-
-        {isOpen && (
-          <div className="absolute z-50 mt-1 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
-            {/* Search input */}
-            <div className="p-3 border-b border-gray-200 dark:border-gray-700">
-              <div className="relative">
-                <svg
-                  className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                  />
-                </svg>
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search icons..."
-                  className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  autoFocus
-                />
-              </div>
-            </div>
-
-            {/* Emoji grid */}
-            <div className="max-h-64 overflow-y-auto p-3 space-y-4">
-              {filteredCategories.length === 0 ? (
-                <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
-                  No icons found for &quot;{searchQuery}&quot;
-                </p>
+      <Popover className="relative">
+        {({ open, close }) => (
+          <>
+            <PopoverButton
+              className={`w-full flex items-center space-x-3 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:ring-2 focus:ring-blue-500 ${
+                open ? 'ring-2 ring-blue-500' : ''
+              }`}
+            >
+              {value ? (
+                <span className="text-xl">{value}</span>
               ) : (
-                filteredCategories.map((category) => (
-                  <div key={category.name}>
-                    <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wide">
-                      {category.name}
-                    </h4>
-                    <div className="grid grid-cols-8 gap-1">
-                      {category.emojis.map((item) => (
-                        <button
-                          key={item.emoji}
-                          type="button"
-                          onClick={() => handleSelect(item.emoji)}
-                          className={`w-8 h-8 flex items-center justify-center text-lg rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${
-                            value === item.emoji
-                              ? 'bg-blue-100 dark:bg-blue-900/30 ring-2 ring-blue-500'
-                              : ''
-                          }`}
-                          title={item.keywords.join(', ')}
-                        >
-                          {item.emoji}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ))
+                <span className="text-gray-400 dark:text-gray-500 text-sm">No icon</span>
               )}
-            </div>
+              <span className="text-gray-600 dark:text-gray-300 text-sm flex-1 text-left">
+                {value ? 'Change icon' : 'Select an icon'}
+              </span>
+              <svg
+                className={`w-4 h-4 text-gray-400 ml-auto transition-transform ${open ? 'rotate-180' : ''}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 9l-7 7-7-7"
+                />
+              </svg>
+            </PopoverButton>
 
-            {/* Clear button */}
-            {value && (
-              <div className="p-3 border-t border-gray-200 dark:border-gray-700">
-                <button
-                  type="button"
-                  onClick={handleClear}
-                  className="w-full text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 py-1"
-                >
-                  Clear icon
-                </button>
-              </div>
-            )}
-          </div>
+            <Transition
+              show={open}
+              enter="transition ease-out duration-100 transform"
+              enterFrom="opacity-0 -translate-y-2"
+              enterTo="opacity-100 translate-y-0"
+              leave="transition ease-out duration-100"
+              leaveFrom="opacity-100"
+              leaveTo="opacity-0"
+            >
+              <PopoverPanel
+                static
+                className="absolute z-50 mt-1 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg"
+              >
+                {/* Search input */}
+                <div className="p-3 border-b border-gray-200 dark:border-gray-700">
+                  <div className="relative">
+                    <svg
+                      className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                      />
+                    </svg>
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Search icons..."
+                      className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      autoFocus
+                    />
+                  </div>
+                </div>
+
+                {/* Emoji grid */}
+                <div className="max-h-64 overflow-y-auto p-3 space-y-4">
+                  {filteredCategories.length === 0 ? (
+                    <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
+                      No icons found for &quot;{searchQuery}&quot;
+                    </p>
+                  ) : (
+                    filteredCategories.map((category) => (
+                      <div key={category.name}>
+                        <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wide">
+                          {category.name}
+                        </h4>
+                        <div className="grid grid-cols-8 gap-1">
+                          {category.emojis.map((item) => (
+                            <button
+                              key={item.emoji}
+                              type="button"
+                              onClick={() => handleSelect(item.emoji, close)}
+                              className={`w-8 h-8 flex items-center justify-center text-lg rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${
+                                value === item.emoji
+                                  ? 'bg-blue-100 dark:bg-blue-900/30 ring-2 ring-blue-500'
+                                  : ''
+                              }`}
+                              title={item.keywords.join(', ')}
+                            >
+                              {item.emoji}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                {/* Clear button */}
+                {value && (
+                  <div className="p-3 border-t border-gray-200 dark:border-gray-700">
+                    <button
+                      type="button"
+                      onClick={() => handleClear(close)}
+                      className="w-full text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 py-1"
+                    >
+                      Clear icon
+                    </button>
+                  </div>
+                )}
+              </PopoverPanel>
+            </Transition>
+          </>
         )}
-      </div>
+      </Popover>
     </div>
   );
 }
-
-
-
 

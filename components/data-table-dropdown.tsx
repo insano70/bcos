@@ -1,5 +1,6 @@
 'use client';
 
+import { Transition } from '@headlessui/react';
 import { memo, useEffect, useRef, useState } from 'react';
 import DeleteConfirmationModal from './delete-confirmation-modal';
 import { clientErrorLog } from '@/lib/utils/debug-client';
@@ -98,47 +99,53 @@ function DataTableDropdownInner<T>({ item, actions }: DataTableDropdownProps<T>)
       </button>
 
       {/* Dropdown menu */}
-      {isOpen && (
-        <div
-          className="origin-top-right z-50 fixed bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700/60 py-1.5 rounded-lg shadow-lg overflow-hidden min-w-44"
-          style={{
-            top: dropdownRef.current ? dropdownRef.current.getBoundingClientRect().bottom + 4 : 0,
-            left: dropdownRef.current ? dropdownRef.current.getBoundingClientRect().right - 176 : 0,
-          }}
-        >
-          <ul>
-            {visibleActions.map((action, index) => {
-              const label = typeof action.label === 'function' ? action.label(item) : action.label;
-              const isDanger = action.variant === 'danger';
-              const key = `${label}-${action.variant || 'default'}-${index}`;
+      <Transition
+        show={isOpen}
+        as="div"
+        className="origin-top-right z-50 fixed bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700/60 py-1.5 rounded-lg shadow-lg overflow-hidden min-w-44"
+        style={{
+          top: dropdownRef.current ? dropdownRef.current.getBoundingClientRect().bottom + 4 : 0,
+          left: dropdownRef.current ? dropdownRef.current.getBoundingClientRect().right - 176 : 0,
+        }}
+        enter="transition ease-out duration-100 transform"
+        enterFrom="opacity-0 -translate-y-2"
+        enterTo="opacity-100 translate-y-0"
+        leave="transition ease-out duration-100"
+        leaveFrom="opacity-100"
+        leaveTo="opacity-0"
+      >
+        <ul>
+          {visibleActions.map((action, index) => {
+            const label = typeof action.label === 'function' ? action.label(item) : action.label;
+            const isDanger = action.variant === 'danger';
+            const key = `${label}-${action.variant || 'default'}-${index}`;
 
-              return (
-                <li key={key}>
-                  <button
-                    type="button"
-                    className={`font-medium text-sm flex items-center py-1 px-3 w-full text-left disabled:opacity-50 ${
-                      isDanger
-                        ? 'text-red-500 hover:text-red-600'
-                        : 'text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-200'
-                    }`}
-                    onClick={() => handleActionClick(action)}
-                    disabled={isProcessing}
-                  >
-                    {action.icon && (
-                      <span
-                        className={`shrink-0 mr-2 ${isDanger ? 'text-red-400' : 'text-gray-400 dark:text-gray-500'}`}
-                      >
-                        {action.icon}
-                      </span>
-                    )}
-                    <span>{label}</span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      )}
+            return (
+              <li key={key}>
+                <button
+                  type="button"
+                  className={`font-medium text-sm flex items-center py-1 px-3 w-full text-left disabled:opacity-50 ${
+                    isDanger
+                      ? 'text-red-500 hover:text-red-600'
+                      : 'text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-200'
+                  }`}
+                  onClick={() => handleActionClick(action)}
+                  disabled={isProcessing}
+                >
+                  {action.icon && (
+                    <span
+                      className={`shrink-0 mr-2 ${isDanger ? 'text-red-400' : 'text-gray-400 dark:text-gray-500'}`}
+                    >
+                      {action.icon}
+                    </span>
+                  )}
+                  <span>{label}</span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </Transition>
       
       {/* Confirmation Modal */}
       {pendingAction && (pendingAction.confirmModal || pendingAction.confirm) && (

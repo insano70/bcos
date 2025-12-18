@@ -348,7 +348,7 @@ export default function WorkItemExpandedRow({
           <div className="flex items-center gap-4 pt-2 border-t border-gray-200 dark:border-gray-700">
             <button
               type="button"
-              onClick={() => router.push(`/default/work/${workItem.id}`)}
+              onClick={() => router.push(`/work/${workItem.id}`)}
               className="text-sm text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 font-medium"
             >
               View full details →
@@ -356,7 +356,7 @@ export default function WorkItemExpandedRow({
             {comments.length > 0 && (
               <button
                 type="button"
-                onClick={() => router.push(`/default/work/${workItem.id}?tab=comments`)}
+                onClick={() => router.push(`/work/${workItem.id}?tab=comments`)}
                 className="text-sm text-gray-600 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
               >
                 View all comments
@@ -365,7 +365,7 @@ export default function WorkItemExpandedRow({
             {attachments.length > 0 && (
               <button
                 type="button"
-                onClick={() => router.push(`/default/work/${workItem.id}?tab=attachments`)}
+                onClick={() => router.push(`/work/${workItem.id}?tab=attachments`)}
                 className="text-sm text-gray-600 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
               >
                 View all attachments

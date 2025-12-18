@@ -16,6 +16,7 @@
 'use client';
 
 import { AlertCircle, RefreshCcw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 /**
  * Chart error props
@@ -106,14 +107,13 @@ export default function ChartError({
 
         {/* Retry button */}
         {onRetry && (
-          <button
-            type="button"
+          <Button
+            variant="violet"
             onClick={onRetry}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-lg hover:bg-gray-800 dark:hover:bg-gray-200 transition-colors font-medium"
+            leftIcon={<RefreshCcw className="w-4 h-4" />}
           >
-            <RefreshCcw className="w-4 h-4" />
             Try Again
-          </button>
+          </Button>
         )}
 
         {/* Technical details (development only) */}

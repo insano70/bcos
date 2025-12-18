@@ -117,10 +117,10 @@ export default function DropdownFilter({
           </svg>
         </PopoverButton>
         <Transition
-          enter="transition ease-out duration-200 transform"
+          enter="transition ease-out duration-100 transform"
           enterFrom="opacity-0 -translate-y-2"
           enterTo="opacity-100 translate-y-0"
-          leave="transition ease-out duration-200"
+          leave="transition ease-out duration-100"
           leaveFrom="opacity-100"
           leaveTo="opacity-0"
         >
@@ -153,10 +153,10 @@ export default function DropdownFilter({
         )}
       </PopoverButton>
       <Transition
-        enter="transition ease-out duration-200 transform"
+        enter="transition ease-out duration-100 transform"
         enterFrom="opacity-0 -translate-y-2"
         enterTo="opacity-100 translate-y-0"
-        leave="transition ease-out duration-200"
+        leave="transition ease-out duration-100"
         leaveFrom="opacity-100"
         leaveTo="opacity-0"
       >

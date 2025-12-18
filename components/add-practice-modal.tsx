@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useEffect, useId, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
+import { ErrorDisplay } from '@/components/error-display';
 import { Modal } from '@/components/ui/modal';
 import { Button } from '@/components/ui/button';
 import { useCreatePractice } from '@/lib/hooks/use-practices';
@@ -222,13 +223,12 @@ export default function AddPracticeModal({ isOpen, onClose, onSuccess }: AddPrac
 
                 {/* Error display */}
                 {createPractice.error && (
-                  <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
-                    <p className="text-sm text-red-600 dark:text-red-400">
-                      {createPractice.error instanceof Error
-                        ? createPractice.error.message
-                        : 'An error occurred while creating the practice'}
-                    </p>
-                  </div>
+                  <ErrorDisplay
+                    variant="alert"
+                    error={createPractice.error instanceof Error
+                      ? createPractice.error.message
+                      : 'An error occurred while creating the practice'}
+                  />
                 )}
               </form>
             </div>

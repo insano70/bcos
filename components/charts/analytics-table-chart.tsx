@@ -409,7 +409,7 @@ function AnalyticsTableChartInner({
           {/* Table - matches fintech card styling */}
           <table className="table-auto w-full dark:text-gray-300">
             {/* Table header - matches fintech card styling exactly */}
-            <thead className="text-xs uppercase text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-700/50 rounded-xs">
+            <thead className="text-xs uppercase text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-900/20 rounded-xs">
               <tr>
                 {columns.map((column) => (
                   <th key={column.columnName} className="p-2 whitespace-nowrap">

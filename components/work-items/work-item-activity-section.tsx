@@ -44,15 +44,6 @@ export default function WorkItemActivitySection({ workItemId }: WorkItemActivity
     });
   };
 
-  const _getInitials = (name: string) => {
-    return name
-      .split(' ')
-      .map((part) => part[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
-  };
-
   const getActivityIcon = (activityType: string) => {
     switch (activityType) {
       case 'created':

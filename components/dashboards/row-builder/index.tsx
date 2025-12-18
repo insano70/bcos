@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import DashboardPreviewModal from '@/components/dashboard-preview-modal';
+import { ErrorDisplay } from '@/components/error-display';
 import Toast from '@/components/toast';
 import { Spinner } from '@/components/ui/spinner';
 import type { ChartDefinition } from '@/lib/types/analytics';
@@ -71,7 +72,7 @@ export default function RowBasedDashboardBuilder({
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
 
   // Load available charts
-  const { availableCharts, isLoading, error } = useAvailableCharts();
+  const { availableCharts, isLoading, error, reload } = useAvailableCharts();
 
   // Dashboard state management
   const {
@@ -110,13 +111,12 @@ export default function RowBasedDashboardBuilder({
   if (error) {
     return (
       <div className="max-w-7xl mx-auto bg-white dark:bg-gray-800 shadow-sm rounded-xl p-6">
-        <div className="text-center py-12">
-          <div className="text-red-500 text-4xl mb-4">⚠️</div>
-          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
-            Failed to Load Charts
-          </h3>
-          <p className="text-gray-600 dark:text-gray-400">{error.message}</p>
-        </div>
+        <ErrorDisplay
+          variant="inline"
+          error={error.message}
+          title="Charts"
+          onRetry={() => reload()}
+        />
       </div>
     );
   }

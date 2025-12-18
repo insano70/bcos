@@ -2,6 +2,7 @@
 
 import { useState, useRef, useId } from 'react';
 import { useFeedbackAnalytics } from '@/lib/hooks/use-data-explorer';
+import { ErrorDisplay } from '@/components/error-display';
 import ProtectedComponent from '@/components/rbac/protected-component';
 import { Spinner } from '@/components/ui/spinner';
 // Note: Uses simple data displays; AnalyticsChart integration available for richer visualization
@@ -15,7 +16,7 @@ export default function AnalyticsDashboardPage() {
   const startDateId = useId();
   const endDateId = useId();
 
-  const { data: analytics, isLoading, error } = useFeedbackAnalytics(dateRange);
+  const { data: analytics, isLoading, error, refetch } = useFeedbackAnalytics(dateRange);
 
   const handleDateRangeChange = (start: string, end: string) => {
     setDateRange({ start, end });
@@ -110,9 +111,12 @@ export default function AnalyticsDashboardPage() {
             <p className="text-gray-600 dark:text-gray-400 mt-4">Loading analytics...</p>
           </div>
         ) : error ? (
-          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-            <p className="text-red-800 dark:text-red-400">Failed to load analytics. Please try again.</p>
-          </div>
+          <ErrorDisplay
+            variant="inline"
+            error="Failed to load analytics"
+            title="Feedback Analytics"
+            onRetry={() => refetch()}
+          />
         ) : analytics ? (
           <div className="space-y-6">
             {/* Overview Metrics */}

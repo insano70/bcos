@@ -13,6 +13,7 @@ import DataTable, {
 import DateSelect, { type DateRange } from '@/components/date-select';
 import FilterButton, { type ActiveFilter, type FilterGroup } from '@/components/dropdown-filter';
 import EditWorkItemModal from '@/components/edit-work-item-modal';
+import { ErrorDisplay } from '@/components/error-display';
 import { ProtectedComponent } from '@/components/rbac/protected-component';
 import { Spinner } from '@/components/ui/spinner';
 import { apiClient } from '@/lib/api/client';
@@ -324,11 +325,12 @@ export default function WorkItemsContent() {
   if (error) {
     return (
       <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-[96rem] mx-auto">
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-6">
-          <p className="text-red-600 dark:text-red-400">
-            Error loading work items: {error.message}
-          </p>
-        </div>
+        <ErrorDisplay
+          variant="inline"
+          error={error.message}
+          title="Work Items"
+          onRetry={() => refetch()}
+        />
       </div>
     );
   }

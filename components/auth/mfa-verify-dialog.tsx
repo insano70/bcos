@@ -8,6 +8,8 @@ import {
   getWebAuthnErrorMessage,
   isWebAuthnSupported,
 } from '@/lib/utils/webauthn-client';
+import { Button } from '@/components/ui/button';
+import { ErrorDisplay } from '@/components/error-display';
 import { Spinner } from '@/components/ui/spinner';
 import { getBaseUrl } from './utils/get-base-url';
 
@@ -212,26 +214,19 @@ export default function MFAVerifyDialog({
               {/* Error State */}
               {error && (
                 <div className="space-y-4">
-                  <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md p-4">
-                    <p className="text-sm text-red-800 dark:text-red-200">{error}</p>
-                  </div>
+                  <ErrorDisplay variant="alert" error={error} />
 
                   <div className="flex justify-end gap-3 pt-4">
-                    <button
-                      type="button"
-                      onClick={handleCancel}
-                      className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-colors"
-                    >
+                    <Button variant="secondary" onClick={handleCancel}>
                       Cancel
-                    </button>
-                    <button
-                      type="button"
+                    </Button>
+                    <Button
+                      variant="violet"
                       onClick={handleRetry}
                       disabled={isLoading}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Try Again
-                    </button>
+                    </Button>
                   </div>
                 </div>
               )}

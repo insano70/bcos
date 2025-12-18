@@ -127,7 +127,7 @@ export default function DataSourceSelector({
             </MenuButton>
             <Transition
               as="div"
-              className="z-10 absolute top-full left-0 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700/60 py-1.5 rounded-lg shadow-lg overflow-hidden mt-1"
+              className="z-50 absolute top-full left-0 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700/60 py-1.5 rounded-lg shadow-lg overflow-hidden mt-1"
               enter="transition ease-out duration-100 transform"
               enterFrom="opacity-0 -translate-y-2"
               enterTo="opacity-100 translate-y-0"

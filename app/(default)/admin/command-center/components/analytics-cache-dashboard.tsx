@@ -10,7 +10,9 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { Database } from 'lucide-react';
 import { Card } from '@/components/ui/card';
+import { EmptyState } from '@/components/ui/empty-state';
 import { Modal } from '@/components/ui/modal';
 import Toast from '@/components/toast';
 import { apiClient } from '@/lib/api/client';
@@ -321,9 +323,13 @@ export default function AnalyticsCacheDashboard({
       <div>
         <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Data Sources</h4>
         {datasources.length === 0 ? (
-          <Card radius="lg" shadow="none" className="text-center">
-            <div className="text-4xl mb-2">📊</div>
-            <div className="text-sm text-gray-600 dark:text-gray-400">No data sources found</div>
+          <Card radius="lg" shadow="none">
+            <EmptyState
+              icon={Database}
+              iconSize="sm"
+              title="No Data Sources"
+              description="No data sources found"
+            />
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

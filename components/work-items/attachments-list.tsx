@@ -13,6 +13,7 @@ import {
   type WorkItemAttachment,
 } from '@/lib/hooks/use-work-item-attachments';
 import { clientErrorLog } from '@/lib/utils/debug-client';
+import { InlineAlert } from '@/components/ui/inline-alert';
 
 interface AttachmentsListProps {
   workItemId: string;
@@ -64,11 +65,9 @@ export default function AttachmentsList({ workItemId }: AttachmentsListProps) {
 
   if (error) {
     return (
-      <div className="p-4 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-lg">
-        <p className="text-sm text-red-800 dark:text-red-200">
-          Failed to load attachments: {error instanceof Error ? error.message : 'Unknown error'}
-        </p>
-      </div>
+      <InlineAlert type="error">
+        Failed to load attachments: {error instanceof Error ? error.message : 'Unknown error'}
+      </InlineAlert>
     );
   }
 

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Card } from '@/components/ui/card';
+import { Tabs } from '@/components/ui/tabs';
 import AnalyticsCacheDashboard from './analytics-cache-dashboard';
 import RedisCacheStats from './redis-cache-stats';
 import RedisKeyBrowser from './redis-key-browser';
@@ -23,10 +24,10 @@ export default function RedisAdminTabs({
   const [inspectingKey, setInspectingKey] = useState<string | null>(null);
 
   const tabs = [
-    { id: 'analytics' as const, label: 'Analytics Cache', icon: '⚡' },
-    { id: 'overview' as const, label: 'Redis Overview', icon: '📊' },
-    { id: 'keys' as const, label: 'Key Browser', icon: '🔍' },
-    { id: 'admin' as const, label: 'Admin Tools', icon: '⚙️' },
+    { id: 'analytics', label: 'Analytics Cache', icon: <span>⚡</span> },
+    { id: 'overview', label: 'Redis Overview', icon: <span>📊</span> },
+    { id: 'keys', label: 'Key Browser', icon: <span>🔍</span> },
+    { id: 'admin', label: 'Admin Tools', icon: <span>⚙️</span> },
   ];
 
   return (
@@ -37,22 +38,13 @@ export default function RedisAdminTabs({
         </h3>
       </div>
 
-      <div className="border-b border-gray-200 dark:border-gray-700 mb-6">
-        <nav className="flex gap-4">
-          {tabs.map((tab) => (
-            <button type="button" key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-2 border-b-2 transition-colors ${
-                activeTab === tab.id
-                  ? 'border-violet-500 text-violet-600 dark:text-violet-400 font-medium'
-                  : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
-              }`}
-            >
-              {tab.icon} {tab.label}
-            </button>
-          ))}
-        </nav>
-      </div>
+      <Tabs
+        tabs={tabs}
+        activeTab={activeTab}
+        onChange={(tabId) => setActiveTab(tabId as typeof activeTab)}
+        className="mb-6"
+        ariaLabel="Redis cache management"
+      />
 
       <div>
         {activeTab === 'analytics' && (

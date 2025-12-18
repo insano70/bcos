@@ -6,6 +6,7 @@ import { Modal } from '@/components/ui/modal';
 import { apiClient } from '@/lib/api/client';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
+import { Avatar } from '@/components/ui/avatar';
 
 interface Recipient {
   user_id: string;
@@ -58,29 +59,6 @@ export default function RecipientsModal({
     }
   }, [isOpen, announcementId, fetchRecipients]);
 
-  const getInitials = (name: string): string => {
-    const parts = name.split(' ');
-    if (parts.length >= 2) {
-      return `${parts[0]?.charAt(0) ?? ''}${parts[1]?.charAt(0) ?? ''}`.toUpperCase();
-    }
-    return name.charAt(0).toUpperCase();
-  };
-
-  const getAvatarColor = (userId: string): string => {
-    const colors = [
-      'bg-blue-500',
-      'bg-green-500',
-      'bg-yellow-500',
-      'bg-red-500',
-      'bg-purple-500',
-      'bg-pink-500',
-      'bg-indigo-500',
-      'bg-teal-500',
-    ];
-    const index = userId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % colors.length;
-    return colors[index] || 'bg-gray-500';
-  };
-
   return (
     <Modal
       isOpen={isOpen}
@@ -126,11 +104,11 @@ export default function RecipientsModal({
                   {recipients.map((recipient) => (
                     <div key={recipient.user_id} className="px-5 py-3 flex items-center gap-3">
                       {/* Avatar */}
-                      <div
-                        className={`flex-shrink-0 w-8 h-8 rounded-full ${getAvatarColor(recipient.user_id)} flex items-center justify-center text-sm font-medium text-white`}
-                      >
-                        {getInitials(recipient.name)}
-                      </div>
+                      <Avatar
+                        size="md"
+                        name={recipient.name}
+                        userId={recipient.user_id}
+                      />
                       {/* Name and Email */}
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">

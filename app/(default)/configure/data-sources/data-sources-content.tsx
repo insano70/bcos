@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { ErrorDisplay } from '@/components/error-display';
 import DataSourceModal from '@/components/data-source-modal';
 import { useAuth } from '@/components/auth/rbac-auth-provider';
 import DataSourceConnectionTestModal from '@/components/data-source-connection-test-modal';
@@ -151,9 +152,12 @@ export default function DataSourcesContent() {
   if (error) {
     return (
       <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-[96rem] mx-auto">
-        <div className="text-center text-red-600 dark:text-red-400 py-24">
-          Failed to load data sources: {error.message}
-        </div>
+        <ErrorDisplay
+          variant="inline"
+          error={error}
+          title="Data Sources"
+          onRetry={() => refetch()}
+        />
       </div>
     );
   }

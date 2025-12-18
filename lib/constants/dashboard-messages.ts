@@ -36,6 +36,6 @@ export const DASHBOARD_MESSAGES = {
    * Action labels
    */
   ACTIONS: {
-    RETRY: 'Retry',
+    RETRY: 'Try Again',
   },
 } as const;

@@ -10,6 +10,7 @@ import DataTable, {
 import WorkItemFieldModal from '@/components/work-item-field-modal';
 import { useDeleteWorkItemField, useWorkItemFields } from '@/lib/hooks/use-work-item-fields';
 import type { WorkItemField } from '@/lib/types/work-item-fields';
+import { InlineAlert } from '@/components/ui/inline-alert';
 
 interface WorkItemFieldConfigProps {
   workItemTypeId: string;
@@ -186,11 +187,9 @@ export default function WorkItemFieldConfig({
 
   if (error) {
     return (
-      <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-6">
-        <p className="text-red-600 dark:text-red-400">
-          Error loading custom fields: {error.message}
-        </p>
-      </div>
+      <InlineAlert type="error" title="Error loading custom fields">
+        {error.message}
+      </InlineAlert>
     );
   }
 

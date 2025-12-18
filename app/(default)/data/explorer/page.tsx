@@ -3,6 +3,7 @@
 import { useState, useId } from 'react';
 import { Menu, MenuButton, MenuItem, MenuItems } from '@headlessui/react';
 import { Button } from '@/components/ui/button';
+import { InlineAlert } from '@/components/ui/inline-alert';
 import { useGenerateSQL, useExecuteQuery } from '@/lib/hooks/use-data-explorer';
 import { exportToCSV } from '@/lib/utils/csv-export';
 import { exportToExcel } from '@/lib/utils/excel-export';
@@ -174,10 +175,9 @@ export default function DataExplorerPage() {
       </Button>
 
       {generateSQL.error && (
-        <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400">
-          <p className="font-semibold">Error:</p>
-          <p>{generateSQL.error.message}</p>
-        </div>
+        <InlineAlert type="error" title="Error" className="mt-4">
+          {generateSQL.error.message}
+        </InlineAlert>
       )}
 
       {generatedSQL && (
@@ -200,10 +200,9 @@ export default function DataExplorerPage() {
       )}
 
       {executeQuery.error && (
-        <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400">
-          <p className="font-semibold">Execution Error:</p>
-          <p>{executeQuery.error.message}</p>
-        </div>
+        <InlineAlert type="error" title="Execution Error" className="mt-4">
+          {executeQuery.error.message}
+        </InlineAlert>
       )}
 
       {executeQuery.data && (

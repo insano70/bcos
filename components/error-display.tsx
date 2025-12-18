@@ -192,7 +192,7 @@ function RetryButton({
   const baseClasses = 'inline-flex items-center justify-center gap-2 font-medium rounded-lg transition-colors';
   const variantClasses = {
     primary: 'px-5 py-2.5 bg-violet-600 hover:bg-violet-700 text-white',
-    secondary: 'px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm',
+    secondary: 'px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white text-sm',
   };
 
   return (
@@ -384,6 +384,8 @@ function InlineError({
   message,
   onRetry,
   retryLabel,
+  backLink,
+  backLinkLabel,
   className = '',
 }: {
   error: string | Error | null | undefined;
@@ -391,6 +393,8 @@ function InlineError({
   message?: string | undefined;
   onRetry?: (() => void) | undefined;
   retryLabel?: string | undefined;
+  backLink?: string | undefined;
+  backLinkLabel?: string | undefined;
   className?: string | undefined;
 }) {
   const displayMessage = message || getUserFriendlyMessage(error);
@@ -414,15 +418,27 @@ function InlineError({
           <p className="text-red-600 dark:text-red-400 text-sm mt-1">
             {displayMessage}
           </p>
-          {onRetry && (
-            <button
-              type="button"
-              onClick={onRetry}
-              className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-colors"
-            >
-              <RefreshCcw className="w-3.5 h-3.5" />
-              {retryLabel || 'Try Again'}
-            </button>
+          {(onRetry || backLink) && (
+            <div className="mt-3 flex items-center gap-3">
+              {onRetry && (
+                <button
+                  type="button"
+                  onClick={onRetry}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium rounded-lg transition-colors"
+                >
+                  <RefreshCcw className="w-3.5 h-3.5" />
+                  {retryLabel || 'Try Again'}
+                </button>
+              )}
+              {backLink && (
+                <Link
+                  href={backLink}
+                  className="inline-flex items-center px-3 py-1.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                >
+                  {backLinkLabel || 'Go Back'}
+                </Link>
+              )}
+            </div>
           )}
         </div>
       </div>
@@ -546,6 +562,8 @@ export function ErrorDisplay({
           message={message}
           onRetry={onRetry}
           retryLabel={retryLabel}
+          backLink={backLink}
+          backLinkLabel={backLinkLabel}
           className={className}
         />
       );

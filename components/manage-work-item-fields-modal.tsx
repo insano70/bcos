@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useState } from 'react';
 import DeleteConfirmationModal from '@/components/delete-confirmation-modal';
+import { ErrorDisplay } from '@/components/error-display';
 import WorkItemFieldModal from '@/components/work-item-field-modal';
 import { Badge } from '@/components/ui/badge';
 import { Modal } from '@/components/ui/modal';
@@ -174,11 +175,11 @@ export default function ManageWorkItemFieldsModal({
 
           {/* Error State */}
           {error && (
-            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4">
-              <p className="text-red-600 dark:text-red-400">
-                Error loading fields: {error.message}
-              </p>
-            </div>
+            <ErrorDisplay
+              variant="alert"
+              error={error.message}
+              onRetry={() => refetch()}
+            />
           )}
 
           {/* Empty State */}

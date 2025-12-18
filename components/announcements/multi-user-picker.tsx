@@ -1,9 +1,17 @@
 'use client';
 
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import {
+  Combobox,
+  ComboboxButton,
+  ComboboxInput,
+  ComboboxOption,
+  ComboboxOptions,
+  Transition,
+} from '@headlessui/react';
+import { useState } from 'react';
 
-import type { User } from '@/lib/hooks/use-users';
 import { useUsers } from '@/lib/hooks/use-users';
+import { Avatar } from '@/components/ui/avatar';
 
 interface MultiUserPickerProps {
   /** Selected user IDs */
@@ -19,7 +27,7 @@ interface MultiUserPickerProps {
 /**
  * Multi-User Picker Component
  * Custom field for CrudModal to select multiple users as recipients
- * Combines UserPicker styling with MultiSelectField multi-select logic
+ * Uses Headless UI Combobox with multi-select for accessibility and keyboard navigation
  */
 export default function MultiUserPicker({
   value,
@@ -27,13 +35,7 @@ export default function MultiUserPicker({
   error,
   disabled = false,
 }: MultiUserPickerProps) {
-  const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [highlightedIndex, setHighlightedIndex] = useState(-1);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const searchInputRef = useRef<HTMLInputElement>(null);
-  const listRef = useRef<HTMLDivElement>(null);
-  const listboxId = useId();
 
   const { data: users = [], isLoading } = useUsers();
   const selectedIds = value ?? [];
@@ -47,84 +49,9 @@ export default function MultiUserPicker({
     return fullName.includes(query) || email.includes(query);
   });
 
-  // Reset highlighted index when search query changes
-  // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally reset on searchQuery change only
-  useEffect(() => {
-    setHighlightedIndex(-1);
-  }, [searchQuery]);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-        setHighlightedIndex(-1);
-      }
-    };
-
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
-    }
-  }, [isOpen]);
-
-  useEffect(() => {
-    if (isOpen && searchInputRef.current) {
-      searchInputRef.current.focus();
-    }
-  }, [isOpen]);
-
-  // Scroll highlighted item into view
-  useEffect(() => {
-    if (highlightedIndex >= 0 && listRef.current) {
-      const items = listRef.current.querySelectorAll('[data-user-item]');
-      const item = items[highlightedIndex];
-      if (item) {
-        item.scrollIntoView({ block: 'nearest' });
-      }
-    }
-  }, [highlightedIndex]);
-
-  const handleToggle = useCallback((userId: string) => {
-    if (selectedIds.includes(userId)) {
-      onChange(selectedIds.filter((id) => id !== userId));
-    } else {
-      onChange([...selectedIds, userId]);
-    }
-  }, [selectedIds, onChange]);
-
-  const handleKeyDown = useCallback((event: React.KeyboardEvent) => {
-    if (!isOpen) {
-      if (event.key === 'Enter' || event.key === ' ' || event.key === 'ArrowDown') {
-        event.preventDefault();
-        setIsOpen(true);
-      }
-      return;
-    }
-
-    switch (event.key) {
-      case 'ArrowDown':
-        event.preventDefault();
-        setHighlightedIndex((prev) =>
-          prev < filteredUsers.length - 1 ? prev + 1 : prev
-        );
-        break;
-      case 'ArrowUp':
-        event.preventDefault();
-        setHighlightedIndex((prev) => (prev > 0 ? prev - 1 : 0));
-        break;
-      case 'Enter':
-        event.preventDefault();
-        if (highlightedIndex >= 0 && filteredUsers[highlightedIndex]) {
-          handleToggle(filteredUsers[highlightedIndex].id);
-        }
-        break;
-      case 'Escape':
-        event.preventDefault();
-        setIsOpen(false);
-        setHighlightedIndex(-1);
-        break;
-    }
-  }, [isOpen, filteredUsers, highlightedIndex, handleToggle]);
+  const handleChange = (newValue: string[]) => {
+    onChange(newValue);
+  };
 
   const handleRemove = (userId: string, event: React.MouseEvent) => {
     event.stopPropagation();
@@ -134,68 +61,73 @@ export default function MultiUserPicker({
   const handleClear = (event: React.MouseEvent) => {
     event.stopPropagation();
     onChange([]);
-  };
-
-  const getInitials = (user: User): string => {
-    return `${user.first_name.charAt(0)}${user.last_name.charAt(0)}`.toUpperCase();
-  };
-
-  const getAvatarColor = (userId: string): string => {
-    const colors = [
-      'bg-blue-500',
-      'bg-green-500',
-      'bg-yellow-500',
-      'bg-red-500',
-      'bg-purple-500',
-      'bg-pink-500',
-      'bg-indigo-500',
-      'bg-teal-500',
-    ];
-    const index = userId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % colors.length;
-    return colors[index] || 'bg-gray-500';
+    setSearchQuery('');
   };
 
   return (
-    <div ref={containerRef} className="relative">
-      {/* Trigger Button */}
-      <div
-        role="combobox"
-        aria-expanded={isOpen}
-        aria-haspopup="listbox"
-        aria-controls={listboxId}
-        tabIndex={disabled ? -1 : 0}
-        onClick={() => !disabled && setIsOpen(!isOpen)}
-        onKeyDown={!disabled ? handleKeyDown : undefined}
-        className={`
-          form-input w-full min-h-[42px] cursor-pointer flex items-center justify-between
-          ${error ? 'border-red-500' : ''}
-          ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
-        `}
-      >
-        <div className="flex flex-1 flex-wrap gap-1">
-          {selectedUsers.length === 0 ? (
-            <span className="text-gray-400 dark:text-gray-500">
-              {isLoading ? 'Loading users...' : 'Select users...'}
-            </span>
-          ) : (
-            selectedUsers.map((user) => (
-              <span
-                key={user.id}
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-violet-100 dark:bg-violet-900/30 text-violet-900 dark:text-violet-100 text-sm"
-              >
-                <span
-                  className={`w-4 h-4 rounded-full ${getAvatarColor(user.id)} flex items-center justify-center text-[10px] font-medium text-white`}
-                >
-                  {getInitials(user)}
-                </span>
-                {user.first_name} {user.last_name}
-                {!disabled && (
-                  <button
-                    type="button"
-                    onClick={(e) => handleRemove(user.id, e)}
-                    className="hover:text-red-500 ml-1"
+    <div className="relative">
+      <Combobox value={selectedIds} onChange={handleChange} disabled={disabled} multiple>
+        {({ open }) => (
+          <>
+            {/* Trigger */}
+            <div
+              className={`
+                form-input w-full min-h-[42px] flex items-center justify-between
+                ${error ? 'border-red-500' : ''}
+                ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
+                ${open ? 'ring-2 ring-violet-500 border-violet-500' : ''}
+              `}
+            >
+              <div className="flex flex-1 flex-wrap gap-1 pr-2">
+                {selectedUsers.map((user) => (
+                  <span
+                    key={user.id}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-violet-100 dark:bg-violet-900/30 text-violet-900 dark:text-violet-100 text-sm"
                   >
-                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                    <Avatar
+                      size="xs"
+                      firstName={user.first_name}
+                      lastName={user.last_name}
+                      userId={user.id}
+                    />
+                    {user.first_name} {user.last_name}
+                    {!disabled && (
+                      <button
+                        type="button"
+                        onClick={(e) => handleRemove(user.id, e)}
+                        className="hover:text-red-500 ml-1"
+                      >
+                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                          <path
+                            fillRule="evenodd"
+                            d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                      </button>
+                    )}
+                  </span>
+                ))}
+
+                <ComboboxInput
+                  className="flex-1 min-w-[120px] border-0 p-0 bg-transparent text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-0 focus:outline-none disabled:cursor-not-allowed text-sm"
+                  placeholder={
+                    selectedUsers.length === 0
+                      ? isLoading
+                        ? 'Loading users...'
+                        : 'Select users...'
+                      : 'Search users...'
+                  }
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  displayValue={() => searchQuery}
+                />
+              </div>
+
+              <div className="flex items-center gap-2 ml-2">
+                {selectedUsers.length > 0 && !disabled && (
+                  <button type="button" onClick={handleClear} className="hover:text-red-500">
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                       <path
                         fillRule="evenodd"
                         d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
@@ -204,128 +136,90 @@ export default function MultiUserPicker({
                     </svg>
                   </button>
                 )}
-              </span>
-            ))
-          )}
-        </div>
-        <div className="flex items-center gap-2 ml-2">
-          {selectedUsers.length > 0 && !disabled && (
-            <button type="button" onClick={handleClear} className="hover:text-red-500">
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path
-                  fillRule="evenodd"
-                  d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                  clipRule="evenodd"
-                />
-              </svg>
-            </button>
-          )}
-          <svg className="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-            <path
-              fillRule="evenodd"
-              d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-              clipRule="evenodd"
-            />
-          </svg>
-        </div>
-      </div>
-
-      {/* Dropdown */}
-      {isOpen && (
-        <div className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-80 flex flex-col">
-          {/* Search Input */}
-          <div className="p-2 border-b border-gray-200 dark:border-gray-700">
-            <div className="relative">
-              <svg
-                className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400"
-                fill="none"
-                viewBox="0 0 20 20"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                />
-              </svg>
-              <input
-                ref={searchInputRef}
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Search users..."
-                aria-label="Search users"
-                className="w-full pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
-              />
-            </div>
-          </div>
-
-          {/* User List */}
-          <div
-            ref={listRef}
-            id={listboxId}
-            role="listbox"
-            aria-multiselectable="true"
-            className="overflow-y-auto flex-1 max-h-60"
-          >
-            {isLoading ? (
-              <div className="px-3 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
-                Loading users...
-              </div>
-            ) : filteredUsers.length > 0 ? (
-              filteredUsers.map((user, index) => {
-                const isHighlighted = index === highlightedIndex;
-                const isSelected = selectedIds.includes(user.id);
-
-                return (
-                  <div
-                    key={user.id}
-                    data-user-item
-                    role="option"
-                    aria-selected={isSelected}
-                    onClick={() => handleToggle(user.id)}
-                    onMouseEnter={() => setHighlightedIndex(index)}
-                    className={`
-                      px-3 py-2 cursor-pointer flex items-center gap-2
-                      ${isHighlighted ? 'bg-violet-100 dark:bg-violet-900/40' : 'hover:bg-gray-100 dark:hover:bg-gray-700'}
-                      ${isSelected && !isHighlighted ? 'bg-violet-50 dark:bg-violet-900/20' : ''}
-                    `}
+                <ComboboxButton>
+                  <svg
+                    className={`w-4 h-4 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`}
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
                   >
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      readOnly
-                      tabIndex={-1}
-                      className="form-checkbox text-violet-600"
+                    <path
+                      fillRule="evenodd"
+                      d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                      clipRule="evenodd"
                     />
-                    {/* Avatar */}
-                    <div
-                      className={`flex-shrink-0 w-6 h-6 rounded-full ${getAvatarColor(user.id)} flex items-center justify-center text-xs font-medium text-white`}
-                    >
-                      {getInitials(user)}
-                    </div>
-                    {/* Name and Email */}
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                        {user.first_name} {user.last_name}
-                      </div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                        {user.email}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })
-            ) : (
-              <div className="px-3 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
-                No users found
+                  </svg>
+                </ComboboxButton>
               </div>
-            )}
-          </div>
-        </div>
-      )}
+            </div>
+
+            {/* Dropdown */}
+            <Transition
+              show={open}
+              enter="transition ease-out duration-100 transform"
+              enterFrom="opacity-0 -translate-y-2"
+              enterTo="opacity-100 translate-y-0"
+              leave="transition ease-out duration-100"
+              leaveFrom="opacity-100"
+              leaveTo="opacity-0"
+            >
+              <ComboboxOptions
+                static
+                className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-60 overflow-auto focus:outline-none"
+              >
+                {isLoading ? (
+                  <div className="px-3 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                    Loading users...
+                  </div>
+                ) : filteredUsers.length > 0 ? (
+                  filteredUsers.map((user) => {
+                    const isSelected = selectedIds.includes(user.id);
+
+                    return (
+                      <ComboboxOption
+                        key={user.id}
+                        value={user.id}
+                        className={({ focus }) => `
+                          px-3 py-2 cursor-pointer flex items-center gap-2
+                          ${focus ? 'bg-violet-100 dark:bg-violet-900/40' : ''}
+                          ${isSelected && !focus ? 'bg-violet-50 dark:bg-violet-900/20' : ''}
+                        `}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          readOnly
+                          tabIndex={-1}
+                          className="form-checkbox text-violet-600"
+                        />
+                        {/* Avatar */}
+                        <Avatar
+                          size="sm"
+                          firstName={user.first_name}
+                          lastName={user.last_name}
+                          userId={user.id}
+                        />
+                        {/* Name and Email */}
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                            {user.first_name} {user.last_name}
+                          </div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                            {user.email}
+                          </div>
+                        </div>
+                      </ComboboxOption>
+                    );
+                  })
+                ) : (
+                  <div className="px-3 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                    No users found
+                  </div>
+                )}
+              </ComboboxOptions>
+            </Transition>
+          </>
+        )}
+      </Combobox>
 
       {/* Error Message */}
       {error && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{error}</p>}

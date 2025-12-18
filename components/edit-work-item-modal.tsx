@@ -14,6 +14,7 @@ import { createSafeTextSchema } from '@/lib/validations/sanitization';
 import Toast from './toast';
 import { clientErrorLog } from '@/lib/utils/debug-client';
 import { Button } from '@/components/ui/button';
+import { ErrorDisplay } from '@/components/error-display';
 import { FormError } from '@/components/ui/form-error';
 import { FormLabel } from '@/components/ui/form-label';
 import { Modal } from '@/components/ui/modal';
@@ -298,13 +299,12 @@ export default function EditWorkItemModal({
 
                 {/* Error display */}
                 {updateWorkItem.error && (
-                  <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
-                    <p className="text-sm text-red-600 dark:text-red-400">
-                      {updateWorkItem.error instanceof Error
-                        ? updateWorkItem.error.message
-                        : 'An error occurred while updating the work item'}
-                    </p>
-                  </div>
+                  <ErrorDisplay
+                    variant="alert"
+                    error={updateWorkItem.error instanceof Error
+                      ? updateWorkItem.error.message
+                      : 'An error occurred while updating the work item'}
+                  />
                 )}
               </div>
 
