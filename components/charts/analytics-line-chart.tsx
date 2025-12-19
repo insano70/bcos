@@ -51,7 +51,7 @@ interface AnalyticsLineChartProps {
 
 const AnalyticsLineChart = forwardRef<HTMLCanvasElement, AnalyticsLineChartProps>(
   function AnalyticsLineChart({ data, width, height, frequency = 'Monthly', chartJsOnClick }, ref) {
-    const [chart, setChart] = useState<Chart<'line'> | null>(null);
+    const [chart, setChart] = useState<Chart | null>(null);
     const chartRef = useRef<Chart | null>(null); // Ref for cleanup (avoids stale closure)
     const canvas = useRef<HTMLCanvasElement>(null);
     const legend = useRef<HTMLUListElement>(null);
@@ -317,8 +317,8 @@ const AnalyticsLineChart = forwardRef<HTMLCanvasElement, AnalyticsLineChartProps
             ],
           });
 
-          chartRef.current = newChart as Chart<'line'>;
-          setChart(newChart as Chart<'line'>);
+          chartRef.current = newChart;
+          setChart(newChart);
         });
       });
 
