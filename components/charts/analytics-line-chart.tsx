@@ -317,8 +317,9 @@ const AnalyticsLineChart = forwardRef<HTMLCanvasElement, AnalyticsLineChartProps
             ],
           });
 
-          chartRef.current = newChart;
-          setChart(newChart);
+          // Type cast needed for Chart.js union type compatibility with exactOptionalPropertyTypes
+          chartRef.current = newChart as Chart<keyof ChartTypeRegistry>;
+          setChart(newChart as Chart<keyof ChartTypeRegistry>);
         });
       });
 

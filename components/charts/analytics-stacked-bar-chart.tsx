@@ -1,6 +1,6 @@
 'use client';
 
-import type { ActiveElement, ChartData, ChartEvent } from 'chart.js';
+import type { ActiveElement, ChartData, ChartEvent, ChartTypeRegistry } from 'chart.js';
 import {
   BarController,
   BarElement,
@@ -307,8 +307,9 @@ const AnalyticsStackedBarChart = forwardRef<HTMLCanvasElement, AnalyticsStackedB
         ],
       });
 
-          chartRef.current = newChart;
-          setChart(newChart);
+          // Type cast needed for Chart.js union type compatibility with exactOptionalPropertyTypes
+          chartRef.current = newChart as Chart<keyof ChartTypeRegistry>;
+          setChart(newChart as Chart<keyof ChartTypeRegistry>);
         });
       });
 
